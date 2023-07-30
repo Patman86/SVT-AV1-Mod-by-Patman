@@ -35,7 +35,7 @@ if(Git_FOUND AND EXISTS "${GIT_ROOT_DIR}/.git")
         ERROR_STRIP_TRAILING_WHITESPACE)
     execute_process(COMMAND
         ${GIT_EXECUTABLE}  -C ${GIT_ROOT_DIR}
-            rev-list origin --count --committer=Patman86
+            rev-list HEAD --count --committer=Patman86
         RESULT_VARIABLE git_describe_status
         OUTPUT_VARIABLE git_describe_output_mod
         ERROR_VARIABLE git_describe_error
