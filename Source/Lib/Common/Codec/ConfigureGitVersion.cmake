@@ -33,11 +33,18 @@ if(Git_FOUND AND EXISTS "${GIT_ROOT_DIR}/.git")
         ERROR_VARIABLE git_describe_error
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_STRIP_TRAILING_WHITESPACE)
-
+    execute_process(COMMAND
+        ${GIT_EXECUTABLE}  -C ${GIT_ROOT_DIR}
+            rev-list origin --count --committer=Patman86
+        RESULT_VARIABLE git_describe_status
+        OUTPUT_VARIABLE git_describe_output_mod
+        ERROR_VARIABLE git_describe_error
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_STRIP_TRAILING_WHITESPACE)
     if (git_describe_status)
         message(WARNING "Failure to get version from Git: ${git_describe_error}")
     else()
-        set(PACKAGE_VERSION_STRING ${git_describe_output})
+        set(PACKAGE_VERSION_STRING ${git_describe_output}+${git_describe_output_mod})
     endif()
 endif()
 
