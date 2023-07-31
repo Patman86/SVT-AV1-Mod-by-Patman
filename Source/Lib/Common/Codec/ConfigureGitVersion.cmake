@@ -58,7 +58,7 @@ if(Git_FOUND AND EXISTS "${GIT_ROOT_DIR}/.git")
     if (git_describe_status)
         message(WARNING "Failure to get version from Git: ${git_describe_error}")
     else()
-        set(PACKAGE_VERSION_STRING "${git_describe_output}-${git_describe_distance}-${git_describe_mod}-${git_describe_rev_id} [Mod by Patman]")
+        set(PACKAGE_VERSION_STRING "${git_describe_output}-${git_describe_distance}+${git_describe_mod}-${git_describe_rev_id} [Mod by Patman]")
     endif()
 endif()
 
