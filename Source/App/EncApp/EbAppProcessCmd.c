@@ -729,13 +729,14 @@ void process_output_stream_buffer(EncChannel *channel, EncApp *enc_app, int32_t 
             }
             const double fps        = (double)*frame_count / app_cfg->performance_context.total_encode_time;
             const double frame_rate = (double)app_cfg->config.frame_rate_numerator / (double)app_cfg->config.frame_rate_denominator;
-            int ete_hh = app_cfg->performance_context.total_encode_time / 3600;
-            int ete_mm = (app_cfg->performance_context.total_encode_time - ete_hh * 3600) / 60;
-            int ete_ss = app_cfg->performance_context.total_encode_time - ete_hh * 3600 - ete_mm * 60;
-            int eta    = app_cfg->performance_context.total_encode_time * (app_cfg->frames_to_be_encoded - app_cfg->frames_encoded) / app_cfg->frames_encoded;
+            int ete    = app_cfg->performance_context.total_encode_time;
+            int ete_hh = ete / 3600;
+            int ete_mm = (ete - (ete_hh * 3600)) / 60;
+            int ete_ss = ete - (ete_hh * 3600) - (ete_mm * 60);
+            int eta    = (app_cfg->performance_context.total_encode_time / app_cfg->frames_encoded) * (app_cfg->frames_to_be_encoded - app_cfg->frames_encoded);
             int eta_hh = eta / 3600;
-            int eta_mm = (eta / 60) % 60;
-            int eta_ss = eta % 60;
+            int eta_mm = (eta - (eta_hh * 3600)) / 60;
+            int eta_ss = eta - (eta_hh * 3600) - (eta_mm * 60);
             double size = ((double)app_cfg->performance_context.byte_count / 1000000);
             double estsz  = ((double)app_cfg->performance_context.byte_count * app_cfg->frames_to_be_encoded / (app_cfg->frames_encoded * 1000) / 1000);
             switch (app_cfg->progress) {
@@ -838,13 +839,14 @@ void process_output_stream_buffer(EncChannel *channel, EncApp *enc_app, int32_t 
 
             const double fps        = (double)*frame_count / app_cfg->performance_context.total_encode_time;
             const double frame_rate = (double)app_cfg->config.frame_rate_numerator / (double)app_cfg->config.frame_rate_denominator;
-            int ete_hh = app_cfg->performance_context.total_encode_time / 3600;
-            int ete_mm = (app_cfg->performance_context.total_encode_time - ete_hh * 3600) / 60;
-            int ete_ss = app_cfg->performance_context.total_encode_time - ete_hh * 3600 - ete_mm * 60;
-            int eta    = app_cfg->performance_context.total_encode_time * (app_cfg->frames_to_be_encoded - app_cfg->frames_encoded) / app_cfg->frames_encoded;
+            int ete    = app_cfg->performance_context.total_encode_time;
+            int ete_hh = ete / 3600;
+            int ete_mm = (ete - (ete_hh * 3600)) / 60;
+            int ete_ss = ete - (ete_hh * 3600) - (ete_mm * 60);
+            int eta    = (app_cfg->performance_context.total_encode_time / app_cfg->frames_encoded) * (app_cfg->frames_to_be_encoded - app_cfg->frames_encoded);
             int eta_hh = eta / 3600;
-            int eta_mm = (eta / 60) % 60;
-            int eta_ss = eta % 60;
+            int eta_mm = (eta - (eta_hh * 3600)) / 60;
+            int eta_ss = eta - (eta_hh * 3600) - (eta_mm * 60);
             double size = ((double)app_cfg->performance_context.byte_count / 1000000);
             double estsz  = ((double)app_cfg->performance_context.byte_count * app_cfg->frames_to_be_encoded / (app_cfg->frames_encoded * 1000) / 1000);
             switch (app_cfg->progress) {
