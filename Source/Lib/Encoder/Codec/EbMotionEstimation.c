@@ -34,8 +34,10 @@
 /********************************************
  * Constants
  ********************************************/
+#if !SHUT_MCTF_PEN
 #define TF_HME_MV_SAD_TH 512 // SAD_TH beyond which a penalty is applied to hme_mv_cost
 #define TF_HME_MV_COST_WEIGHT 125 // MV_COST weight when the SAD_TH condition is valid
+#endif
 #define REFERENCE_PIC_LIST_0 0
 #define REFERENCE_PIC_LIST_1 1
 /*******************************************
@@ -1162,11 +1164,11 @@ uint32_t check_00_center(EbPictureBufferDesc *ref_pic_ptr, MeContext *me_ctx,
         zero_mv_sad = zz_sad;
     else
         zero_mv_sad = svt_nxm_sad_kernel(me_ctx->b64_src_ptr,
-                                         me_ctx->b64_src_stride << subsample_sad,
-                                         &(ref_pic_ptr->buffer_y[search_region_index]),
-                                         ref_pic_ptr->stride_y << subsample_sad,
-                                         sb_height >> subsample_sad,
-                                         sb_width);
+            me_ctx->b64_src_stride << subsample_sad,
+            &(ref_pic_ptr->buffer_y[search_region_index]),
+            ref_pic_ptr->stride_y << subsample_sad,
+            sb_height >> subsample_sad,
+            sb_width);
 
     zero_mv_sad = zero_mv_sad << subsample_sad;
 
@@ -1204,12 +1206,14 @@ uint32_t check_00_center(EbPictureBufferDesc *ref_pic_ptr, MeContext *me_ctx,
 
     hme_mv_sad = hme_mv_sad << subsample_sad;
     hme_mv_cost = hme_mv_sad << COST_PRECISION;
+#if !SHUT_MCTF_PEN
     // Apply a penalty to the HME_MV cost (after the HME(0,0) vs.HME_MV distortion check) when the HME_MV distortion is high (search ~(0,0) if complex 64x64)
     if (me_ctx->me_type == ME_MCTF) {
         if (hme_mv_sad > TF_HME_MV_SAD_TH) {
             hme_mv_cost = (hme_mv_cost * TF_HME_MV_COST_WEIGHT) / 100;
         }
     }
+#endif
     search_center_cost = MIN(zero_mv_cost, hme_mv_cost);
 
     *x_search_center = (search_center_cost == zero_mv_cost) ? 0 : *x_search_center;
@@ -2451,7 +2455,11 @@ void set_final_seach_centre_sb(PictureParentControlSet *pcs, MeContext *me_ctx) 
     }
 }
 // Initialize zz SAD array
+#if OPT_SAFE_LIMIT
+static void init_zz_sad(PictureParentControlSet *pcs, MeContext *me_ctx, uint32_t org_x, uint32_t org_y) {
+#else
 static void init_zz_sad(MeContext *me_ctx, uint32_t org_x, uint32_t org_y) {
+#endif
     const uint32_t block_width  = me_ctx->b64_width;
     const uint32_t block_height = me_ctx->b64_height;
     uint32_t best_zz_sad = MAX_U32;
@@ -2462,7 +2470,11 @@ static void init_zz_sad(MeContext *me_ctx, uint32_t org_x, uint32_t org_y) {
             if (me_ctx->temporal_layer_index > 0 || list_i == 0) {
                 EbPictureBufferDesc *ref_pic = me_ctx->me_ds_ref_array[list_i][ref_i].picture_ptr;
                 uint32_t             zz_sad  = get_zz_sad(
-                    ref_pic, me_ctx, org_x, org_y, block_width, block_height);
+                        ref_pic, me_ctx, org_x, org_y, block_width, block_height);
+#if FIX_ZZ_SAD
+                //normalize for incomplete b64
+                zz_sad = (zz_sad * 64 * 64) / (block_width * block_height);
+#endif
                 me_ctx->zz_sad[list_i][ref_i] = zz_sad;
                 best_zz_sad = MIN(best_zz_sad, zz_sad);
             }
@@ -2477,11 +2489,35 @@ static void init_zz_sad(MeContext *me_ctx, uint32_t org_x, uint32_t org_y) {
 
                 const uint32_t zz_sad_pct = me_ctx->me_hme_prune_ctrls.zz_sad_pct;
                 if ((me_ctx->zz_sad[list_i][ref_i] - best_zz_sad) * 100 > (zz_sad_pct * best_zz_sad)) {
+                       me_ctx->search_results[list_i][ref_i].do_ref = 0;
+                }
+            }
+        }
+    }
+
+#if OPT_SAFE_LIMIT
+    const uint32_t safe_limit_zz_th = me_ctx->me_safe_limit_zz_th;
+    if (safe_limit_zz_th) {
+        bool me_safe_limit_refs = false;
+        if (pcs->hierarchical_levels > 0 && me_ctx->num_of_list_to_search == 2 &&
+            pcs->temporal_layer_index >= pcs->hierarchical_levels && pcs->similar_brightness_refs &&
+            me_ctx->zz_sad[0][0] < safe_limit_zz_th &&  me_ctx->zz_sad[1][0] < safe_limit_zz_th
+            ) {
+            me_safe_limit_refs = true;
+        }
+
+        for (int list_i = REF_LIST_0; list_i < me_ctx->num_of_list_to_search; ++list_i) {
+            for (uint8_t ref_i = 0; ref_i < me_ctx->num_of_ref_pic_to_search[list_i]; ++ref_i) {
+
+                if (me_safe_limit_refs && ref_i > 0) {
                     me_ctx->search_results[list_i][ref_i].do_ref = 0;
                 }
             }
         }
     }
+#endif
+
+
 }
 /*******************************************
  * performs hierarchical ME for a 64x64 block for every ref frame
@@ -2489,8 +2525,13 @@ static void init_zz_sad(MeContext *me_ctx, uint32_t org_x, uint32_t org_y) {
 static void hme_b64(PictureParentControlSet *pcs, uint32_t org_x, uint32_t org_y,
              MeContext *me_ctx, EbPictureBufferDesc *input_ptr) {
     // If needed, initialize the zz sad array
+#if OPT_SAFE_LIMIT
+    if (me_ctx->me_early_exit_th || me_ctx->me_safe_limit_zz_th  )
+        init_zz_sad(pcs, me_ctx, org_x, org_y);
+#else
     if (me_ctx->me_early_exit_th)
-        init_zz_sad(me_ctx, org_x, org_y);
+        init_zz_sad( me_ctx, org_x, org_y);
+#endif
 
     if (me_ctx->prehme_ctrl.enable) {
         // perform pre-HME
@@ -3318,7 +3359,11 @@ EbErrorType svt_aom_open_loop_intra_search_mb(PictureParentControlSet *pcs, uint
                                               16);
                 // Distortion
                 int64_t intra_cost;
+#if FIX_TPL_LVLS
+                if (pcs->tpl_ctrls.use_sad_in_src_search) {
+#else
                 if (pcs->tpl_ctrls.use_pred_sad_in_intra_search) {
+#endif
                     intra_cost = svt_nxm_sad_kernel_sub_sampled(
                         src, input_ptr->stride_y, predictor, 16, 16, 16);
                 } else {

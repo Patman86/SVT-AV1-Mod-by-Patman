@@ -436,6 +436,12 @@ static EbErrorType load_default_buffer_configuration_settings(
         ((scs->max_input_luma_width + 64) / 128) :
         ((scs->max_input_luma_width + 32) / 64);
 
+#if OPT_MULTI_BUFFER_CONFIG
+    me_seg_h = (core_count == SINGLE_CORE_COUNT) ? 1 :
+        (((scs->max_input_luma_height + 32) / BLOCK_SIZE_64) < 6) ? 1 : 8;
+    me_seg_w = (core_count == SINGLE_CORE_COUNT) ? 1 :
+        (((scs->max_input_luma_width + 32) / BLOCK_SIZE_64) < 10) ? 1 : 6;
+#else
     if (scs->static_config.rate_control_mode != SVT_AV1_RC_MODE_CQP_OR_CRF)
     {
         me_seg_h = (core_count == SINGLE_CORE_COUNT) ? 1 :
@@ -450,6 +456,7 @@ static EbErrorType load_default_buffer_configuration_settings(
         me_seg_w = (core_count == SINGLE_CORE_COUNT) ? 1 :
             (((scs->max_input_luma_width + 32) / BLOCK_SIZE_64) < 10) ? 1 : 3;
     }
+#endif
     // ME segments
     scs->me_segment_row_count_array[0] = me_seg_h;
     scs->me_segment_row_count_array[1] = me_seg_h;
@@ -511,8 +518,15 @@ static EbErrorType load_default_buffer_configuration_settings(
     scs->tpl_segment_row_count_array = tpl_seg_h;
     scs->tpl_segment_col_count_array = tpl_seg_w;
 
+#if OPT_MULTI_BUFFER_CONFIG
+    scs->cdef_segment_row_count = (core_count == SINGLE_CORE_COUNT) ? 1 :
+        (((scs->max_input_luma_height + 32) / BLOCK_SIZE_64) < 6) ? 1 : 2;
+    scs->cdef_segment_column_count = (core_count == SINGLE_CORE_COUNT) ? 1 :
+        (((scs->max_input_luma_width + 32) / BLOCK_SIZE_64) < 10) ? 1 : 3;
+#else
     scs->cdef_segment_column_count = me_seg_w;
     scs->cdef_segment_row_count    = me_seg_h;
+#endif
 
     //since restoration unit size is same for Luma and Chroma, Luma segments and chroma segments do not correspond to the same area!
     //to keep proper processing, segments have to be configured based on chroma resolution.
@@ -805,7 +819,11 @@ static EbErrorType load_default_buffer_configuration_settings(
             scs->total_process_init_count += (scs->motion_estimation_process_init_count = clamp(50, 1, max_me_proc));
             scs->total_process_init_count += (scs->tpl_disp_process_init_count = clamp(max_tpl_proc, 1, max_tpl_proc));
             scs->total_process_init_count += (scs->mode_decision_configuration_process_init_count = clamp(max_mdc_proc, 1, max_mdc_proc));
+#if OPT_MULTI_BUFFER_CONFIG
+            scs->total_process_init_count += (scs->enc_dec_process_init_count = clamp(50, scs->picture_control_set_pool_init_count_child, max_md_proc));
+#else
             scs->total_process_init_count += (scs->enc_dec_process_init_count = clamp(150, scs->picture_control_set_pool_init_count_child, max_md_proc));
+#endif
             scs->total_process_init_count += (scs->entropy_coding_process_init_count = clamp(max_ec_proc, 1, max_ec_proc));
             scs->total_process_init_count += (scs->dlf_process_init_count = clamp(max_dlf_proc, 1, max_dlf_proc));
             scs->total_process_init_count += (scs->cdef_process_init_count = clamp(max_cdef_proc, 1, max_cdef_proc));
@@ -819,7 +837,11 @@ static EbErrorType load_default_buffer_configuration_settings(
                 scs->total_process_init_count += (scs->motion_estimation_process_init_count = clamp(50, 1, max_me_proc));
                 scs->total_process_init_count += (scs->tpl_disp_process_init_count = clamp(max_tpl_proc, 1, max_tpl_proc));
                 scs->total_process_init_count += (scs->mode_decision_configuration_process_init_count = clamp(max_mdc_proc, 1, max_mdc_proc));
+#if OPT_MULTI_BUFFER_CONFIG
+                scs->total_process_init_count += (scs->enc_dec_process_init_count = clamp(50, scs->picture_control_set_pool_init_count_child, max_md_proc));
+#else
                 scs->total_process_init_count += (scs->enc_dec_process_init_count = clamp(200, scs->picture_control_set_pool_init_count_child, max_md_proc));
+#endif
                 scs->total_process_init_count += (scs->entropy_coding_process_init_count = clamp(max_ec_proc, 1, max_ec_proc));
                 scs->total_process_init_count += (scs->dlf_process_init_count = clamp(max_dlf_proc, 1, max_dlf_proc));
                 scs->total_process_init_count += (scs->cdef_process_init_count = clamp(max_cdef_proc, 1, max_cdef_proc));
@@ -1571,8 +1593,20 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component)
             input_data.picture_width, input_data.picture_height);
         input_data.enable_adaptive_quantization = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.enable_adaptive_quantization;
         input_data.calculate_variance = enc_handle_ptr->scs_instance_array[instance_index]->scs->calculate_variance;
+#if MCTF_ON_THE_FLY_PRUNING
+        input_data.calc_hist = enc_handle_ptr->scs_instance_array[instance_index]->scs->calc_hist =
+#if OPT_LIST0_ONLY_BASE
+            (enc_handle_ptr->scs_instance_array[instance_index]->scs->list0_only_base_ctrls.enabled && enc_handle_ptr->scs_instance_array[instance_index]->scs->list0_only_base_ctrls.list0_only_base_th <= 100) ||
+#endif
+            enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.scene_change_detection ||
+            enc_handle_ptr->scs_instance_array[instance_index]->scs->vq_ctrls.sharpness_ctrls.scene_transition ||
+            enc_handle_ptr->scs_instance_array[instance_index]->scs->tf_params_per_type[0].enabled ||
+            enc_handle_ptr->scs_instance_array[instance_index]->scs->tf_params_per_type[1].enabled ||
+            enc_handle_ptr->scs_instance_array[instance_index]->scs->tf_params_per_type[2].enabled;
+#else
         input_data.scene_change_detection = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.scene_change_detection ||
                                             enc_handle_ptr->scs_instance_array[instance_index]->scs->vq_ctrls.sharpness_ctrls.scene_transition;
+#endif
         input_data.tpl_lad_mg = enc_handle_ptr->scs_instance_array[instance_index]->scs->tpl_lad_mg;
         input_data.input_resolution = enc_handle_ptr->scs_instance_array[instance_index]->scs->input_resolution;
         input_data.is_scale = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.superres_mode > SUPERRES_NONE ||
@@ -2125,12 +2159,21 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component)
     {
         // Initialize the various Picture types
         instance_index = 0;
+
+#if MCTF_ON_THE_FLY_PRUNING
+        EB_NEW(
+            enc_handle_ptr->picture_decision_context_ptr,
+            svt_aom_picture_decision_context_ctor,
+            enc_handle_ptr,
+            enc_handle_ptr->scs_instance_array[instance_index]->scs->calc_hist);
+#else
         EB_NEW(
             enc_handle_ptr->picture_decision_context_ptr,
             svt_aom_picture_decision_context_ctor,
             enc_handle_ptr,
             enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.scene_change_detection ||
             enc_handle_ptr->scs_instance_array[instance_index]->scs->vq_ctrls.sharpness_ctrls.scene_transition);
+#endif
     }
 
     // Motion Analysis Context
@@ -2586,9 +2629,13 @@ uint8_t svt_aom_tf_max_ref_per_struct(uint32_t hierarchical_levels, uint8_t type
     if (type == 0) // I_SLICE
         max_ref_per = 1 << hierarchical_levels;
     else if (type == 1) // BASE
+#if MCTF_OPT_REFS_MODULATION
+        max_ref_per = TF_MAX_BASE_REF_PICS;
+#else
         max_ref_per = hierarchical_levels < 5
         ? TF_MAX_BASE_REF_PICS_SUB_6L
         : TF_MAX_BASE_REF_PICS_6L;
+#endif
     else // L1
         max_ref_per = hierarchical_levels < 5
         ? TF_MAX_L1_REF_PICS_SUB_6L
@@ -2789,7 +2836,11 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
         scs->tf_params_per_type[1].enabled = 1;
         scs->tf_params_per_type[1].num_past_pics = 1;
         scs->tf_params_per_type[1].num_future_pics = 1;
+#if MCTF_OPT_REFS_MODULATION
+        scs->tf_params_per_type[1].modulate_pics = 2;
+#else
         scs->tf_params_per_type[1].modulate_pics = 1;
+#endif
         scs->tf_params_per_type[1].max_num_past_pics = MIN((1 << scs->static_config.hierarchical_levels), svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 1, 0));
         scs->tf_params_per_type[1].max_num_future_pics = MIN((1 << scs->static_config.hierarchical_levels), svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 1, 1));
         scs->tf_params_per_type[1].hme_me_level = 1;
@@ -2858,7 +2909,11 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
         scs->tf_params_per_type[1].enabled = 1;
         scs->tf_params_per_type[1].num_past_pics = 1;
         scs->tf_params_per_type[1].num_future_pics = 1;
+#if MCTF_OPT_REFS_MODULATION
+        scs->tf_params_per_type[1].modulate_pics = 2;
+#else
         scs->tf_params_per_type[1].modulate_pics = 1;
+#endif
         scs->tf_params_per_type[1].max_num_past_pics = MIN((1 << scs->static_config.hierarchical_levels), svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 1, 0));
         scs->tf_params_per_type[1].max_num_future_pics = MIN((1 << scs->static_config.hierarchical_levels), svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 1, 1));
         scs->tf_params_per_type[1].hme_me_level = 2;
@@ -2927,7 +2982,11 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
         scs->tf_params_per_type[1].enabled = 1;
         scs->tf_params_per_type[1].num_past_pics = 1;
         scs->tf_params_per_type[1].num_future_pics = 1;
+#if MCTF_OPT_REFS_MODULATION
+        scs->tf_params_per_type[1].modulate_pics = 3;
+#else
         scs->tf_params_per_type[1].modulate_pics = 2;
+#endif
         scs->tf_params_per_type[1].max_num_past_pics = MIN((1 << scs->static_config.hierarchical_levels), svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 1, 0));
         scs->tf_params_per_type[1].max_num_future_pics = MIN((1 << scs->static_config.hierarchical_levels), svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 1, 1));
         scs->tf_params_per_type[1].hme_me_level = 2;
@@ -2996,7 +3055,11 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
         scs->tf_params_per_type[1].enabled = 1;
         scs->tf_params_per_type[1].num_past_pics = 1;
         scs->tf_params_per_type[1].num_future_pics = 1;
+#if MCTF_OPT_REFS_MODULATION
+        scs->tf_params_per_type[1].modulate_pics = 3;
+#else
         scs->tf_params_per_type[1].modulate_pics = 2;
+#endif
         scs->tf_params_per_type[1].max_num_past_pics = MIN((1 << scs->static_config.hierarchical_levels), svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 1, 0));
         scs->tf_params_per_type[1].max_num_future_pics = MIN((1 << scs->static_config.hierarchical_levels), svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 1, 1));
         scs->tf_params_per_type[1].hme_me_level = 2;
@@ -3044,7 +3107,11 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
         scs->tf_params_per_type[1].enabled = 1;
         scs->tf_params_per_type[1].num_past_pics = 1;
         scs->tf_params_per_type[1].num_future_pics = 1;
+#if MCTF_OPT_REFS_MODULATION
+        scs->tf_params_per_type[1].modulate_pics = 3;
+#else
         scs->tf_params_per_type[1].modulate_pics = 2;
+#endif
         scs->tf_params_per_type[1].max_num_past_pics = MIN((1 << scs->static_config.hierarchical_levels), svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 1, 0));
         scs->tf_params_per_type[1].max_num_future_pics = MIN((1 << scs->static_config.hierarchical_levels), svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 1, 1));
         scs->tf_params_per_type[1].hme_me_level = 2;
@@ -3092,7 +3159,11 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
         scs->tf_params_per_type[1].enabled = 1;
         scs->tf_params_per_type[1].num_past_pics = 1;
         scs->tf_params_per_type[1].num_future_pics = 1;
+#if MCTF_OPT_REFS_MODULATION
+        scs->tf_params_per_type[1].modulate_pics = 4;
+#else
         scs->tf_params_per_type[1].modulate_pics = 3;
+#endif
         scs->tf_params_per_type[1].max_num_past_pics = MIN((1 << scs->static_config.hierarchical_levels), svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 1, 0));
         scs->tf_params_per_type[1].max_num_future_pics = MIN((1 << scs->static_config.hierarchical_levels), svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 1, 1));
         scs->tf_params_per_type[1].hme_me_level = 2;
@@ -3210,7 +3281,9 @@ static void derive_vq_params(SequenceControlSet* scs) {
  * Derive TF Params
  */
 static void derive_tf_params(SequenceControlSet *scs) {
-
+#if OPT_TF
+    const EbInputResolution resolution = scs->input_resolution;
+#endif
     // Do not perform TF if LD or 1 Layer or 1st pass
     Bool do_tf = scs->static_config.enable_tf && scs->static_config.hierarchical_levels >= 1 && scs->static_config.pass != ENC_FIRST_PASS;
     const EncMode enc_mode = scs->static_config.enc_mode;
@@ -3222,19 +3295,30 @@ static void derive_tf_params(SequenceControlSet *scs) {
         else
             tf_level = scs->static_config.screen_content_mode == 1 ? 0 :
             (enc_mode <= ENC_M9 ) ? 1 : enc_mode <= ENC_M13 && (scs->input_resolution >= INPUT_SIZE_720p_RANGE) ? 2 : 0;
-
         tf_ld_controls(scs, tf_level);
         return;
     }
     if (do_tf == 0) {
         tf_level = 0;
     }
+#if TUNE_M2_M4_M10
+    else if (enc_mode <= ENC_M1) {
+#else
     else if (enc_mode <= ENC_M2) {
+#endif
         tf_level = 1;
     }
     else if (enc_mode <= ENC_M5) {
         tf_level = 2;
     }
+#if OPT_TF
+    else if (enc_mode <= ENC_M6) {
+        tf_level = 4;
+    }
+    else if (enc_mode <= ENC_M8) {
+        tf_level = resolution <= INPUT_SIZE_720p_RANGE && hierarchical_levels <= 4 ? 4 : 5;
+    }
+#else
     else if (enc_mode <= ENC_M7) {
         tf_level = 4;
     }
@@ -3244,6 +3328,7 @@ static void derive_tf_params(SequenceControlSet *scs) {
         else
             tf_level = 5;
     }
+#endif
     else if (enc_mode <= ENC_M10) {
         tf_level = 6;
     }
@@ -3255,11 +3340,360 @@ static void derive_tf_params(SequenceControlSet *scs) {
     }
     tf_controls(scs, tf_level);
 }
+
+
+#if OPT_LIST0_ONLY_BASE
+/*
+ * Derive List0-only @ BASE Params
+ */
+static void set_list0_only_base(SequenceControlSet* scs, uint8_t list0_only_base) {
+    List0OnlyBase* ctrls = &scs->list0_only_base_ctrls;
+
+    switch (list0_only_base) {
+    case 0:
+        ctrls->enabled = 0;
+        break;
+    case 1:
+        ctrls->enabled = 1;
+        ctrls->list0_only_base_th = 35;
+        break;
+    case 2:
+        ctrls->enabled = 1;
+        ctrls->list0_only_base_th = 40;
+        break;
+    case 3:
+        ctrls->enabled = 1;
+        ctrls->list0_only_base_th = 50;
+        break;
+    case 4:
+        ctrls->enabled = 1;
+        ctrls->list0_only_base_th = 100;
+        break;
+    default: assert(0); break;
+    }
+}
+#endif
 /*
  * Set the MRP control
  */
 static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
     MrpCtrls* mrp_ctrl = &scs->mrp_ctrls;
+
+#if OPT_BEST_REF
+    switch (mrp_level)
+    {
+    case 0:
+        mrp_ctrl->referencing_scheme = 0;
+        mrp_ctrl->sc_base_ref_list0_count = 1;
+        mrp_ctrl->sc_base_ref_list1_count = 1;
+        mrp_ctrl->sc_non_base_ref_list0_count = 1;
+        mrp_ctrl->sc_non_base_ref_list1_count = 1;
+        mrp_ctrl->base_ref_list0_count = 1;
+        mrp_ctrl->base_ref_list1_count = 1;
+        mrp_ctrl->non_base_ref_list0_count = 1;
+        mrp_ctrl->non_base_ref_list1_count = 1;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs = 0;
+#endif
+        mrp_ctrl->safe_limit_nref = 0;
+#if OPT_SAFE_LIMIT
+        mrp_ctrl->safe_limit_zz_th = 0;
+#endif
+        mrp_ctrl->only_l_bwd = 0;
+        mrp_ctrl->pme_ref0_only = 0;
+        mrp_ctrl->use_best_references = 0;
+        break;
+
+    case 1:
+        mrp_ctrl->referencing_scheme = 1;
+        mrp_ctrl->sc_base_ref_list0_count = 2;
+        mrp_ctrl->sc_base_ref_list1_count = 2;
+        mrp_ctrl->sc_non_base_ref_list0_count = 2;
+        mrp_ctrl->sc_non_base_ref_list1_count = 2;
+        mrp_ctrl->base_ref_list0_count = 4;
+        mrp_ctrl->base_ref_list1_count = 3;
+        mrp_ctrl->non_base_ref_list0_count = 4;
+        mrp_ctrl->non_base_ref_list1_count = 3;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs = 1;
+#endif
+        mrp_ctrl->safe_limit_nref = 0;
+#if OPT_SAFE_LIMIT
+        mrp_ctrl->safe_limit_zz_th = 0;
+#endif
+        mrp_ctrl->only_l_bwd = 0;
+        mrp_ctrl->pme_ref0_only = 0;
+        mrp_ctrl->use_best_references = 0;
+        break;
+
+    case 2:
+        mrp_ctrl->referencing_scheme = 1;
+        mrp_ctrl->sc_base_ref_list0_count = 2;
+        mrp_ctrl->sc_base_ref_list1_count = 2;
+        mrp_ctrl->sc_non_base_ref_list0_count = 2;
+        mrp_ctrl->sc_non_base_ref_list1_count = 2;
+        mrp_ctrl->base_ref_list0_count = 4;
+        mrp_ctrl->base_ref_list1_count = 3;
+        mrp_ctrl->non_base_ref_list0_count = 4;
+        mrp_ctrl->non_base_ref_list1_count = 3;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs = 1;
+#endif
+        mrp_ctrl->safe_limit_nref = 0;
+#if OPT_SAFE_LIMIT
+        mrp_ctrl->safe_limit_zz_th = 0;
+#endif
+        mrp_ctrl->only_l_bwd = 1;
+        mrp_ctrl->pme_ref0_only = 0;
+        mrp_ctrl->use_best_references = 0;
+        break;
+
+    case 3://new
+        mrp_ctrl->referencing_scheme = 1;
+        mrp_ctrl->sc_base_ref_list0_count = 2;
+        mrp_ctrl->sc_base_ref_list1_count = 2;
+        mrp_ctrl->sc_non_base_ref_list0_count = 2;
+        mrp_ctrl->sc_non_base_ref_list1_count = 2;
+        mrp_ctrl->base_ref_list0_count = 4;
+        mrp_ctrl->base_ref_list1_count = 3;
+        mrp_ctrl->non_base_ref_list0_count = 4;
+        mrp_ctrl->non_base_ref_list1_count = 3;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs = 1;
+#endif
+        mrp_ctrl->safe_limit_nref = 0;
+#if OPT_SAFE_LIMIT
+        mrp_ctrl->safe_limit_zz_th = 0;
+#endif
+        mrp_ctrl->only_l_bwd = 1;
+        mrp_ctrl->pme_ref0_only = 0;
+        mrp_ctrl->use_best_references = 1;
+        break;
+
+
+    case 4:
+        mrp_ctrl->referencing_scheme = 1;
+        mrp_ctrl->sc_base_ref_list0_count = 2;
+        mrp_ctrl->sc_base_ref_list1_count = 2;
+        mrp_ctrl->sc_non_base_ref_list0_count = 1;
+        mrp_ctrl->sc_non_base_ref_list1_count = 1;
+        mrp_ctrl->base_ref_list0_count = 4;
+        mrp_ctrl->base_ref_list1_count = 3;
+        mrp_ctrl->non_base_ref_list0_count = 4;
+        mrp_ctrl->non_base_ref_list1_count = 3;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs = 0;
+#endif
+        mrp_ctrl->safe_limit_nref = 0;
+#if OPT_SAFE_LIMIT
+        mrp_ctrl->safe_limit_zz_th = 0;
+#endif
+        mrp_ctrl->only_l_bwd = 1;
+        mrp_ctrl->pme_ref0_only = 0;
+        mrp_ctrl->use_best_references = 1;
+        break;
+
+    case 5: //new
+        mrp_ctrl->referencing_scheme = 1;
+        mrp_ctrl->sc_base_ref_list0_count = 2;
+        mrp_ctrl->sc_base_ref_list1_count = 2;
+        mrp_ctrl->sc_non_base_ref_list0_count = 1;
+        mrp_ctrl->sc_non_base_ref_list1_count = 1;
+        mrp_ctrl->base_ref_list0_count = 4;
+        mrp_ctrl->base_ref_list1_count = 3;
+        mrp_ctrl->non_base_ref_list0_count = 4;
+        mrp_ctrl->non_base_ref_list1_count = 3;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs = 0;
+#endif
+        mrp_ctrl->safe_limit_nref = 0;
+#if OPT_SAFE_LIMIT
+        mrp_ctrl->safe_limit_zz_th = 0;
+#endif
+        mrp_ctrl->only_l_bwd = 1;
+        mrp_ctrl->pme_ref0_only = 0;
+        mrp_ctrl->use_best_references = 2;
+        break;
+
+    case 6:
+        mrp_ctrl->referencing_scheme = 1;
+        mrp_ctrl->sc_base_ref_list0_count = 2;
+        mrp_ctrl->sc_base_ref_list1_count = 2;
+        mrp_ctrl->sc_non_base_ref_list0_count = 1;
+        mrp_ctrl->sc_non_base_ref_list1_count = 1;
+        mrp_ctrl->base_ref_list0_count = 4;
+        mrp_ctrl->base_ref_list1_count = 3;
+        mrp_ctrl->non_base_ref_list0_count = 4;
+        mrp_ctrl->non_base_ref_list1_count = 3;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs = 0;
+#endif
+#if OPT_SAFE_LIMIT
+        mrp_ctrl->safe_limit_nref = 1;
+        mrp_ctrl->safe_limit_zz_th = 60000;
+#else
+        mrp_ctrl->safe_limit_nref = 0;
+#endif
+
+        mrp_ctrl->only_l_bwd = 1;
+        mrp_ctrl->pme_ref0_only = 1;
+        mrp_ctrl->use_best_references = 3;
+        break;
+
+    case 7:
+        mrp_ctrl->referencing_scheme = 1;
+        mrp_ctrl->sc_base_ref_list0_count = 2;
+        mrp_ctrl->sc_base_ref_list1_count = 2;
+        mrp_ctrl->sc_non_base_ref_list0_count = 1;
+        mrp_ctrl->sc_non_base_ref_list1_count = 1;
+        mrp_ctrl->base_ref_list0_count = 3;
+        mrp_ctrl->base_ref_list1_count = 2;
+        mrp_ctrl->non_base_ref_list0_count = 3;
+        mrp_ctrl->non_base_ref_list1_count = 2;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs = 0;
+#endif
+#if OPT_SAFE_LIMIT
+        mrp_ctrl->safe_limit_nref = 1;
+        mrp_ctrl->safe_limit_zz_th = 60000;
+#else
+        mrp_ctrl->safe_limit_nref = 0;
+#endif
+
+        mrp_ctrl->only_l_bwd = 1;
+        mrp_ctrl->pme_ref0_only = 1;
+        mrp_ctrl->use_best_references = 3;
+        break;
+    case 8:
+        mrp_ctrl->referencing_scheme = 1;
+        mrp_ctrl->sc_base_ref_list0_count = 2;
+        mrp_ctrl->sc_base_ref_list1_count = 2;
+        mrp_ctrl->sc_non_base_ref_list0_count = 1;
+        mrp_ctrl->sc_non_base_ref_list1_count = 1;
+        mrp_ctrl->base_ref_list0_count = 3;
+        mrp_ctrl->base_ref_list1_count = 2;
+        mrp_ctrl->non_base_ref_list0_count = 3;
+        mrp_ctrl->non_base_ref_list1_count = 2;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs = 0;
+#endif
+
+#if OPT_SAFE_LIMIT
+        mrp_ctrl->safe_limit_nref = 2;
+        mrp_ctrl->safe_limit_zz_th = 0;
+#else
+        mrp_ctrl->safe_limit_nref = 1;
+#endif
+
+        mrp_ctrl->only_l_bwd = 1;
+        mrp_ctrl->pme_ref0_only = 1;
+        mrp_ctrl->use_best_references = 3;
+        break;
+    case 9:
+        mrp_ctrl->referencing_scheme = 0;
+        mrp_ctrl->sc_base_ref_list0_count = 2;
+        mrp_ctrl->sc_base_ref_list1_count = 2;
+        mrp_ctrl->sc_non_base_ref_list0_count = 1;
+        mrp_ctrl->sc_non_base_ref_list1_count = 1;
+        mrp_ctrl->base_ref_list0_count = 3;
+        mrp_ctrl->base_ref_list1_count = 2;
+        mrp_ctrl->non_base_ref_list0_count = 3;
+        mrp_ctrl->non_base_ref_list1_count = 2;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs = 0;
+#endif
+#if OPT_SAFE_LIMIT
+        mrp_ctrl->safe_limit_nref = 2;
+        mrp_ctrl->safe_limit_zz_th = 0;
+#else
+        mrp_ctrl->safe_limit_nref = 1;
+#endif
+
+        mrp_ctrl->only_l_bwd = 1;
+        mrp_ctrl->pme_ref0_only = 1;
+        mrp_ctrl->use_best_references = 3;
+        break;
+    case 10:
+        mrp_ctrl->referencing_scheme = 2;
+        mrp_ctrl->sc_base_ref_list0_count = 2;
+        mrp_ctrl->sc_base_ref_list1_count = 2;
+        mrp_ctrl->sc_non_base_ref_list0_count = 1;
+        mrp_ctrl->sc_non_base_ref_list1_count = 1;
+        mrp_ctrl->base_ref_list0_count = 3;
+        mrp_ctrl->base_ref_list1_count = 2;
+        mrp_ctrl->non_base_ref_list0_count = 2;
+        mrp_ctrl->non_base_ref_list1_count = 2;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs = 0;
+#endif
+
+#if OPT_SAFE_LIMIT
+        mrp_ctrl->safe_limit_nref = 2;
+        mrp_ctrl->safe_limit_zz_th = 0;
+#else
+        mrp_ctrl->safe_limit_nref = 1;
+#endif
+
+        mrp_ctrl->only_l_bwd = 1;
+        mrp_ctrl->pme_ref0_only = 1;
+        mrp_ctrl->use_best_references = 3;
+        break;
+
+    case 11:
+        mrp_ctrl->referencing_scheme = 2;
+        mrp_ctrl->sc_base_ref_list0_count = 2;
+        mrp_ctrl->sc_base_ref_list1_count = 2;
+        mrp_ctrl->sc_non_base_ref_list0_count = 1;
+        mrp_ctrl->sc_non_base_ref_list1_count = 1;
+        mrp_ctrl->base_ref_list0_count = 3;
+        mrp_ctrl->base_ref_list1_count = 2;
+        mrp_ctrl->non_base_ref_list0_count = 1;
+        mrp_ctrl->non_base_ref_list1_count = 1;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs = 0;
+#endif
+
+#if OPT_SAFE_LIMIT
+        mrp_ctrl->safe_limit_nref = 2;
+        mrp_ctrl->safe_limit_zz_th = 0;
+#else
+        mrp_ctrl->safe_limit_nref = 1;
+#endif
+
+        mrp_ctrl->only_l_bwd = 1;
+        mrp_ctrl->pme_ref0_only = 1;
+        mrp_ctrl->use_best_references = 3;
+        break;
+    case 12:
+        mrp_ctrl->referencing_scheme = 0;
+        mrp_ctrl->sc_base_ref_list0_count = 2;
+        mrp_ctrl->sc_base_ref_list1_count = 2;
+        mrp_ctrl->sc_non_base_ref_list0_count = 1;
+        mrp_ctrl->sc_non_base_ref_list1_count = 1;
+        mrp_ctrl->base_ref_list0_count = 2;
+        mrp_ctrl->base_ref_list1_count = 2;
+        mrp_ctrl->non_base_ref_list0_count = 1;
+        mrp_ctrl->non_base_ref_list1_count = 1;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs = 0;
+#endif
+
+#if OPT_SAFE_LIMIT
+        mrp_ctrl->safe_limit_nref = 2;
+        mrp_ctrl->safe_limit_zz_th = 0;
+#else
+        mrp_ctrl->safe_limit_nref = 1;
+#endif
+
+        mrp_ctrl->only_l_bwd = 1;
+        mrp_ctrl->pme_ref0_only = 1;
+        mrp_ctrl->use_best_references = 3;
+        break;
+    default:
+        assert(0);
+        break;
+    }
+#else
     switch (mrp_level)
     {
     case 0:
@@ -3272,6 +3706,9 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->base_ref_list1_count        = 1;
         mrp_ctrl->non_base_ref_list0_count    = 1;
         mrp_ctrl->non_base_ref_list1_count    = 1;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs                = 0;
+#endif
         mrp_ctrl->safe_limit_nref             = 0;
         mrp_ctrl->only_l_bwd                  = 0;
         mrp_ctrl->pme_ref0_only               = 0;
@@ -3288,6 +3725,9 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->base_ref_list1_count        = 3;
         mrp_ctrl->non_base_ref_list0_count    = 4;
         mrp_ctrl->non_base_ref_list1_count    = 3;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs                = 1;
+#endif
         mrp_ctrl->safe_limit_nref             = 0;
         mrp_ctrl->only_l_bwd                  = 0;
         mrp_ctrl->pme_ref0_only               = 0;
@@ -3304,6 +3744,9 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->base_ref_list1_count        = 3;
         mrp_ctrl->non_base_ref_list0_count    = 4;
         mrp_ctrl->non_base_ref_list1_count    = 3;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs                = 1;
+#endif
         mrp_ctrl->safe_limit_nref             = 0;
         mrp_ctrl->only_l_bwd                  = 1;
         mrp_ctrl->pme_ref0_only               = 0;
@@ -3311,32 +3754,38 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         break;
 
     case 3:
-        mrp_ctrl->referencing_scheme          = 1;
-        mrp_ctrl->sc_base_ref_list0_count     = 2;
-        mrp_ctrl->sc_base_ref_list1_count     = 2;
+        mrp_ctrl->referencing_scheme = 1;
+        mrp_ctrl->sc_base_ref_list0_count = 2;
+        mrp_ctrl->sc_base_ref_list1_count = 2;
         mrp_ctrl->sc_non_base_ref_list0_count = 1;
         mrp_ctrl->sc_non_base_ref_list1_count = 1;
         mrp_ctrl->base_ref_list0_count        = 4;
         mrp_ctrl->base_ref_list1_count        = 3;
         mrp_ctrl->non_base_ref_list0_count    = 4;
         mrp_ctrl->non_base_ref_list1_count    = 3;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs                = 0;
+#endif
         mrp_ctrl->safe_limit_nref             = 0;
         mrp_ctrl->only_l_bwd                  = 1;
         mrp_ctrl->pme_ref0_only               = 0;
         mrp_ctrl->use_best_references         = 0;
         break;
     case 4: //M4
-        mrp_ctrl->referencing_scheme          = 1;
-        mrp_ctrl->sc_base_ref_list0_count     = 2;
-        mrp_ctrl->sc_base_ref_list1_count     = 2;
+        mrp_ctrl->referencing_scheme = 1;
+        mrp_ctrl->sc_base_ref_list0_count = 2;
+        mrp_ctrl->sc_base_ref_list1_count = 2;
         mrp_ctrl->sc_non_base_ref_list0_count = 1;
         mrp_ctrl->sc_non_base_ref_list1_count = 1;
-        mrp_ctrl->base_ref_list0_count        = 4;
-        mrp_ctrl->base_ref_list1_count        = 3;
-        mrp_ctrl->non_base_ref_list0_count    = 4;
-        mrp_ctrl->non_base_ref_list1_count    = 3;
-        mrp_ctrl->safe_limit_nref             = 0;
-        mrp_ctrl->only_l_bwd                  = 1;
+        mrp_ctrl->base_ref_list0_count = 4;
+        mrp_ctrl->base_ref_list1_count = 3;
+        mrp_ctrl->non_base_ref_list0_count = 4;
+        mrp_ctrl->non_base_ref_list1_count = 3;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs = 0;
+#endif
+        mrp_ctrl->safe_limit_nref = 0;
+        mrp_ctrl->only_l_bwd = 1;
         mrp_ctrl->pme_ref0_only               = 1;
         mrp_ctrl->use_best_references         = 1;
         break;
@@ -3351,6 +3800,9 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->base_ref_list1_count        = 2;
         mrp_ctrl->non_base_ref_list0_count    = 3;
         mrp_ctrl->non_base_ref_list1_count    = 2;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs                = 0;
+#endif
         mrp_ctrl->safe_limit_nref             = 0;
         mrp_ctrl->only_l_bwd                  = 1;
         mrp_ctrl->pme_ref0_only               = 1;
@@ -3366,6 +3818,9 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->base_ref_list1_count        = 2;
         mrp_ctrl->non_base_ref_list0_count    = 3;
         mrp_ctrl->non_base_ref_list1_count    = 2;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs                = 0;
+#endif
         mrp_ctrl->safe_limit_nref             = 1;
         mrp_ctrl->only_l_bwd                  = 1;
         mrp_ctrl->pme_ref0_only               = 1;
@@ -3381,6 +3836,9 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->base_ref_list1_count        = 2;
         mrp_ctrl->non_base_ref_list0_count    = 3;
         mrp_ctrl->non_base_ref_list1_count    = 2;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs                = 0;
+#endif
         mrp_ctrl->safe_limit_nref             = 1;
         mrp_ctrl->only_l_bwd                  = 1;
         mrp_ctrl->pme_ref0_only               = 1;
@@ -3396,6 +3854,9 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->base_ref_list1_count = 2;
         mrp_ctrl->non_base_ref_list0_count = 2;
         mrp_ctrl->non_base_ref_list1_count = 2;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs                = 0;
+#endif
         mrp_ctrl->safe_limit_nref             = 1;
         mrp_ctrl->only_l_bwd                  = 1;
         mrp_ctrl->pme_ref0_only               = 1;
@@ -3412,6 +3873,9 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->base_ref_list1_count = 2;
         mrp_ctrl->non_base_ref_list0_count = 1;
         mrp_ctrl->non_base_ref_list1_count = 1;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs                = 0;
+#endif
         mrp_ctrl->safe_limit_nref             = 1;
         mrp_ctrl->only_l_bwd                  = 1;
         mrp_ctrl->pme_ref0_only               = 1;
@@ -3427,6 +3891,9 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->base_ref_list1_count = 2;
         mrp_ctrl->non_base_ref_list0_count = 1;
         mrp_ctrl->non_base_ref_list1_count = 1;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs                = 0;
+#endif
         mrp_ctrl->safe_limit_nref             = 1;
         mrp_ctrl->only_l_bwd                  = 1;
         mrp_ctrl->pme_ref0_only               = 1;
@@ -3436,6 +3903,7 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         assert(0);
         break;
     }
+#endif
     // For low delay mode, list1 references are not used
     if (scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) {
         mrp_ctrl->sc_base_ref_list1_count = 0;
@@ -3443,6 +3911,9 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->base_ref_list1_count = 0;
         mrp_ctrl->non_base_ref_list1_count = 0;
         mrp_ctrl->referencing_scheme = 0;
+#if OPT_RPS_ADD
+        mrp_ctrl->more_5L_refs                = 0;
+#endif
         mrp_ctrl->safe_limit_nref             = 0;
         mrp_ctrl->only_l_bwd                  = 0;
         mrp_ctrl->pme_ref0_only               = 0;
@@ -3548,6 +4019,31 @@ static uint8_t get_tpl_level(int8_t enc_mode, int32_t pass, int32_t lap_rc, uint
         SVT_WARN("TPL will be disabled when reference scalings (resize) is enabled!\n");
         tpl_level = 0;
     }
+#if OPT_NEW_TPL_LVL
+    else if (enc_mode <= ENC_M3)
+        tpl_level = 1;
+#if TUNE_M6
+    else if (enc_mode <= ENC_M6)
+#else
+    else if (enc_mode <= ENC_M5)
+#endif
+        tpl_level = 2;
+    else if (enc_mode <= ENC_M8)
+        tpl_level = 3;
+    else if (enc_mode <= ENC_M10)
+        tpl_level = 4;
+    else if (enc_mode <= ENC_M11)
+        tpl_level = 6;
+#if OPT_TPL_LAY1_5L
+    else if (enc_mode <= ENC_M12)
+        tpl_level = 7;
+    else
+        tpl_level = 8;
+#else
+    else
+        tpl_level = 7;
+#endif
+#else
     else if (enc_mode <= ENC_M4)
         tpl_level = 1;
     else if (enc_mode <= ENC_M8)
@@ -3558,6 +4054,7 @@ static uint8_t get_tpl_level(int8_t enc_mode, int32_t pass, int32_t lap_rc, uint
         tpl_level = 7;
     else
         tpl_level = 8;
+#endif
 
     return tpl_level;
 }
@@ -4028,6 +4525,25 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     } else
         scs->mfmv_enabled = scs->static_config.enable_mfmv;
 
+#if OPT_LIST0_ONLY_BASE
+    uint8_t list0_only_base_lvl = 0;
+#if TUNE_M2_M4_M10
+    if (scs->static_config.enc_mode <= ENC_M4)
+#else
+    if (scs->static_config.enc_mode <= ENC_M3)
+#endif
+        list0_only_base_lvl = 0;
+    else if (scs->static_config.enc_mode <= ENC_M5)
+        list0_only_base_lvl = 1;
+    else if (scs->static_config.enc_mode <= ENC_M6)
+        list0_only_base_lvl = 2;
+    else if (scs->static_config.enc_mode <= ENC_M10)
+        list0_only_base_lvl = 3;
+    else
+        list0_only_base_lvl = 4;
+    set_list0_only_base(scs, list0_only_base_lvl);
+#endif
+
     if (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_VBR || scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR ||
         scs->input_resolution >= INPUT_SIZE_4K_RANGE ||
         scs->static_config.fast_decode == 1 ||
@@ -4047,6 +4563,72 @@ static void set_param_based_on_input(SequenceControlSet *scs)
 
     // MRP level
     uint8_t mrp_level;
+
+#if OPT_BEST_REF
+    if (scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) {
+        if (scs->static_config.enc_mode <= ENC_M10) {
+            mrp_level = 10;
+        }
+        else {
+            mrp_level = 11;
+        }
+    }
+    else {
+#if TUNE_M2_M4_M10
+        if (scs->static_config.enc_mode <= ENC_M2) {
+            mrp_level = 2;
+        }
+#else
+#if TUNE_M1
+        if (scs->static_config.enc_mode <= ENC_M1) {
+            mrp_level = 2;
+        }
+#else
+        if (scs->static_config.enc_mode <= ENC_M0) {
+            mrp_level = 2;
+        }
+        else if (scs->static_config.enc_mode <= ENC_M1) {
+            mrp_level = 3;
+        }
+#endif
+        else if (scs->static_config.enc_mode <= ENC_M2) {
+#if TUNE_M2
+            mrp_level = 3;
+#else
+            mrp_level = 4;
+#endif
+        }
+#endif
+        else if (scs->static_config.enc_mode <= ENC_M3) {
+            mrp_level = 5;
+        }
+#if TUNE_M6
+        else if (scs->static_config.enc_mode <= ENC_M6) {
+#else
+#if OPT_MRP
+        else if (scs->static_config.enc_mode <= ENC_M5) {
+#else
+        else if (scs->static_config.enc_mode <= ENC_M4) {
+#endif
+#endif
+            mrp_level = 6;
+        }
+#if !OPT_MRP_2
+        else if (scs->static_config.enc_mode <= ENC_M7) {
+            mrp_level = 8;
+        }
+#endif
+        else if (scs->static_config.enc_mode <= ENC_M12) {
+            mrp_level = 9;
+        }
+        else if (scs->static_config.enc_mode <= ENC_M13) {
+            mrp_level = 12;
+        }
+        else {
+            mrp_level = 0;
+        }
+    }
+#else
     if (scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) {
         if (scs->static_config.enc_mode <= ENC_M10) {
             mrp_level = 8;
@@ -4062,12 +4644,18 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         else if (scs->static_config.enc_mode <= ENC_M3) {
             mrp_level = 3;
         }
+#if OPT_MRP
+        else if (scs->static_config.enc_mode <= ENC_M5) {
+#else
         else if (scs->static_config.enc_mode <= ENC_M4) {
+#endif
             mrp_level = 4;
         }
+#if !OPT_MRP
         else if (scs->static_config.enc_mode <= ENC_M5) {
             mrp_level = 5;
         }
+#endif
         else if (scs->static_config.enc_mode <= ENC_M7) {
             mrp_level = 6;
         }
@@ -4081,6 +4669,7 @@ static void set_param_based_on_input(SequenceControlSet *scs)
             mrp_level = 0;
         }
     }
+#endif
     set_mrp_ctrl(scs, mrp_level);
     scs->is_short_clip = scs->static_config.gop_constraint_rc ? 1 : 0; // set to 1 if multipass and less than 200 frames in resourcecordination
 
@@ -4089,7 +4678,11 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         scs->static_config.scene_change_detection == 1       ||
         scs->vq_ctrls.sharpness_ctrls.tf == 1)
         scs->calculate_variance = 1;
+#if TUNE_M2_M4_M10
+    else if (scs->static_config.enc_mode <= ENC_M9)
+#else
     else if (scs->static_config.enc_mode <= ENC_M10)
+#endif
         scs->calculate_variance = 1;
     else
         scs->calculate_variance = 0;
@@ -4383,6 +4976,9 @@ static void copy_api_from_app(
             2 :
             scs->static_config.fast_decode == 1 ||
             scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_VBR || scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR ||
+#if OPT_PRED_STRUC
+            (input_resolution >= INPUT_SIZE_1080p_RANGE && scs->static_config.enc_mode >= ENC_M9) ||
+#endif
             !(scs->static_config.enc_mode <= ENC_M12) || input_resolution >= INPUT_SIZE_4K_RANGE
                 ? 4
                 : 5;

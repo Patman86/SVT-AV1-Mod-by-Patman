@@ -241,6 +241,10 @@ typedef struct DepthCtrls {
     // end depth; 0: consider no child blocks; else number of child blocks to consider, specified as
     // a positive number (e.g. 2 means consider 2 children)
     int8_t e_depth;
+#if OPT_DEPTH_LVLS
+    // If true, limit the max/min block sizes for PD1 to the max/min selected by PD0 (when the max/min block sizes are different).
+    uint8_t limit_max_min_to_pd0;
+#endif
 } DepthCtrls;
 #define MAX_RANGE_CNT 8
 #define MAX_RANGE_CNT 8
@@ -252,6 +256,13 @@ typedef struct DepthRefinementCtrls {
     // maximum allowed sub-to-current cost deviation beyond which the next depth will not be added
     // to PRED
     int64_t sub_to_current_th;
+#if OPT_DEPTH_REFIN_PARENT_ABS_TH
+    // When enabled, only prune the parent depth when the cost is sufficiently high (i.e. the parent block is
+    // sufficiently complex). The signal is specified as a multiplier to a threshold (the threshold is
+    // an absolute cost).  A higher value is more conservative; 0 is off.
+    // parent_max_cost_th_mult not relevant when parent is never skipped by parent_to_current_th
+    uint16_t parent_max_cost_th_mult;
+#endif
     // when 1, a maximum of 2 depth per block (PRED+Parent or PRED+Sub), 0: no restriction(s)
     uint8_t up_to_2_depth;
     // whether to decrement parent_to_current_th and sub_to_current_th based on the cost range of
@@ -590,6 +601,10 @@ typedef struct NsqCtrls {
     // For non-H/V partitions, skip testing the partition if its signaling rate cost is significantly higher than the signaling rate cost of the
     // best partition.  Specified as a percentage TH. 0 is off, higher is more aggressive.
     uint32_t non_HV_split_rate_th;
+#if OPT_HV_NON_HV
+    // Apply an offset to non_HV_split_rate_th
+    bool non_HV_split_rate_modulation;
+#endif
     // If the distortion (or rate) component of the SQ cost is more than component_multiple_th times the rate (or distortion) component, skip the NSQ shapes
     // 0: off, higher is safer
     uint32_t component_multiple_th;
@@ -598,10 +613,6 @@ typedef struct NsqCtrls {
     uint8_t psq_pred_lvl;
     // Whether to use the default or aggressive settings for the sub-Pred_depth block(s) (i.e. not applicable when PRED only)
     uint8_t sub_depth_block_lvl;
-#if CHECK_PARENT_COST_MDS3
-    uint32_t sq_mds1_cost_th;
-    uint32_t sq_mds3_cost_th;
-#endif
 } NsqCtrls;
 typedef struct DepthEarlyExitCtrls {
     // If the rate cost of splitting into lower depths is greater than the percentage threshold of the cost of the parent block, skip testing the lower depth.
@@ -879,8 +890,13 @@ typedef struct ModeDecisionContext {
     MdBlkStruct                  *md_local_blk_unit;
     BlkStruct                    *md_blk_arr_nsq;
     uint8_t                      *avail_blk_flag;
+#if !REMOVE_TESTED_BLK_FLAG
     // tells whether this CU is tested in MD.
-    uint8_t         *tested_blk_flag;
+    uint8_t *tested_blk_flag;
+#endif
+#if CLN_NSQ
+    uint8_t *cost_avail;
+#endif
     MdcSbData       *mdc_sb_array;
     MvReferenceFrame ref_frame_type_arr[MODE_CTX_REF_FRAMES];
     uint8_t          tot_ref_frame_types;
