@@ -1023,14 +1023,14 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
 
 static const char *tier_to_str(unsigned in) {
     if (!in)
-        return "(auto)";
+        return "auto";
     static char ret[11];
     snprintf(ret, 11, "%u", in);
     return ret;
 }
 static const char *level_to_str(unsigned in) {
     if (!in)
-        return "(auto)";
+        return "auto";
     static char ret[313];
     snprintf(ret, 313, "%.1f", in / 10.0);
     return ret;
@@ -1047,11 +1047,11 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
     else
 #endif
     {
-        SVT_INFO("SVT [config]: %s\ttier %s\tlevel %s\n",
-                 config->profile == MAIN_PROFILE               ? "main profile"
-                     : config->profile == HIGH_PROFILE         ? "high profile"
-                     : config->profile == PROFESSIONAL_PROFILE ? "professional profile"
-                                                               : "Unknown profile",
+        SVT_INFO("SVT [config]: profile / tier / level \t\t\t\t\t: %s / %s / %s\n",
+                 config->profile == MAIN_PROFILE               ? "main"
+                     : config->profile == HIGH_PROFILE         ? "high"
+                     : config->profile == PROFESSIONAL_PROFILE ? "professional"
+                                                               : "Unknown",
                  tier_to_str(config->tier),
                  level_to_str(config->level));
         SVT_INFO(
