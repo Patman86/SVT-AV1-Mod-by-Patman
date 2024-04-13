@@ -839,7 +839,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             "SVT-AV1 has an integrated mode decision mechanism to handle scene changes and will "
             "not insert a key frame at scene changes\n");
     }
-    if ((config->tile_columns > 0 || config->tile_rows > 0)) {
+    if ((config->tile_columns > 0 && config->fast_decode < 1 || config->tile_rows > 0 && config->fast_decode < 1)) {
         SVT_WARN(
             "If you are using tiles with the intent of increasing the decoder speed, please also "
             "consider using --fast-decode 1, especially if the intended decoder is running with "
