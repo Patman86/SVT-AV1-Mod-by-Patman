@@ -12,28 +12,27 @@
 cmake_minimum_required(VERSION 3.5...3.28)
 
 # APP Directory CMakeLists.txt
-
 # Include Subdirectories
 include_directories(${PROJECT_SOURCE_DIR}/Source/API/)
 
 # libdovi detection & preprocessor macro
 option(LIBDOVI_FOUND "Use the libdovi library" OFF)
 if(LIBDOVI_FOUND)
-  if(PKG_CONFIG_FOUND)
-  pkg_check_modules(PC_LIBDOVI libdovi QUIET)
+  if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    find_path(PKG_CONFIG_FOUND NAMES dovi HINTS "${PROJECT_SOURCE_DIR}/Source/dovi/msvc/lib")
+    find_library(LIBDOVI_LIBRARY NAMES dovi libdovi HINTS "${PROJECT_SOURCE_DIR}/Source/dovi/msvc/lib")
+    find_path(LIBDOVI_INCLUDE_DIR NAMES libdovi/rpu_parser.h HINTS "${PROJECT_SOURCE_DIR}/Source/dovi/msvc/include")
+  elseif (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+    find_path(PKG_CONFIG_FOUND NAMES dovi HINTS "${PROJECT_SOURCE_DIR}/Source/dovi/gcc/lib")
+    find_library(LIBDOVI_LIBRARY NAMES dovi libdovi HINTS "${PROJECT_SOURCE_DIR}/Source/dovi/gcc/lib")
+    find_path(LIBDOVI_INCLUDE_DIR NAMES libdovi/rpu_parser.h HINTS "${PROJECT_SOURCE_DIR}/Source/dovi/gcc/include")
   endif()
-
-  find_library(LIBDOVI_LIBRARY NAMES dovi libdovi
-                               PATHS ${PC_LIBDOVI_LIBDIR})
   if(NOT LIBDOVI_LIBRARY)
-  message(FATAL_ERROR "libdovi library not found!")
+    message(FATAL_ERROR "libdovi library not found!")
   endif()
-
-  find_path(LIBDOVI_INCLUDE_DIR NAMES libdovi/rpu_parser.h
-                                PATHS ${PC_LIBDOVI_INCLUDEDIR})
-
   set(LIBDOVI_INCLUDE_DIRS ${LIBDOVI_INCLUDE_DIR})
   set(LIBDOVI_LIBRARIES ${LIBDOVI_LIBRARY})
+  mark_as_advanced(LIBDOVI_INCLUDE_DIR LIBDOVI_LIBRARY)
   add_definitions(-DLIBDOVI_FOUND=1)
   execute_process(COMMAND ${CMAKE_COMMAND} -E echo_append "-- Building with libdovi support - Yes\n")
 else()

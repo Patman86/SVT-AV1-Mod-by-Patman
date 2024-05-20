@@ -14,8 +14,17 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+
 #ifdef LIBDOVI_FOUND
-#include <libdovi/rpu_parser.h>
+#if _MSC_VER
+#include "../../dovi/msvc/include/libdovi/rpu_parser.h"
+#pragma comment(lib, "ntdll.lib")
+#pragma comment(lib, "userenv.lib")
+#pragma comment(lib, "bcrypt.lib")
+#pragma comment(lib, "ws2_32.lib")
+#elif __GNUC__
+#include "../../dovi/gcc/include/libdovi/rpu_parser.h"
+#endif
 #endif
 
 #include "EbSvtAv1Enc.h"
