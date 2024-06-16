@@ -1001,8 +1001,25 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     uint8_t frame_luma_bias;
 
+    /* @brief Limit transform sizes to a maximum of 32x32 pixels
+     * 0: disabled, use transform sizes up to 64x64 pixels
+     * 1: enabled, use transform sizes up to 32x32 pixels
+     * Default is 0
+     */
+    Bool max_32_tx_size;
+
+    /* @brief Toggle default film grain blocksize behavior
+     * 0: use default blocksize behavior
+     * 1: use adaptive blocksize based on resolution
+     *  - 8x8 for <4k
+     *  - 16x16 for 4k
+     *  - 32x32 for 8k+
+     * Default is 1
+     */
+     Bool adaptive_film_grain;
+
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128 - 2 * sizeof(Bool) - 5 * sizeof(uint8_t) - sizeof(int8_t)];
+    uint8_t padding[128 - 4 * sizeof(Bool) - 5 * sizeof(uint8_t) - sizeof(int8_t)];
 
 } EbSvtAv1EncConfiguration;
 

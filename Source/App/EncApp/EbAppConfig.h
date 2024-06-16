@@ -26,6 +26,9 @@
 #include "../../dovi/gcc/include/libdovi/rpu_parser.h"
 #endif
 #endif
+#ifdef LIBHDR10PLUS_RS_FOUND
+#include <libhdr10plus-rs/hdr10plus.h>
+#endif
 
 #include "EbSvtAv1Enc.h"
 
@@ -199,6 +202,9 @@ typedef struct EbConfig {
     uint8_t instance_idx;
 #ifdef LIBDOVI_FOUND
     const DoviRpuOpaqueList *dovi_rpus;
+#endif
+#ifdef LIBHDR10PLUS_RS_FOUND
+    Hdr10PlusRsJsonOpaque *hdr10plus_json;
 #endif
 
     char *fgs_table_path;

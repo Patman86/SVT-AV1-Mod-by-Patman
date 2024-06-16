@@ -185,6 +185,9 @@
 #ifdef LIBDOVI_FOUND
 #define DOLBY_VISION_RPU_TOKEN "--dolby-vision-rpu"
 #endif
+#ifdef LIBHDR10PLUS_RS_FOUND
+#define HDR10PLUS_JSON_TOKEN "--hdr10plus-json"
+#endif
 
 #define SFRAME_DIST_TOKEN "--sframe-dist"
 #define SFRAME_MODE_TOKEN "--sframe-mode"
@@ -207,6 +210,10 @@
 #define QP_SCALE_COMPRESS_STRENGTH_TOKEN "--qp-scale-compress-strength"
 
 #define FRAME_LUMA_BIAS_TOKEN "--frame-luma-bias"
+
+#define MAX_32_TX_SIZE_TOKEN "--max-32-tx-size"
+
+#define ADAPTIVE_FILM_GRAIN_TOKEN "--adaptive-film-grain"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -422,6 +429,22 @@ static EbErrorType set_cfg_dovi_rpu(EbConfig *cfg, const char *token, const char
     }
     printf("Svt[info]: Loaded %zu DoVi RPUs\n", rpus->len);
     cfg->dovi_rpus = rpus;
+    return EB_ErrorNone;
+}
+#endif
+
+#ifdef LIBHDR10PLUS_RS_FOUND
+static EbErrorType set_cfg_hdr10plus_json(EbConfig *cfg, const char *token, const char *value) {
+    printf("Svt[info]: Parsing HDR10+ JSON file...\n");
+    Hdr10PlusRsJsonOpaque *hdr10plus_json = hdr10plus_rs_parse_json(value);
+    const char *error = hdr10plus_rs_json_get_error(hdr10plus_json);
+    if (error) {
+        fprintf(stderr, "%s\n", error);
+        hdr10plus_rs_json_free(hdr10plus_json);
+        return validate_error(EB_ErrorBadParameter, token, value);
+    }
+    printf("Svt[info]: Loaded HDR10+ JSON file\n");
+    cfg->hdr10plus_json = hdr10plus_json;
     return EB_ErrorNone;
 }
 #endif
@@ -1213,6 +1236,12 @@ ConfigEntry config_entry_color_description[] = {
      "[PSY] Set the Dolby Vision RPU path",
      set_cfg_dovi_rpu},
 #endif
+#ifdef LIBHDR10PLUS_RS_FOUND
+    {SINGLE_INPUT,
+     HDR10PLUS_JSON_TOKEN,
+     "[PSY] Set the HDR10+ JSON file path",
+     set_cfg_hdr10plus_json},
+#endif
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
 
@@ -1248,6 +1277,16 @@ ConfigEntry config_entry_psy[] = {
     {SINGLE_INPUT,
      FRAME_LUMA_BIAS_TOKEN,
      "[PSY] Adjusts the frame's QP based on the frame's average luma value, default is 0 [0 to 100]",
+     set_cfg_generic_token},
+    // Max 32 tx size
+    {SINGLE_INPUT,
+     MAX_32_TX_SIZE_TOKEN,
+     "[PSY] Limits the allowed transform sizes to a maximum of 32x32, default is 0 [0-1]",
+     set_cfg_generic_token},
+    // Adaptive film grain
+    {SINGLE_INPUT,
+     ADAPTIVE_FILM_GRAIN_TOKEN,
+     "[PSY] Adapts film grain blocksize based on video resolution, default is 1 [0-1]",
      set_cfg_generic_token},
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
@@ -1420,6 +1459,9 @@ ConfigEntry config_entry[] = {
 #ifdef LIBDOVI_FOUND
     {SINGLE_INPUT, DOLBY_VISION_RPU_TOKEN, "DolbyVisionRpu", set_cfg_dovi_rpu},
 #endif
+#ifdef LIBHDR10PLUS_RS_FOUND
+    {SINGLE_INPUT, HDR10PLUS_JSON_TOKEN, "Hdr10PlusJson", set_cfg_hdr10plus_json},
+#endif
 
     // QM
     {SINGLE_INPUT, ENABLE_QM_TOKEN, "EnableQM", set_cfg_generic_token},
@@ -1444,6 +1486,12 @@ ConfigEntry config_entry[] = {
     // Frame-level low-luma bias
     {SINGLE_INPUT, FRAME_LUMA_BIAS_TOKEN, "FrameLumaBias", set_cfg_generic_token},
 
+     // Max 32 tx size
+    {SINGLE_INPUT, MAX_32_TX_SIZE_TOKEN, "Max32TxSize", set_cfg_generic_token},
+
+    // Adaptive film grain
+    {SINGLE_INPUT, ADAPTIVE_FILM_GRAIN_TOKEN, "AdaptiveFilmGrain", set_cfg_generic_token},
+
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
 
@@ -1461,6 +1509,9 @@ EbConfig *svt_config_ctor() {
     app_cfg->roi_map_file        = NULL;
 #ifdef LIBDOVI_FOUND
     app_cfg->dovi_rpus           = NULL;
+#endif
+#ifdef LIBHDR10PLUS_RS_FOUND
+    app_cfg->hdr10plus_json      = NULL;
 #endif
     app_cfg->fgs_table_path      = NULL;
 
@@ -1521,6 +1572,12 @@ void svt_config_dtor(EbConfig *app_cfg) {
     if (app_cfg->dovi_rpus) {
         dovi_rpu_list_free(app_cfg->dovi_rpus);
         app_cfg->dovi_rpus = NULL;
+    }
+#endif
+#ifdef LIBHDR10PLUS_RS_FOUND
+    if (app_cfg->hdr10plus_json) {
+        hdr10plus_rs_json_free(app_cfg->hdr10plus_json);
+        app_cfg->hdr10plus_json = NULL;
     }
 #endif
 
