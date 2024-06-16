@@ -157,8 +157,11 @@ if -%1-==-- (
 ) else if /I "%1"=="nasm" (
     set "cmake_eflags=%cmake_eflags% -DENABLE_NASM=ON"
     shift
-) else if /I "%1"=="enable-libdovi" (
+) else if /I "%1"=="dovi" (
     set "cmake_eflags=%cmake_eflags% -DLIBDOVI_FOUND=1"
+    shift
+) else if /I "%1"=="hdr" (
+    set "cmake_eflags=%cmake_eflags% -DLIBHDR10PLUS_RS_FOUND=1"
     shift
 ) else if /I "%1"=="lto" (
     set "cmake_eflags=%cmake_eflags% -DSVT_AV1_LTO=ON"
@@ -184,6 +187,6 @@ goto :args
 
 :help
     echo Batch file to build SVT-AV1 on Windows
-    echo Usage: build.bat [2022^|2019^|2017^|2015^|clean] [release^|debug] [nobuild] [test] [shared^|static] [c-only] [avx512] [enable-libdovi] [no-apps] [no-dec] [no-enc]
+    echo Usage: build.bat [2022^|2019^|2017^|2015^|clean] [release^|debug] [nobuild] [test] [shared^|static] [c-only] [avx512] [dovi] [hdr] [no-apps] [no-dec] [no-enc]
     exit /b 1
 goto :EOF
