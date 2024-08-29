@@ -75,6 +75,7 @@ set(arch_neutral_files
     ref/TxfmRef.cc
     ref/TxfmRef.h
     ssim_test.cc
+    svt_av1_test.cc
     ../third_party/aom_dsp/src/bitreader.c
     ../third_party/aom_dsp/src/entdec.c)
 
@@ -82,6 +83,9 @@ set(multi_arch_files
     AdaptiveScanTest.cc
     CdefTest.cc
     CompoundUtilTest.cc
+    DeblockTest.cc
+    EncodeTxbAsmTest.cc
+    FilterIntraPredTest.cc
     FwdTxfm2dAsmTest.cc
     InvTxfm2dAsmTest.cc
     PackUnPackTest.cc
@@ -92,19 +96,23 @@ set(multi_arch_files
     TemporalFilterTestPlanewise.cc
     VarianceTest.cc
     convolve_test.cc
+    hadamard_test.cc
+    intrapred_cfl_test.cc
+    intrapred_dr_test.cc
+    intrapred_test.cc
     quantize_func_test.cc
     selfguided_filter_test.cc
+    warp_filter_test.cc
+    warp_filter_test_util.cc
+    warp_filter_test_util.h
     wiener_convolve_test.cc)
 
 if(HAVE_X86_PLATFORM)
   set(x86_arch_files
-      DeblockTest.cc
       noise_model_test.cc
       highbd_intra_prediction_tests.cc
       highbd_intra_prediction_tests.h
-      EncodeTxbAsmTest.cc
       FFTTest.cc
-      FilterIntraPredTest.cc
       ForwardtransformTests.cc
       FwdTxfm1dTest.cc
       InvTxfm1dTest.cc
@@ -124,15 +132,8 @@ if(HAVE_X86_PLATFORM)
       corner_match_test.cc
       dwt_test.cc
       frame_error_test.cc
-      hadamard_test.cc
-      intrapred_cfl_test.cc
-      intrapred_dr_test.cc
       intrapred_edge_filter_test.cc
-      intrapred_test.cc
-      subtract_avg_cfl_test.cc
-      warp_filter_test.cc
-      warp_filter_test_util.cc
-      warp_filter_test_util.h)
+      subtract_avg_cfl_test.cc)
 endif()
 
 if(HAVE_ARM_PLATFORM)
