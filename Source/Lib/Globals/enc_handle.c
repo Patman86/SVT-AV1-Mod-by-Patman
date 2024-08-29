@@ -5695,7 +5695,7 @@ EB_API const char *svt_psy_get_version(void) {
 
 EB_API void svt_av1_print_version(void) {
     SVT_INFO("-------------------------------------------\n");
-    SVT_INFO("SVT [version]:\tSVT-AV1-PSY Encoder Lib %s\n", SVT_AV1_CVS_VERSION);
+    SVT_INFO("SVT [version] : SVT-AV1-PSY Encoder Lib %s\n", SVT_AV1_CVS_VERSION);
     const char *compiler =
 #if defined( _MSC_VER ) && (_MSC_VER >= 1930)
     "Visual Studio 2022"
@@ -5715,7 +5715,7 @@ EB_API void svt_av1_print_version(void) {
     "unknown compiler"
 #endif
     ;
-    SVT_INFO("SVT [build]  :\t%s %zu bit\n", compiler,  sizeof(void*) * 8);
+    SVT_INFO("SVT [build]   : %s %zu bit\n", compiler,  sizeof(void*) * 8);
 #if !REPRODUCIBLE_BUILDS
     SVT_INFO("LIB Build date: %s %s\n", __DATE__, __TIME__);
 #endif

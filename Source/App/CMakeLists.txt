@@ -19,21 +19,23 @@ include_directories(${PROJECT_SOURCE_DIR}/Source/API/)
 # libdovi detection & preprocessor macro
 option(LIBDOVI_FOUND "Use the libdovi library" OFF)
 if(LIBDOVI_FOUND)
-  if(PKG_CONFIG_FOUND)
-  pkg_check_modules(PC_LIBDOVI libdovi QUIET)
+  if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    find_path(PKG_CONFIG_FOUND NAMES dovi HINTS "${PROJECT_SOURCE_DIR}/Source/dovi/msvc/lib")
+    find_library(LIBDOVI_LIBRARY NAMES dovi libdovi HINTS "${PROJECT_SOURCE_DIR}/Source/dovi/msvc/lib")
+    find_path(LIBDOVI_INCLUDE_DIR NAMES libdovi/rpu_parser.h HINTS "${PROJECT_SOURCE_DIR}/Source/dovi/msvc/include")
+  elseif (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+    find_path(PKG_CONFIG_FOUND NAMES dovi HINTS "${PROJECT_SOURCE_DIR}/Source/dovi/gcc/lib")
+    find_library(LIBDOVI_LIBRARY NAMES dovi libdovi HINTS "${PROJECT_SOURCE_DIR}/Source/dovi/gcc/lib")
+    find_path(LIBDOVI_INCLUDE_DIR NAMES libdovi/rpu_parser.h HINTS "${PROJECT_SOURCE_DIR}/Source/dovi/gcc/include")
   endif()
 
-  find_library(LIBDOVI_LIBRARY NAMES dovi libdovi
-                               PATHS ${PC_LIBDOVI_LIBDIR})
   if(NOT LIBDOVI_LIBRARY)
-  message(FATAL_ERROR "libdovi library not found!")
+    message(FATAL_ERROR "libdovi library not found!")
   endif()
-
-  find_path(LIBDOVI_INCLUDE_DIR NAMES libdovi/rpu_parser.h
-                                PATHS ${PC_LIBDOVI_INCLUDEDIR})
 
   set(LIBDOVI_INCLUDE_DIRS ${LIBDOVI_INCLUDE_DIR})
   set(LIBDOVI_LIBRARIES ${LIBDOVI_LIBRARY})
+  mark_as_advanced(LIBDOVI_INCLUDE_DIR LIBDOVI_LIBRARY)
   add_definitions(-DLIBDOVI_FOUND=1)
   execute_process(COMMAND ${CMAKE_COMMAND} -E echo_append "-- Building with libdovi support - Yes\n")
 else()
@@ -43,21 +45,23 @@ endif()
 # libhdr10plus-rs detection & preprocessor macro
 option(LIBHDR10PLUS_RS_FOUND "Use the libhdr10plus-rs library" OFF)
 if(LIBHDR10PLUS_RS_FOUND)
-  if(PKG_CONFIG_FOUND)
-  pkg_check_modules(PC_LIBHDR10PLUS_RS libhdr10plus-rs QUIET)
+  if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    find_path(PKG_CONFIG_FOUND NAMES hdr10plus-rs HINTS "${PROJECT_SOURCE_DIR}/Source/hdr/msvc/lib")
+    find_library(LIBHDR10PLUS_RS_LIBRARY NAMES hdr10plus-rs libhdr10plus-rs HINTS "${PROJECT_SOURCE_DIR}/Source/hdr/msvc/lib")
+    find_path(LIBHDR10PLUS_RS_INCLUDE_DIR NAMES libhdr10plus-rs/hdr10plus.h HINTS "${PROJECT_SOURCE_DIR}/Source/hdr/msvc/include")
+  elseif (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+    find_path(PKG_CONFIG_FOUND NAMES hdr10plus-rs HINTS "${PROJECT_SOURCE_DIR}/Source/hdr/gcc/lib")
+    find_library(LIBHDR10PLUS_RS_LIBRARY NAMES hdr10plus-rs libhdr10plus-rs HINTS "${PROJECT_SOURCE_DIR}/Source/hdr/gcc/lib")
+    find_path(LIBHDR10PLUS_RS_INCLUDE_DIR NAMES libhdr10plus-rs/hdr10plus.h HINTS "${PROJECT_SOURCE_DIR}/Source/hdr/gcc/include")
   endif()
 
-  find_library(LIBHDR10PLUS_RS_LIBRARY NAMES hdr10plus-rs libhdr10plus-rs
-                               PATHS ${PC_LIBHDR10PLUS_RS_LIBDIR})
   if(NOT LIBHDR10PLUS_RS_LIBRARY)
   message(FATAL_ERROR "libhdr10plus-rs library not found!")
   endif()
 
-  find_path(LIBHDR10PLUS_RS_INCLUDE_DIR NAMES libhdr10plus-rs/hdr10plus.h
-                                PATHS ${PC_LIBHDR10PLUS_RS_INCLUDEDIR})
-
   set(LIBHDR10PLUS_RS_INCLUDE_DIRS ${LIBHDR10PLUS_RS_INCLUDE_DIR})
   set(LIBHDR10PLUS_RS_LIBRARIES ${LIBHDR10PLUS_RS_LIBRARY})
+  mark_as_advanced(LIBHDR10PLUS_RS_INCLUDE_DIR LIBHDR10PLUS_RS_LIBRARY)
   add_definitions(-DLIBHDR10PLUS_RS_FOUND=1)
   execute_process(COMMAND ${CMAKE_COMMAND} -E echo_append "-- Building with libhdr10plus support - Yes\n")
 else()
