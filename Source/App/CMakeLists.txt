@@ -15,10 +15,6 @@ cmake_minimum_required(VERSION 3.5...3.28)
 
 # Include Subdirectories
 include_directories(${PROJECT_SOURCE_DIR}/Source/API/)
-find_package(PkgConfig)
-if(NOT PkgConfig_FOUND)
-  message(WARNING "PkgConfig not found; disabled building with dovi & hdr10plus.")
-endif()
 
 # libdovi detection & preprocessor macro
 option(LIBDOVI_FOUND "Use the dovi library" OFF)
@@ -32,10 +28,6 @@ if(LIBDOVI_FOUND)
     find_library(LIBDOVI_LIBRARY NAMES dovi libdovi HINTS "${PROJECT_SOURCE_DIR}/Source/dovi/gcc/lib")
     find_path(LIBDOVI_INCLUDE_DIR NAMES libdovi/rpu_parser.h HINTS "${PROJECT_SOURCE_DIR}/Source/dovi/gcc/include")
   endif()
-  if(PKG_CONFIG_FOUND)
-  pkg_check_modules(PC_LIBDOVI dovi QUIET)
-  endif()
-endif()
 
   if(NOT LIBDOVI_LIBRARY)
   message(FATAL_ERROR "dovi library not found!")
@@ -62,10 +54,6 @@ if(LIBHDR10PLUS_RS_FOUND)
     find_library(LIBHDR10PLUS_RS_LIBRARY NAMES hdr10plus-rs libhdr10plus-rs HINTS "${PROJECT_SOURCE_DIR}/Source/hdr/gcc/lib")
     find_path(LIBHDR10PLUS_RS_INCLUDE_DIR NAMES libhdr10plus-rs/hdr10plus.h HINTS "${PROJECT_SOURCE_DIR}/Source/hdr/gcc/include")
   endif()
-  if(PKG_CONFIG_FOUND)
-  pkg_check_modules(PC_LIBHDR10PLUS_RS hdr10plus-rs QUIET)
-  endif()
-endif()
 
   if(NOT LIBHDR10PLUS_RS_LIBRARY)
   message(FATAL_ERROR "hdr10plus library not found!")
