@@ -419,6 +419,9 @@ static void svt_av1_add_film_grain(EbPictureBufferDesc *src, EbPictureBufferDesc
                           dst->height,
                           use_high_bit_depth);
 
+    const uint64_t chroma_width = (dst->width + chroma_subsamp_x) >> chroma_subsamp_x;
+    const uint64_t chroma_height = (dst->width + chroma_subsamp_y) >> chroma_subsamp_y;
+
     svt_aom_fgn_copy_rect(src->buffer_cb +
                               ((src->stride_cb * (src->org_y >> chroma_subsamp_y) + (src->org_x >> chroma_subsamp_x))
                                << use_high_bit_depth),
@@ -427,8 +430,8 @@ static void svt_av1_add_film_grain(EbPictureBufferDesc *src, EbPictureBufferDesc
                               ((dst->stride_cb * (dst->org_y >> chroma_subsamp_y) + (dst->org_x >> chroma_subsamp_x))
                                << use_high_bit_depth),
                           dst->stride_cb,
-                          dst->width >> chroma_subsamp_x,
-                          dst->height >> chroma_subsamp_y,
+                          chroma_width,
+                          chroma_height,
                           use_high_bit_depth);
 
     svt_aom_fgn_copy_rect(src->buffer_cr +
@@ -439,8 +442,8 @@ static void svt_av1_add_film_grain(EbPictureBufferDesc *src, EbPictureBufferDesc
                               ((dst->stride_cr * (dst->org_y >> chroma_subsamp_y) + (dst->org_x >> chroma_subsamp_x))
                                << use_high_bit_depth),
                           dst->stride_cr,
-                          dst->width >> chroma_subsamp_x,
-                          dst->height >> chroma_subsamp_y,
+                          chroma_width,
+                          chroma_height,
                           use_high_bit_depth);
 
     luma = dst->buffer_y + ((dst->org_y * dst->stride_y + dst->org_x) << use_high_bit_depth);
@@ -757,6 +760,11 @@ static double aom_ssim2(const uint8_t *img1, int stride_img1, const uint8_t *img
     int    samples    = 0;
     double ssim_total = 0;
 
+    if (width <= 8 || height <= 8) {
+        // Region is too small to compute a meaningful SSIM score, return early
+        return NAN;
+    }
+
     // sample point start with each 4x4 location
     for (i = 0; i <= height - 8; i += 4, img1 += stride_img1 * 4, img2 += stride_img2 * 4) {
         for (j = 0; j <= width - 8; j += 4) {
@@ -776,6 +784,11 @@ static double aom_highbd_ssim2(const uint8_t *img1, int stride_img1, const uint8
     int    i, j;
     int    samples    = 0;
     double ssim_total = 0;
+
+    if (width <= 8 || height <= 8) {
+        // Region is too small to compute a meaningful SSIM score, return early
+        return NAN;
+    }
 
     // sample point start with each 4x4 location
     for (i = 0; i <= height - 8;

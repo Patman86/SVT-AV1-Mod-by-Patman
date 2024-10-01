@@ -44,20 +44,12 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_ERROR("Instance %u: EncoderMode must be in the range of [-3-%d]\n", channel_number + 1, MAX_ENC_PRESET);
         return_error = EB_ErrorBadParameter;
     }
-    if (scs->max_input_luma_width < 64) {
-        SVT_ERROR("Instance %u: Source Width must be at least 64\n", channel_number + 1);
+    if (scs->max_input_luma_width < 4) {
+        SVT_ERROR("Instance %u: Source Width must be at least 4\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
-    if (scs->max_input_luma_height < 64) {
-        SVT_ERROR("Instance %u: Source Height must be at least 64\n", channel_number + 1);
-        return_error = EB_ErrorBadParameter;
-    }
-    if (scs->max_input_luma_width % 2) {
-        SVT_ERROR("Error Instance %u: Source Width must be even for YUV_420 colorspace\n", channel_number + 1);
-        return_error = EB_ErrorBadParameter;
-    }
-    if (scs->max_input_luma_height % 2) {
-        SVT_ERROR("Error Instance %u: Source Height must be even for YUV_420 colorspace\n", channel_number + 1);
+    if (scs->max_input_luma_height < 4) {
+        SVT_ERROR("Instance %u: Source Height must be at least 4\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
     if (config->pred_structure > 2 || config->pred_structure < 1) {
@@ -195,12 +187,12 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (scs->seq_header.max_frame_width < 64) {
-        SVT_ERROR("Instance %u: Forced Max Width must be at least 64\n", channel_number + 1);
+    if (scs->seq_header.max_frame_width < 4) {
+        SVT_ERROR("Instance %u: Forced Max Width must be at least 4\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
-    if (scs->seq_header.max_frame_height < 64) {
-        SVT_ERROR("Instance %u: Forced Max Height must be at least 64\n", channel_number + 1);
+    if (scs->seq_header.max_frame_height < 4) {
+        SVT_ERROR("Instance %u: Forced Max Height must be at least 4\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
     if (scs->seq_header.max_frame_width > 16384) {
@@ -210,6 +202,24 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     if (scs->seq_header.max_frame_height > 8704) {
         SVT_ERROR("Instance %u: Forced Max Height must be less than or equal to 8704)\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
+    }
+
+    if ((scs->max_input_luma_width >= 4 && scs->max_input_luma_width < 64) ||
+        (scs->max_input_luma_height >= 4 && scs->max_input_luma_height < 64)) {
+        if (config->enable_adaptive_quantization != 0) {
+            SVT_WARN("Instance %u: AQ mode %i is unsupported with source dimensions (%i / %i), setting AQ mode to 0\n",
+                channel_number + 1, config->enable_adaptive_quantization, scs->max_input_luma_width, scs->max_input_luma_height);
+
+            config->enable_adaptive_quantization = 0;
+        }
+        if (config->enable_restoration_filtering != 0) {
+            SVT_WARN("Instance %u: Restoration Filtering is unsupported with source dimensions (%i / %i), disabling Restoration Filtering\n",
+                channel_number + 1, scs->max_input_luma_width, scs->max_input_luma_height);
+
+            config->enable_restoration_filtering = 0;
+        }
+
+        config->enable_tpl_la = 0;
     }
 
     if ((scs->max_input_luma_width > scs->seq_header.max_frame_width) ||
@@ -673,14 +683,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     }
     // Limit 8K & 16K configurations (due to memory constraints)
     uint64_t pixel_count = (uint64_t)(scs->max_input_luma_width * scs->max_input_luma_height);
-    if (pixel_count > INPUT_SIZE_4K_TH && config->enc_mode <= ENC_M7) {
-        if (pixel_count <= INPUT_SIZE_8K_TH && config->enc_mode >= ENC_M2) {
-            SVT_WARN("Instance %u: 8K resolution support below M8 isn't officially supported. 64 GB of available memory are recommended.\n", channel_number + 1);
-        } else if (pixel_count <= INPUT_SIZE_8K_TH && config->enc_mode < ENC_M2) {
-            SVT_ERROR("Instance %u: 8K resolution support is limited to M2 and faster presets.\n", channel_number + 1);
-            return_error = EB_ErrorBadParameter;
-        } else {
-            SVT_ERROR("Instance %u: 16K resolution support is limited to M8 and faster presets.\n", channel_number + 1);
+    if (pixel_count >= INPUT_SIZE_8K_TH) {
+        if (config->enc_mode >= ENC_M2 && config->enc_mode <= ENC_M7) {
+            SVT_WARN("Instance %u: 8K and higher resolution support below M8 isn't officially supported. 64 GB of available memory are recommended.\n", channel_number + 1);
+        } else if (config->enc_mode < ENC_M2) {
+            SVT_ERROR("Instance %u: 8K and higher resolution support is limited to M2 and faster presets.\n", channel_number + 1);
             return_error = EB_ErrorBadParameter;
         }
     }
@@ -1068,7 +1075,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->enable_qm    = 1;
     config_ptr->min_qm_level = 0;
     config_ptr->max_qm_level = 15;
-    config_ptr->min_chroma_qm_level = 0;
+    config_ptr->min_chroma_qm_level = 8;
     config_ptr->max_chroma_qm_level = 15;
 
     config_ptr->startup_mg_size                   = 0;

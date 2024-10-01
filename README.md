@@ -56,9 +56,9 @@ Increases video quality temporal consistency, especially with clips that contain
 
 Enables a more accurate loop filter that prevents blocking, for a modest increase in compute time (most noticeable at presets 7 to 9).
 
-- `Higher-quality presets for 8K`
+- `Higher-quality presets for 8K and 16K`
 
-Lowers the minimum available preset from 8 to 2 for higher-quality 8K encoding (64 GB of RAM recommended per encoding instance).
+Lowers the minimum available preset from 8 to 2 for higher-quality 8K and 16K encoding (64 GB of RAM recommended per encoding instance).
 
 - `--frame-luma-bias` *0 to 100*
 
@@ -82,7 +82,15 @@ Manually adjust temporal filtering strength to adjust the trade-off between fewe
 
 - `--chroma-qm-min` & `--chroma-qm-max` *0 to 15*
 
-Set the minimum & maximum quantization matrices for chroma planes. The defaults are 0 and 15, respectively. These options decouple chroma quantization matrix control from the luma quantization matrix options currently available, allowing for more control over chroma quality.
+Set the minimum & maximum quantization matrices for chroma planes. The defaults are 8 and 15, respectively. These options decouple chroma quantization matrix control from the luma quantization matrix options currently available, allowing for more control over chroma quality.
+
+- `Odd dimension encoding support`
+
+Allows the encoder to accept content with odd width and/or height (e.g. 1920x817px). Gone are the "Source Width/Height must be even for YUV_420 colorspace" messages.
+
+- `Reduced minimum width/height requirements`
+
+Allows the encoder to accept content with width and/or height as small as 4 pixels (e.g. 32x18px).
 
 ### Modified Defaults
 
@@ -129,7 +137,7 @@ One way to get involved is to use SVT-AV1-PSY in your own AV1 encoding projects,
 - [rAV1ator CLI](https://github.com/gianni-rosato/rav1ator-cli) ~ a TUI for video encoding with Av1an by @gianni-rosato
 - [SVT-AV1-PSY on the AUR](https://aur.archlinux.org/packages/svt-av1-psy-git) ~ by @BlueSwordM
 - [SVT-AV1-PSY in CachyOS](https://github.com/CachyOS/CachyOS-PKGBUILDS/pull/144) ~ by @BlueSwordM
-- [Custom Handbrake Builds](https://github.com/vincejv/docker-handbrake) ~ by @vincejv
+- [Handbrake Builds](https://github.com/Nj0be/HandBrake-SVT-AV1-PSY) ~ by @Nj0be
 - [Staxrip](https://github.com/staxrip/staxrip) ~ a video & audio encoding GUI for Windows by @Dendraspis
 - [Av1ador](https://github.com/porcino/Av1ador) ~ an AV1/HEVC/VP9/H264 parallel encoder GUI for FFmpeg by @porcino
 
