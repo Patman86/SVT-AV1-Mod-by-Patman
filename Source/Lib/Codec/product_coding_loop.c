@@ -2507,7 +2507,6 @@ static int md_subpel_search(SUBPEL_STAGE       search_stage, //ME or PME
 
     const Av1Common *const cm = pcs->ppcs->av1_cm;
     MacroBlockD           *xd = ctx->blk_ptr->av1xd;
-
     // ref_mv is used to calculate the cost of the motion vector
     MV ref_mv;
     ref_mv.col = ctx->ref_mv.col;
@@ -2596,8 +2595,8 @@ static int md_subpel_search(SUBPEL_STAGE       search_stage, //ME or PME
     uint8_t early_exit = (ctx->is_intra_bordered && ctx->cand_reduction_ctrls.use_neighbouring_mode_ctrls.enabled) ||
         (md_subpel_ctrls.skip_zz_mv && best_mv.as_mv.col == 0 && best_mv.as_mv.row == 0) ||
         (ctx->blk_geom->sq_size <= md_subpel_ctrls.min_blk_sz);
-
-    int besterr = subpel_search_method(ctx,
+    ms_params->var_params.bias_fp = md_subpel_ctrls.bias_fp;
+    int besterr                   = subpel_search_method(ctx,
                                        xd,
                                        (const struct AV1Common *const)cm,
                                        ms_params,
@@ -2608,8 +2607,8 @@ static int md_subpel_search(SUBPEL_STAGE       search_stage, //ME or PME
                                        pcs->picture_qp,
                                        ctx->blk_geom->bsize,
                                        early_exit);
-    *me_mv_x    = best_mv.as_mv.col;
-    *me_mv_y    = best_mv.as_mv.row;
+    *me_mv_x                      = best_mv.as_mv.col;
+    *me_mv_y                      = best_mv.as_mv.row;
 
     return besterr;
 }
@@ -9863,18 +9862,16 @@ static EbErrorType md_rtime_alloc_palette_info(BlkStruct *md_blk_arr_nsq) {
  */
 static void init_block_data(PictureControlSet *pcs, ModeDecisionContext *ctx, const uint8_t blk_split_flag,
                             uint32_t blk_idx_mds) {
-    const BlockGeom *blk_geom         = ctx->blk_geom;
-    BlkStruct       *blk_ptr          = ctx->blk_ptr;
-    ctx->scale_palette                = 0;
-    ctx->blk_org_x                    = ctx->sb_origin_x + blk_geom->org_x;
-    ctx->blk_org_y                    = ctx->sb_origin_y + blk_geom->org_y;
-    ctx->round_origin_x               = ((ctx->blk_org_x >> 3) << 3);
-    ctx->round_origin_y               = ((ctx->blk_org_y >> 3) << 3);
-    blk_ptr->mds_idx                  = blk_idx_mds;
-    blk_ptr->split_flag               = blk_split_flag; //mdc indicates smallest or non valid CUs with split flag=
-    blk_ptr->qindex                   = ctx->qp_index;
-    blk_ptr->left_neighbor_partition  = INVALID_NEIGHBOR_DATA;
-    blk_ptr->above_neighbor_partition = INVALID_NEIGHBOR_DATA;
+    const BlockGeom *blk_geom = ctx->blk_geom;
+    BlkStruct       *blk_ptr  = ctx->blk_ptr;
+    ctx->scale_palette        = 0;
+    ctx->blk_org_x            = ctx->sb_origin_x + blk_geom->org_x;
+    ctx->blk_org_y            = ctx->sb_origin_y + blk_geom->org_y;
+    ctx->round_origin_x       = ((ctx->blk_org_x >> 3) << 3);
+    ctx->round_origin_y       = ((ctx->blk_org_y >> 3) << 3);
+    blk_ptr->mds_idx          = blk_idx_mds;
+    blk_ptr->split_flag       = blk_split_flag; //mdc indicates smallest or non valid CUs with split flag=
+    blk_ptr->qindex           = ctx->qp_index;
     //  MD palette info buffer
     if (svt_av1_allow_palette(pcs->ppcs->palette_level, blk_geom->bsize)) {
         if (blk_ptr->palette_mem == 0) {
@@ -10067,6 +10064,9 @@ static void process_block_light_pd0(SequenceControlSet *scs, PictureControlSet *
     ctx->blk_geom      = get_blk_geom_mds(blk_idx_mds);
     BlkStruct *blk_ptr = ctx->blk_ptr = &ctx->md_blk_arr_nsq[blk_idx_mds];
 
+    // Neighbour partition array is not updated in PD0, so set neighbour info to invalid.
+    blk_ptr->left_neighbor_partition  = INVALID_NEIGHBOR_DATA;
+    blk_ptr->above_neighbor_partition = INVALID_NEIGHBOR_DATA;
     init_block_data(pcs, ctx, blk_split_flag, blk_idx_mds);
     // Check current depth cost; if larger than parent, exit early
     check_curr_to_parent_cost_light_pd0(scs, pcs, ctx, next_non_skip_blk_idx_mds, md_early_exit_sq);
@@ -10102,6 +10102,9 @@ static void process_block_light_pd1(PictureControlSet *pcs, ModeDecisionContext 
     ctx->blk_geom = get_blk_geom_mds(blk_idx_mds);
     ctx->blk_ptr  = &ctx->md_blk_arr_nsq[blk_idx_mds];
 
+    // LPD1 assumes a fixed partition structure, so partition neighbour arrays (blk_ptr->left_neighbor_partition and
+    // blk_ptr->above_neighbor_partition) are not updated, and the neighbour arrays will not be accessed, since the
+    // partition rate is not needed (i.e. no calls to svt_aom_partition_rate_cost).
     init_block_data(pcs,
                     ctx,
                     FALSE, // blk_split_flag, - pred depth only; NSQ off
@@ -10486,6 +10489,38 @@ void svt_aom_mode_decision_sb_light_pd1(SequenceControlSet *scs, PictureControlS
 }
 
 /*
+Update the above and left neighbour partition for the square block. This is used in deriving the partition rate
+in svt_aom_partition_rate_cost.  The partition is always signaled with respect to the top left corner of the square
+block, so only derive the neighbours for the square blocks (even if they will not be tested).  Only square blocks
+are passed to svt_aom_partition_rate_cost.
+*/
+static void update_part_neighs(ModeDecisionContext *ctx) {
+    if (ctx->pd_pass == PD_PASS_0) {
+        ctx->blk_ptr->left_neighbor_partition  = INVALID_NEIGHBOR_DATA;
+        ctx->blk_ptr->above_neighbor_partition = INVALID_NEIGHBOR_DATA;
+        return;
+    }
+    assert(ctx->blk_geom->shape == PART_N);
+    uint32_t           blk_org_x                     = ctx->blk_org_x;
+    uint32_t           blk_org_y                     = ctx->blk_org_y;
+    NeighborArrayUnit *leaf_partition_na             = ctx->leaf_partition_na;
+    uint32_t           partition_left_neighbor_index = get_neighbor_array_unit_left_index(leaf_partition_na, blk_org_y);
+    uint32_t           partition_above_neighbor_index = get_neighbor_array_unit_top_index(leaf_partition_na, blk_org_x);
+
+    // Generate Partition context
+    ctx->blk_ptr->above_neighbor_partition =
+        (((PartitionContext *)leaf_partition_na->top_array)[partition_above_neighbor_index].above ==
+         (char)INVALID_NEIGHBOR_DATA)
+        ? 0
+        : ((PartitionContext *)leaf_partition_na->top_array)[partition_above_neighbor_index].above;
+
+    ctx->blk_ptr->left_neighbor_partition =
+        (((PartitionContext *)leaf_partition_na->left_array)[partition_left_neighbor_index].left ==
+         (char)INVALID_NEIGHBOR_DATA)
+        ? 0
+        : ((PartitionContext *)leaf_partition_na->left_array)[partition_left_neighbor_index].left;
+}
+/*
  * Loop over all passed blocks in an SB and perform mode decision for each block,
  * then output the optimal mode distribution/partitioning for the given SB.
  *
@@ -10536,6 +10571,10 @@ void svt_aom_mode_decision_sb(SequenceControlSet *scs, PictureControlSet *pcs, M
 
         assert(base_blk_idx_mds == ctx->blk_geom->sqi_mds);
         init_block_data(pcs, ctx, blk_split_flag, base_blk_idx_mds);
+
+        // Update the left and above partition neighbours for the square block, which are used to derive
+        // the partition rate
+        update_part_neighs(ctx);
 
         // Use more conservative NSQ settings in the presence of a high energy area
         if (!ctx->md_disallow_nsq_search && ctx->nsq_search_ctrls.high_energy_weight &&

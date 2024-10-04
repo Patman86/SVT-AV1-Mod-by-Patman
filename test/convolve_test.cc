@@ -735,6 +735,24 @@ INSTANTIATE_TEST_SUITE_P(ConvolveTestY_NEON, AV1LbdJntConvolveTest,
 INSTANTIATE_TEST_SUITE_P(ConvolveTestCOPY_NEON, AV1LbdJntConvolveTest,
                          BuildParamsLbd(0, 0,
                                         svt_av1_jnt_convolve_2d_copy_neon));
+
+#if HAVE_NEON_DOTPROD
+INSTANTIATE_TEST_SUITE_P(ConvolveTest2D_NEON_DOTPROD, AV1LbdJntConvolveTest,
+                         BuildParamsLbd(1, 1,
+                                        svt_av1_jnt_convolve_2d_neon_dotprod));
+INSTANTIATE_TEST_SUITE_P(ConvolveTestX_NEON_DOTPROD, AV1LbdJntConvolveTest,
+                         BuildParamsLbd(1, 0,
+                                        svt_av1_jnt_convolve_x_neon_dotprod));
+#endif  // HAVE_DOTPROD
+
+#if HAVE_NEON_I8MM
+INSTANTIATE_TEST_SUITE_P(ConvolveTest2D_NEON_I8MM, AV1LbdJntConvolveTest,
+                         BuildParamsLbd(1, 1,
+                                        svt_av1_jnt_convolve_2d_neon_i8mm));
+INSTANTIATE_TEST_SUITE_P(ConvolveTestX_NEON_I8MM, AV1LbdJntConvolveTest,
+                         BuildParamsLbd(1, 0,
+                                        svt_av1_jnt_convolve_x_neon_i8mm));
+#endif  // HAVE_NEON_I8MM
 #endif  // ARCH_AARCH64
 
 class AV1LbdSrConvolveTest : public AV1LbdConvolveTest {
@@ -806,11 +824,33 @@ INSTANTIATE_TEST_SUITE_P(ConvolveTestY_NEON, AV1LbdSrConvolveTest,
 INSTANTIATE_TEST_SUITE_P(ConvolveTestCOPY_NEON, AV1LbdSrConvolveTest,
                          BuildParamsLbd(0, 0,
                                         svt_av1_convolve_2d_copy_sr_neon));
+
+#if HAVE_NEON_DOTPROD
+INSTANTIATE_TEST_SUITE_P(ConvolveTest2D_NEON_DOTPROD, AV1LbdSrConvolveTest,
+                         BuildParamsLbd(1, 1,
+                                        svt_av1_convolve_2d_sr_neon_dotprod));
+INSTANTIATE_TEST_SUITE_P(ConvolveTestX_NEON_DOTPROD, AV1LbdSrConvolveTest,
+                         BuildParamsLbd(1, 0,
+                                        svt_av1_convolve_x_sr_neon_dotprod));
+INSTANTIATE_TEST_SUITE_P(ConvolveTestY_NEON_DOTPROD, AV1LbdSrConvolveTest,
+                         BuildParamsLbd(0, 1,
+                                        svt_av1_convolve_y_sr_neon_dotprod));
+#endif  // HAVE_NEON_DOTPROD
+
+#if HAVE_NEON_I8MM
+INSTANTIATE_TEST_SUITE_P(ConvolveTest2D_NEON_I8MM, AV1LbdSrConvolveTest,
+                         BuildParamsLbd(1, 1,
+                                        svt_av1_convolve_2d_sr_neon_i8mm));
+INSTANTIATE_TEST_SUITE_P(ConvolveTestX_NEON_I8MM, AV1LbdSrConvolveTest,
+                         BuildParamsLbd(1, 0, svt_av1_convolve_x_sr_neon_i8mm));
+INSTANTIATE_TEST_SUITE_P(ConvolveTestY_NEON_I8MM, AV1LbdSrConvolveTest,
+                         BuildParamsLbd(0, 1, svt_av1_convolve_y_sr_neon_i8mm));
+#endif  // HAVE_NEON_I8MM
 #endif  // ARCH_AARCH64
 
 ::testing::internal::ParamGenerator<HighbdConvolveParam> BuildParamsHbd(
     int has_subx, int has_suby, highbd_convolve_func func) {
-    return ::testing::Combine(::testing::Range(8, 13, 2),
+    return ::testing::Combine(::testing::Range(8, 11, 2),
                               ::testing::Values(has_subx),
                               ::testing::Values(has_suby),
                               ::testing::Values(func),
@@ -986,11 +1026,24 @@ INSTANTIATE_TEST_SUITE_P(ConvolveTestX_NEON, AV1HbdJntConvolveTest,
 INSTANTIATE_TEST_SUITE_P(ConvolveTestY_NEON, AV1HbdJntConvolveTest,
                          BuildParamsHbd(0, 1,
                                         svt_av1_highbd_jnt_convolve_y_neon));
-// not yet ported
-// INSTANTIATE_TEST_SUITE_P(ConvolveTestCOPY_NEON, AV1HbdJntConvolveTest,
-//                         BuildParamsHbd(0, 0,
-//                         svt_av1_highbd_jnt_convolve_2d_copy_neon));
+INSTANTIATE_TEST_SUITE_P(
+    ConvolveTestCOPY_NEON, AV1HbdJntConvolveTest,
+    BuildParamsHbd(0, 0, svt_av1_highbd_jnt_convolve_2d_copy_neon));
 
+#if HAVE_SVE
+INSTANTIATE_TEST_SUITE_P(ConvolveTestX_SVE, AV1HbdJntConvolveTest,
+                         BuildParamsHbd(1, 0,
+                                        svt_av1_highbd_jnt_convolve_x_sve));
+#endif  // HAVE_SVE
+
+#if HAVE_SVE2
+INSTANTIATE_TEST_SUITE_P(ConvolveTest2D_SVE2, AV1HbdJntConvolveTest,
+                         BuildParamsHbd(1, 1,
+                                        svt_av1_highbd_jnt_convolve_2d_sve2));
+INSTANTIATE_TEST_SUITE_P(ConvolveTestY_SVE2, AV1HbdJntConvolveTest,
+                         BuildParamsHbd(0, 1,
+                                        svt_av1_highbd_jnt_convolve_y_sve2));
+#endif  // HAVE_SVE2
 #endif  // ARCH_AARCH64
 
 class AV1HbdSrConvolveTest : public AV1HbdConvolveTest {
@@ -1057,11 +1110,24 @@ INSTANTIATE_TEST_SUITE_P(ConvolveTestX_NEON, AV1HbdSrConvolveTest,
 INSTANTIATE_TEST_SUITE_P(ConvolveTestY_NEON, AV1HbdSrConvolveTest,
                          BuildParamsHbd(0, 1,
                                         svt_av1_highbd_convolve_y_sr_neon));
-// Not yet implemented
-// INSTANTIATE_TEST_SUITE_P(ConvolveTestCOPY_NEON, AV1HbdSrConvolveTest,
-//                         BuildParamsHbd(0, 0,
-//                         svt_av1_highbd_convolve_2d_copy_sr_neon));
+INSTANTIATE_TEST_SUITE_P(
+    ConvolveTestCOPY_NEON, AV1HbdSrConvolveTest,
+    BuildParamsHbd(0, 0, svt_av1_highbd_convolve_2d_copy_sr_neon));
 
+#if HAVE_SVE
+INSTANTIATE_TEST_SUITE_P(ConvolveTestX_SVE, AV1HbdSrConvolveTest,
+                         BuildParamsHbd(1, 0,
+                                        svt_av1_highbd_convolve_x_sr_sve));
+#endif  // HAVE_SVE
+
+#if HAVE_SVE2
+INSTANTIATE_TEST_SUITE_P(ConvolveTest2D_SVE2, AV1HbdSrConvolveTest,
+                         BuildParamsHbd(1, 1,
+                                        svt_av1_highbd_convolve_2d_sr_sve2));
+INSTANTIATE_TEST_SUITE_P(ConvolveTestY_SVE2, AV1HbdSrConvolveTest,
+                         BuildParamsHbd(0, 1,
+                                        svt_av1_highbd_convolve_y_sr_sve2));
+#endif  // HAVE_SVE2
 #endif  // ARCH_AARCH64
 
 }  // namespace

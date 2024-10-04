@@ -353,6 +353,7 @@ static EbErrorType recon_coef_ctor(EncDecSet *object_ptr, EbPtr object_init_data
     coeff_init_data.top_padding        = 0;
     coeff_init_data.bot_padding        = 0;
     coeff_init_data.split_mode         = FALSE;
+    coeff_init_data.is_16bit_pipeline  = init_data_ptr->is_16bit_pipeline;
     for (sb_index = 0; sb_index < object_ptr->init_b64_total_count; ++sb_index) {
         EB_NEW(object_ptr->quantized_coeff[sb_index], //OMK2
                svt_picture_buffer_desc_ctor,
@@ -400,8 +401,10 @@ EbErrorType pcs_update_param(PictureControlSet *pcs) {
     if ((is_16bit) || (scs->is_16bit_pipeline)) {
         svt_picture_buffer_desc_update(pcs->input_frame16bit, (EbPtr)&coeff_buffer_desc_init_data);
     }
-    if (svt_aom_get_enable_restoration(
-            scs->static_config.enc_mode, scs->static_config.enable_restoration_filtering, scs->input_resolution)) {
+    if (svt_aom_get_enable_restoration(scs->static_config.enc_mode,
+                                       scs->static_config.enable_restoration_filtering,
+                                       scs->input_resolution,
+                                       scs->static_config.fast_decode)) {
         set_restoration_unit_size(scs->max_input_luma_width, scs->max_input_luma_height, 1, 1, pcs->rst_info);
     }
     pcs->frame_width  = scs->max_input_luma_width;
@@ -495,7 +498,8 @@ static EbErrorType picture_control_set_ctor(PictureControlSet *object_ptr, EbPtr
     object_ptr->scaled_input_pic                  = (EbPictureBufferDesc *)NULL;
     if (svt_aom_get_enable_restoration(init_data_ptr->enc_mode,
                                        init_data_ptr->static_config.enable_restoration_filtering,
-                                       init_data_ptr->input_resolution)) {
+                                       init_data_ptr->input_resolution,
+                                       init_data_ptr->static_config.fast_decode)) {
         set_restoration_unit_size(
             init_data_ptr->picture_width, init_data_ptr->picture_height, 1, 1, object_ptr->rst_info);
 

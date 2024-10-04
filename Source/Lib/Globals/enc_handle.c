@@ -782,8 +782,9 @@ static EbErrorType load_default_buffer_configuration_settings(
         scs->total_process_init_count += (scs->rest_process_init_count                        = clamp(2, 1, max_rest_proc));
     }
     else if (core_count <= PARALLEL_LEVEL_5_RANGE || scs->input_resolution <= INPUT_SIZE_1080p_RANGE) {
+        const uint8_t pa_processes = scs->static_config.pass == ENC_FIRST_PASS ? 12 : 4;
         scs->total_process_init_count += (scs->source_based_operations_process_init_count     = 1);
-        scs->total_process_init_count += (scs->picture_analysis_process_init_count            = clamp(4, 1, max_pa_proc));
+        scs->total_process_init_count += (scs->picture_analysis_process_init_count            = clamp(pa_processes, 1, max_pa_proc));
         scs->total_process_init_count += (scs->motion_estimation_process_init_count           = clamp(25, 1, max_me_proc));
         scs->total_process_init_count += (scs->tpl_disp_process_init_count                    = clamp(6, 1, max_tpl_proc));
         scs->total_process_init_count += (scs->mode_decision_configuration_process_init_count = clamp(2, 1, max_mdc_proc));
@@ -1276,6 +1277,7 @@ static int create_pa_ref_buf_descs(EbEncHandle *enc_handle_ptr, uint32_t instanc
         ref_pic_buf_desc_init_data.mfmv                = 0;
         ref_pic_buf_desc_init_data.is_16bit_pipeline   = FALSE;
         ref_pic_buf_desc_init_data.enc_mode            = scs->static_config.enc_mode;
+        ref_pic_buf_desc_init_data.sb_total_count      = scs->sb_total_count;
 
         quart_pic_buf_desc_init_data.max_width = scs->max_input_luma_width >> 1;
         quart_pic_buf_desc_init_data.max_height = scs->max_input_luma_height >> 1;
@@ -1287,11 +1289,11 @@ static int create_pa_ref_buf_descs(EbEncHandle *enc_handle_ptr, uint32_t instanc
         quart_pic_buf_desc_init_data.top_padding = scs->b64_size >> 1;
         quart_pic_buf_desc_init_data.bot_padding = scs->b64_size >> 1;
         quart_pic_buf_desc_init_data.split_mode = FALSE;
-        quart_pic_buf_desc_init_data.down_sampled_filtered = (scs->down_sampling_method_me_search == ME_FILTERED_DOWNSAMPLED) ? TRUE : FALSE;
         quart_pic_buf_desc_init_data.rest_units_per_tile = scs->rest_units_per_tile;
         quart_pic_buf_desc_init_data.mfmv                = 0;
         quart_pic_buf_desc_init_data.is_16bit_pipeline   = FALSE;
         quart_pic_buf_desc_init_data.enc_mode            = scs->static_config.enc_mode;
+        quart_pic_buf_desc_init_data.sb_total_count      = scs->sb_total_count;
 
         sixteenth_pic_buf_desc_init_data.max_width = scs->max_input_luma_width >> 2;
         sixteenth_pic_buf_desc_init_data.max_height = scs->max_input_luma_height >> 2;
@@ -1303,11 +1305,11 @@ static int create_pa_ref_buf_descs(EbEncHandle *enc_handle_ptr, uint32_t instanc
         sixteenth_pic_buf_desc_init_data.top_padding = scs->b64_size >> 2;
         sixteenth_pic_buf_desc_init_data.bot_padding = scs->b64_size >> 2;
         sixteenth_pic_buf_desc_init_data.split_mode = FALSE;
-        sixteenth_pic_buf_desc_init_data.down_sampled_filtered = (scs->down_sampling_method_me_search == ME_FILTERED_DOWNSAMPLED) ? TRUE : FALSE;
         sixteenth_pic_buf_desc_init_data.rest_units_per_tile = scs->rest_units_per_tile;
         sixteenth_pic_buf_desc_init_data.mfmv                = 0;
         sixteenth_pic_buf_desc_init_data.is_16bit_pipeline   = FALSE;
         sixteenth_pic_buf_desc_init_data.enc_mode            = scs->static_config.enc_mode;
+        sixteenth_pic_buf_desc_init_data.sb_total_count      = scs->sb_total_count;
 
         eb_pa_ref_obj_ect_desc_init_data_structure.reference_picture_desc_init_data = ref_pic_buf_desc_init_data;
         eb_pa_ref_obj_ect_desc_init_data_structure.quarter_picture_desc_init_data = quart_pic_buf_desc_init_data;
@@ -1355,7 +1357,6 @@ static int create_tpl_ref_buf_descs(EbEncHandle *enc_handle_ptr, uint32_t instan
     ref_pic_buf_desc_init_data.enc_mode = scs->static_config.enc_mode;
 
     ref_pic_buf_desc_init_data.rest_units_per_tile = 0;// rest not needed in tpl scs->rest_units_per_tile;
-    ref_pic_buf_desc_init_data.down_sampled_filtered = (scs->down_sampling_method_me_search == ME_FILTERED_DOWNSAMPLED) ? TRUE : FALSE;
     ref_pic_buf_desc_init_data.sb_total_count = scs->sb_total_count;
 
     eb_tpl_ref_obj_ect_desc_init_data_structure.reference_picture_desc_init_data = ref_pic_buf_desc_init_data;
@@ -1405,7 +1406,6 @@ static int create_ref_buf_descs(EbEncHandle *enc_handle_ptr, uint32_t instance_i
     // Hsan: split_mode is set @ eb_reference_object_ctor() as both unpacked reference and packed reference are needed for a 10BIT input; unpacked reference @ MD, and packed reference @ EP
 
     ref_pic_buf_desc_init_data.split_mode = FALSE;
-    ref_pic_buf_desc_init_data.down_sampled_filtered = FALSE;
     ref_pic_buf_desc_init_data.enc_mode = scs->static_config.enc_mode;
     if (is_16bit)
         ref_pic_buf_desc_init_data.bit_depth = EB_TEN_BIT;
@@ -3304,7 +3304,7 @@ static void derive_tf_params(SequenceControlSet *scs) {
             tf_level = 0;
         else
             tf_level = scs->static_config.screen_content_mode == 1 ? 0 :
-            enc_mode <= ENC_M9 ? scs->input_resolution >= INPUT_SIZE_720p_RANGE ? 1 : 0 : scs->input_resolution >= INPUT_SIZE_720p_RANGE ? 2 : 0;
+            enc_mode <= ENC_M8 ? scs->input_resolution >= INPUT_SIZE_720p_RANGE ? 1 : 0 : scs->input_resolution >= INPUT_SIZE_720p_RANGE ? 2 : 0;
         tf_ld_controls(scs, tf_level);
         return;
     }
@@ -3320,13 +3320,13 @@ static void derive_tf_params(SequenceControlSet *scs) {
     else if (enc_mode <= ENC_M4) {
         tf_level = 3;
     }
-    else if (enc_mode <= ENC_M7) {
+    else if (enc_mode <= ENC_M6) {
         tf_level = 4;
     }
-    else if (enc_mode <= ENC_M9) {
+    else if (enc_mode <= ENC_M8) {
         tf_level = resolution <= INPUT_SIZE_720p_RANGE && hierarchical_levels <= 4 ? 5 : 6;
     }
-    else if (enc_mode <= ENC_M10) {
+    else if (enc_mode <= ENC_M9) {
         tf_level = 8;
     } else {
         tf_level = 9;
@@ -3698,13 +3698,13 @@ void set_multi_pass_params(SequenceControlSet *scs)
             break;
         }
         case ENC_FIRST_PASS: {
-            if (config->enc_mode <= ENC_M10)
+            if (config->enc_mode <= ENC_M9)
                 set_first_pass_ctrls(scs, 0);
             else
                 set_first_pass_ctrls(scs, 1);
             scs->final_pass_preset = config->enc_mode;
-            if (scs->final_pass_preset <= ENC_M8)
-                scs->static_config.enc_mode = ENC_M11;
+            if (scs->final_pass_preset <= ENC_M7)
+                scs->static_config.enc_mode = ENC_M10;
             else
                 scs->static_config.enc_mode = MAX_ENC_PRESET;
             scs->static_config.rate_control_mode = SVT_AV1_RC_MODE_CQP_OR_CRF;
@@ -3738,7 +3738,7 @@ void set_multi_pass_params(SequenceControlSet *scs)
     if (scs->lap_rc) {
         scs->static_config.intra_refresh_type = SVT_AV1_KF_REFRESH;
     }
-    if (scs->static_config.pass == ENC_FIRST_PASS && scs->final_pass_preset > ENC_M8)
+    if (scs->static_config.pass == ENC_FIRST_PASS && scs->final_pass_preset > ENC_M7)
         scs->rc_stat_gen_pass_mode = 1;
     else
         scs->rc_stat_gen_pass_mode = 0;
@@ -3933,7 +3933,8 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     // when resize mode is used, use sb 64 because of a r2r when 128 is used
     // In low delay mode, sb size is set to 64
     // in 240P resolution, sb size is set to 64
-    if (scs->static_config.resize_mode > RESIZE_NONE ||
+    if ((scs->static_config.fast_decode && scs->static_config.qp <= 56 && !(scs->input_resolution <= INPUT_SIZE_360p_RANGE)) ||
+        scs->static_config.resize_mode > RESIZE_NONE ||
         scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B ||
         (scs->input_resolution == INPUT_SIZE_240p_RANGE) ||
         scs->static_config.enable_variance_boost)
@@ -3956,7 +3957,7 @@ static void set_param_based_on_input(SequenceControlSet *scs)
                     scs->super_block_size = 128;
             }
         }
-        else if (scs->static_config.enc_mode <= ENC_M7) {
+        else if (scs->static_config.enc_mode <= ENC_M6) {
             if (scs->static_config.qp <= 56)
                 scs->super_block_size = 64;
             else
@@ -4093,11 +4094,6 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     //1: OFF
     // Memory Footprint reduction tool ONLY if no CDF (should be controlled using an API signal and not f(enc_mode))
     scs->cdf_mode = 0;
-    // Set down-sampling method     Settings
-    // 0                            0: filtering
-    // 1                            1: decimation
-
-    scs->down_sampling_method_me_search = ME_FILTERED_DOWNSAMPLED;
 
     // Enforce starting frame in decode order (at PicMgr)
     // Does not wait for feedback from PKT
@@ -4133,33 +4129,23 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         list0_only_base_lvl = 0;
     else if (scs->static_config.enc_mode <= ENC_M5)
         list0_only_base_lvl = 3;
-    else if (scs->static_config.enc_mode <= ENC_M7)
+    else if (scs->static_config.enc_mode <= ENC_M6)
         list0_only_base_lvl = 4;
     else
         list0_only_base_lvl = 6;
-#if !OPT_LIST0_ONLY_HIGH_QP_BAND
+
     if (scs->static_config.qp > 51)
         list0_only_base_lvl = MAX(0, (int)((int)list0_only_base_lvl - 1));
-#endif
+
     set_list0_only_base(scs, list0_only_base_lvl);
 
     if (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_VBR || scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR ||
         scs->input_resolution >= INPUT_SIZE_4K_RANGE ||
-#if OPT_FAST_DECODE_LVLS
         scs->static_config.fast_decode !=0 ||
-#else
-        scs->static_config.fast_decode == 1 ||
-#endif
-        scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B || scs->static_config.pass != ENC_SINGLE_PASS || scs->static_config.enc_mode >= ENC_M10)
+        scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B || scs->static_config.pass != ENC_SINGLE_PASS || scs->static_config.enc_mode >= ENC_M9)
         scs->enable_dg = 0;
     else
         scs->enable_dg = scs->static_config.enable_dg;
-
-#if OPT_FAST_DECODE_LVLS
-    // Multi fast-decode levels only supported for M7
-    if (scs->static_config.fast_decode != 0 && scs->static_config.enc_mode != ENC_M7)
-        scs->static_config.fast_decode = 1;
-#endif
     // Set hbd_md OFF for high encode modes or bitdepth < 10
     if (scs->static_config.encoder_bit_depth < 10)
         scs->enable_hbd_mode_decision = 0;
@@ -4172,7 +4158,7 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     uint8_t mrp_level;
 
     if (scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) {
-        if (scs->static_config.enc_mode <= ENC_M11) {
+        if (scs->static_config.enc_mode <= ENC_M10) {
             mrp_level = 10;
         }
         else {
@@ -4181,19 +4167,28 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     }
     else {
         if (scs->static_config.enc_mode <= ENC_MR) {
-            mrp_level = 1;
+            if (!(scs->input_resolution <= INPUT_SIZE_360p_RANGE) && !(scs->static_config.fast_decode <= 1))
+                mrp_level = 9;
+            else
+                mrp_level = 1;
         }
         else if (scs->static_config.enc_mode <= ENC_M1) {
-            mrp_level = 2;
+            if (!(scs->input_resolution <= INPUT_SIZE_360p_RANGE) && !(scs->static_config.fast_decode <= 1))
+                mrp_level = 9;
+            else
+                mrp_level = 2;
         }
         else if (scs->static_config.enc_mode <= ENC_M4) {
-            mrp_level = 5;
-        }
-        // any changes for preset ENC_M8 and higher should be separated for VBR and CRF in the control structure below
-        else if (scs->static_config.rate_control_mode != SVT_AV1_RC_MODE_VBR) {
-            if (scs->static_config.enc_mode <= ENC_M9)
+            if (!(scs->input_resolution <= INPUT_SIZE_360p_RANGE) && !(scs->static_config.fast_decode <= 1))
                 mrp_level = 9;
-            else if (scs->static_config.enc_mode <= ENC_M11)
+            else
+                mrp_level = 5;
+        }
+        // any changes for preset ENC_M7 and higher should be separated for VBR and CRF in the control structure below
+        else if (scs->static_config.rate_control_mode != SVT_AV1_RC_MODE_VBR) {
+            if (scs->static_config.enc_mode <= ENC_M8)
+                mrp_level = 9;
+            else if (scs->static_config.enc_mode <= ENC_M10)
                 mrp_level = 10;
             else
                 mrp_level = 0;
@@ -4211,7 +4206,7 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         scs->vq_ctrls.sharpness_ctrls.tf == 1                ||
         scs->static_config.enable_variance_boost)
         scs->calculate_variance = 1;
-    else if (scs->static_config.enc_mode <= ENC_M7)
+    else if (scs->static_config.enc_mode <= ENC_M6)
         scs->calculate_variance = 1;
     else
         scs->calculate_variance = 0;
@@ -4224,7 +4219,7 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         : 0;
     scs->low_latency_kf = ((scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_P
         || scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) &&
-        scs->static_config.enc_mode <= ENC_M10)
+        scs->static_config.enc_mode <= ENC_M9)
         ? 1
         : 0;
 
@@ -4261,22 +4256,18 @@ static void copy_api_from_app(
     scs->static_config.multiply_keyint = config_struct->multiply_keyint;
     scs->static_config.intra_refresh_type = ((EbSvtAv1EncConfiguration*)config_struct)->intra_refresh_type;
     scs->static_config.enc_mode = ((EbSvtAv1EncConfiguration*)config_struct)->enc_mode;
-    if (scs->static_config.enc_mode == ENC_M6) {
-        scs->static_config.enc_mode = ENC_M7;
-        SVT_WARN("Preset M6 is mapped to M7.\n");
-    }
-    else if (scs->static_config.enc_mode == ENC_M12) {
-        scs->static_config.enc_mode = ENC_M13;
-        SVT_WARN("Preset M12 is mapped to M13.\n");
+    if (scs->static_config.enc_mode > ENC_M11) {
+        SVT_WARN("Preset M%d is mapped to M11.\n", scs->static_config.enc_mode);
+        scs->static_config.enc_mode = ENC_M11;
     }
 
     EbInputResolution input_resolution;
     svt_aom_derive_input_resolution(
         &input_resolution,
         scs->max_input_luma_width * scs->max_input_luma_height);
-    if (scs->static_config.pred_structure == SVT_AV1_PRED_RANDOM_ACCESS && scs->static_config.enc_mode > ENC_M11 && input_resolution >= INPUT_SIZE_4K_RANGE) {
-        scs->static_config.enc_mode = ENC_M11;
-        SVT_WARN("Setting preset to M11 as it is the highest supported preset for 4k and higher resolutions in Random Access mode\n");
+    if (scs->static_config.pred_structure == SVT_AV1_PRED_RANDOM_ACCESS && scs->static_config.enc_mode > ENC_M10 && input_resolution >= INPUT_SIZE_4K_RANGE) {
+        scs->static_config.enc_mode = ENC_M10;
+        SVT_WARN("Setting preset to M10 as it is the highest supported preset for 4k and higher resolutions in Random Access mode\n");
     }
 
     scs->static_config.use_qp_file = ((EbSvtAv1EncConfiguration*)config_struct)->use_qp_file;
@@ -4329,14 +4320,10 @@ static void copy_api_from_app(
 
     // If the set fast_decode value is in the allowable range, check that the value is supported for the current preset.
     // If the value is valid, but not supported in the current preset, change the value to one that is supported.
-#if OPT_FAST_DECODE_LVLS
     if (scs->static_config.fast_decode != 0) {
-#else
-    if (scs->static_config.fast_decode == 1) {
-#endif
-        if (scs->static_config.enc_mode <= ENC_M0 || scs->static_config.enc_mode >= ENC_M11) {
+        if (scs->static_config.enc_mode >= ENC_M9) {
             SVT_WARN("The fast decode option is not supported in M%d.\n", scs->static_config.enc_mode);
-            SVT_WARN("Decoder speedup is only supported in presets M1-M10.\n");
+            SVT_WARN("Decoder speedup is only supported in presets MR-M9.\n");
             SVT_WARN("Switching off decoder speedup optimizations.\n");
             scs->static_config.fast_decode = 0;
         }
@@ -4383,9 +4370,9 @@ static void copy_api_from_app(
     scs->static_config.rate_control_mode = ((EbSvtAv1EncConfiguration*)config_struct)->rate_control_mode;
     if (scs->static_config.pass == ENC_SINGLE_PASS && scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) {
 
-        if (scs->static_config.enc_mode < ENC_M8) {
-            scs->static_config.enc_mode = ENC_M8;
-            SVT_WARN("Low delay mode only support encodermode [8-%d]. Forcing encoder mode to 8\n", ENC_M13);
+        if (scs->static_config.enc_mode < ENC_M7) {
+            scs->static_config.enc_mode = ENC_M7;
+            SVT_WARN("Low delay mode only support encodermode [7-%d]. Forcing encoder mode to 7\n", ENC_M13);
         }
     }
     scs->static_config.tune = config_struct->tune;
@@ -4395,14 +4382,10 @@ static void copy_api_from_app(
     if (scs->static_config.hierarchical_levels == 0) {
         scs->static_config.hierarchical_levels = scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B ?
             2 :
-#if OPT_FAST_DECODE_LVLS
             scs->static_config.fast_decode != 0 ||
-#else
-            scs->static_config.fast_decode == 1 ||
-#endif
             scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_VBR || scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR ||
-            (input_resolution >= INPUT_SIZE_1080p_RANGE && scs->static_config.enc_mode >= ENC_M10) ||
-            !(scs->static_config.enc_mode <= ENC_M10) || input_resolution >= INPUT_SIZE_8K_RANGE
+            (input_resolution >= INPUT_SIZE_1080p_RANGE && scs->static_config.enc_mode >= ENC_M9) ||
+            !(scs->static_config.enc_mode <= ENC_M9) || input_resolution >= INPUT_SIZE_8K_RANGE
                 ? 4
                 : 5;
     }
@@ -5496,6 +5479,7 @@ EB_API EbErrorType svt_av1_enc_get_packet(
     EbEncHandle          *enc_handle = (EbEncHandle*)svt_enc_component->p_component_private;
     EbObjectWrapper      *eb_wrapper_ptr = NULL;
     EbBufferHeaderType    *packet;
+    const EbSvtAv1EncConfiguration* cfg = &enc_handle->scs_instance_array[0]->scs->static_config;
 
     // check if the user is claiming that the last picture has been sent
     // without actually signalling it through svt_av1_enc_send_picture()
@@ -5508,7 +5492,7 @@ EB_API EbErrorType svt_av1_enc_get_packet(
         return EB_NoErrorEmptyQueue;
     }
 
-    if (pic_send_done)
+    if (pic_send_done || cfg->pred_structure == SVT_AV1_PRED_LOW_DELAY_B)
         svt_get_full_object(
             enc_handle->output_stream_buffer_consumer_fifo_ptr,
             &eb_wrapper_ptr);

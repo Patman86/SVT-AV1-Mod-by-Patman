@@ -126,7 +126,7 @@ elseif(NOT COMPILE_C_ONLY AND HAVE_ARM_PLATFORM)
             # produced by certain versions of GCC, leading to the feature being
             # incorrectly marked as available.
             set(OLD_CMAKE_REQURED_FLAGS ${CMAKE_REQUIRED_FLAGS})
-            set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${AOM_${flavor}_FLAG}")
+            set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${${flavor}_FLAG}")
             unset(${flavor}_FLAG_SUPPORTED)
             check_c_source_compiles("static void function(void) {} ${C_MAIN}" ${flavor}_FLAG_SUPPORTED)
             set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
@@ -176,6 +176,7 @@ svfloat32_t func(svfloat32_t a) {
     endforeach()
 
     add_definitions(-DARCH_AARCH64=1)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-lax-vector-conversions")
 endif()
 
 include(GNUInstallDirs)
@@ -395,21 +396,16 @@ macro(add_clike_and_ld_flags)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${add_clike_and_ld_flags}")
 endmacro()
 
-
-option(SVT_AV1_LTO "Attempt to enable Link Time Optimization if available" OFF)
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL "9.0")
+    option(SVT_AV1_LTO "Attempt to enable Link Time Optimization if available" ON)
+else()
+    option(SVT_AV1_LTO "Attempt to enable Link Time Optimization if available" OFF)
+endif()
 if(SVT_AV1_LTO)
-    if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.9)
-        include(CheckIPOSupported)
-        check_ipo_supported(RESULT svt_av1_ipo_supported)
-        if(svt_av1_ipo_supported AND NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION)
-            set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
-        endif()
-    else()
-        if(MSVC)
-            add_clike_and_ld_flags(/LTCG:INCREMENTAL)
-        else()
-            add_clike_and_ld_flags(-flto)
-        endif()
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT svt_av1_ipo_supported)
+    if(svt_av1_ipo_supported AND NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
     endif()
 endif()
 
@@ -426,7 +422,7 @@ else()
         check_both_flags_add(-march=native)
     endif()
     if(MINGW)
-        check_both_flags_add(-mxsave -fno-asynchronous-unwind-tables)
+        check_flags_add(C -mxsave -fno-asynchronous-unwind-tables)
     else()
         check_both_flags_add(-fstack-protector-strong)
         check_both_flags_add(PREPEND -fno-stack-clash-protection)
@@ -576,6 +572,19 @@ include_directories(.)
 # Find out if we have threading available
 set(CMAKE_THREAD_PREFER_PTHREADS ON)
 find_package(Threads)
+
+check_symbol_exists(elf_aux_info "sys/auxv.h" HAVE_ELF_AUX_INFO)
+if(HAVE_ELF_AUX_INFO)
+    set_property(DIRECTORY .
+        APPEND
+        PROPERTY COMPILE_DEFINITIONS
+            HAVE_ELF_AUX_INFO=1)
+else()
+    set_property(DIRECTORY .
+        APPEND
+        PROPERTY COMPILE_DEFINITIONS
+            HAVE_ELF_AUX_INFO=0)
+endif()
 
 string(TOLOWER "${SANITIZER}" SANITIZER)
 

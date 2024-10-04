@@ -133,10 +133,6 @@ const InterpKernel svt_aom_av1_filteredinterp_filters875[(1 << RS_SUBPEL_BITS)] 
     {-1, 3, -8, 15, 112, 12, -7, 2},
 };
 
-void svt_aom_downsample_decimation_input_picture(PictureParentControlSet *pcs, EbPictureBufferDesc *input_padded_pic,
-                                                 EbPictureBufferDesc *quarter_decimated_picture_ptr,
-                                                 EbPictureBufferDesc *sixteenth_decimated_picture_ptr);
-
 void svt_aom_downsample_filtering_input_picture(PictureParentControlSet *pcs, EbPictureBufferDesc *input_padded_pic,
                                                 EbPictureBufferDesc *quarter_picture_ptr,
                                                 EbPictureBufferDesc *sixteenth_picture_ptr);
@@ -1448,6 +1444,7 @@ static EbErrorType allocate_downscaled_source_reference_pics(EbPictureBufferDesc
     initData.bit_depth          = picture_ptr_for_reference->bit_depth;
     initData.color_format       = picture_ptr_for_reference->color_format;
     initData.split_mode         = (picture_ptr_for_reference->bit_depth > EB_EIGHT_BIT) ? TRUE : FALSE;
+    initData.is_16bit_pipeline  = (picture_ptr_for_reference->bit_depth > EB_EIGHT_BIT) ? TRUE : FALSE;
     initData.left_padding       = picture_ptr_for_reference->org_x;
     initData.right_padding      = picture_ptr_for_reference->org_x;
 
@@ -1462,6 +1459,7 @@ static EbErrorType allocate_downscaled_source_reference_pics(EbPictureBufferDesc
     initData.bit_depth          = picture_ptr_for_reference->bit_depth;
     initData.color_format       = picture_ptr_for_reference->color_format;
     initData.split_mode         = (picture_ptr_for_reference->bit_depth > EB_EIGHT_BIT) ? TRUE : FALSE;
+    initData.is_16bit_pipeline  = (picture_ptr_for_reference->bit_depth > EB_EIGHT_BIT) ? TRUE : FALSE;
     initData.left_padding       = picture_ptr_for_reference->org_x >> 1;
     initData.right_padding      = picture_ptr_for_reference->org_x >> 1;
     initData.top_padding        = picture_ptr_for_reference->org_y >> 1;
@@ -1475,6 +1473,7 @@ static EbErrorType allocate_downscaled_source_reference_pics(EbPictureBufferDesc
     initData.bit_depth          = picture_ptr_for_reference->bit_depth;
     initData.color_format       = picture_ptr_for_reference->color_format;
     initData.split_mode         = (picture_ptr_for_reference->bit_depth > EB_EIGHT_BIT) ? TRUE : FALSE;
+    initData.is_16bit_pipeline  = (picture_ptr_for_reference->bit_depth > EB_EIGHT_BIT) ? TRUE : FALSE;
     initData.left_padding       = picture_ptr_for_reference->org_x >> 2;
     initData.right_padding      = picture_ptr_for_reference->org_x >> 2;
     initData.top_padding        = picture_ptr_for_reference->org_y >> 2;
@@ -1553,19 +1552,11 @@ void scale_source_references(SequenceControlSet *scs, PictureParentControlSet *p
                                          0); // is_2bcompress
 
                     // 1/4 & 1/16 input picture downsampling
-                    if (scs->down_sampling_method_me_search == ME_FILTERED_DOWNSAMPLED) {
-                        svt_aom_downsample_filtering_input_picture(
-                            pcs,
-                            down_ref_pic_ptr,
-                            ref_object->downscaled_quarter_downsampled_picture_ptr[sr_denom_idx][resize_denom_idx],
-                            ref_object->downscaled_sixteenth_downsampled_picture_ptr[sr_denom_idx][resize_denom_idx]);
-                    } else {
-                        svt_aom_downsample_decimation_input_picture(
-                            pcs,
-                            down_ref_pic_ptr,
-                            ref_object->downscaled_quarter_downsampled_picture_ptr[sr_denom_idx][resize_denom_idx],
-                            ref_object->downscaled_sixteenth_downsampled_picture_ptr[sr_denom_idx][resize_denom_idx]);
-                    }
+                    svt_aom_downsample_filtering_input_picture(
+                        pcs,
+                        down_ref_pic_ptr,
+                        ref_object->downscaled_quarter_downsampled_picture_ptr[sr_denom_idx][resize_denom_idx],
+                        ref_object->downscaled_sixteenth_downsampled_picture_ptr[sr_denom_idx][resize_denom_idx]);
 
                     ref_object->downscaled_picture_number[sr_denom_idx][resize_denom_idx] = ref_picture_number;
                 }
@@ -1617,19 +1608,11 @@ static void scale_input_references(PictureParentControlSet *pcs, superres_params
                       sizeof(uint8_t) * input_pic->stride_y);
 
         // 1/4 & 1/16 downsampled input picture
-        if (pcs->scs->down_sampling_method_me_search == ME_FILTERED_DOWNSAMPLED) {
-            svt_aom_downsample_filtering_input_picture(
-                pcs,
-                padded_pic_ptr,
-                src_object->downscaled_quarter_downsampled_picture_ptr[sr_denom_idx][resize_denom_idx],
-                src_object->downscaled_sixteenth_downsampled_picture_ptr[sr_denom_idx][resize_denom_idx]);
-        } else {
-            svt_aom_downsample_decimation_input_picture(
-                pcs,
-                padded_pic_ptr,
-                src_object->downscaled_quarter_downsampled_picture_ptr[sr_denom_idx][resize_denom_idx],
-                src_object->downscaled_sixteenth_downsampled_picture_ptr[sr_denom_idx][resize_denom_idx]);
-        }
+        svt_aom_downsample_filtering_input_picture(
+            pcs,
+            padded_pic_ptr,
+            src_object->downscaled_quarter_downsampled_picture_ptr[sr_denom_idx][resize_denom_idx],
+            src_object->downscaled_sixteenth_downsampled_picture_ptr[sr_denom_idx][resize_denom_idx]);
 
         src_object->downscaled_picture_number[sr_denom_idx][resize_denom_idx] = pcs->picture_number;
     }

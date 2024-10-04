@@ -109,7 +109,7 @@ Win64 FFmpeg (Static):
     GIT_DEPTH: 0
     PREFIX_DIR: C:/msys64/mingw64
   before_script:
-    - !reference [.ffmpeg-before-script-clone]
+    - !reference [.ffmpeg-before-script-clone-windows]
   script:
     # SVT-AV1
     - |
@@ -120,7 +120,6 @@ Win64 FFmpeg (Static):
         -DBUILD_SHARED_LIBS=OFF `
         -DCMAKE_INSTALL_PREFIX="$env:PREFIX_DIR" `
         -DBUILD_APPS=OFF `
-        -DBUILD_DEC=OFF `
         -DREPRODUCIBLE_BUILDS=ON || $(
           Get-Content svtav1-build/CMakeFiles/CMakeConfigureLog.yaml
           exit 1

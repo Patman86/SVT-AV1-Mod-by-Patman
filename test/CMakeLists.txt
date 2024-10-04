@@ -26,6 +26,7 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/Source/Lib/ASM_AVX2/
   ${PROJECT_SOURCE_DIR}/Source/Lib/ASM_AVX512/
   ${PROJECT_SOURCE_DIR}/Source/Lib/ASM_NEON/
+  ${PROJECT_SOURCE_DIR}/Source/Lib/ASM_SVE/
   ${PROJECT_SOURCE_DIR}/Source/Lib/Codec
   ${PROJECT_SOURCE_DIR}/Source/Lib/Globals
   ${PROJECT_SOURCE_DIR}/Source/App
@@ -81,20 +82,29 @@ set(arch_neutral_files
 
 set(multi_arch_files
     AdaptiveScanTest.cc
+    BlockErrorTest.cc
     CdefTest.cc
     CompoundUtilTest.cc
+    Convolve8Test.cc
     DeblockTest.cc
     EncodeTxbAsmTest.cc
     FilterIntraPredTest.cc
     FwdTxfm2dAsmTest.cc
     InvTxfm2dAsmTest.cc
+    OBMCSadTest.cc
+    OBMCVarianceTest.cc
     PackUnPackTest.cc
     PictureOperatorTest.cc
+    QuantAsmTest.cc
+    ResidualTest.cc
     RestorationPickTest.cc
     SadTest.cc
+    SatdTest.cc
+    SelfGuidedUtilTest.cc
     SpatialFullDistortionTest.cc
     TemporalFilterTestPlanewise.cc
     VarianceTest.cc
+    WedgeUtilTest.cc
     convolve_test.cc
     hadamard_test.cc
     intrapred_cfl_test.cc
@@ -119,14 +129,8 @@ if(HAVE_X86_PLATFORM)
       FwdTxfm2dTest.cc
       HbdVarianceTest.cc
       MotionEstimationTest.cc
-      OBMCSadTest.cc
-      OBMCVarianceTest.cc
       PaletteModeUtilTest.cc
       PsnrTest.cc
-      QuantAsmTest.cc
-      ResidualTest.cc
-      SelfGuidedUtilTest.cc
-      WedgeUtilTest.cc
       av1_convolve_scale_test.cc
       compute_mean_test.cc
       corner_match_test.cc
@@ -162,6 +166,18 @@ endif()
 
 if(HAVE_ARM_PLATFORM)
   set(arm_arch_lib_list $<TARGET_OBJECTS:ASM_NEON>)
+  if(ENABLE_NEON_DOTPROD)
+    list(APPEND arm_arch_lib_list $<TARGET_OBJECTS:ASM_NEON_DOTPROD>)
+  endif()
+  if(ENABLE_NEON_I8MM)
+    list(APPEND arm_arch_lib_list $<TARGET_OBJECTS:ASM_NEON_I8MM>)
+  endif()
+  if(ENABLE_SVE)
+    list(APPEND arm_arch_lib_list $<TARGET_OBJECTS:ASM_SVE>)
+  endif()
+  if(ENABLE_SVE2)
+    list(APPEND arm_arch_lib_list $<TARGET_OBJECTS:ASM_SVE2>)
+  endif()
 endif()
 
 set(all_files ${arch_neutral_files} ${multi_arch_files} ${x86_arch_files}

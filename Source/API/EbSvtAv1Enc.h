@@ -739,19 +739,12 @@ typedef struct EbSvtAv1EncConfiguration {
     /* DEPRECATED: to be removed in 1.5.0. */
     int32_t manual_pred_struct_entry_num;
 #endif
-#if OPT_FAST_DECODE_LVLS
     /* Decoder-speed-targeted encoder optimization level (produce bitstreams that can be decoded faster).
-    * 0: No decoder speed optimization
-    * -1, 1, 2, 3,..: Decoder speed optimization enabled
+    * 0: No decoder-targeted speed optimization
+    * 1: Level 1 of decoder-targeted speed optimizations (faster decoder-speed than level 0)
+    * 2: Level 2 of decoder-targeted speed optimizations (faster decoder-speed than level 1)
     */
-    int8_t fast_decode;
-#else
-    /* Decoder-speed-targeted encoder optimization level (produce bitstreams that can be decoded faster).
-    * 0: No decoder speed optimization
-    * 1: Decoder speed optimization enabled (fast decode)
-    */
-    Bool fast_decode;
-#endif
+    uint8_t fast_decode;
     /* S-Frame interval (frames)
     * 0: S-Frame off
     * >0: S-Frame on and indicates the number of frames after which a frame may be coded as an S-Frame
@@ -1036,12 +1029,16 @@ EB_API EbErrorType svt_av1_enc_stream_header_release(EbBufferHeaderType *stream_
      * @ *p_buffer           Header pointer, picture buffer. */
 EB_API EbErrorType svt_av1_enc_send_picture(EbComponentType *svt_enc_component, EbBufferHeaderType *p_buffer);
 
-/* STEP 5: Receive packet.
-     * Parameter:
-    * @ *svt_enc_component  Encoder handler.
-     * @ **p_buffer          Header pointer to return packet with.
-     * @ pic_send_done       Flag to signal that all input pictures have been sent, this call becomes locking one this signal is 1.
-     * Non-locking call, returns EB_ErrorMax for an encode error, EB_NoErrorEmptyQueue when the library does not have any available packets.*/
+/**
+ * @brief Step 5: Receive packet.
+ * This function will become blocking if either pic_send_done is set to 1 or if we are in low-delay (pred-struct=1).
+ * Otherwise, this function is non-blocking and will return EB_NoErrorEmptyQueue if there are no packets available.
+ *
+ * @param svt_enc_component The encoder handler
+ * @param p_buffer Header pointer to return packet with
+ * @param pic_send_done Flag to signal that all input pictures have been sent. Should be either 0 or 1.
+ * @return EB_API Either EB_ErrorMax for an encode error or EB_NoErrorEmptyQueue if there are no available packets.
+ */
 EB_API EbErrorType svt_av1_enc_get_packet(EbComponentType *svt_enc_component, EbBufferHeaderType **p_buffer,
                                           uint8_t pic_send_done);
 

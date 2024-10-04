@@ -229,12 +229,15 @@ typedef enum SqWeightOffsets {
     AGGRESSIVE_OFFSET_0   = -5,
     AGGRESSIVE_OFFSET_1   = -10
 } SqWeightOffsets;
-#define COEFF_LVL_TH_0 (5833 / 48)
-#define COEFF_LVL_TH_1 (16666 / 48)
+
+#define COEFF_LVL_TH_0 (5833 / 96)
+#define COEFF_LVL_TH_1 (5833 / 48)
+#define COEFF_LVL_TH_2 (16666 / 48)
 typedef enum InputCoeffLvl {
-    LOW_LVL     = 0,
-    NORMAL_LVL  = 1,
-    HIGH_LVL    = 2,
+    VLOW_LVL    = 0,
+    LOW_LVL     = 1,
+    NORMAL_LVL  = 2,
+    HIGH_LVL    = 3,
     INVALID_LVL = ~0,
 } InputCoeffLvl;
 typedef struct Buf2D {
@@ -2360,12 +2363,6 @@ void(*error_handler)(
 #define MAX_TEMPORAL_LAYERS                         6
 #define MAX_REF_IDX                                 4
 #define MAX_ELAPSED_IDR_COUNT                       1024
-
-typedef enum DownSamplingMethod
-{
-    ME_FILTERED_DOWNSAMPLED  = 0,
-    ME_DECIMATED_DOWNSAMPLED = 1
-} DownSamplingMethod;
 
 //***Segments***
 #define CU_MAX_COUNT                                85
