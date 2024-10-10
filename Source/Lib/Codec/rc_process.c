@@ -1459,7 +1459,13 @@ static int av1_get_deltaq_sb_variance_boost(uint8_t base_q_idx, uint16_t *varian
     } else {
         // alternative "flat" q step ratio curve (in log-variance domain)
         // prefers boosting mid-contrast content more over the regular curve (at a modest bitrate increase)
-        qstep_ratio = 0.25 * strength * (-log2((double)variance) + 8) + 1;
+        if (still_picture) {
+            // still picture curve, with variance crossover point at 1024
+            qstep_ratio = 0.15 * strength * (-log2((double)variance) + 10) + 1;
+        } else {
+            // regular curve for video, with variance crossover point at 256
+            qstep_ratio = 0.25 * strength * (-log2((double)variance) + 8) + 1;
+        }
     }
     qstep_ratio = CLIP3(1, VAR_BOOST_MAX_QSTEP_RATIO_BOOST, qstep_ratio);
 
@@ -1468,7 +1474,7 @@ static int av1_get_deltaq_sb_variance_boost(uint8_t base_q_idx, uint16_t *varian
     int32_t boost = 0;
 
     if (still_picture) {
-        boost = (int32_t)((base_q_idx + 192) * -svt_av1_compute_qdelta_fp(base_q, target_q, bit_depth) / (255 + 512));
+        boost = (int32_t)((base_q_idx + 496) * -svt_av1_compute_qdelta_fp(base_q, target_q, bit_depth) / (255 + 1024));
     } else {
         boost = (int32_t)((base_q_idx + 40) * -svt_av1_compute_qdelta_fp(base_q, target_q, bit_depth) / (255 + 40));
     }
