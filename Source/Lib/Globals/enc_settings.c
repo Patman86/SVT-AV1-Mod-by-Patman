@@ -558,11 +558,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
                   SUPERRES_AUTO);
         return_error = EB_ErrorBadParameter;
     }
-#if OPT_MPASS_VBR4 & !OPT_MPASS_VBR8
-    if (config->superres_mode > 0 && ((config->rc_stats_buffer.sz))) {
-#else
     if (config->superres_mode > 0 && ((config->rc_stats_buffer.sz || config->pass == ENC_FIRST_PASS))) {
-#endif
         SVT_ERROR("Instance %u: superres is not supported for 2-pass\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
@@ -650,8 +646,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     }
     // Limit 8K & 16K configurations ( due to  memory constraints)
     if ((uint64_t)(scs->max_input_luma_width * scs->max_input_luma_height) > INPUT_SIZE_4K_TH &&
-        config->enc_mode <= ENC_M6) {
-        SVT_ERROR("Instance %u: 8k+ resolution support is limited to M8 and faster presets.\n", channel_number + 1);
+        config->enc_mode <= ENC_M4) {
+        SVT_ERROR("Instance %u: 8k+ resolution support is limited to M5 and faster presets.\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -1030,11 +1026,9 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
     EbSvtAv1EncConfiguration *config = &scs->static_config;
 
     SVT_INFO("-------------------------------------------\n");
-#if !OPT_MPASS_VBR6 | OPT_MPASS_VBR7
     if (config->pass == ENC_FIRST_PASS)
         SVT_INFO("SVT [config]: preset \t\t\t\t\t\t: Pass 1\n");
     else
-#endif
     {
         SVT_INFO("SVT [config]: profile / tier / level \t\t\t\t: %s / %s / %s\n",
                  config->profile == MAIN_PROFILE               ? "main"

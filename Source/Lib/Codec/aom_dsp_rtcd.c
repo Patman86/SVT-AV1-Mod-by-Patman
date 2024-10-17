@@ -48,6 +48,13 @@
     SET_FUNCTIONS_AVX512(ptr, avx512)
 #elif defined ARCH_AARCH64
 
+#if HAVE_NEON_DOTPROD
+#define SET_FUNCTIONS_NEON_DOTPROD(ptr, neon_dotprod)                                             \
+    if (((uintptr_t)NULL != (uintptr_t)neon_dotprod) && (flags & HAS_NEON_DOTPROD)) ptr = neon_dotprod;
+#else
+#define SET_FUNCTIONS_NEON_DOTPROD(ptr, neon_dotprod)
+#endif // HAVE_NEON_DOTPROD
+
 #if HAVE_SVE
 #define SET_FUNCTIONS_SVE(ptr, sve)                                                               \
     if (((uintptr_t)NULL != (uintptr_t)sve)   && (flags & HAS_SVE))   ptr = sve;
@@ -55,8 +62,9 @@
 #define SET_FUNCTIONS_SVE(ptr, sve)
 #endif // HAVE_SVE
 
-#define SET_FUNCTIONS_AARCH64(ptr, c, neon, sve) \
+#define SET_FUNCTIONS_AARCH64(ptr, c, neon, neon_dotprod, sve)                                    \
     if (((uintptr_t)NULL != (uintptr_t)neon)   && (flags & HAS_NEON))   ptr = neon;               \
+    SET_FUNCTIONS_NEON_DOTPROD(ptr, neon_dotprod)                                                 \
     SET_FUNCTIONS_SVE(ptr, sve)
 #endif
 
@@ -92,7 +100,7 @@
 #endif
 #elif defined ARCH_AARCH64
 #if EXCLUDE_HASH
-#define SET_FUNCTIONS(ptr, c, neon, sve)                                                               \
+#define SET_FUNCTIONS(ptr, c, neon, neon_dotprod, sve)                                            \
     do {                                                                                          \
         if (check_pointer_was_set && ptr != 0) {                                                  \
             printf("Error: %s:%i: Pointer \"%s\" is set before!\n", __FILE__, 0, #ptr);           \
@@ -103,10 +111,10 @@
             assert(0);                                                                            \
         }                                                                                         \
         ptr = c;                                                                                  \
-        SET_FUNCTIONS_AARCH64(ptr, c, neon, sve)                                                       \
+        SET_FUNCTIONS_AARCH64(ptr, c, neon, neon_dotprod, sve)                                    \
     } while (0)
 #else
-#define SET_FUNCTIONS(ptr, c, neon, sve)                                                               \
+#define SET_FUNCTIONS(ptr, c, neon, neon_dotprod, sve)                                            \
     do {                                                                                          \
         if (check_pointer_was_set && ptr != 0) {                                                  \
             printf("Error: %s:%i: Pointer \"%s\" is set before!\n", __FILE__, __LINE__, #ptr);    \
@@ -117,7 +125,7 @@
             assert(0);                                                                            \
         }                                                                                         \
         ptr = c;                                                                                  \
-        SET_FUNCTIONS_AARCH64(ptr, c, neon, sve)                                                       \
+        SET_FUNCTIONS_AARCH64(ptr, c, neon, neon_dotprod, sve)                                    \
     } while (0)
 #endif
 #else
@@ -167,9 +175,11 @@
     #define SET_AVX2_AVX512(ptr, c, avx2, avx512)                   SET_FUNCTIONS(ptr, c, 0, 0, 0, 0, 0, 0, 0, 0, avx2, avx512)
     #define SET_SSE2_AVX2_AVX512(ptr, c, sse2, avx2, avx512)        SET_FUNCTIONS(ptr, c, 0, 0, sse2, 0, 0, 0, 0, 0, avx2, avx512)
 #elif defined ARCH_AARCH64
-    #define SET_ONLY_C(ptr, c)                                      SET_FUNCTIONS(ptr, c, 0, 0)
-    #define SET_NEON(ptr, c, neon)                                  SET_FUNCTIONS(ptr, c, neon, 0)
-    #define SET_NEON_SVE(ptr, c, neon, sve)                         SET_FUNCTIONS(ptr, c, neon, sve)
+    #define SET_ONLY_C(ptr, c)                                      SET_FUNCTIONS(ptr, c, 0, 0, 0)
+    #define SET_NEON(ptr, c, neon)                                  SET_FUNCTIONS(ptr, c, neon, 0, 0)
+    #define SET_NEON_NEON_DOTPROD(ptr, c, neon, neon_dotprod)       SET_FUNCTIONS(ptr, c, neon, neon_dotprod, 0)
+    #define SET_NEON_SVE(ptr, c, neon, sve)                         SET_FUNCTIONS(ptr, c, neon, 0, sve)
+
 #else
     #define SET_ONLY_C(ptr, c)                                      SET_FUNCTIONS(ptr, c)
 #endif
@@ -561,10 +571,10 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
     SET_ONLY_C(svt_av1_highbd_quantize_fp, svt_av1_highbd_quantize_fp_c);
     SET_ONLY_C(svt_av1_quantize_fp_qm, svt_av1_quantize_fp_qm_c);
     SET_ONLY_C(svt_av1_highbd_quantize_fp_qm, svt_av1_highbd_quantize_fp_qm_c);
-    SET_ONLY_C(svt_aom_highbd_8_mse16x16, svt_aom_highbd_8_mse16x16_c);
+    SET_NEON(svt_aom_highbd_8_mse16x16, svt_aom_highbd_8_mse16x16_c, svt_aom_highbd_8_mse16x16_neon);
 
     //SAD
-    SET_ONLY_C(svt_aom_mse16x16, svt_aom_mse16x16_c);
+    SET_NEON_NEON_DOTPROD(svt_aom_mse16x16, svt_aom_mse16x16_c, svt_aom_mse16x16_neon, svt_aom_mse16x16_neon_dotprod);
     SET_ONLY_C(svt_aom_sad4x4, svt_aom_sad4x4_c);
     SET_ONLY_C(svt_aom_sad4x4x4d, svt_aom_sad4x4x4d_c);
     SET_ONLY_C(svt_aom_sad4x16, svt_aom_sad4x16_c);
@@ -684,52 +694,52 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
     SET_NEON(svt_aom_obmc_variance128x128, svt_aom_obmc_variance128x128_c,svt_aom_obmc_variance128x128_neon);
 
     //VARIANCE
-    SET_NEON(svt_aom_variance4x4, svt_aom_variance4x4_c, svt_aom_variance4x4_neon);
-    SET_NEON(svt_aom_variance4x8, svt_aom_variance4x8_c, svt_aom_variance4x8_neon);
-    SET_NEON(svt_aom_variance4x16, svt_aom_variance4x16_c, svt_aom_variance4x16_neon);
-    SET_NEON(svt_aom_variance8x4, svt_aom_variance8x4_c, svt_aom_variance8x4_neon);
-    SET_NEON(svt_aom_variance8x8, svt_aom_variance8x8_c, svt_aom_variance8x8_neon);
-    SET_NEON(svt_aom_variance8x16, svt_aom_variance8x16_c, svt_aom_variance8x16_neon);
-    SET_NEON(svt_aom_variance8x32, svt_aom_variance8x32_c, svt_aom_variance8x32_neon);
-    SET_NEON(svt_aom_variance16x4, svt_aom_variance16x4_c, svt_aom_variance16x4_neon);
-    SET_NEON(svt_aom_variance16x8, svt_aom_variance16x8_c, svt_aom_variance16x8_neon);
-    SET_NEON(svt_aom_variance16x16, svt_aom_variance16x16_c, svt_aom_variance16x16_neon);
-    SET_NEON(svt_aom_variance16x32, svt_aom_variance16x32_c, svt_aom_variance16x32_neon);
-    SET_NEON(svt_aom_variance16x64, svt_aom_variance16x64_c, svt_aom_variance16x64_neon);
-    SET_NEON(svt_aom_variance32x8, svt_aom_variance32x8_c, svt_aom_variance32x8_neon);
-    SET_NEON(svt_aom_variance32x16, svt_aom_variance32x16_c,svt_aom_variance32x16_neon);
-    SET_NEON(svt_aom_variance32x32, svt_aom_variance32x32_c,svt_aom_variance32x32_neon);
-    SET_NEON(svt_aom_variance32x64, svt_aom_variance32x64_c, svt_aom_variance32x64_neon);
-    SET_NEON(svt_aom_variance64x16, svt_aom_variance64x16_c, svt_aom_variance64x16_neon);
-    SET_NEON(svt_aom_variance64x32, svt_aom_variance64x32_c,svt_aom_variance64x32_neon);
-    SET_NEON(svt_aom_variance64x64, svt_aom_variance64x64_c,svt_aom_variance64x64_neon);
-    SET_NEON(svt_aom_variance64x128, svt_aom_variance64x128_c,svt_aom_variance64x128_neon);
-    SET_NEON(svt_aom_variance128x64, svt_aom_variance128x64_c,svt_aom_variance128x64_neon);
-    SET_NEON(svt_aom_variance128x128, svt_aom_variance128x128_c,svt_aom_variance128x128_neon);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance4x4, svt_aom_variance4x4_c, svt_aom_variance4x4_neon, svt_aom_variance4x4_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance4x8, svt_aom_variance4x8_c, svt_aom_variance4x8_neon, svt_aom_variance4x8_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance4x16, svt_aom_variance4x16_c, svt_aom_variance4x16_neon, svt_aom_variance4x16_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance8x4, svt_aom_variance8x4_c, svt_aom_variance8x4_neon, svt_aom_variance8x4_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance8x8, svt_aom_variance8x8_c, svt_aom_variance8x8_neon, svt_aom_variance8x8_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance8x16, svt_aom_variance8x16_c, svt_aom_variance8x16_neon, svt_aom_variance8x16_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance8x32, svt_aom_variance8x32_c, svt_aom_variance8x32_neon, svt_aom_variance8x32_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance16x4, svt_aom_variance16x4_c, svt_aom_variance16x4_neon, svt_aom_variance16x4_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance16x8, svt_aom_variance16x8_c, svt_aom_variance16x8_neon, svt_aom_variance16x8_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance16x16, svt_aom_variance16x16_c, svt_aom_variance16x16_neon, svt_aom_variance16x16_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance16x32, svt_aom_variance16x32_c, svt_aom_variance16x32_neon, svt_aom_variance16x32_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance16x64, svt_aom_variance16x64_c, svt_aom_variance16x64_neon, svt_aom_variance16x64_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance32x8, svt_aom_variance32x8_c, svt_aom_variance32x8_neon, svt_aom_variance32x8_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance32x16, svt_aom_variance32x16_c,svt_aom_variance32x16_neon, svt_aom_variance32x16_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance32x32, svt_aom_variance32x32_c,svt_aom_variance32x32_neon, svt_aom_variance32x32_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance32x64, svt_aom_variance32x64_c, svt_aom_variance32x64_neon, svt_aom_variance32x64_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance64x16, svt_aom_variance64x16_c, svt_aom_variance64x16_neon, svt_aom_variance64x16_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance64x32, svt_aom_variance64x32_c,svt_aom_variance64x32_neon, svt_aom_variance64x32_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance64x64, svt_aom_variance64x64_c,svt_aom_variance64x64_neon, svt_aom_variance64x64_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance64x128, svt_aom_variance64x128_c,svt_aom_variance64x128_neon, svt_aom_variance64x128_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance128x64, svt_aom_variance128x64_c,svt_aom_variance128x64_neon, svt_aom_variance128x64_neon_dotprod);
+    SET_NEON_NEON_DOTPROD(svt_aom_variance128x128, svt_aom_variance128x128_c,svt_aom_variance128x128_neon, svt_aom_variance128x128_neon_dotprod);
 
     //VARIANCEHBP
-    SET_ONLY_C(svt_aom_highbd_10_variance4x4, svt_aom_highbd_10_variance4x4_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance4x8, svt_aom_highbd_10_variance4x8_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance4x16, svt_aom_highbd_10_variance4x16_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance8x4, svt_aom_highbd_10_variance8x4_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance8x8, svt_aom_highbd_10_variance8x8_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance8x16, svt_aom_highbd_10_variance8x16_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance8x32, svt_aom_highbd_10_variance8x32_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance16x4, svt_aom_highbd_10_variance16x4_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance16x8, svt_aom_highbd_10_variance16x8_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance16x16, svt_aom_highbd_10_variance16x16_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance16x32, svt_aom_highbd_10_variance16x32_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance16x64, svt_aom_highbd_10_variance16x64_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance32x8, svt_aom_highbd_10_variance32x8_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance32x16, svt_aom_highbd_10_variance32x16_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance32x32, svt_aom_highbd_10_variance32x32_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance32x64, svt_aom_highbd_10_variance32x64_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance64x16, svt_aom_highbd_10_variance64x16_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance64x32, svt_aom_highbd_10_variance64x32_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance64x64, svt_aom_highbd_10_variance64x64_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance64x128, svt_aom_highbd_10_variance64x128_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance128x64, svt_aom_highbd_10_variance128x64_c);
-    SET_ONLY_C(svt_aom_highbd_10_variance128x128, svt_aom_highbd_10_variance128x128_c);
+    SET_NEON_SVE(svt_aom_highbd_10_variance4x4, svt_aom_highbd_10_variance4x4_c, svt_aom_highbd_10_variance4x4_neon, svt_aom_highbd_10_variance4x4_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance4x8, svt_aom_highbd_10_variance4x8_c, svt_aom_highbd_10_variance4x8_neon, svt_aom_highbd_10_variance4x8_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance4x16, svt_aom_highbd_10_variance4x16_c, svt_aom_highbd_10_variance4x16_neon, svt_aom_highbd_10_variance4x16_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance8x4, svt_aom_highbd_10_variance8x4_c, svt_aom_highbd_10_variance8x4_neon, svt_aom_highbd_10_variance8x4_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance8x8, svt_aom_highbd_10_variance8x8_c, svt_aom_highbd_10_variance8x8_neon, svt_aom_highbd_10_variance8x8_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance8x16, svt_aom_highbd_10_variance8x16_c, svt_aom_highbd_10_variance8x16_neon, svt_aom_highbd_10_variance8x16_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance8x32, svt_aom_highbd_10_variance8x32_c, svt_aom_highbd_10_variance8x32_neon, svt_aom_highbd_10_variance8x32_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance16x4, svt_aom_highbd_10_variance16x4_c, svt_aom_highbd_10_variance16x4_neon, svt_aom_highbd_10_variance16x4_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance16x8, svt_aom_highbd_10_variance16x8_c, svt_aom_highbd_10_variance16x8_neon, svt_aom_highbd_10_variance16x8_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance16x16, svt_aom_highbd_10_variance16x16_c, svt_aom_highbd_10_variance16x16_neon, svt_aom_highbd_10_variance16x16_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance16x32, svt_aom_highbd_10_variance16x32_c, svt_aom_highbd_10_variance16x32_neon, svt_aom_highbd_10_variance16x32_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance16x64, svt_aom_highbd_10_variance16x64_c, svt_aom_highbd_10_variance16x64_neon, svt_aom_highbd_10_variance16x64_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance32x8, svt_aom_highbd_10_variance32x8_c, svt_aom_highbd_10_variance32x8_neon, svt_aom_highbd_10_variance32x8_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance32x16, svt_aom_highbd_10_variance32x16_c, svt_aom_highbd_10_variance32x16_neon, svt_aom_highbd_10_variance32x16_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance32x32, svt_aom_highbd_10_variance32x32_c, svt_aom_highbd_10_variance32x32_neon, svt_aom_highbd_10_variance32x32_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance32x64, svt_aom_highbd_10_variance32x64_c, svt_aom_highbd_10_variance32x64_neon, svt_aom_highbd_10_variance32x64_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance64x16, svt_aom_highbd_10_variance64x16_c, svt_aom_highbd_10_variance64x16_neon, svt_aom_highbd_10_variance64x16_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance64x32, svt_aom_highbd_10_variance64x32_c, svt_aom_highbd_10_variance64x32_neon, svt_aom_highbd_10_variance64x32_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance64x64, svt_aom_highbd_10_variance64x64_c, svt_aom_highbd_10_variance64x64_neon, svt_aom_highbd_10_variance64x64_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance64x128, svt_aom_highbd_10_variance64x128_c, svt_aom_highbd_10_variance64x128_neon, svt_aom_highbd_10_variance64x128_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance128x64, svt_aom_highbd_10_variance128x64_c, svt_aom_highbd_10_variance128x64_neon, svt_aom_highbd_10_variance128x64_sve);
+    SET_NEON_SVE(svt_aom_highbd_10_variance128x128, svt_aom_highbd_10_variance128x128_c, svt_aom_highbd_10_variance128x128_neon, svt_aom_highbd_10_variance128x128_sve);
 
     SET_NEON(svt_aom_sub_pixel_variance128x128, svt_aom_sub_pixel_variance128x128_c, svt_aom_sub_pixel_variance128x128_neon);
     SET_NEON(svt_aom_sub_pixel_variance128x64, svt_aom_sub_pixel_variance128x64_c, svt_aom_sub_pixel_variance128x64_neon);

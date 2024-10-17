@@ -84,6 +84,7 @@ Linux (Alpine, musl):
 
 Linux (Clang):
   extends: .linux-compiler-base
+  stage: standalone
   parallel:
     matrix:
       - CC: clang-6.0
@@ -93,10 +94,12 @@ Linux (Clang):
 
 Linux (GCC 4):
   extends: .linux-compiler-base
+  stage: standalone
   image: registry.gitlab.com/aomediacodec/aom-testing/centos7
 
 Linux (GCC):
   extends: .linux-compiler-base
+  stage: standalone
   parallel:
     matrix:
       - CC: gcc-7
@@ -105,9 +108,6 @@ Linux (GCC):
         CXX: g++-8
       - CC: gcc-9
         CXX: g++-9
-      - CC: gcc-11
-        CXX: g++-11
-        EXTRA_CMAKE_FLAGS: -DENABLE_AVX512=ON
       - CC: aarch64-linux-gnu-gcc
         CXX: aarch64-linux-gnu-g++
         EXTRA_CMAKE_FLAGS: --toolchain $CI_PROJECT_DIR/cmake/toolchains/aarch64_toolchain.cmake
@@ -248,10 +248,10 @@ Linux Unit Tests:
   extends: .linux-unit-test-base
   variables:
     SVT_AV1_TEST_VECTOR_PATH: $CI_PROJECT_DIR/test/vectors
-    TOTAL_SHARDS: 20
+    TOTAL_SHARDS: 16
   parallel:
     matrix:
-      - SHARD_INDEX: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+      - SHARD_INDEX: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
   cache:
     key: testvectors
     paths:
@@ -394,7 +394,7 @@ Enc Intra Diff Test:
 
 Linux Gstreamer (Static):
   extends: .linux-test-base
-  stage: compile
+  stage: standalone
   variables:
     CC: gcc-11
     CXX: g++-11
@@ -418,7 +418,7 @@ Linux Gstreamer (Static):
 
 Linux libavif (Static):
   extends: .linux-test-base
-  stage: compile
+  stage: standalone
   variables:
     CC: gcc-11
     CXX: g++-11
@@ -454,7 +454,7 @@ Linux libavif (Static):
 
 Linux FFmpeg (n7.0.2, Static):
   extends: .linux-test-base
-  stage: compile
+  stage: ffmpeg
   variables:
     CC: gcc-11
     CXX: g++-11
@@ -496,7 +496,7 @@ Linux FFmpeg (n7.0.2, Static):
 
 Linux FFmpeg (n5.0, Static):
   extends: .linux-test-base
-  stage: compile
+  stage: ffmpeg
   variables:
     CC: gcc-11
     CXX: g++-11

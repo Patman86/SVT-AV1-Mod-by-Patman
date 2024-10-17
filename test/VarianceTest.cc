@@ -96,9 +96,12 @@ class MseTest : public ::testing::TestWithParam<TestMseParam> {
             }
 
             uint32_t sse_tst, sse_ref;
-            mse_tst_(src_data_, width_, ref_data_, height_, &sse_tst);
-            mse_ref_(src_data_, width_, ref_data_, height_, &sse_ref);
+            unsigned int res_tst =
+                mse_tst_(src_data_, width_, ref_data_, height_, &sse_tst);
+            unsigned int res_ref =
+                mse_ref_(src_data_, width_, ref_data_, height_, &sse_ref);
             ASSERT_EQ(sse_tst, sse_ref) << "SSE Error at index: " << i;
+            ASSERT_EQ(res_tst, res_ref) << "Return value error at index: " << i;
         }
     }
 
@@ -106,9 +109,12 @@ class MseTest : public ::testing::TestWithParam<TestMseParam> {
         memset(src_data_, 255, MAX_BLOCK_SIZE);
         memset(ref_data_, 0, MAX_BLOCK_SIZE);
         uint32_t sse_tst;
-        mse_tst_(src_data_, width_, ref_data_, width_, &sse_tst);
+        unsigned int res_tst =
+            mse_tst_(src_data_, width_, ref_data_, width_, &sse_tst);
         const uint32_t expected = width_ * height_ * 255 * 255;
         ASSERT_EQ(sse_tst, expected) << "Error at MSE maximum test ";
+        ASSERT_EQ(res_tst, expected)
+            << "Return value error at MSE maximum test";
     }
 
   private:
@@ -141,6 +147,21 @@ INSTANTIATE_TEST_SUITE_P(AVX2, MseTest,
                                                         &svt_aom_mse16x16_c)));
 
 #endif  // ARCH_X86_64
+
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(NEON, MseTest,
+                         ::testing::Values(TestMseParam(16, 16,
+                                                        &svt_aom_mse16x16_neon,
+                                                        &svt_aom_mse16x16_c)));
+
+#if HAVE_NEON_DOTPROD
+INSTANTIATE_TEST_SUITE_P(
+    NEON_DOTPROD, MseTest,
+    ::testing::Values(TestMseParam(16, 16, &svt_aom_mse16x16_neon_dotprod,
+                                   &svt_aom_mse16x16_c)));
+#endif  // HAVE_NEON_DOTPROD
+
+#endif  // ARCH_AARCH64
 
 class MseTestHighbd : public ::testing::TestWithParam<TestMseParamHighbd> {
   public:
@@ -233,6 +254,21 @@ INSTANTIATE_TEST_SUITE_P(SSE2, MseTestHighbd,
                              &svt_aom_highbd_8_mse16x16_c)));
 
 #endif  // ARCH_X86_64
+
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(NEON, MseTestHighbd,
+                         ::testing::Values(TestMseParamHighbd(
+                             16, 16, &svt_aom_highbd_8_mse16x16_neon,
+                             &svt_aom_highbd_8_mse16x16_c)));
+
+#if HAVE_NEON_DOTPROD
+INSTANTIATE_TEST_SUITE_P(NEON_DOTPROD, MseTestHighbd,
+                         ::testing::Values(TestMseParamHighbd(
+                             16, 16, &svt_aom_highbd_8_mse16x16_neon_dotprod,
+                             &svt_aom_highbd_8_mse16x16_c)));
+#endif  // HAVE_NEON_DOTPROD
+
+#endif  // ARCH_AARCH64
 
 // sum of squares test
 static uint32_t mb_ss_ref(const int16_t *src) {
@@ -554,6 +590,58 @@ VarianceParam variance_func_neon[] = {
 
 INSTANTIATE_TEST_SUITE_P(NEON, VarianceTest,
                          ::testing::ValuesIn(variance_func_neon));
+
+#if HAVE_NEON_DOTPROD
+VarianceParam variance_func_neon_dotprod[] = {
+    VarianceParam(4, 4, &svt_aom_variance4x4_c,
+                  &svt_aom_variance4x4_neon_dotprod),
+    VarianceParam(4, 8, &svt_aom_variance4x8_c,
+                  &svt_aom_variance4x8_neon_dotprod),
+    VarianceParam(4, 16, &svt_aom_variance4x16_c,
+                  &svt_aom_variance4x16_neon_dotprod),
+    VarianceParam(8, 4, &svt_aom_variance8x4_c,
+                  &svt_aom_variance8x4_neon_dotprod),
+    VarianceParam(8, 8, &svt_aom_variance8x8_c,
+                  &svt_aom_variance8x8_neon_dotprod),
+    VarianceParam(8, 16, &svt_aom_variance8x16_c,
+                  &svt_aom_variance8x16_neon_dotprod),
+    VarianceParam(8, 32, &svt_aom_variance8x32_c,
+                  &svt_aom_variance8x32_neon_dotprod),
+    VarianceParam(16, 4, &svt_aom_variance16x4_c,
+                  &svt_aom_variance16x4_neon_dotprod),
+    VarianceParam(16, 8, &svt_aom_variance16x8_c,
+                  &svt_aom_variance16x8_neon_dotprod),
+    VarianceParam(16, 16, &svt_aom_variance16x16_c,
+                  &svt_aom_variance16x16_neon_dotprod),
+    VarianceParam(16, 32, &svt_aom_variance16x32_c,
+                  &svt_aom_variance16x32_neon_dotprod),
+    VarianceParam(16, 64, &svt_aom_variance16x64_c,
+                  &svt_aom_variance16x64_neon_dotprod),
+    VarianceParam(32, 8, &svt_aom_variance32x8_c,
+                  &svt_aom_variance32x8_neon_dotprod),
+    VarianceParam(32, 16, &svt_aom_variance32x16_c,
+                  &svt_aom_variance32x16_neon_dotprod),
+    VarianceParam(32, 32, &svt_aom_variance32x32_c,
+                  &svt_aom_variance32x32_neon_dotprod),
+    VarianceParam(32, 64, &svt_aom_variance32x64_c,
+                  &svt_aom_variance32x64_neon_dotprod),
+    VarianceParam(64, 16, &svt_aom_variance64x16_c,
+                  &svt_aom_variance64x16_neon_dotprod),
+    VarianceParam(64, 32, &svt_aom_variance64x32_c,
+                  &svt_aom_variance64x32_neon_dotprod),
+    VarianceParam(64, 64, &svt_aom_variance64x64_c,
+                  &svt_aom_variance64x64_neon_dotprod),
+    VarianceParam(64, 128, &svt_aom_variance64x128_c,
+                  &svt_aom_variance64x128_neon_dotprod),
+    VarianceParam(128, 64, &svt_aom_variance128x64_c,
+                  &svt_aom_variance128x64_neon_dotprod),
+    VarianceParam(128, 128, &svt_aom_variance128x128_c,
+                  &svt_aom_variance128x128_neon_dotprod)};
+
+INSTANTIATE_TEST_SUITE_P(NEON_DOTPROD, VarianceTest,
+                         ::testing::ValuesIn(variance_func_neon_dotprod));
+#endif  // HAVE_NEON_DOTPROD
+
 #endif  // ARCH_AARCH64
 
 typedef unsigned int (*SubpixVarMxNFunc)(const uint8_t *a, int a_stride,
