@@ -947,7 +947,14 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->use_cpu_flags = EB_CPU_FLAGS_ALL;
 
     // Channel info
-    config_ptr->logical_processors   = 0;
+#if CLN_LP_LVLS
+#if !SVT_AV1_CHECK_VERSION(3, 0, 0)
+    config_ptr->logical_processors = 0;
+#endif
+    config_ptr->level_of_parallelism = 0;
+#else
+    config_ptr->logical_processors = 0;
+#endif
     config_ptr->pin_threads          = 0;
     config_ptr->target_socket        = -1;
     config_ptr->channel_id           = 0;
@@ -1906,7 +1913,15 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"hierarchical-levels", &config_struct->hierarchical_levels},
         {"tier", &config_struct->tier},
         {"level", &config_struct->level},
+#if CLN_LP_LVLS
+#if SVT_AV1_CHECK_VERSION(3, 0, 0)
+        {"lp", &config_struct->level_of_parallelism},
+#else
         {"lp", &config_struct->logical_processors},
+#endif
+#else
+        {"lp", &config_struct->logical_processors},
+#endif
         {"pin", &config_struct->pin_threads},
         {"fps-num", &config_struct->frame_rate_numerator},
         {"fps-denom", &config_struct->frame_rate_denominator},

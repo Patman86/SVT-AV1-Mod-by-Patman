@@ -1,5 +1,70 @@
 # Changelog
 
+## [2.3.0] - 2024-10-28
+
+API updates
+- Preset shift: M12/M13 mapped to M11, M7-M11 shifted one position down. API does not change, all presets from MR-M13 will still be accepted
+- svt_av1_enc_get_packet API is now a blocking call for low-delay enforcing a picture in, picture out model
+- --fast-decode range changed from 0-1 to 0-2 available on all presets
+- Introducing a new definition of --lp being levels of parallelism with a new field in the config structure level_of_parallelism
+- logical_processors will be deprecated in the 3.0 release
+
+Encoder
+- NEW FAST DECODE MODE - (!2280)
+-  New fast-decode (2) to allow for an average AV1 software cycle reduction of 25-50% vs fast-decode 0 with a 1-3% BD-Rate loss across the presets
+-  Improved fast-decode (1) option to increase its AV1 software cycle reduction by ~10% while maintaining the same quality levels
+- Improved --lp settings for high resolutions, with CRF gaining a ~4% improvement in speed and VBR gaining ~15% (!2323)
+- Further Arm-based optimizations improving the efficiency of previously written Arm-neon implementations by an average of 30%. See below for more information on specific presets
+- Address speed regressions for high resolutions first pass encode by tuning the threading parameters, with 1080p showing the biggest gains
+- Enabled AVX512 by default in cmake allowing for ~2-4% speedup
+- Enabled LTO by default if using a new enough compiler (!2288, !2305)
+  - If LTO is a problem or causes one, it can be disabled by adding -DSVT_AV1_LTO=OFF to cmake to force it off.
+  - Please report any issues that occur when using it.
+
+Cleanup Build and bug fixes and documentation
+- third_party: update safestringlib with applicable upstream changes
+- Improved the unit test coverage for Arm-neon code
+- Updated documentation
+
+Arm Improvements
+
+- Speed comparison was done against v2.2 on AWS Graviton4 instances with Clang 19.1.1
+- `--lp 1` was used for all tests
+
+Standard bitdepth (Bosphorus 1080p):
+
+| Preset                        | Uplift |
+|-------------------------------|--------|
+| 0                             | 1.15x  |
+| 1                             | 1.24x  |
+| 2                             | 1.29x  |
+| 3                             | 1.17x  |
+| 4                             | 1.22x  |
+| 5                             | 1.31x  |
+| 6                             | 1.40x  |
+| 7 (against 2.2 preset 8)      | 1.50x  |
+| 8 (against 2.2 preset 9)      | 1.61x  |
+| 9 (against 2.2 preset 10      | 1.31x  |
+| 10 (against 2.2 preset 11 )   | 1.29x  |
+| 11 (against 2.2 preset 12/13) | 1.24x  |
+
+High bitdepth (Bosphorus 2160p):
+
+| Preset                        | Uplift |
+|-------------------------------|--------|
+| 0                             | 1.18x  |
+| 1                             | 1.19x  |
+| 2                             | 1.16x  |
+| 3                             | 1.27x  |
+| 4                             | 1.33x  |
+| 5                             | 1.27x  |
+| 6                             | 1.33x  |
+| 7 (against 2.2 preset 8)      | 1.35x  |
+| 8 (against 2.2 preset 9)      | 1.82x  |
+| 9 (against 2.2 preset 10)     | 1.95x  |
+| 10 (against 2.2 preset 11)    | 1.40x  |
+| 11 (against 2.2 preset 12/13) | 1.35x  |
+
 ## [2.2.0] - 2024-08-19
 
 API updates
@@ -10,7 +75,7 @@ Encoder
 -   Speedup of ~15% across presets M0 - M8 while maintaining similar quality levels (!2253)
 - Improve the tradeoffs for the low-delay mode across presets (!2260)
 - Increased temporal resolution setting to 6L for 4k resolutions by default
-- Added ARM optimizations for functions with c_only equivalent yielding an average speedup of ~13% for 4k10bit
+- Added Arm optimizations for functions with c_only equivalent yielding an average speedup of ~13% for 4k10bit
 
 Cleanup Build and bug fixes and documentation
 - Profile-guided-optimized helper build overhaul
@@ -30,7 +95,7 @@ Cleanup, bug fixes, and documentation improvements:
 - Updated the folder structure and library build order to reflect the removal of the decoder.
 - Renamed all files (except for API files) to remove the "Eb" prefix and changed them to camel_case format.
 - Updated the gtest version to v1.12.1.
-- Added CI support for ARM-based macOS machines.
+- Added CI support for Arm-based macOS machines.
 - Improved documentation for accuracy and completeness.
 
 ## [2.1.0] - 2024-05-17
@@ -45,7 +110,7 @@ Encoder
 - Improve the tradeoffs for the random access mode across presets:
 -   Speedup of 12-40% presets M0, M3, M5 and M6 while maintaining similar quality levels
 -   Improved the compression efficiency of presets M11-M13 by 1-2% (!2213)
-- Added ARM optimizations for functions with c_only equivalent
+- Added Arm optimizations for functions with c_only equivalent
 
 Cleanup Build and bug fixes and documentation
 - Use nasm as a default assembler and yasm as a fallback
@@ -67,7 +132,7 @@ Encoder
 -   Speedup presets MR by ~100% and improved quality along with tradeoff improvements across the higher quality presets (!2179)
 -   Improved the compression efficiency of presets M9-M13 by 1-4% (!2179)
 -   Simplified VBR multi-pass to use 2 passes to allow integration with ffmpeg
-- Continued adding ARM optimizations for functions with c_only equivalent
+- Continued adding Arm optimizations for functions with c_only equivalent
 - Replaced the 3-pass VBR with a 2-pass VBR to ease the multi-pass integration with ffmpeg
 - Memory savings of 20-35% for LP 8 mode in preset M6 and below and 1-5% in other modes / presets
 
@@ -84,7 +149,7 @@ Encoder
 - Improve the quality and speed of the 1-pass VBR mode
 - More details on the per preset improvements can be found in MR !2143
 - Add API allowing to update bitrate / CRF and Key_frame placement during the encoding session for CBR lowdelay mode and CRF Random Access mode
-- ARM Neon SIMD optimizations for most critical kernels allowing for a 4.5-8x fps speedup vs the c implementation
+- Arm Neon SIMD optimizations for most critical kernels allowing for a 4.5-8x fps speedup vs the c implementation
 
 Cleanup and bug fixes and documentation
 - Various cleanups and functional bug fixes
