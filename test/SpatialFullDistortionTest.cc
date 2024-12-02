@@ -276,6 +276,14 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(
         ::testing::ValuesIn(TEST_AREA_SIZES),
         ::testing::Values(svt_spatial_full_distortion_kernel_neon)));
+
+#if HAVE_NEON_DOTPROD
+INSTANTIATE_TEST_SUITE_P(
+    NEON_DOTPROD, SpatialFullDistortionKernelFuncTest,
+    ::testing::Combine(
+        ::testing::ValuesIn(TEST_AREA_SIZES),
+        ::testing::Values(svt_spatial_full_distortion_kernel_neon_dotprod)));
+#endif  // HAVE_NEON_DOTPROD
 #endif  // ARCH_AARCH64
 
 class FullDistortionKernel16BitsFuncTest
@@ -293,8 +301,8 @@ class FullDistortionKernel16BitsFuncTest
     }
 
     void init_data(TestPattern pattern) {
-        /// Support up to 15 bit depth
-        const uint16_t mask = (1 << 15) - 1;
+        /// Support up to 10 bit depth
+        const uint16_t mask = (1 << 10) - 1;
         uint16_t *input_16bit = (uint16_t *)input_;
         uint16_t *recon_16bit = (uint16_t *)recon_;
         SVTRandom rnd = SVTRandom(0, mask);
@@ -472,6 +480,13 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::ValuesIn(TEST_AREA_SIZES),
         ::testing::Values(svt_full_distortion_kernel16_bits_neon)));
 
+#if HAVE_SVE
+INSTANTIATE_TEST_SUITE_P(
+    SVE, FullDistortionKernel16BitsFuncTest,
+    ::testing::Combine(
+        ::testing::ValuesIn(TEST_AREA_SIZES),
+        ::testing::Values(svt_full_distortion_kernel16_bits_sve)));
+#endif  // HAVE_SVE
 #endif
 
 typedef void (*FullDistortionKernel32BitsFunc)(

@@ -196,7 +196,12 @@
 #define ENABLE_VARIANCE_BOOST_TOKEN "--enable-variance-boost"
 #define VARIANCE_BOOST_STRENGTH_TOKEN "--variance-boost-strength"
 #define VARIANCE_OCTILE_TOKEN "--variance-octile"
-
+#if FTR_LOSSLESS_SUPPORT
+#define LOSSLESS_TOKEN "--lossless"
+#endif
+#if FTR_STILL_PICTURE
+#define AVIF_TOKEN "--avif"
+#endif
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
     case EB_ErrorNone: return EB_ErrorNone;
@@ -1137,8 +1142,13 @@ ConfigEntry config_entry_specific[] = {
      RESIZE_FRAME_DENOMS,
      "Resize denominator in event, in a list separated by ',', only applicable for mode == 4",
      set_cfg_generic_token},
-    // --- end: REFERENCE SCALING SUPPORT
-
+// --- end: REFERENCE SCALING SUPPORT
+#if FTR_LOSSLESS_SUPPORT
+    {SINGLE_INPUT, LOSSLESS_TOKEN, "Enable lossless coding, default is 0 [0-1]", set_cfg_generic_token},
+#endif
+#if FTR_STILL_PICTURE
+    {SINGLE_INPUT, AVIF_TOKEN, "Enable still-picture coding, default is 0 [0-1]", set_cfg_generic_token},
+#endif
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
 
@@ -1365,6 +1375,13 @@ ConfigEntry config_entry[] = {
     {SINGLE_INPUT, VARIANCE_BOOST_STRENGTH_TOKEN, "VarianceBoostStrength", set_cfg_generic_token},
     {SINGLE_INPUT, VARIANCE_OCTILE_TOKEN, "VarianceOctile", set_cfg_generic_token},
 
+#if FTR_LOSSLESS_SUPPORT
+    // Lossless coding
+    {SINGLE_INPUT, LOSSLESS_TOKEN, "Lossless", set_cfg_generic_token},
+#endif
+#if FTR_STILL_PICTURE
+    {SINGLE_INPUT, AVIF_TOKEN, "Avif", set_cfg_generic_token},
+#endif
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
 

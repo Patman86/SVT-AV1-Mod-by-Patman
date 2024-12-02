@@ -322,11 +322,13 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     } else if ((config->min_qp_allowed) > (config->max_qp_allowed)) {
         SVT_ERROR("Instance %u:  MinQpAllowed must be smaller than MaxQpAllowed\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
+#if !FTR_LOSSLESS_SUPPORT
     } else if ((config->min_qp_allowed) == 0) {
         SVT_ERROR("Instance %u: MinQpAllowed must be [1 - %d]. Lossless coding not supported\n",
                   channel_number + 1,
                   MAX_QP_VALUE - 1);
         return_error = EB_ErrorBadParameter;
+#endif
     }
     if (config->use_qp_file > 1) {
         SVT_ERROR("Instance %u : Invalid use_qp_file. use_qp_file must be [0 - 1]\n", channel_number + 1);
@@ -468,7 +470,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_ERROR(
             "Instance %u: param '--asm' have invalid value.\n"
             "Value should be [0 - 11] or [c, mmx, sse, sse2, sse3, ssse3, sse4_1, sse4_2, avx, "
-            "avx2, avx512, max]\n",
+            "avx2, avx512, avx512icl, max]\n",
             channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
@@ -637,6 +639,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_ERROR("Instance %u: Only hierarchical levels 2-5 is currently supported.\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
+
     if (config->rate_control_mode == SVT_AV1_RC_MODE_VBR && config->intra_period_length == -1) {
         SVT_ERROR(
             "Instance %u: keyint = -1 is not supported for modes other than CRF rate control "
@@ -853,7 +856,12 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_ERROR("Instance %u: Variance boost octile must be between 1 and 8\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
-
+#if FTR_STILL_PICTURE
+    if ((int8_t)config->avif < 0 || (int8_t)config->avif > 1) {
+        SVT_ERROR("Instance %u: avif must be either 0 or 1\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+#endif
     return return_error;
 }
 
@@ -1077,35 +1085,41 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
             config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH    ? "FWD key frame"
                 : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "key frame"
                                                                    : "Unknown key frame type");
-
-        switch (config->rate_control_mode) {
-        case SVT_AV1_RC_MODE_CQP_OR_CRF:
-            if (config->max_bit_rate)
+#if FTR_LOSSLESS_SUPPORT
+        if (config->lossless) {
+            SVT_INFO("SVT [config]: BRC mode \t\t\t\t\t\t: Lossless Coding \n");
+        } else {
+#endif
+            switch (config->rate_control_mode) {
+            case SVT_AV1_RC_MODE_CQP_OR_CRF:
+                if (config->max_bit_rate)
+                    SVT_INFO(
+                        "SVT [config]: BRC mode / %s / max bitrate (kbps) \t\t: %s / %d / "
+                        "%d\n",
+                        scs->tpl || scs->static_config.enable_variance_boost ? "rate factor" : "CQP Assignment",
+                        scs->tpl || scs->static_config.enable_variance_boost ? "capped CRF" : "CQP",
+                        scs->static_config.qp,
+                        (int)config->max_bit_rate / 1000);
+                else
+                    SVT_INFO("SVT [config]: BRC mode / %s \t\t\t\t: %s / %d \n",
+                             scs->tpl || scs->static_config.enable_variance_boost ? "rate factor" : "CQP Assignment",
+                             scs->tpl || scs->static_config.enable_variance_boost ? "CRF" : "CQP",
+                             scs->static_config.qp);
+                break;
+            case SVT_AV1_RC_MODE_VBR:
+                SVT_INFO("SVT [config]: BRC mode / target bitrate (kbps) \t\t\t: VBR / %d \n",
+                         (int)config->target_bit_rate / 1000);
+                break;
+            case SVT_AV1_RC_MODE_CBR:
                 SVT_INFO(
-                    "SVT [config]: BRC mode / %s / max bitrate (kbps) \t\t: %s / %d / "
-                    "%d\n",
-                    scs->tpl || scs->static_config.enable_variance_boost ? "rate factor" : "CQP Assignment",
-                    scs->tpl || scs->static_config.enable_variance_boost ? "capped CRF" : "CQP",
-                    scs->static_config.qp,
-                    (int)config->max_bit_rate / 1000);
-            else
-                SVT_INFO("SVT [config]: BRC mode / %s \t\t\t\t: %s / %d \n",
-                         scs->tpl || scs->static_config.enable_variance_boost ? "rate factor" : "CQP Assignment",
-                         scs->tpl || scs->static_config.enable_variance_boost ? "CRF" : "CQP",
-                         scs->static_config.qp);
-            break;
-        case SVT_AV1_RC_MODE_VBR:
-            SVT_INFO("SVT [config]: BRC mode / target bitrate (kbps) \t\t\t: VBR / %d \n",
-                     (int)config->target_bit_rate / 1000);
-            break;
-        case SVT_AV1_RC_MODE_CBR:
-            SVT_INFO(
                 "SVT [config]: BRC mode / target bitrate (kbps) \t\t\t: CBR "
                 "/ %d\n",
                 (int)config->target_bit_rate / 1000);
             break;
+            }
+#if FTR_LOSSLESS_SUPPORT
         }
-
+#endif
         if (config->rate_control_mode != SVT_AV1_RC_MODE_CBR) {
             if (!config->enable_variance_boost) {
                 SVT_INFO("SVT [config]: AQ mode / variance boost \t\t\t\t: %d / %d\n",
@@ -1535,6 +1549,8 @@ static EbErrorType str_to_asm(const char *nptr, EbCpuFlags *out) {
         {"9", (EB_CPU_FLAGS_AVX2 << 1) - 1},
         {"avx512", (EB_CPU_FLAGS_AVX512VL << 1) - 1},
         {"10", (EB_CPU_FLAGS_AVX512VL << 1) - 1},
+        {"avx512icl", (EB_CPU_FLAGS_AVX512ICL << 1) - 1},
+        {"11", (EB_CPU_FLAGS_AVX512ICL << 1) - 1},
 #elif defined(ARCH_AARCH64)
         {"neon", (EB_CPU_FLAGS_NEON << 1) - 1},
         {"1", (EB_CPU_FLAGS_NEON << 1) - 1},
@@ -1978,6 +1994,12 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"variance-boost-strength", &config_struct->variance_boost_strength},
         {"variance-octile", &config_struct->variance_octile},
         {"fast-decode", &config_struct->fast_decode},
+#if FTR_LOSSLESS_SUPPORT
+        {"lossless", &config_struct->lossless},
+#endif
+#if FTR_STILL_PICTURE
+        {"avif", &config_struct->avif},
+#endif
     };
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);
 

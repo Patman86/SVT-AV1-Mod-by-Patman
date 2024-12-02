@@ -40,6 +40,17 @@
     MULTI_LINE_MACRO_END
 
 #define SUPERRES_INVALID_STATE 0x7fffffff
+
+#if FTR_LOSSLESS_SUPPORT
+bool svt_av1_is_lossless_segment(PictureControlSet *pcs, int8_t segment_id) {
+    FrameHeader *frm_hdr = &pcs->ppcs->frm_hdr;
+    if (frm_hdr->segmentation_params.segmentation_enabled)
+        return pcs->lossless[segment_id];
+    else
+        return pcs->lossless[0];
+}
+#endif
+
 static Bool check_mv_validity(int16_t x_mv, int16_t y_mv, uint8_t need_shift) {
     MV mv;
     //go to 1/8th if input is 1/4pel
@@ -3919,6 +3930,11 @@ static void inject_intra_candidates(
                 svt_aom_get_intra_uv_tx_type(cand_array[cand_total_cnt].intra_chroma_mode,
                     ctx->blk_geom->txsize_uv[0],
                     frm_hdr->reduced_tx_set);
+
+#if FTR_LOSSLESS_SUPPORT
+                if (svt_av1_is_lossless_segment(pcs, ctx->blk_ptr->segment_id) && cand_array[cand_total_cnt].transform_type_uv != DCT_DCT)
+                    continue;
+#endif
             cand_array[cand_total_cnt].ref_frame_type = INTRA_FRAME;
             cand_array[cand_total_cnt].motion_mode = SIMPLE_TRANSLATION;
             cand_array[cand_total_cnt].is_interintra_used = 0;
@@ -3971,6 +3987,10 @@ static void inject_filter_intra_candidates(
                 svt_aom_get_intra_uv_tx_type(cand_array[cand_total_cnt].intra_chroma_mode,
                     ctx->blk_geom->txsize_uv[0],
                     frm_hdr->reduced_tx_set);
+#if FTR_LOSSLESS_SUPPORT
+                if (svt_av1_is_lossless_segment(pcs, ctx->blk_ptr->segment_id) && cand_array[cand_total_cnt].transform_type_uv != DCT_DCT)
+                    continue;
+#endif
             cand_array[cand_total_cnt].ref_frame_type = INTRA_FRAME;
             cand_array[cand_total_cnt].motion_mode = SIMPLE_TRANSLATION;
             cand_array[cand_total_cnt].is_interintra_used = 0;
@@ -4085,6 +4105,10 @@ void  inject_palette_candidates(
             svt_aom_get_intra_uv_tx_type(cand_array[can_total_cnt].intra_chroma_mode,
                 ctx->blk_geom->txsize_uv[0],
                 pcs->ppcs->frm_hdr.reduced_tx_set);
+#if FTR_LOSSLESS_SUPPORT
+            if (svt_av1_is_lossless_segment(pcs, ctx->blk_ptr->segment_id) && cand_array[can_total_cnt].transform_type_uv != DCT_DCT)
+                continue;
+#endif
         cand_array[can_total_cnt].ref_frame_type = INTRA_FRAME;
         cand_array[can_total_cnt].motion_mode = SIMPLE_TRANSLATION;
         INC_MD_CAND_CNT (can_total_cnt,pcs->ppcs->max_can_count);
@@ -5097,3 +5121,4 @@ uint64_t svt_spatial_full_distortion_ssim_kernel(uint8_t* input, uint32_t input_
 
     return spatial_distortion;
 }
+

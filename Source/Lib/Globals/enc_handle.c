@@ -158,6 +158,7 @@ static const char *get_asm_level_name_str(EbCpuFlags cpu_flags) {
         {"avx",          EB_CPU_FLAGS_AVX},
         {"avx2",         EB_CPU_FLAGS_AVX2},
         {"avx512",       EB_CPU_FLAGS_AVX512F},
+        {"avx512icl",    EB_CPU_FLAGS_AVX512ICL},
 #elif defined(ARCH_AARCH64)
         {"neon",         EB_CPU_FLAGS_NEON},
         {"crc32",        EB_CPU_FLAGS_ARM_CRC32},
@@ -853,7 +854,6 @@ static EbErrorType load_default_buffer_configuration_settings(
 
     //Pic-Manager will inject one child at a time.
     min_child = 1;
-
     const uint16_t num_ref_from_cur_mg = get_num_refs_in_one_mg(scs->static_config.hierarchical_levels, scs->mrp_ctrls.referencing_scheme) + 1; //+1: to accomodate one for a delayed-I
     const uint16_t num_ref_lad_mgs = num_ref_from_cur_mg * scs->lad_mg;
     const uint8_t dpb_frames = REF_FRAMES; // up to dpb_frame refs from prev MGs can be used (AV1 spec allows holding up to 8 frames for references)
@@ -871,6 +871,7 @@ static EbErrorType load_default_buffer_configuration_settings(
     //PA REF
     const uint16_t num_pa_ref_from_cur_mg = mg_size; //ref+nref; nRef PA buffers are processed in PicAnalysis and used in TF
     min_paref = num_pa_ref_from_cur_mg + lad_mg_pictures + scs->scd_delay + eos_delay + dpb_frames;
+
     if (scs->static_config.enable_overlays) {
         // Need an extra PA ref buffer for each overlay picture. Overlay pics use the same DPB as
         // regular pics, so no need to allocate an extra dpb_frames buffers for the ref pics
@@ -1012,6 +1013,20 @@ static EbErrorType load_default_buffer_configuration_settings(
     }
     else {
         scs->picture_control_set_pool_init_count_child = scs->enc_dec_pool_init_count = clamp(18, min_child, max_child) + superres_count;
+    }
+#endif
+
+#if FTR_STILL_PICTURE
+    if (scs->static_config.avif) {
+        scs->input_buffer_fifo_init_count = 2;
+        scs->picture_control_set_pool_init_count = 2;
+        scs->pa_reference_picture_buffer_init_count = 2;
+        scs->tpl_reference_picture_buffer_init_count = 0;
+        scs->output_recon_buffer_fifo_init_count = scs->reference_picture_buffer_init_count = 1;
+        scs->picture_control_set_pool_init_count_child = 1;
+        scs->enc_dec_pool_init_count = 1;
+        scs->me_pool_init_count = 1;
+        scs->overlay_input_picture_buffer_init_count = 0;
     }
 #endif
 
@@ -1735,6 +1750,7 @@ static int create_tpl_ref_buf_descs(EbEncHandle *enc_handle_ptr, uint32_t instan
     ref_pic_buf_desc_init_data.sb_total_count = scs->sb_total_count;
 
     eb_tpl_ref_obj_ect_desc_init_data_structure.reference_picture_desc_init_data = ref_pic_buf_desc_init_data;
+
     // Reference Picture Buffers
     EB_NEW(enc_handle_ptr->tpl_reference_picture_pool_ptr_array[instance_index],
         svt_system_resource_ctor,
@@ -2121,8 +2137,11 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component)
         enc_handle_ptr->scs_instance_array[instance_index]->scs->rest_units_per_tile = pcs->rst_info[0/*Y-plane*/].units_per_tile;
         enc_handle_ptr->scs_instance_array[instance_index]->scs->b64_total_count = pcs->b64_total_count;
         create_ref_buf_descs(enc_handle_ptr, instance_index);
-
+#if FTR_STILL_PICTURE
+        if(enc_handle_ptr->scs_instance_array[instance_index]->scs->tpl)
+#endif
         create_tpl_ref_buf_descs(enc_handle_ptr, instance_index);
+
         create_pa_ref_buf_descs(enc_handle_ptr, instance_index);
 
         if (enc_handle_ptr->scs_instance_array[0]->scs->static_config.enable_overlays) {
@@ -3674,7 +3693,11 @@ static void derive_vq_params(SequenceControlSet* scs) {
 static void derive_tf_params(SequenceControlSet *scs) {
     const EbInputResolution resolution = scs->input_resolution;
     // Do not perform TF if LD or 1 Layer or 1st pass
+#if FTR_LOSSLESS_SUPPORT
+    Bool do_tf = scs->static_config.enable_tf && scs->static_config.hierarchical_levels >= 1 && !scs->static_config.lossless;
+#else
     Bool do_tf = scs->static_config.enable_tf && scs->static_config.hierarchical_levels >= 1;
+#endif
     const EncMode enc_mode = scs->static_config.enc_mode;
     const uint32_t hierarchical_levels = scs->static_config.hierarchical_levels;
     uint8_t tf_level = 0;
@@ -4033,12 +4056,20 @@ static void set_first_pass_ctrls(
         break;
     }
 }
-static uint8_t get_tpl(uint8_t pred_structure, uint8_t superres_mode, uint8_t resize_mode, uint8_t aq_mode) {
 
+#if FTR_STILL_PICTURE
+static uint8_t get_tpl(uint8_t pred_structure, uint8_t superres_mode, uint8_t resize_mode, uint8_t aq_mode, Bool avif) {
+    if (avif) {
+        SVT_WARN("TPL is disabled for avif\n");
+        return 0;
+    } else if (aq_mode == 0) {
+#else
+static uint8_t get_tpl(uint8_t pred_structure, uint8_t superres_mode, uint8_t resize_mode, uint8_t aq_mode) {
     if (aq_mode == 0) {
+#endif
         SVT_WARN("TPL is disabled for aq_mode 0\n");
         return 0;
-}
+    }
     else if (pred_structure == SVT_AV1_PRED_LOW_DELAY_B) {
         SVT_WARN("TPL is disabled in low delay applications.\n");
         return 0;
@@ -4173,7 +4204,11 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     // superres_mode and resize_mode may be updated,
     // so should call get_tpl_level() after validate_scaling_params()
     validate_scaling_params(scs);
+#if FTR_STILL_PICTURE
+    scs->tpl = get_tpl(scs->static_config.pred_structure, scs->static_config.superres_mode, scs->static_config.resize_mode, scs->static_config.enable_adaptive_quantization, scs->static_config.avif);
+#else
     scs->tpl = get_tpl(scs->static_config.pred_structure, scs->static_config.superres_mode, scs->static_config.resize_mode, scs->static_config.enable_adaptive_quantization);
+#endif
     uint16_t subsampling_x = scs->subsampling_x;
     uint16_t subsampling_y = scs->subsampling_y;
     // Update picture width, and picture height
@@ -4284,7 +4319,11 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         scs->scd_delay = MAX(scs->scd_delay, 2);
 
     // no future minigop is used for lowdelay prediction structure
+#if FTR_STILL_PICTURE
+    if (scs->static_config.avif || scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_P || scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) {
+#else
     if (scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_P || scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) {
+#endif
         scs->lad_mg = scs->tpl_lad_mg = 0;
     }
     else
@@ -4623,12 +4662,22 @@ static void copy_api_from_app(
     scs->max_input_luma_height = config_struct->source_height;
     // SB Definitions
     scs->static_config.pred_structure = ((EbSvtAv1EncConfiguration*)config_struct)->pred_structure;
+
+#if FTR_STILL_PICTURE
+    scs->static_config.avif = ((EbSvtAv1EncConfiguration*)config_struct)->avif;
+    // Tpl is disabled in low delay applications
+    if (scs->static_config.pred_structure == 0 || scs->static_config.avif) {
+#else
     // Tpl is disabled in low delay applications
     if (scs->static_config.pred_structure == 0) {
+#endif
         ((EbSvtAv1EncConfiguration*)config_struct)->enable_tpl_la = 0;
     }
+#if FTR_STILL_PICTURE
+    scs->enable_qp_scaling_flag = scs->static_config.avif ? 0 : 1;
+#else
     scs->enable_qp_scaling_flag = 1;
-
+#endif
     // Set Picture Parameters for statistics gathering
     scs->picture_analysis_number_of_regions_per_width =
         HIGHER_THAN_CLASS_1_REGION_SPLIT_PER_WIDTH;
@@ -4674,6 +4723,28 @@ static void copy_api_from_app(
     }
     memcpy(scs->static_config.chroma_qindex_offsets, config_struct->chroma_qindex_offsets,
         MAX_TEMPORAL_LAYERS * sizeof(int32_t));
+
+#if FTR_LOSSLESS_SUPPORT
+    scs->static_config.lossless = config_struct->lossless;
+    if (scs->static_config.lossless) {
+        scs->static_config.luma_y_dc_qindex_offset   = 0;
+        scs->static_config.chroma_u_dc_qindex_offset = 0;
+        scs->static_config.chroma_u_ac_qindex_offset = 0;
+        scs->static_config.chroma_v_dc_qindex_offset = 0;
+        scs->static_config.chroma_v_ac_qindex_offset = 0;
+    } else {
+        scs->static_config.luma_y_dc_qindex_offset =
+            ((EbSvtAv1EncConfiguration*)config_struct)->luma_y_dc_qindex_offset;
+        scs->static_config.chroma_u_dc_qindex_offset =
+            ((EbSvtAv1EncConfiguration*)config_struct)->chroma_u_dc_qindex_offset;
+        scs->static_config.chroma_u_ac_qindex_offset =
+            ((EbSvtAv1EncConfiguration*)config_struct)->chroma_u_ac_qindex_offset;
+        scs->static_config.chroma_v_dc_qindex_offset =
+            ((EbSvtAv1EncConfiguration*)config_struct)->chroma_v_dc_qindex_offset;
+        scs->static_config.chroma_v_ac_qindex_offset =
+            ((EbSvtAv1EncConfiguration*)config_struct)->chroma_v_ac_qindex_offset;
+    }
+#else
     scs->static_config.luma_y_dc_qindex_offset =
       ((EbSvtAv1EncConfiguration*)config_struct)->luma_y_dc_qindex_offset;
     scs->static_config.chroma_u_dc_qindex_offset =
@@ -4684,7 +4755,7 @@ static void copy_api_from_app(
       ((EbSvtAv1EncConfiguration*)config_struct)->chroma_v_dc_qindex_offset;
     scs->static_config.chroma_v_ac_qindex_offset =
       ((EbSvtAv1EncConfiguration*)config_struct)->chroma_v_ac_qindex_offset;
-
+#endif
     memcpy(scs->static_config.lambda_scale_factors, config_struct->lambda_scale_factors,
         SVT_AV1_FRAME_UPDATE_TYPES * sizeof(int32_t));
 
@@ -4746,7 +4817,14 @@ static void copy_api_from_app(
 
     // Rate Control
     scs->static_config.scene_change_detection = ((EbSvtAv1EncConfiguration*)config_struct)->scene_change_detection;
+#if FTR_LOSSLESS_SUPPORT
+    if (((EbSvtAv1EncConfiguration*)config_struct)->lossless && ((EbSvtAv1EncConfiguration*)config_struct)->rate_control_mode) {
+        scs->static_config.rate_control_mode = SVT_AV1_RC_MODE_CQP_OR_CRF;
+        SVT_WARN("Switched to CQP mode since lossless coding is enabled\n");
+    } else
+#endif
     scs->static_config.rate_control_mode = ((EbSvtAv1EncConfiguration*)config_struct)->rate_control_mode;
+
     if (scs->static_config.pass == ENC_SINGLE_PASS && scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) {
 
         if (scs->static_config.enc_mode < ENC_M7) {
@@ -4756,7 +4834,6 @@ static void copy_api_from_app(
     }
     scs->static_config.tune = config_struct->tune;
     scs->static_config.hierarchical_levels = ((EbSvtAv1EncConfiguration*)config_struct)->hierarchical_levels;
-
     // Set the default hierarchical levels
     if (scs->static_config.hierarchical_levels == 0) {
         scs->static_config.hierarchical_levels = scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B ?
@@ -4785,6 +4862,22 @@ static void copy_api_from_app(
         scs->static_config.max_bit_rate = 0;
         SVT_WARN("Maximum bit rate only supported with tpl on. max bit rate 0 is used instead.\n");
     }
+
+
+#if FTR_LOSSLESS_SUPPORT
+    scs->static_config.max_qp_allowed = scs->static_config.lossless
+        ? MIN_QP_VALUE
+        : scs->static_config.rate_control_mode
+            ? ((EbSvtAv1EncConfiguration*)config_struct)->max_qp_allowed
+            : MAX_QP_VALUE;
+
+    scs->static_config.min_qp_allowed = scs->static_config.lossless
+        ? MIN_QP_VALUE
+        : scs->static_config.rate_control_mode
+            ? ((EbSvtAv1EncConfiguration*)config_struct)->min_qp_allowed
+            : MIN_QP_VALUE;
+
+#else
     scs->static_config.max_qp_allowed = (scs->static_config.rate_control_mode) ?
         ((EbSvtAv1EncConfiguration*)config_struct)->max_qp_allowed :
         63;
@@ -4793,6 +4886,7 @@ static void copy_api_from_app(
         (((EbSvtAv1EncConfiguration*)config_struct)->min_qp_allowed > 0) ?
         ((EbSvtAv1EncConfiguration*)config_struct)->min_qp_allowed : 1 :
         1; // lossless coding not supported
+#endif
 #if !SVT_AV1_CHECK_VERSION(2, 0, 0)
     scs->static_config.vbr_bias_pct        = ((EbSvtAv1EncConfiguration*)config_struct)->vbr_bias_pct;
 #endif
@@ -4822,8 +4916,13 @@ static void copy_api_from_app(
         scs->lap_rc = 0;
     //Segmentation
     //TODO: check RC mode and set only when RC is enabled in the final version.
+#if FTR_LOSSLESS_SUPPORT
+    scs->static_config.enable_adaptive_quantization = scs->static_config.lossless
+        ? 0
+        : config_struct->enable_adaptive_quantization;
+#else
     scs->static_config.enable_adaptive_quantization = config_struct->enable_adaptive_quantization;
-
+#endif
     // Misc
     scs->static_config.encoder_bit_depth = ((EbSvtAv1EncConfiguration*)config_struct)->encoder_bit_depth;
     scs->static_config.encoder_color_format = ((EbSvtAv1EncConfiguration*)config_struct)->encoder_color_format;
@@ -4894,13 +4993,18 @@ static void copy_api_from_app(
     }
     if (scs->static_config.look_ahead_distance == (uint32_t)~0)
         scs->static_config.look_ahead_distance = compute_default_look_ahead(&scs->static_config);
+#if FTR_STILL_PICTURE
+    scs->static_config.enable_tf = config_struct->avif ? 0 : config_struct->enable_tf;
+#else
     scs->static_config.enable_tf = config_struct->enable_tf;
+#endif
     scs->static_config.enable_overlays = config_struct->enable_overlays;
     scs->static_config.superres_mode = config_struct->superres_mode;
     scs->static_config.superres_denom = config_struct->superres_denom;
     scs->static_config.superres_kf_denom = config_struct->superres_kf_denom;
     scs->static_config.superres_qthres = config_struct->superres_qthres;
     scs->static_config.superres_kf_qthres = config_struct->superres_kf_qthres;
+
     if (scs->static_config.superres_mode == SUPERRES_AUTO)
     {
         // TODO: set search mode based on preset
@@ -4953,7 +5057,12 @@ static void copy_api_from_app(
         SVT_WARN("Quantization matrices will be forced off since both min and max quant matrix levels are set to 15\n");
         scs->static_config.enable_qm = 0;
     }
-
+#if FTR_LOSSLESS_SUPPORT
+    if (scs->static_config.enable_qm && scs->static_config.lossless) {
+        SVT_WARN("Quantization matrices will be forced off since lossless coding is applied\n");
+        scs->static_config.enable_qm = 0;
+    }
+#endif
     scs->static_config.startup_mg_size = config_struct->startup_mg_size;
     scs->static_config.enable_roi_map = config_struct->enable_roi_map;
 
@@ -4961,6 +5070,7 @@ static void copy_api_from_app(
     scs->static_config.enable_variance_boost = config_struct->enable_variance_boost;
     scs->static_config.variance_boost_strength = config_struct->variance_boost_strength;
     scs->static_config.variance_octile = config_struct->variance_octile;
+
     return;
 }
 
@@ -4987,6 +5097,12 @@ EB_API EbErrorType svt_av1_enc_set_parameter(
     if (return_error == EB_ErrorBadParameter)
         return EB_ErrorBadParameter;
 
+#if FTR_STILL_PICTURE
+    if (enc_handle->scs_instance_array[instance_index]->scs->static_config.avif) {
+        enc_handle->scs_instance_array[instance_index]->scs->seq_header.still_picture = 1;
+        enc_handle->scs_instance_array[instance_index]->scs->seq_header.reduced_still_picture_header = 1;
+    }
+#endif
     set_param_based_on_input(
         enc_handle->scs_instance_array[instance_index]->scs);
     // Initialize the Prediction Structure Group
@@ -5741,6 +5857,18 @@ EB_API EbErrorType svt_av1_enc_send_picture(
     EbBufferHeaderType   *app_hdr = p_buffer;
     enc_handle_ptr->frame_received = true;
 
+#if FTR_STILL_PICTURE
+    static bool is_first_picture_sent = 0;
+    // Check if a picture has already been sent and AVIF mode is used
+    if ( enc_handle_ptr->scs_instance_array[0]->scs->static_config.avif && is_first_picture_sent ) {
+        p_buffer->flags = EB_BUFFERFLAG_EOS;
+        p_buffer->pic_type = EB_AV1_INVALID_PICTURE;
+        enc_handle_ptr->eos_received = 1;
+        return_val = EB_ErrorBadParameter;
+        SVT_ERROR("Error: A picture has already been sent. The library only supports one picture in AVIF mode.\n");
+    }
+#endif
+
     // Exit the library if we detect an invalid API input buffer @ the previous library call
     if (enc_handle_ptr->is_prev_valid == false) {
         p_buffer->flags = EB_BUFFERFLAG_EOS;
@@ -5827,6 +5955,9 @@ EB_API EbErrorType svt_av1_enc_send_picture(
     input_cmd_obj->y8b_wrapper = y8b_wrapper;
     //Send to Lib
     svt_post_full_object(input_cmd_wrp);
+#if FTR_STILL_PICTURE
+    is_first_picture_sent = 1;
+#endif
     return return_val;
 }
 static void copy_output_recon_buffer(
