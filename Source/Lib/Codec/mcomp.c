@@ -207,7 +207,6 @@ static INLINE unsigned int svt_check_better_fast(MacroBlockD *xd, const struct A
         int weight = 100;
         if (var_params->bias_fp && (*best_mv).col % 8 == 0 && (*best_mv).row % 8 == 0)
             weight = BIAS_FP_WEIGHT;
-
         if (((cost * weight) / 100) < *besterr) {
             *besterr    = cost;
             *best_mv    = *this_mv;
@@ -238,7 +237,6 @@ static AOM_FORCE_INLINE unsigned int svt_check_better(MacroBlockD *xd, const str
         int weight = 100;
         if (var_params->bias_fp && (*best_mv).col % 8 == 0 && (*best_mv).row % 8 == 0)
             weight = BIAS_FP_WEIGHT;
-
         if (((cost * weight) / 100) < *besterr) {
             *besterr    = cost;
             *best_mv    = *this_mv;

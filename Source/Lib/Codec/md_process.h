@@ -842,12 +842,20 @@ typedef struct TxShortcutCtrls {
 typedef struct Mds0Ctrls {
     // Distortion metric to use MDS0: SSD, VAR, SAD
     uint8_t mds0_dist_type;
+#if OPT_MDS0_EXIT
+    // 0: disabled, > 0: switch between: (1) reset reference cost for each subsequent class, (2) continuously update reference cost, (uint8_t) ~0: continuously update reference cost
+    uint8_t pruning_method_th;
+    // % TH(s) used to compare candidate distortion to best cost; higher is safer (applies to reg. PD1 only)
+    uint16_t per_class_dist_to_cost_th[CAND_CLASS_TOTAL];
+    uint16_t dist_to_cost_th;
+#else
     // Skip cost computation if distortion is mds0_distortion_th % higher than best candidate cost
     // (applies to reg. PD1 only)
     uint8_t enable_cost_based_early_exit;
     // % TH used to compare candidate distortion to best cost; higher is safer (applies to reg. PD1
     // only)
     uint16_t mds0_distortion_th;
+#endif
 } Mds0Ctrls;
 typedef struct CandReductionCtrls {
     RedundantCandCtrls redundant_cand_ctrls;
@@ -1156,6 +1164,9 @@ typedef struct ModeDecisionContext {
     NicCtrls        nic_ctrls;
     MV              ref_mv;
     uint16_t        sb_index;
+#if OPT_MDS0_EXIT
+    uint64_t mds0_best_cost_per_class[CAND_CLASS_TOTAL];
+#endif
     uint64_t        mds0_best_cost;
     uint8_t         mds0_best_class;
     uint32_t        mds0_best_idx;

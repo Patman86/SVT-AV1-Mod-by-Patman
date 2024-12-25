@@ -420,7 +420,6 @@ class AomSumSquaresTest : public ::testing::TestWithParam<AomHSumSquaresParam> {
   private:
     SVTRandom rnd_;
 };
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AomSumSquaresTest);
 
 TEST_P(AomSumSquaresTest, MatchTest) {
     run_test();
@@ -432,5 +431,19 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
                        ::testing::Values(svt_aom_sum_squares_i16_sse2)));
 #endif  // ARCH_X86_64
+
+#if ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, AomSumSquaresTest,
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+                       ::testing::Values(svt_aom_sum_squares_i16_neon)));
+
+#if HAVE_SVE
+INSTANTIATE_TEST_SUITE_P(
+    SVE, AomSumSquaresTest,
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+                       ::testing::Values(svt_aom_sum_squares_i16_sve)));
+#endif  // HAVE_SVE
+#endif  // ARCH_AARCH64
 
 }  // namespace

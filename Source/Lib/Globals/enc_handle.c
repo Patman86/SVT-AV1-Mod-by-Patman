@@ -3373,6 +3373,80 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
         scs->tf_params_per_type[2].qp_opt = 1;
         break;
     case 5:
+#if OPT_TF
+        // I_SLICE TF Params
+        scs->tf_params_per_type[0].enabled = 1;
+        scs->tf_params_per_type[0].num_future_pics = 24;
+        scs->tf_params_per_type[0].modulate_pics = 1;
+        scs->tf_params_per_type[0].max_num_future_pics = MIN((1 << scs->static_config.hierarchical_levels), svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 0, 1));
+        scs->tf_params_per_type[0].hme_me_level = 2;
+        scs->tf_params_per_type[0].half_pel_mode = 2;
+        scs->tf_params_per_type[0].quarter_pel_mode = 1;
+        scs->tf_params_per_type[0].eight_pel_mode = 0;
+        scs->tf_params_per_type[0].chroma_lvl = 1;
+        scs->tf_params_per_type[0].pred_error_32x32_th = 20 * 32 * 32;
+        scs->tf_params_per_type[0].enable_8x8_pred = 0;
+        scs->tf_params_per_type[0].sub_sampling_shift = 0;
+        scs->tf_params_per_type[0].avoid_2d_qpel = 0;
+        scs->tf_params_per_type[0].use_2tap = 1;
+        scs->tf_params_per_type[0].use_intra_for_noise_est = 0;
+        scs->tf_params_per_type[0].use_8bit_subpel = 1;
+        scs->tf_params_per_type[0].use_pred_64x64_only_th = 0;
+        scs->tf_params_per_type[0].me_exit_th = 0;
+        scs->tf_params_per_type[0].subpel_early_exit_th = 1;
+        scs->tf_params_per_type[0].ref_frame_factor = 1;
+        scs->tf_params_per_type[0].qp_opt = 1;
+
+        // BASE TF Params
+        scs->tf_params_per_type[1].enabled = 1;
+        scs->tf_params_per_type[1].num_past_pics = 1;
+        scs->tf_params_per_type[1].num_future_pics = 1;
+        scs->tf_params_per_type[1].modulate_pics = 3;
+        scs->tf_params_per_type[1].max_num_past_pics = MIN((1 << scs->static_config.hierarchical_levels), svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 1, 0));
+        scs->tf_params_per_type[1].max_num_future_pics = MIN((1 << scs->static_config.hierarchical_levels), svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 1, 1));
+        scs->tf_params_per_type[1].hme_me_level = 2;
+        scs->tf_params_per_type[1].half_pel_mode = 2;
+        scs->tf_params_per_type[1].quarter_pel_mode = 1;
+        scs->tf_params_per_type[1].eight_pel_mode = 0;
+        scs->tf_params_per_type[1].chroma_lvl = 1;
+        scs->tf_params_per_type[1].pred_error_32x32_th = 20 * 32 * 32;
+        scs->tf_params_per_type[1].enable_8x8_pred = 0;
+        scs->tf_params_per_type[1].sub_sampling_shift = 0;
+        scs->tf_params_per_type[1].avoid_2d_qpel = 0;
+        scs->tf_params_per_type[1].use_2tap = 1;
+        scs->tf_params_per_type[1].use_intra_for_noise_est = 0;
+        scs->tf_params_per_type[1].use_8bit_subpel = 1;
+        scs->tf_params_per_type[1].use_pred_64x64_only_th = 0;
+        scs->tf_params_per_type[1].me_exit_th = 0;
+        scs->tf_params_per_type[1].subpel_early_exit_th = 1;
+        scs->tf_params_per_type[1].ref_frame_factor = 1;
+        scs->tf_params_per_type[1].qp_opt = 1;
+
+        // L1 TF Params
+        scs->tf_params_per_type[2].enabled = 1;
+        scs->tf_params_per_type[2].num_past_pics = 1;
+        scs->tf_params_per_type[2].num_future_pics = 1;
+        scs->tf_params_per_type[2].modulate_pics = 2;
+        scs->tf_params_per_type[2].max_num_past_pics = MIN((1 << scs->static_config.hierarchical_levels) / 2, svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 2, 0));
+        scs->tf_params_per_type[2].max_num_future_pics = MIN((1 << scs->static_config.hierarchical_levels) / 2, svt_aom_tf_max_ref_per_struct(scs->static_config.hierarchical_levels, 2, 1));
+        scs->tf_params_per_type[2].hme_me_level = 2;
+        scs->tf_params_per_type[2].half_pel_mode = 2;
+        scs->tf_params_per_type[2].quarter_pel_mode = 1;
+        scs->tf_params_per_type[2].eight_pel_mode = 0;
+        scs->tf_params_per_type[2].chroma_lvl = 1;
+        scs->tf_params_per_type[2].pred_error_32x32_th = 20 * 32 * 32;
+        scs->tf_params_per_type[2].enable_8x8_pred = 0;
+        scs->tf_params_per_type[2].sub_sampling_shift = 0;
+        scs->tf_params_per_type[2].avoid_2d_qpel = 0;
+        scs->tf_params_per_type[2].use_2tap = 1;
+        scs->tf_params_per_type[2].use_intra_for_noise_est = 0;
+        scs->tf_params_per_type[2].use_8bit_subpel = 1;
+        scs->tf_params_per_type[2].use_pred_64x64_only_th = 0;
+        scs->tf_params_per_type[2].me_exit_th = 0;
+        scs->tf_params_per_type[2].subpel_early_exit_th = 1;
+        scs->tf_params_per_type[2].ref_frame_factor = 1;
+        scs->tf_params_per_type[2].qp_opt = 1;
+#else
         // I_SLICE TF Params
         scs->tf_params_per_type[0].enabled = 1;
         scs->tf_params_per_type[0].num_future_pics = (scs->static_config.hierarchical_levels < 5) ? 8 : 16;
@@ -3442,6 +3516,7 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
         scs->tf_params_per_type[2].subpel_early_exit_th = 1;
         scs->tf_params_per_type[2].ref_frame_factor = 1;
         scs->tf_params_per_type[2].qp_opt = 1;
+#endif
         break;
     case 6:
         // I_SLICE TF Params
@@ -3692,28 +3767,36 @@ static void derive_vq_params(SequenceControlSet* scs) {
  */
 static void derive_tf_params(SequenceControlSet *scs) {
     const EbInputResolution resolution = scs->input_resolution;
+    const uint32_t hierarchical_levels = scs->static_config.hierarchical_levels;
     // Do not perform TF if LD or 1 Layer or 1st pass
 #if FTR_LOSSLESS_SUPPORT
-    Bool do_tf = scs->static_config.enable_tf && scs->static_config.hierarchical_levels >= 1 && !scs->static_config.lossless;
+    const bool do_tf = scs->static_config.enable_tf && hierarchical_levels >= 1 && !scs->static_config.lossless;
 #else
-    Bool do_tf = scs->static_config.enable_tf && scs->static_config.hierarchical_levels >= 1;
+    const bool do_tf = scs->static_config.enable_tf && hierarchical_levels >= 1;
 #endif
     const EncMode enc_mode = scs->static_config.enc_mode;
-    const uint32_t hierarchical_levels = scs->static_config.hierarchical_levels;
     uint8_t tf_level = 0;
     if (scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_P || scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) {
         if (do_tf == 0)
             tf_level = 0;
         else
             tf_level = scs->static_config.screen_content_mode == 1 ? 0 :
-            enc_mode <= ENC_M8 ? scs->input_resolution >= INPUT_SIZE_720p_RANGE ? 1 : 0 : scs->input_resolution >= INPUT_SIZE_720p_RANGE ? 2 : 0;
+#if CLN_SHIFT_M9
+            enc_mode <= ENC_M7 ? resolution >= INPUT_SIZE_720p_RANGE ? 1 : 0 : resolution >= INPUT_SIZE_720p_RANGE ? 2 : 0;
+#else
+            enc_mode <= ENC_M8 ? resolution >= INPUT_SIZE_720p_RANGE ? 1 : 0 : resolution >= INPUT_SIZE_720p_RANGE ? 2 : 0;
+#endif
         tf_ld_controls(scs, tf_level);
         return;
     }
     if (do_tf == 0) {
         tf_level = 0;
     }
+#if TUNE_M2
+    else if (enc_mode <= ENC_M1) {
+#else
     else if (enc_mode <= ENC_M2) {
+#endif
         tf_level = 1;
     }
     else if (enc_mode <= ENC_M3) {
@@ -3722,13 +3805,27 @@ static void derive_tf_params(SequenceControlSet *scs) {
     else if (enc_mode <= ENC_M4) {
         tf_level = 3;
     }
+#if OPT_TF
+#if CLN_SHIFT_M9
+    else if (enc_mode <= ENC_M7) {
+#else
+    else if (enc_mode <= ENC_M8) {
+#endif
+        tf_level = 5;
+    }
+#else
     else if (enc_mode <= ENC_M6) {
         tf_level = 4;
     }
     else if (enc_mode <= ENC_M8) {
         tf_level = resolution <= INPUT_SIZE_720p_RANGE && hierarchical_levels <= 4 ? 5 : 6;
     }
+#endif
+#if CLN_SHIFT_M10
+    else if (enc_mode <= ENC_M8) {
+#else
     else if (enc_mode <= ENC_M9) {
+#endif
         tf_level = 8;
     } else {
         tf_level = 9;
@@ -4108,13 +4205,25 @@ void set_multi_pass_params(SequenceControlSet *scs)
             break;
         }
         case ENC_FIRST_PASS: {
+#if CLN_SHIFT_M10
+            if (config->enc_mode <= ENC_M8)
+#else
             if (config->enc_mode <= ENC_M9)
+#endif
                 set_first_pass_ctrls(scs, 0);
             else
                 set_first_pass_ctrls(scs, 1);
             scs->final_pass_preset = config->enc_mode;
+#if CLN_SHIFT_M8
+            if (scs->final_pass_preset <= ENC_M6)
+#else
             if (scs->final_pass_preset <= ENC_M7)
+#endif
+#if CLN_SHIFT_M11
+                scs->static_config.enc_mode = ENC_M9;
+#else
                 scs->static_config.enc_mode = ENC_M10;
+#endif
             else
                 scs->static_config.enc_mode = MAX_ENC_PRESET;
             scs->static_config.rate_control_mode = SVT_AV1_RC_MODE_CQP_OR_CRF;
@@ -4148,7 +4257,11 @@ void set_multi_pass_params(SequenceControlSet *scs)
     if (scs->lap_rc) {
         scs->static_config.intra_refresh_type = SVT_AV1_KF_REFRESH;
     }
+#if CLN_SHIFT_M8
+    if (scs->static_config.pass == ENC_FIRST_PASS && scs->final_pass_preset > ENC_M6)
+#else
     if (scs->static_config.pass == ENC_FIRST_PASS && scs->final_pass_preset > ENC_M7)
+#endif
         scs->rc_stat_gen_pass_mode = 1;
     else
         scs->rc_stat_gen_pass_mode = 0;
@@ -4378,12 +4491,43 @@ static void set_param_based_on_input(SequenceControlSet *scs)
                     scs->super_block_size = 128;
             }
         }
+#if TUNE_SB64_FD2
+#if TUNE_M5
+#if TUNE_M4_2
+        else if (scs->static_config.enc_mode <= ENC_M3) {
+#else
+        else if (scs->static_config.enc_mode <= ENC_M4) {
+#endif
+#else
+        else if (scs->static_config.enc_mode <= ENC_M5) {
+#endif
+            if (scs->static_config.qp <= 56)
+                scs->super_block_size = 64;
+            else
+                scs->super_block_size = 128;
+        }
+#if CLN_SHIFT_M8
+        else if (scs->static_config.enc_mode <= ENC_M6) {
+#else
+        else if (scs->static_config.enc_mode <= ENC_M7) {
+#endif
+#if OPT_FD0_SETTINGS
+            if (scs->static_config.qp <= 57)
+#else
+            if (scs->static_config.qp <= 56 || (scs->static_config.fast_decode >= 2 && scs->static_config.qp <= 57 && !(scs->input_resolution <= INPUT_SIZE_360p_RANGE)))
+#endif
+                scs->super_block_size = 64;
+            else
+                scs->super_block_size = 128;
+        }
+#else
         else if (scs->static_config.enc_mode <= ENC_M6) {
             if (scs->static_config.qp <= 56)
                 scs->super_block_size = 64;
             else
                 scs->super_block_size = 128;
         }
+#endif
         else
             scs->super_block_size = 64;
     // When switch frame is on, all renditions must have same super block size. See spec 5.5.1, 5.9.15.
@@ -4571,7 +4715,11 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     if (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_VBR || scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR ||
         scs->input_resolution >= INPUT_SIZE_4K_RANGE ||
         scs->static_config.fast_decode !=0 ||
+#if CLN_SHIFT_M9
+        scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B || scs->static_config.pass != ENC_SINGLE_PASS || scs->static_config.enc_mode >= ENC_M8)
+#else
         scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B || scs->static_config.pass != ENC_SINGLE_PASS || scs->static_config.enc_mode >= ENC_M9)
+#endif
         scs->enable_dg = 0;
     else
         scs->enable_dg = scs->static_config.enable_dg;
@@ -4587,7 +4735,11 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     uint8_t mrp_level;
 
     if (scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) {
+#if CLN_SHIFT_M11
+        if (scs->static_config.enc_mode <= ENC_M9) {
+#else
         if (scs->static_config.enc_mode <= ENC_M10) {
+#endif
             mrp_level = 10;
         }
         else {
@@ -4595,6 +4747,13 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         }
     }
     else {
+#if TUNE_MR
+#if TUNE_M2
+        if (scs->static_config.enc_mode <= ENC_M2) {
+#else
+        if (scs->static_config.enc_mode <= ENC_M1) {
+#endif
+#else
         if (scs->static_config.enc_mode <= ENC_MR) {
             if (!(scs->input_resolution <= INPUT_SIZE_360p_RANGE) && !(scs->static_config.fast_decode <= 1))
                 mrp_level = 9;
@@ -4602,6 +4761,7 @@ static void set_param_based_on_input(SequenceControlSet *scs)
                 mrp_level = 1;
         }
         else if (scs->static_config.enc_mode <= ENC_M1) {
+#endif
             if (!(scs->input_resolution <= INPUT_SIZE_360p_RANGE) && !(scs->static_config.fast_decode <= 1))
                 mrp_level = 9;
             else
@@ -4613,11 +4773,19 @@ static void set_param_based_on_input(SequenceControlSet *scs)
             else
                 mrp_level = 5;
         }
-        // any changes for preset ENC_M7 and higher should be separated for VBR and CRF in the control structure below
+        // any changes for preset ENC_M5 and higher should be separated for VBR and CRF in the control structure below
         else if (scs->static_config.rate_control_mode != SVT_AV1_RC_MODE_VBR) {
+#if CLN_SHIFT_M9
+            if (scs->static_config.enc_mode <= ENC_M7)
+#else
             if (scs->static_config.enc_mode <= ENC_M8)
+#endif
                 mrp_level = 9;
+#if CLN_SHIFT_M11
+            else if (scs->static_config.enc_mode <= ENC_M9)
+#else
             else if (scs->static_config.enc_mode <= ENC_M10)
+#endif
                 mrp_level = 10;
             else
                 mrp_level = 0;
@@ -4635,7 +4803,15 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         scs->vq_ctrls.sharpness_ctrls.tf == 1                ||
         scs->static_config.enable_variance_boost)
         scs->calculate_variance = 1;
+#if CLN_SHIFT_M8
     else if (scs->static_config.enc_mode <= ENC_M6)
+#else
+#if TUNE_M7
+    else if (scs->static_config.enc_mode <= ENC_M7)
+#else
+    else if (scs->static_config.enc_mode <= ENC_M6)
+#endif
+#endif
         scs->calculate_variance = 1;
     else
         scs->calculate_variance = 0;
@@ -4648,7 +4824,11 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         : 0;
     scs->low_latency_kf = ((scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_P
         || scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) &&
+#if CLN_SHIFT_M10
+        scs->static_config.enc_mode <= ENC_M8)
+#else
         scs->static_config.enc_mode <= ENC_M9)
+#endif
         ? 1
         : 0;
 
@@ -4695,19 +4875,33 @@ static void copy_api_from_app(
     scs->static_config.multiply_keyint = config_struct->multiply_keyint;
     scs->static_config.intra_refresh_type = ((EbSvtAv1EncConfiguration*)config_struct)->intra_refresh_type;
     scs->static_config.enc_mode = ((EbSvtAv1EncConfiguration*)config_struct)->enc_mode;
+#if CLN_SHIFT_M11
+    if (scs->static_config.enc_mode > ENC_M10) {
+        SVT_WARN("Preset M%d is mapped to M10.\n", scs->static_config.enc_mode);
+        scs->static_config.enc_mode = ENC_M10;
+    }
+#else
     if (scs->static_config.enc_mode > ENC_M11) {
         SVT_WARN("Preset M%d is mapped to M11.\n", scs->static_config.enc_mode);
         scs->static_config.enc_mode = ENC_M11;
     }
+#endif
 
     EbInputResolution input_resolution;
     svt_aom_derive_input_resolution(
         &input_resolution,
         scs->max_input_luma_width * scs->max_input_luma_height);
+#if CLN_SHIFT_M11
+    if (scs->static_config.pred_structure == SVT_AV1_PRED_RANDOM_ACCESS && scs->static_config.enc_mode > ENC_M9 && input_resolution >= INPUT_SIZE_4K_RANGE) {
+        scs->static_config.enc_mode = ENC_M9;
+        SVT_WARN("Setting preset to M9 as it is the highest supported preset for 4k and higher resolutions in Random Access mode\n");
+    }
+#else
     if (scs->static_config.pred_structure == SVT_AV1_PRED_RANDOM_ACCESS && scs->static_config.enc_mode > ENC_M10 && input_resolution >= INPUT_SIZE_4K_RANGE) {
         scs->static_config.enc_mode = ENC_M10;
         SVT_WARN("Setting preset to M10 as it is the highest supported preset for 4k and higher resolutions in Random Access mode\n");
     }
+#endif
 
     scs->static_config.use_qp_file = ((EbSvtAv1EncConfiguration*)config_struct)->use_qp_file;
     scs->static_config.use_fixed_qindex_offsets = ((EbSvtAv1EncConfiguration*)config_struct)->use_fixed_qindex_offsets;
@@ -4840,8 +5034,16 @@ static void copy_api_from_app(
             2 :
             scs->static_config.fast_decode != 0 ||
             scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_VBR || scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR ||
+#if CLN_SHIFT_M9
+            (input_resolution >= INPUT_SIZE_1080p_RANGE && scs->static_config.enc_mode >= ENC_M8) ||
+#else
             (input_resolution >= INPUT_SIZE_1080p_RANGE && scs->static_config.enc_mode >= ENC_M9) ||
+#endif
+#if CLN_SHIFT_M10
+            !(scs->static_config.enc_mode <= ENC_M8) || input_resolution >= INPUT_SIZE_8K_RANGE
+#else
             !(scs->static_config.enc_mode <= ENC_M9) || input_resolution >= INPUT_SIZE_8K_RANGE
+#endif
                 ? 4
                 : 5;
     }
@@ -5064,6 +5266,9 @@ static void copy_api_from_app(
     }
 #endif
     scs->static_config.startup_mg_size = config_struct->startup_mg_size;
+#if FTR_STARTUP_QP
+    scs->static_config.startup_qp_offset = config_struct->startup_qp_offset;
+#endif
     scs->static_config.enable_roi_map = config_struct->enable_roi_map;
 
     // Variance boost

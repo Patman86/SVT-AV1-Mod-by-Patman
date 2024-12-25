@@ -190,7 +190,9 @@
 #define MAX_QM_LEVEL_TOKEN "--qm-max"
 
 #define STARTUP_MG_SIZE_TOKEN "--startup-mg-size"
-
+#if FTR_STARTUP_QP
+#define STARTUP_QP_OFFSET_TOKEN "--startup-qp-offset"
+#endif
 #define ROI_MAP_FILE_TOKEN "--roi-map-file"
 
 #define ENABLE_VARIANCE_BOOST_TOKEN "--enable-variance-boost"
@@ -999,6 +1001,13 @@ ConfigEntry config_entry_intra_refresh[] = {
      "is 0 [0: OFF, "
      "2: 3 temporal layers, 3: 4 temporal layers, 4: 5 temporal layers]",
      set_cfg_generic_token},
+#if FTR_STARTUP_QP
+    {SINGLE_INPUT,
+     STARTUP_QP_OFFSET_TOKEN,
+     "Specify an offset to the input-qp of the startup GOP prior to the picture-qp derivation, default "
+     "is 0 [-63,63]",
+     set_cfg_generic_token},
+#endif
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
 
@@ -1314,7 +1323,9 @@ ConfigEntry config_entry[] = {
     {SINGLE_INPUT, PRED_STRUCT_TOKEN, "PredStructure", set_cfg_generic_token},
     {SINGLE_INPUT, FORCE_KEY_FRAMES_TOKEN, "ForceKeyFrames", set_cfg_force_key_frames},
     {SINGLE_INPUT, STARTUP_MG_SIZE_TOKEN, "StartupMgSize", set_cfg_generic_token},
-
+#if FTR_STARTUP_QP
+    {SINGLE_INPUT, STARTUP_QP_OFFSET_TOKEN, "StartupGopQpOffset", set_cfg_generic_token},
+#endif
     // AV1 Specific Options
     {SINGLE_INPUT, TILE_ROW_TOKEN, "TileRow", set_cfg_generic_token},
     {SINGLE_INPUT, TILE_COL_TOKEN, "TileCol", set_cfg_generic_token},
@@ -2199,8 +2210,13 @@ uint32_t get_passes(int32_t argc, char *const argv[], EncPass enc_pass[MAX_ENC_P
         if (passes == 1)
             multi_pass_mode = SINGLE_PASS;
         else if (passes > 1) {
+#if CLN_SHIFT_M11
+            // M11, M12, and M13 are mapped to M10, so treat M11, M12, and M13 the same as M10
+            if (enc_mode > ENC_M9) {
+#else
             // M12 and M13 are mapped to M11, so treat M12 and M13 the same as M11
             if (enc_mode > ENC_M10) {
+#endif
                 fprintf(stderr, "[SVT-Error]:  Multipass VBR is not supported for preset %d.\n\n", enc_mode);
                 return 0;
             } else {
