@@ -400,7 +400,7 @@ void svt_av1_cdef_frame(SequenceControlSet *scs, PictureControlSet *pcs) {
                 continue;
             }
 
-            int dirinit = !(ppcs->cdef_ctrls.use_reference_cdef_fs);
+            int dirinit = !(ppcs->cdef_search_ctrls.use_reference_cdef_fs);
             // When SB 128 is used, the search for certain blocks is skipped, so dir/var info is not generated
             // In those cases, must generate info here
             if (sb_size == 128) {
@@ -738,10 +738,11 @@ void finish_cdef_search(PictureControlSet *pcs) {
     int32_t  nvfb = (mi_rows + MI_SIZE_64X64 - 1) / MI_SIZE_64X64;
     int32_t  nhfb = (mi_cols + MI_SIZE_64X64 - 1) / MI_SIZE_64X64;
     //CDEF Settings
-    CdefControls *cdef_ctrls                 = &pcs->ppcs->cdef_ctrls;
-    const int     first_pass_fs_num          = cdef_ctrls->first_pass_fs_num;
-    const int     default_second_pass_fs_num = cdef_ctrls->default_second_pass_fs_num;
-    if (cdef_ctrls->use_reference_cdef_fs) {
+    CdefSearchControls *cdef_search_ctrls          = &pcs->ppcs->cdef_search_ctrls;
+    CdefReconControls  *cdef_recon_ctrls           = &pcs->ppcs->cdef_recon_ctrls;
+    const int           first_pass_fs_num          = cdef_search_ctrls->first_pass_fs_num;
+    const int           default_second_pass_fs_num = cdef_search_ctrls->default_second_pass_fs_num;
+    if (cdef_search_ctrls->use_reference_cdef_fs) {
         int32_t *sb_index = (int32_t *)malloc(nvfb * nhfb * sizeof(*sb_index));
         int32_t  best_gi  = 0;
         sb_count          = 0;
@@ -788,8 +789,8 @@ void finish_cdef_search(PictureControlSet *pcs) {
         //cdef_pri_damping & cdef_sec_damping consolidated to cdef_damping
         int32_t pri_damping                      = 3 + (frm_hdr->quantization_params.base_q_idx >> 6);
         frm_hdr->cdef_params.cdef_damping        = pri_damping;
-        frm_hdr->cdef_params.cdef_y_strength[0]  = cdef_ctrls->pred_y_f;
-        frm_hdr->cdef_params.cdef_uv_strength[0] = cdef_ctrls->pred_uv_f;
+        frm_hdr->cdef_params.cdef_y_strength[0]  = cdef_search_ctrls->pred_y_f;
+        frm_hdr->cdef_params.cdef_uv_strength[0] = cdef_search_ctrls->pred_uv_f;
         free(sb_index);
         return;
     }
@@ -842,20 +843,12 @@ void finish_cdef_search(PictureControlSet *pcs) {
     nb_strength_bits = 0;
     // Scale down the cost of the (0,0) filter strength to bias selection towards off.
     // When off, can save the cost of the application.
-    if (cdef_ctrls->zero_fs_cost_bias) {
-#if OPT_CDEF_FD2
-#if OPT_FD_10BIT
+    if (cdef_recon_ctrls->zero_fs_cost_bias) {
         const Bool is_16bit = (pcs->scs->static_config.encoder_bit_depth > EB_EIGHT_BIT);
-#endif
-        uint16_t factor;
-#else
-        const uint16_t factor = cdef_ctrls->zero_fs_cost_bias;
-#endif
+        uint16_t   factor;
         for (i = 0; i < sb_count; i++) {
-#if OPT_CDEF_FD2
-#if OPT_FD_10BIT
             if (is_16bit) {
-                factor = cdef_ctrls->zero_fs_cost_bias;
+                factor = cdef_recon_ctrls->zero_fs_cost_bias;
                 if (mse[0][i][0] < 5000)
                     factor = MIN(factor - 10, 64);
                 else if (mse[0][i][0] < 10000)
@@ -864,7 +857,7 @@ void finish_cdef_search(PictureControlSet *pcs) {
                     factor = MIN(factor + 1, 64);
                 mse[0][i][0] = (factor * mse[0][i][0]) >> 6;
 
-                factor = cdef_ctrls->zero_fs_cost_bias;
+                factor = cdef_recon_ctrls->zero_fs_cost_bias;
                 if (mse[1][i][0] < 5000)
                     factor = MIN(factor - 10, 64);
                 else if (mse[1][i][0] < 10000)
@@ -873,30 +866,27 @@ void finish_cdef_search(PictureControlSet *pcs) {
                     factor = MIN(factor + 1, 64);
                 mse[1][i][0] = (factor * mse[1][i][0]) >> 6;
             } else {
-#endif
-                factor = cdef_ctrls->zero_fs_cost_bias;
+                factor = cdef_recon_ctrls->zero_fs_cost_bias;
                 if (mse[0][i][0] > 25000)
                     factor = MIN(factor + 2, 64);
                 else if (mse[0][i][0] > 10000)
                     factor = MIN(factor + 1, 64);
                 mse[0][i][0] = (factor * mse[0][i][0]) >> 6;
 
-                factor = cdef_ctrls->zero_fs_cost_bias;
+                factor = cdef_recon_ctrls->zero_fs_cost_bias;
                 if (mse[1][i][0] > 25000)
                     factor = MIN(factor + 2, 64);
                 else if (mse[1][i][0] > 10000)
                     factor = MIN(factor + 1, 64);
 
                 mse[1][i][0] = (factor * mse[1][i][0]) >> 6;
-#if OPT_FD_10BIT
             }
-#endif
-#else
-            mse[0][i][0] = (factor * mse[0][i][0]) >> 6;
-            mse[1][i][0] = (factor * mse[1][i][0]) >> 6;
-#endif
         }
     }
+    // Compute cost of off to use in deriving pcs->cdef_dist_dev
+    int64_t zero_dist = 0;
+    for (i = 0; i < sb_count; i++) { zero_dist += mse[0][i][0] + mse[1][i][0]; }
+    uint64_t zero_cost = RDCOST(lambda, av1_cost_literal(CDEF_STRENGTH_BITS * 2), zero_dist << 4);
     /* Search for different number of signalling bits. */
     for (i = 0; i <= 3; i++) {
         int32_t best_lev0[CDEF_MAX_STRENGTHS] = {0};
@@ -918,7 +908,8 @@ void finish_cdef_search(PictureControlSet *pcs) {
             }
         }
     }
-    nb_strengths = 1 << nb_strength_bits;
+    pcs->cdef_dist_dev = zero_cost == 0 ? 0 : (int32_t)(1000 - ((1000 * best_tot_mse) / zero_cost));
+    nb_strengths       = 1 << nb_strength_bits;
 
     frm_hdr->cdef_params.cdef_bits = nb_strength_bits;
     ppcs->nb_cdef_strengths        = nb_strengths;
@@ -957,9 +948,9 @@ void finish_cdef_search(PictureControlSet *pcs) {
         }
     }
     int filter_map[TOTAL_STRENGTHS] = {0};
-    for (i = 0; i < first_pass_fs_num; i++) filter_map[i] = cdef_ctrls->default_first_pass_fs[i];
+    for (i = 0; i < first_pass_fs_num; i++) filter_map[i] = cdef_search_ctrls->default_first_pass_fs[i];
     for (i = first_pass_fs_num; i < (first_pass_fs_num + default_second_pass_fs_num); i++)
-        filter_map[i] = cdef_ctrls->default_second_pass_fs[i - first_pass_fs_num];
+        filter_map[i] = cdef_search_ctrls->default_second_pass_fs[i - first_pass_fs_num];
 
     for (i = 0; i < ppcs->nb_cdef_strengths; i++) {
         frm_hdr->cdef_params.cdef_y_strength[i]  = filter_map[frm_hdr->cdef_params.cdef_y_strength[i]];

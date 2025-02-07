@@ -48,7 +48,7 @@ TEST(EncApiDeathTest, set_parameter_null_pointer) {
 
     // initialize encoder and get handle
     EXPECT_EQ(EB_ErrorBadParameter,
-              svt_av1_enc_init_handle(&context.enc_handle, nullptr, nullptr));
+              svt_av1_enc_init_handle(&context.enc_handle, nullptr));
     // watch out, function down
     EXPECT_EQ(EB_ErrorBadParameter,
               svt_av1_enc_set_parameter(context.enc_handle, nullptr));
@@ -76,11 +76,10 @@ TEST(EncApiTest, check_null_pointer) {
     memset(&context, 0, sizeof(context));
 
     // initialize encoder and with all null pointer
-    EXPECT_EQ(EB_ErrorBadParameter,
-              svt_av1_enc_init_handle(nullptr, nullptr, nullptr));
+    EXPECT_EQ(EB_ErrorBadParameter, svt_av1_enc_init_handle(nullptr, nullptr));
     // initialize encoder and with all null pointer and get handle
     EXPECT_EQ(EB_ErrorBadParameter,
-              svt_av1_enc_init_handle(&context.enc_handle, nullptr, nullptr));
+              svt_av1_enc_init_handle(&context.enc_handle, nullptr));
     // setup encoder parameters with null pointer
     EXPECT_EQ(EB_ErrorBadParameter,
               svt_av1_enc_set_parameter(nullptr, nullptr));
@@ -133,8 +132,7 @@ TEST(EncApiTest, DISABLED_check_normal_setup) {
 
     // initialize encoder and get handle
     EXPECT_EQ(EB_ErrorNone,
-              svt_av1_enc_init_handle(
-                  &context.enc_handle, &context, &context.enc_params))
+              svt_av1_enc_init_handle(&context.enc_handle, &context.enc_params))
         << "svt_av1_enc_init_handle failed";
     // setup source width/height with default value
     context.enc_params.source_width = width;
@@ -181,9 +179,9 @@ TEST(EncApiTest, DISABLED_repeat_normal_setup) {
 
     for (size_t i = 0; i < 500; ++i) {
         // initialize encoder and get handle
-        ASSERT_EQ(EB_ErrorNone,
-                  svt_av1_enc_init_handle(
-                      &context.enc_handle, &context, &context.enc_params))
+        ASSERT_EQ(
+            EB_ErrorNone,
+            svt_av1_enc_init_handle(&context.enc_handle, &context.enc_params))
             << "svt_av1_enc_init_handle failed at " << i << " times";
         // setup source width/height with default value
         context.enc_params.source_width = width;

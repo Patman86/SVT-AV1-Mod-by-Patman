@@ -1996,7 +1996,6 @@ typedef enum TransformationType
     AFFINE = 3,        // affine, 6-parameter
     TRANS_TYPES,
 } TransformationType;
-#if CLN_WMMAT
 #define MAX_PARAMDIM 6
 // The order of values in the wmmat matrix below is best described
 // by the affine transformation:
@@ -2009,20 +2008,6 @@ typedef struct EbWarpedMotionParams {
     int16_t alpha, beta, gamma, delta;
     int8_t invalid;
 } EbWarpedMotionParams;
-#else
-// The order of values in the wmmat matrix below is best described
-// by the homography:
-//      [x'     (m2 m3 m0   [x
-//  z .  y'  =   m4 m5 m1 *  y
-//       1]      m6 m7 1)    1]
-typedef struct EbWarpedMotionParams
-{
-    TransformationType wmtype;
-    int32_t wmmat[8];
-    int16_t alpha, beta, gamma, delta;
-    int8_t invalid;
-} EbWarpedMotionParams;
-#endif
 
 /*! Scale factors and scaling function pointers  when reference and current frame dimensions are not equal */
 typedef struct ScaleFactors {
@@ -2038,12 +2023,7 @@ typedef struct ScaleFactors {
 /* clang-format off */
 static const EbWarpedMotionParams default_warp_params = {
     IDENTITY,
-#if CLN_WMMAT
 { 0, 0, (1 << WARPEDMODEL_PREC_BITS), 0, 0, (1 << WARPEDMODEL_PREC_BITS) },
-#else
-{ 0, 0, (1 << WARPEDMODEL_PREC_BITS), 0, 0, (1 << WARPEDMODEL_PREC_BITS), 0,
-0 },
-#endif
 0, 0, 0, 0,
 0,
 };
@@ -2311,16 +2291,12 @@ typedef struct EbMemoryMapEntry
         } \
     } while (0)
 
-#ifndef _ERRNO_T_DEFINED
-#define _ERRNO_T_DEFINED
-typedef int32_t errno_t;
-#endif  /* _ERRNO_T_DEFINED */
 
 extern void
-    svt_memcpy_app(void  *dst_ptr, const void  *src_ptr, size_t size);
+svt_memcpy_intrin_sse(void* dst_ptr, const void* src_ptr, size_t size);
 #ifdef ARCH_X86_64
 #define EB_MEMCPY(dst, src, size) \
-    svt_memcpy_app(dst, src, size)
+    svt_memcpy_intrin_sse(dst, src, size)
 #else
 #define EB_MEMCPY(dst, src, size) \
     memcpy(dst, src, size)

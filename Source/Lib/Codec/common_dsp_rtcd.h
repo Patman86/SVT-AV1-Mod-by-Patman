@@ -1171,6 +1171,7 @@ extern "C" {
 
     void svt_av1_filter_intra_edge_neon(uint8_t *p, int32_t sz, int32_t strength);
     void svt_av1_filter_intra_edge_high_neon(uint16_t *p, int32_t sz, int32_t strength);
+    void svt_av1_upsample_intra_edge_neon(uint8_t *p, int32_t sz);
 
     void svt_av1_dr_prediction_z1_neon(uint8_t *dst, ptrdiff_t stride, int32_t bw, int32_t bh, const uint8_t *above, const uint8_t *left,int32_t upsample_above, int32_t dx, int32_t dy);
     void svt_av1_dr_prediction_z2_neon(uint8_t *dst, ptrdiff_t stride, int32_t bw, int32_t bh, const uint8_t *above, const uint8_t *left, int32_t upsample_above, int32_t upsample_left, int32_t dx,int32_t dy);
@@ -1200,6 +1201,10 @@ extern "C" {
     void svt_aom_cdef_find_dir_dual_neon(const uint16_t *img1, const uint16_t *img2, int stride, int32_t *var1, int32_t *var2, int32_t coeff_shift, uint8_t *out1, uint8_t *out2);
 
     void svt_aom_cfl_predict_lbd_neon(const int16_t *pred_buf_q3, uint8_t *pred, int32_t pred_stride, uint8_t *dst, int32_t dst_stride, int32_t alpha_q3, int32_t bit_depth, int32_t width, int32_t height);
+    void svt_cfl_predict_hbd_neon(const int16_t *pred_buf_q3, uint16_t *pred, int32_t pred_stride, uint16_t *dst, int32_t dst_stride, int32_t alpha_q3, int32_t bit_depth, int32_t width, int32_t height);
+
+    void svt_cfl_luma_subsampling_420_lbd_neon(const uint8_t *input, int32_t input_stride, int16_t *output_q3, int32_t width, int32_t height);
+    void svt_cfl_luma_subsampling_420_hbd_neon(const uint16_t *input, int32_t input_stride, int16_t *output_q3, int32_t width, int32_t height);
 
     void svt_aom_hadamard_8x8_neon(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
     void svt_aom_hadamard_16x16_neon(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);

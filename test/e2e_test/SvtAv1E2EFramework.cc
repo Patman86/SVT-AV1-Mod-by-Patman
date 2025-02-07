@@ -187,8 +187,8 @@ void SvtAv1E2ETestFramework::init_test(TestVideoVector &test_vector) {
     //
     // Init handle
     //
-    return_error = svt_av1_enc_init_handle(
-        &av1enc_ctx_.enc_handle, &av1enc_ctx_, &av1enc_ctx_.enc_params);
+    return_error = svt_av1_enc_init_handle(&av1enc_ctx_.enc_handle,
+                                           &av1enc_ctx_.enc_params);
     ASSERT_EQ(return_error, EB_ErrorNone)
         << "svt_av1_enc_init_handle return error:" << return_error;
     ASSERT_NE(av1enc_ctx_.enc_handle, nullptr)

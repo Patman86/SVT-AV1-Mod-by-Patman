@@ -544,10 +544,9 @@ static const vector<Bool> invalid_constrained_intra = {
  * 1 = Average BitRate.
  *
  * Default is 0. */
-static const vector<uint32_t> default_rate_control_mode = {0};
-static const vector<uint32_t> valid_rate_control_mode = {0, 1, 2};
-static const vector<uint32_t> invalid_rate_control_mode = {3, 4};
-
+static const vector<uint8_t> default_rate_control_mode = {0};
+static const vector<uint8_t> valid_rate_control_mode = {0, 1, 2};
+static const vector<uint8_t> invalid_rate_control_mode = {3, 4};
 /* Flag to enable the scene change detection algorithm.
  *
  * Default is 0. */
@@ -802,8 +801,6 @@ static const vector<uint32_t> invalid_speed_control_flag = {
 
 // Threads management
 
-#if CLN_LP_LVLS
-#if SVT_AV1_CHECK_VERSION(3, 0, 0)
 /* The level of parallelism the encoder employs (how many threads and pictures
  * to create). */
 static const vector<uint32_t> default_level_of_parallelism = {
@@ -829,62 +826,6 @@ static const vector<uint32_t> valid_level_of_parallelism = {
 static const vector<uint32_t> invalid_level_of_parallelism = {
     // ...
 };
-#else
-/* The number of logical processor which encoder threads run on. If
- * LogicalProcessors and TargetSocket are not set, threads are managed by
- * OS thread scheduler. */
-static const vector<uint32_t> default_logical_processors = {
-    0,
-};
-static const vector<uint32_t> valid_logical_processors = {
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    20,
-    40,
-    1000,
-    0xFFFFFFFF,
-};
-static const vector<uint32_t> invalid_logical_processors = {
-    // ...
-};
-#endif
-#else
-/* The number of logical processor which encoder threads run on. If
- * LogicalProcessors and TargetSocket are not set, threads are managed by
- * OS thread scheduler. */
-static const vector<uint32_t> default_logical_processors = {
-    0,
-};
-static const vector<uint32_t> valid_logical_processors = {
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    20,
-    40,
-    1000,
-    0xFFFFFFFF,
-};
-static const vector<uint32_t> invalid_logical_processors = {
-    // ...
-};
-#endif
 
 /* Target socket to run on. For dual socket systems, this can specify which
  * socket the encoder runs on.
@@ -963,9 +904,9 @@ static const vector<uint32_t> invalid_screen_content_mode = {3};
 
 /* Variables to control the use of ALT-REF (temporally filtered frames)
  */
-static const vector<Bool> default_enable_tf = {TRUE};
-static const vector<Bool> valid_enable_tf = {FALSE, TRUE};
-static const vector<Bool> invalid_enable_tf = {/*none*/};
+static const vector<uint8_t> default_enable_tf = {1};
+static const vector<uint8_t> valid_enable_tf = {0, 1, 2};
+static const vector<uint8_t> invalid_enable_tf = {3};
 
 static const vector<uint8_t> default_altref_strength = {5};
 static const vector<uint8_t> valid_altref_strength = {0, 1, 2, 3, 4, 5, 6};

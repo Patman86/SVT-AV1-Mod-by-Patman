@@ -74,7 +74,7 @@ static void determine_best_references(PictureControlSet *pcs, ModeDecisionContex
     uint8_t is_bwd_added      = 0;
     uint8_t is_last_bwd_added = 0;
 
-    uint16_t ri = 0;
+    uint8_t ri = 0;
     for (uint8_t me_index = 0; me_index < total_me_cnt; ++me_index) {
         const MeCandidate *cand = &me_results[me_index];
         if (cand->direction == 0) {
@@ -672,12 +672,8 @@ static void md_update_all_neighbour_arrays_multiple(PictureControlSet *pcs, Mode
 * av1_perform_inverse_transform_recon_luma
 * Apply inverse transform for Luma samples
 ************************************************************************************************/
-#if FTR_LOSSLESS_SUPPORT
 void av1_perform_inverse_transform_recon_luma(PictureControlSet *pcs, ModeDecisionContext *ctx,
                                               ModeDecisionCandidateBuffer *cand_bf) {
-#else
-void av1_perform_inverse_transform_recon_luma(ModeDecisionContext *ctx, ModeDecisionCandidateBuffer *cand_bf) {
-#endif
     uint32_t tu_total_count;
     uint32_t txb_itr;
 
@@ -695,13 +691,9 @@ void av1_perform_inverse_transform_recon_luma(ModeDecisionContext *ctx, ModeDeci
         uint32_t rec_luma_offset  = txb_origin_x + txb_origin_y * cand_bf->recon->stride_y;
         uint32_t y_has_coeff      = (cand_bf->y_has_coeff & (1 << txb_itr)) > 0;
         if (y_has_coeff)
-#if FTR_LOSSLESS_SUPPORT
             svt_aom_inv_transform_recon_wrapper(
                 pcs,
                 ctx,
-#else
-            svt_aom_inv_transform_recon_wrapper(
-#endif
                 cand_bf->pred->buffer_y,
                 txb_origin_index,
                 cand_bf->pred->stride_y,
@@ -813,13 +805,9 @@ static void av1_perform_inverse_transform_recon(PictureControlSet *pcs, ModeDeci
             }
         }
         if (ctx->blk_ptr->y_has_coeff & (1 << txb_itr)) {
-#if FTR_LOSSLESS_SUPPORT
             svt_aom_inv_transform_recon_wrapper(pcs,
                                                 ctx,
                                                 cand_bf->pred->buffer_y,
-#else
-            svt_aom_inv_transform_recon_wrapper(cand_bf->pred->buffer_y,
-#endif
                                                 txb_origin_index,
                                                 cand_bf->pred->stride_y << ctx->mds_subres_step,
                                                 recon_buffer->buffer_y,
@@ -897,13 +885,9 @@ static void av1_perform_inverse_transform_recon(PictureControlSet *pcs, ModeDeci
                     ((((txb_origin_x >> 3) << 3) + ((txb_origin_y >> 3) << 3) * cand_bf->rec_coeff->stride_cr) >> 1);
 
                 if (ctx->blk_ptr->u_has_coeff & (1 << txb_itr))
-#if FTR_LOSSLESS_SUPPORT
                     svt_aom_inv_transform_recon_wrapper(pcs,
                                                         ctx,
                                                         cand_bf->pred->buffer_cb,
-#else
-                    svt_aom_inv_transform_recon_wrapper(cand_bf->pred->buffer_cb,
-#endif
                                                         cb_tu_chroma_origin_index,
                                                         cand_bf->pred->stride_cb,
                                                         recon_buffer->buffer_cb,
@@ -931,13 +915,9 @@ static void av1_perform_inverse_transform_recon(PictureControlSet *pcs, ModeDeci
                                          ctx->hbd_md);
 
                 if (ctx->blk_ptr->v_has_coeff & (1 << txb_itr))
-#if FTR_LOSSLESS_SUPPORT
                     svt_aom_inv_transform_recon_wrapper(pcs,
                                                         ctx,
                                                         cand_bf->pred->buffer_cr,
-#else
-                    svt_aom_inv_transform_recon_wrapper(cand_bf->pred->buffer_cr,
-#endif
                                                         cr_tu_chroma_origin_index,
                                                         cand_bf->pred->stride_cr,
                                                         recon_buffer->buffer_cr,
@@ -1435,7 +1415,6 @@ void fast_loop_core(ModeDecisionCandidateBuffer *cand_bf, PictureControlSet *pcs
             }
         }
     }
-#if OPT_MDS0_EXIT
     if (ctx->mds0_ctrls.pruning_method_th && ctx->pd_pass == PD_PASS_1) {
         if (ctx->mds0_ctrls.pruning_method_th != (uint8_t)~0 &&
             (MIN(ctx->md_me_dist, ctx->md_pme_dist) / (ctx->blk_geom->bwidth * ctx->blk_geom->bheight)) >
@@ -1469,19 +1448,6 @@ void fast_loop_core(ModeDecisionCandidateBuffer *cand_bf, PictureControlSet *pcs
             }
         }
     }
-#else
-    if (ctx->mds0_ctrls.enable_cost_based_early_exit && ctx->mds0_best_cost != (uint32_t)~0) {
-        const uint64_t distortion_cost = RDCOST((ctx->mds0_ctrls.mds0_dist_type == SSD) ? full_lambda : fast_lambda,
-                                                0,
-                                                luma_fast_dist + chroma_fast_distortion);
-        if (distortion_cost > ctx->mds0_best_cost &&
-            (100 * (distortion_cost - ctx->mds0_best_cost)) >
-                (ctx->mds0_best_cost * ctx->mds0_ctrls.mds0_distortion_th)) {
-            *(cand_bf->fast_cost) = MAX_MODE_COST;
-            return;
-        }
-    }
-#endif
     // Fast Cost
     if (ctx->shut_fast_rate) {
         *(cand_bf->fast_cost)     = luma_fast_dist + chroma_fast_distortion;
@@ -1797,11 +1763,9 @@ static void md_stage_0(PictureControlSet *pcs, ModeDecisionContext *ctx,
                 if (cand->cand_class == CAND_CLASS_0)
                     ctx->mds0_best_class0_cost = *cand_bf->fast_cost;
             }
-#if OPT_MDS0_EXIT
             if (*cand_bf->fast_cost < ctx->mds0_best_cost_per_class[cand_bf->cand->cand_class]) {
                 ctx->mds0_best_cost_per_class[cand_bf->cand->cand_class] = *cand_bf->fast_cost;
             }
-#endif
             if (tot_itr > 1 && itr == 0) {
                 regular_intra_cost[cand->pred_mode] = *cand_bf->fast_cost;
 
@@ -3679,20 +3643,12 @@ static uint64_t md_cfl_rd_pick_alpha(PictureControlSet *pcs, ModeDecisionCandida
 }
 
 /* Compute the AC components of the luma prediction that are used to generate CFL predictions. */
-#if FTR_LOSSLESS_SUPPORT
 static void compute_cfl_ac_components(PictureControlSet *pcs, ModeDecisionContext *ctx,
                                       ModeDecisionCandidateBuffer *cand_bf) {
-#else
-static void compute_cfl_ac_components(ModeDecisionContext *ctx, ModeDecisionCandidateBuffer *cand_bf) {
-#endif
     const BlockGeom *const blk_geom = ctx->blk_geom;
 
     // 1: recon the Luma
-#if FTR_LOSSLESS_SUPPORT
     av1_perform_inverse_transform_recon_luma(pcs, ctx, cand_bf);
-#else
-    av1_perform_inverse_transform_recon_luma(ctx, cand_bf);
-#endif
     // 2: Form the pred_buf_q3
     const uint32_t rec_luma_offset = ((blk_geom->org_y >> 3) << 3) * cand_bf->recon->stride_y +
         ((blk_geom->org_x >> 3) << 3);
@@ -3811,11 +3767,7 @@ static void cfl_prediction(PictureControlSet *pcs, ModeDecisionCandidateBuffer *
     }
 
     // Compute AC component of CFL prediction
-#if FTR_LOSSLESS_SUPPORT
     compute_cfl_ac_components(pcs, ctx, cand_bf);
-#else
-    compute_cfl_ac_components(ctx, cand_bf);
-#endif
     // Loop over alphas and find the best CFL params
     uint8_t  cfl_alpha_idx = 0, cfl_alpha_signs = 0;
     uint64_t cfl_rd = md_cfl_rd_pick_alpha(pcs,
@@ -4423,13 +4375,9 @@ static void perform_tx_light_pd0(PictureControlSet *pcs, ModeDecisionContext *ct
     EB_TRANS_COEFF_SHAPE pf_shape = ctx->pf_ctrls.pf_shape;
 
     // Y: T Q i_q
-#if FTR_LOSSLESS_SUPPORT
     svt_aom_estimate_transform(pcs,
                                ctx,
                                &(((int16_t *)cand_bf->residual->buffer_y)[txb_origin_index]),
-#else
-    svt_aom_estimate_transform(&(((int16_t *)cand_bf->residual->buffer_y)[txb_origin_index]),
-#endif
                                cand_bf->residual->stride_y,
                                transf_coeff,
                                NOT_USED_VALUE,
@@ -4698,13 +4646,9 @@ static void tx_type_search(PictureControlSet *pcs, ModeDecisionContext *ctx, Mod
             ctx->three_quad_energy               = 0;
             if (!tx_search_skip_flag) {
                 // Y: T Q i_q
-#if FTR_LOSSLESS_SUPPORT
                 svt_aom_estimate_transform(pcs,
                                            ctx,
                                            &(((int16_t *)cand_bf->residual->buffer_y)[txb_origin_index]),
-#else
-                svt_aom_estimate_transform(&(((int16_t *)cand_bf->residual->buffer_y)[txb_origin_index]),
-#endif
                                            cand_bf->residual->stride_y,
                                            &(((int32_t *)ctx->tx_coeffs->buffer_y)[ctx->txb_1d_offset]),
                                            NOT_USED_VALUE,
@@ -4757,13 +4701,9 @@ static void tx_type_search(PictureControlSet *pcs, ModeDecisionContext *ctx, Mod
             // Perform T-1 if mds_spatial_sse or  INTRA and tx_depth > 0 or
             if (ctx->mds_spatial_sse || (!is_inter && cand_bf->cand->tx_depth)) {
                 if (y_has_coeff)
-#if FTR_LOSSLESS_SUPPORT
                     svt_aom_inv_transform_recon_wrapper(pcs,
                                                         ctx,
                                                         cand_bf->pred->buffer_y,
-#else
-                    svt_aom_inv_transform_recon_wrapper(cand_bf->pred->buffer_y,
-#endif
                                                         txb_origin_index,
                                                         cand_bf->pred->stride_y,
                                                         recon_ptr->buffer_y,
@@ -5403,13 +5343,9 @@ static void perform_dct_dct_tx_light_pd1(PictureControlSet *pcs, ModeDecisionCon
     EbPictureBufferDesc *const quant_coeff_ptr = cand_bf->quant;
 
     // Y: T Q i_q
-#if FTR_LOSSLESS_SUPPORT
     svt_aom_estimate_transform(pcs,
                                ctx,
                                &(((int16_t *)cand_bf->residual->buffer_y)[loc->blk_origin_index]),
-#else
-    svt_aom_estimate_transform(&(((int16_t *)cand_bf->residual->buffer_y)[loc->blk_origin_index]),
-#endif
                                cand_bf->residual->stride_y,
                                &(((int32_t *)ctx->tx_coeffs->buffer_y)[0]),
                                NOT_USED_VALUE,
@@ -5598,13 +5534,9 @@ static void perform_dct_dct_tx(PictureControlSet *pcs, ModeDecisionContext *ctx,
 
     if (!tx_search_skip_flag) {
         // Y: T Q i_q
-#if FTR_LOSSLESS_SUPPORT
         svt_aom_estimate_transform(pcs,
                                    ctx,
                                    &(((int16_t *)cand_bf->residual->buffer_y)[txb_origin_index]),
-#else
-        svt_aom_estimate_transform(&(((int16_t *)cand_bf->residual->buffer_y)[txb_origin_index]),
-#endif
                                    cand_bf->residual->stride_y,
                                    &(((int32_t *)ctx->tx_coeffs->buffer_y)[txb_1d_offset]),
                                    NOT_USED_VALUE,
@@ -5644,13 +5576,9 @@ static void perform_dct_dct_tx(PictureControlSet *pcs, ModeDecisionContext *ctx,
         assert(IMPLIES(ssim_level > SSIM_LVL_0, ctx->pd_pass == PD_PASS_1));
         assert(IMPLIES(ssim_level > SSIM_LVL_0, ctx->md_stage == MD_STAGE_3));
         if (cand_bf->eob.y[txb_itr])
-#if FTR_LOSSLESS_SUPPORT
             svt_aom_inv_transform_recon_wrapper(pcs,
                                                 ctx,
                                                 cand_bf->pred->buffer_y,
-#else
-            svt_aom_inv_transform_recon_wrapper(cand_bf->pred->buffer_y,
-#endif
                                                 txb_origin_index,
                                                 cand_bf->pred->stride_y,
                                                 recon_ptr->buffer_y,
@@ -5864,8 +5792,8 @@ static uint8_t do_md_recon(PictureParentControlSet *pcs, ModeDecisionContext *ct
     uint8_t need_md_rec_for_ref        = (pcs->is_ref || pcs->scs->static_config.recon_enabled) &&
         encdec_bypass; // for inter prediction of future frame or if recon is being output
     uint8_t need_md_rec_for_dlf_search  = pcs->dlf_ctrls.enabled; // for DLF levels
-    uint8_t need_md_rec_for_cdef_search = pcs->cdef_ctrls.enabled &&
-        !pcs->cdef_ctrls.use_reference_cdef_fs; // CDEF search levels needing the recon samples
+    uint8_t need_md_rec_for_cdef_search = pcs->cdef_search_ctrls.enabled &&
+        !pcs->cdef_search_ctrls.use_reference_cdef_fs; // CDEF search levels needing the recon samples
     uint8_t need_md_rec_for_restoration_search = pcs->enable_restoration; // any resoration search level
     uint8_t need_md_rec_for_stat_report        = pcs->scs->static_config.stat_report &&
         (ctxt->pd_pass == PD_PASS_1); // stat report needs recon samples for metrics
@@ -6480,36 +6408,47 @@ static INLINE void opt_non_translation_motion_mode(PictureControlSet *pcs, ModeD
         av1_set_ref_frame(rf, cand_bf->cand->ref_frame_type);
         uint8_t list_idx = get_list_idx(rf[0]);
 
-        Mv default_mv     = cand_bf->cand->mv[list_idx];
-        Mv default_ref_mv = cand_bf->cand->pred_mv[list_idx];
+        const Mv                   default_mv           = cand->mv[list_idx];
+        const Mv                   default_ref_mv       = cand->pred_mv[list_idx];
+        const uint8_t              default_drl_idx      = cand->drl_index;
+        const EbWarpedMotionParams default_wm_params    = cand->wm_params_l0;
+        const uint16_t             default_num_proj_ref = cand->num_proj_ref;
 
         motion_mode_valid = ctx->wm_ctrls.refinement_iterations
             ? svt_aom_wm_motion_refinement(
                   pcs, ctx, cand_bf, cand_bf->cand, list_idx, ctx->wm_ctrls.shut_approx_if_not_mds0)
             : 1;
 
-        if (motion_mode_valid) {
+        if (motion_mode_valid && (default_mv.as_int != cand->mv[list_idx].as_int)) {
             MvUnit mv_unit;
-            mv_unit.mv[list_idx]   = cand_bf->cand->mv[list_idx];
+            mv_unit.mv[list_idx]   = cand->mv[list_idx];
             mv_unit.pred_direction = list_idx;
+            // Update wm_params and num_proj_ref for the chosen MV. This call is not
+            // part of a search, so disable the shortcuts.
             svt_aom_warped_motion_parameters(pcs,
                                              ctx->blk_ptr,
                                              &mv_unit,
                                              ctx->blk_geom,
                                              ctx->blk_org_x,
                                              ctx->blk_org_y,
-                                             cand_bf->cand->ref_frame_type,
-                                             &cand_bf->cand->wm_params_l0,
-                                             &cand_bf->cand->num_proj_ref,
-                                             ctx->wm_ctrls.min_neighbour_perc,
-                                             ctx->wm_ctrls.corner_perc_bias,
-                                             ctx->wm_ctrls.lower_band_th,
-                                             ctx->wm_ctrls.upper_band_th,
-                                             ctx->wm_ctrls.shut_approx_if_not_mds0);
-            if (default_mv.as_int != cand_bf->cand->mv[list_idx].as_int) {
-                update_fast_luma_rate(ctx, cand_bf, cand, default_mv, default_ref_mv, list_idx);
-                cand_bf->valid_pred = 0;
-            }
+                                             cand->ref_frame_type,
+                                             &cand->wm_params_l0,
+                                             &cand->num_proj_ref,
+                                             0,
+                                             0,
+                                             0,
+                                             0,
+                                             1);
+
+            update_fast_luma_rate(ctx, cand_bf, cand, default_mv, default_ref_mv, list_idx);
+            cand_bf->valid_pred = 0;
+        } else {
+            // If refined mode was not valid, or the MV was not changed, reset the original settings to proceed with processing the candidate
+            cand->mv[list_idx].as_int      = default_mv.as_int;
+            cand->pred_mv[list_idx].as_int = default_ref_mv.as_int;
+            cand->wm_params_l0             = default_wm_params;
+            cand->num_proj_ref             = default_num_proj_ref;
+            cand->drl_index                = default_drl_idx;
         }
     }
     MdStage obmc_refine_mds = (ctx->obmc_ctrls.refine_level == 1 || ctx->obmc_ctrls.refine_level == 2) ? MD_STAGE_1
@@ -6523,13 +6462,22 @@ static INLINE void opt_non_translation_motion_mode(PictureControlSet *pcs, ModeD
 
         uint8_t list_idx = get_list_idx(rf[0]);
 
-        Mv default_mv     = cand_bf->cand->mv[list_idx];
-        Mv default_ref_mv = cand_bf->cand->pred_mv[list_idx];
+        const Mv      default_mv      = cand_bf->cand->mv[list_idx];
+        const Mv      default_ref_mv  = cand_bf->cand->pred_mv[list_idx];
+        const uint8_t default_drl_idx = cand->drl_index;
 
-        svt_aom_obmc_motion_refinement(pcs, ctx, cand_bf->cand, list_idx, ctx->obmc_ctrls.refine_level);
-        if (default_mv.as_int != cand_bf->cand->mv[list_idx].as_int) {
-            update_fast_luma_rate(ctx, cand_bf, cand, default_mv, default_ref_mv, list_idx);
-            cand_bf->valid_pred = 0;
+        uint8_t motion_mode_valid = svt_aom_obmc_motion_refinement(
+            pcs, ctx, cand_bf->cand, list_idx, ctx->obmc_ctrls.refine_level);
+        if (motion_mode_valid) {
+            if (default_mv.as_int != cand_bf->cand->mv[list_idx].as_int) {
+                update_fast_luma_rate(ctx, cand_bf, cand, default_mv, default_ref_mv, list_idx);
+                cand_bf->valid_pred = 0;
+            }
+        } else {
+            // If refined mode was not valid, reset the original settings to proceed with processing the candidate
+            cand->mv[list_idx].as_int      = default_mv.as_int;
+            cand->pred_mv[list_idx].as_int = default_ref_mv.as_int;
+            cand->drl_index                = default_drl_idx;
         }
     }
 }
@@ -6643,11 +6591,9 @@ static void full_loop_core(PictureControlSet *pcs, ModeDecisionContext *ctx, Mod
         start_tx_depth = 0;
         end_tx_depth   = 0;
     }
-#if FTR_LOSSLESS_SUPPORT
     // Force the use of TX_4X4 for 8x8 block(s)
     if (pcs->mimic_only_tx_4x4 && ctx->blk_geom->sq_size == 8)
         start_tx_depth = end_tx_depth = 1;
-#endif
     // Check if should perform TX type search
     if (ctx->blk_geom->sq_size <= 64 && start_tx_depth == 0 && end_tx_depth == 0 && // TXS off
         !pcs->ppcs->sc_class1 && // Can't be SC b/c SC tries DCT_DCT and IDTX when only_dct_dct is 1
@@ -6846,16 +6792,12 @@ static void md_stage_2(PictureControlSet *pcs, ModeDecisionContext *ctx, EbPictu
         ModeDecisionCandidateBuffer *cand_bf        = cand_bf_ptr_array[candidateIndex];
         ModeDecisionCandidate       *cand           = cand_bf->cand;
         ctx->mds_tx_size_mode                       = 0;
-#if FTR_LOSSLESS_SUPPORT
-        ctx->mds_txt_level = svt_av1_is_lossless_segment(pcs, ctx->blk_ptr->segment_id) ? 0
-            : is_intra_mode(cand->pred_mode)                                            ? ctx->txt_ctrls.enabled
-                                                                                        : 0;
-#else
-        ctx->mds_txt_level = is_intra_mode(cand->pred_mode) ? ctx->txt_ctrls.enabled : 0;
-#endif
-        ctx->mds_skip_rdoq            = is_intra_mode(cand->pred_mode) ? TRUE : FALSE;
-        ctx->mds_skip_full_uv         = TRUE;
-        ctx->mds_spatial_sse          = ctx->spatial_sse_ctrls.spatial_sse_full_loop_level;
+        ctx->mds_txt_level                          = svt_av1_is_lossless_segment(pcs, ctx->blk_ptr->segment_id) ? 0
+                                     : is_intra_mode(cand->pred_mode) ? ctx->txt_ctrls.enabled
+                                                                      : 0;
+        ctx->mds_skip_rdoq                          = is_intra_mode(cand->pred_mode) ? TRUE : FALSE;
+        ctx->mds_skip_full_uv                       = TRUE;
+        ctx->mds_spatial_sse                        = ctx->spatial_sse_ctrls.spatial_sse_full_loop_level;
         ctx->mds_fast_coeff_est_level = (ctx->pd_pass == PD_PASS_1) ? 1 : ctx->rate_est_ctrls.pd0_fast_coeff_est_level;
         ctx->mds_subres_step          = (ctx->pd_pass == PD_PASS_1) ? 0 : ctx->subres_ctrls.step;
 
@@ -6973,11 +6915,7 @@ static void md_stage_3(PictureControlSet *pcs, ModeDecisionContext *ctx, EbPictu
         ctx->mds_skip_ifs = (ctx->ifs_ctrls.level == IFS_MDS3) ? FALSE : TRUE;
 
         ctx->mds_tx_size_mode = ctx->txs_ctrls.enabled && (ctx->blk_geom->sq_size >= ctx->txs_ctrls.min_sq_size);
-#if FTR_LOSSLESS_SUPPORT
-        ctx->mds_txt_level = svt_av1_is_lossless_segment(pcs, ctx->blk_ptr->segment_id) ? 0 : ctx->txt_ctrls.enabled;
-#else
-        ctx->mds_txt_level = ctx->txt_ctrls.enabled;
-#endif
+        ctx->mds_txt_level    = svt_av1_is_lossless_segment(pcs, ctx->blk_ptr->segment_id) ? 0 : ctx->txt_ctrls.enabled;
         ctx->mds_skip_full_uv = FALSE;
 
         ctx->mds_skip_rdoq = FALSE;
@@ -7263,11 +7201,9 @@ static void search_best_mds3_uv_mode(PictureControlSet *pcs, EbPictureBufferDesc
         cand_array[uv_mode_total_count].motion_mode               = SIMPLE_TRANSLATION;
         cand_array[uv_mode_total_count].transform_type_uv         = svt_aom_get_intra_uv_tx_type(
             cand_array[uv_mode_total_count].intra_chroma_mode, ctx->blk_geom->txsize_uv[0], frm_hdr->reduced_tx_set);
-#if FTR_LOSSLESS_SUPPORT // fix
         if (svt_av1_is_lossless_segment(pcs, ctx->blk_ptr->segment_id) &&
             cand_array[uv_mode_total_count].transform_type_uv != DCT_DCT)
             continue;
-#endif
         uv_mode_total_count++;
     }
     uv_mode_total_count = uv_mode_total_count - start_fast_buffer_index;
@@ -7465,11 +7401,9 @@ static void search_best_independent_uv_mode(PictureControlSet *pcs, EbPictureBuf
                 cand_array[uv_mode_total_count].motion_mode                = SIMPLE_TRANSLATION;
                 cand_array[uv_mode_total_count].transform_type_uv          = svt_aom_get_intra_uv_tx_type(
                     uv_mode, ctx->blk_geom->txsize_uv[0], frm_hdr->reduced_tx_set);
-#if FTR_LOSSLESS_SUPPORT // fix
                 if (svt_av1_is_lossless_segment(pcs, ctx->blk_ptr->segment_id) &&
                     cand_array[uv_mode_total_count].transform_type_uv != DCT_DCT)
                     continue;
-#endif
                 uv_mode_total_count++;
             }
         }
@@ -8848,14 +8782,20 @@ static void md_encode_block_light_pd1(PictureControlSet *pcs, ModeDecisionContex
             ctx->lpd1_allow_skipping_tx = 1;
         }
     } else {
-        cand_bf                     = cand_bf_ptr_array_base[0];
-        cand_bf->cand               = &fast_cand_array[0];
-        *(cand_bf->fast_cost)       = 0;
-        cand_bf->fast_luma_rate     = 0;
-        cand_bf->fast_chroma_rate   = 0;
-        cand_bf->cand->tx_depth     = 0;
-        ctx->use_tx_shortcuts_mds3  = 1;
-        ctx->lpd1_allow_skipping_tx = 1;
+        cand_bf                   = cand_bf_ptr_array_base[0];
+        cand_bf->cand             = &fast_cand_array[0];
+        *(cand_bf->fast_cost)     = 0;
+        cand_bf->fast_luma_rate   = 0;
+        cand_bf->fast_chroma_rate = 0;
+
+        /* If the interpolation filter type is assigned at the picture level, use that value, OW use regular.
+         * NB intra_bc always uses BILINEAR, but IBC is not allowed in LPD1. */
+        cand_bf->cand->interp_filters = (pcs->ppcs->frm_hdr.interpolation_filter == SWITCHABLE)
+            ? 0
+            : av1_broadcast_interp_filter(pcs->ppcs->frm_hdr.interpolation_filter);
+        cand_bf->cand->tx_depth       = 0;
+        ctx->use_tx_shortcuts_mds3    = 1;
+        ctx->lpd1_allow_skipping_tx   = 1;
     }
     // For 10bit content, when recon is not needed, hbd_md can stay =0,
     // and the 8bit prediction is used to produce the residual (with 8bit source).
@@ -9002,13 +8942,9 @@ static void non_normative_txs(PictureControlSet *pcs, ModeDecisionContext *ctx, 
                 EbPictureBufferDesc *quant_coeff_ptr = cand_bf->quant;
 
                 ctx->three_quad_energy = 0;
-#if FTR_LOSSLESS_SUPPORT
                 svt_aom_estimate_transform(pcs,
                                            ctx,
                                            &(((int16_t *)cand_bf->residual->buffer_y)[txb_origin_index]),
-#else
-                svt_aom_estimate_transform(&(((int16_t *)cand_bf->residual->buffer_y)[txb_origin_index]),
-#endif
                                            cand_bf->residual->stride_y,
                                            &(((int32_t *)ctx->tx_coeffs->buffer_y)[ctx->txb_1d_offset]),
                                            NOT_USED_VALUE,
@@ -9064,13 +9000,9 @@ static void non_normative_txs(PictureControlSet *pcs, ModeDecisionContext *ctx, 
                 EbPictureBufferDesc *quant_coeff_ptr = cand_bf->quant;
 
                 ctx->three_quad_energy = 0;
-#if FTR_LOSSLESS_SUPPORT
                 svt_aom_estimate_transform(pcs,
                                            ctx,
                                            &(((int16_t *)cand_bf->residual->buffer_y)[txb_origin_index]),
-#else
-                svt_aom_estimate_transform(&(((int16_t *)cand_bf->residual->buffer_y)[txb_origin_index]),
-#endif
                                            cand_bf->residual->stride_y,
                                            &(((int32_t *)ctx->tx_coeffs->buffer_y)[ctx->txb_1d_offset]),
                                            NOT_USED_VALUE,
@@ -9251,11 +9183,9 @@ static void md_encode_block(PictureControlSet *pcs, ModeDecisionContext *ctx, ui
     ctx->mds1_best_class_it     = 0;
     ctx->perform_mds1           = 1;
     ctx->use_tx_shortcuts_mds3  = 0;
-#if OPT_MDS0_EXIT
     for (cand_class_it = CAND_CLASS_0; cand_class_it < CAND_CLASS_TOTAL; cand_class_it++) {
         ctx->mds0_best_cost_per_class[cand_class_it] = (uint64_t)~0;
     }
-#endif
     ctx->mds0_best_cost        = (uint64_t)~0;
     ctx->mds0_best_class       = 0;
     ctx->mds0_best_class0_cost = (uint64_t)~0;
@@ -9947,19 +9877,22 @@ static EbPictureBufferDesc *pad_hbd_pictures(SequenceControlSet *scs, PictureCon
                                         scs->sb_size - sb_width,
                                         scs->sb_size - sb_height);
 
+        uint32_t chroma_pad_width  = (scs->sb_size - sb_width) >> 1;
+        uint32_t chroma_pad_height = (scs->sb_size - sb_height) >> 1;
+
         svt_aom_pad_input_picture_16bit((uint16_t *)ctx->input_sample16bit_buffer->buffer_cb,
                                         ctx->input_sample16bit_buffer->stride_cb,
                                         sb_width >> 1,
                                         sb_height >> 1,
-                                        (scs->sb_size - sb_width) >> 1,
-                                        (scs->sb_size - sb_height) >> 1);
+                                        chroma_pad_width,
+                                        chroma_pad_height);
 
         svt_aom_pad_input_picture_16bit((uint16_t *)ctx->input_sample16bit_buffer->buffer_cr,
                                         ctx->input_sample16bit_buffer->stride_cr,
                                         sb_width >> 1,
                                         sb_height >> 1,
-                                        (scs->sb_size - sb_width) >> 1,
-                                        (scs->sb_size - sb_height) >> 1);
+                                        chroma_pad_width,
+                                        chroma_pad_height);
         svt_aom_store16bit_input_src(
             ctx->input_sample16bit_buffer, pcs, sb_org_x, sb_org_y, scs->sb_size, scs->sb_size);
 

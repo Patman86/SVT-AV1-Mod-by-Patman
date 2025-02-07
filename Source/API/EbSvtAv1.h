@@ -102,7 +102,9 @@ typedef struct EbBufferHeaderType {
     int64_t  pts;
 
     // pic info
+    uint8_t          temporal_layer_index;
     uint32_t         qp;
+    uint32_t         avg_qp;
     EbAv1PictureType pic_type;
     uint64_t         luma_sse;
     uint64_t         cr_sse;
@@ -157,27 +159,9 @@ typedef struct EbSvtIOFormat //former EbSvtEncInput
     uint8_t *luma;
     uint8_t *cb;
     uint8_t *cr;
-
-    // Hosts LSB 2 bits of 10bit input/output when the compressed 10bit format is used
-#if !SVT_AV1_CHECK_VERSION(1, 5, 0)
-    /* DEPRECATED: to be removed in 1.5.0. */
-    void *luma_ext;
-    void *cb_ext;
-    void *cr_ext;
-#endif
-
     uint32_t y_stride;
     uint32_t cr_stride;
     uint32_t cb_stride;
-
-    uint32_t width;
-    uint32_t height;
-
-    uint32_t org_x;
-    uint32_t org_y;
-
-    EbColorFormat color_fmt;
-    EbBitDepth    bit_depth;
 } EbSvtIOFormat;
 
 typedef struct EbOperatingParametersInfo {
@@ -223,19 +207,11 @@ typedef struct EbColorConfig {
     /*!< 1: Indicates that the video does not contain U and V color planes.
      *   0: Indicates that the video contains Y, U, and V color planes. */
     Bool mono_chrome;
-
     /*!< Specify the chroma subsampling format */
     uint8_t subsampling_x;
 
     /*!< Specify the chroma subsampling format */
     uint8_t subsampling_y;
-
-    /*!< 1: Specifies that color_primaries, transfer_characteristics, and
-            matrix_coefficients are present. color_description_present_flag
-     *   0: Specifies that color_primaries, transfer_characteristics and
-            matrix_coefficients are not present */
-    Bool color_description_present_flag;
-
     /*!< An integer that is defined by the "Color primaries" section of
      * ISO/IEC 23091-4/ITU-T H.273 */
     EbColorPrimaries color_primaries;
@@ -259,7 +235,6 @@ typedef struct EbColorConfig {
      *   0: Indicates that the U and V planes will share the same delta
             quantizer value */
     Bool separate_uv_delta_q;
-
 } EbColorConfig;
 
 typedef struct EbTimingInfo {

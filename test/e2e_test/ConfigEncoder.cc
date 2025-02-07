@@ -23,7 +23,7 @@ void set_enc_config(void *config_ptr, const char *name, const char *value) {
 
 bool set_default_config(EbSvtAv1EncConfiguration *config) {
     EbComponentType *handle;
-    if (svt_av1_enc_init_handle(&handle, NULL, config) != EB_ErrorNone) {
+    if (svt_av1_enc_init_handle(&handle, config) != EB_ErrorNone) {
         return false;
     }
     svt_av1_enc_deinit_handle(handle);

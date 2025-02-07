@@ -38,8 +38,6 @@
  * Macros
  ***************************************/
 #define CLIP3(min_val, max_val, a) (((a) < (min_val)) ? (min_val) : (((a) > (max_val)) ? (max_val) : (a)))
-#define SIZE_OF_ONE_FRAME_IN_BYTES(width, height, csp, is_16bit) \
-    ((((width) * (height)) + 2 * (((width) * (height)) >> (3 - csp))) << is_16bit)
 #define YUV4MPEG2_IND_SIZE 9
 extern volatile int32_t keep_running;
 
@@ -182,8 +180,7 @@ static long get_next_qp_from_qp_file(FILE *const qp_file, int *const qp_read_fro
         *qp_read_from_file = 1;
     return qp;
 }
-
-static unsigned char send_qp_on_the_fly(FILE *const qp_file, Bool *use_qp_file) {
+static unsigned char send_qp_on_the_fly(FILE *const qp_file, bool *use_qp_file) {
     long tmp_qp            = 0;
     int  qp_read_from_file = 0;
 
@@ -568,15 +565,15 @@ static void mmap_read_input_frames(EbConfig *app_cfg, uint8_t is_16bit, EbBuffer
     const uint32_t input_padded_height = app_cfg->input_padded_height;
     EbSvtIOFormat *input_ptr           = (EbSvtIOFormat *)header_ptr->p_buffer;
 
-    const uint8_t color_format  = app_cfg->config.encoder_color_format;
-    const uint8_t subsampling_x = (color_format == EB_YUV444 ? 1 : 2) - 1;
+    const uint8_t  color_format  = app_cfg->config.encoder_color_format;
+    const uint8_t  subsampling_x = (color_format == EB_YUV444 ? 0 : 1);
+    const uint8_t  subsampling_y = ((color_format == EB_YUV444 || color_format == EB_YUV422) ? 0 : 1);
+    const uint32_t chroma_width  = (app_cfg->input_padded_width + subsampling_x) >> subsampling_x;
+    const uint32_t chroma_height = (app_cfg->input_padded_height + subsampling_y) >> subsampling_y;
 
     input_ptr->y_stride  = input_padded_width;
-    input_ptr->cr_stride = input_padded_width >> subsampling_x;
-    input_ptr->cb_stride = input_padded_width >> subsampling_x;
-
-    size_t read_size = (size_t)SIZE_OF_ONE_FRAME_IN_BYTES(
-        input_padded_width, input_padded_height, color_format, is_16bit);
+    input_ptr->cr_stride = chroma_width;
+    input_ptr->cb_stride = chroma_width;
 
     header_ptr->n_filled_len = 0;
 
@@ -585,7 +582,9 @@ static void mmap_read_input_frames(EbConfig *app_cfg, uint8_t is_16bit, EbBuffer
         app_cfg->mmap.y4m_frm_hdr = read_y4m_frame_delimiter(app_cfg->input_file, app_cfg->error_log_file);
     }
     size_t luma_read_size   = (size_t)input_padded_width * input_padded_height << is_16bit;
-    size_t chroma_read_size = ((size_t)luma_read_size >> (3 - color_format));
+    size_t chroma_read_size = ((size_t)chroma_width * chroma_height << is_16bit);
+    size_t read_size        = luma_read_size + 2 * chroma_read_size;
+
     app_cfg->mmap.cur_offset += app_cfg->mmap.y4m_frm_hdr;
     input_ptr->luma = svt_mmap(&app_cfg->mmap, app_cfg->mmap.cur_offset, luma_read_size);
     header_ptr->n_filled_len += (input_ptr->luma ? (uint32_t)luma_read_size : 0);
@@ -625,15 +624,15 @@ static void normal_read_input_frames(EbConfig *app_cfg, uint8_t is_16bit, EbBuff
     FILE          *input_file          = app_cfg->input_file;
     EbSvtIOFormat *input_ptr           = (EbSvtIOFormat *)header_ptr->p_buffer;
 
-    const uint8_t color_format  = app_cfg->config.encoder_color_format;
-    const uint8_t subsampling_x = (color_format == EB_YUV444 ? 1 : 2) - 1;
+    const uint8_t  color_format  = app_cfg->config.encoder_color_format;
+    const uint8_t  subsampling_x = (color_format == EB_YUV444 ? 0 : 1);
+    const uint8_t  subsampling_y = ((color_format == EB_YUV444 || color_format == EB_YUV422) ? 0 : 1);
+    const uint32_t chroma_width  = (app_cfg->input_padded_width + subsampling_x) >> subsampling_x;
+    const uint32_t chroma_height = (app_cfg->input_padded_height + subsampling_y) >> subsampling_y;
 
     input_ptr->y_stride  = input_padded_width;
-    input_ptr->cr_stride = input_padded_width >> subsampling_x;
-    input_ptr->cb_stride = input_padded_width >> subsampling_x;
-
-    uint64_t read_size = (uint64_t)SIZE_OF_ONE_FRAME_IN_BYTES(
-        input_padded_width, input_padded_height, color_format, is_16bit);
+    input_ptr->cr_stride = chroma_width;
+    input_ptr->cb_stride = chroma_width;
 
     header_ptr->n_filled_len = 0;
 
@@ -641,8 +640,11 @@ static void normal_read_input_frames(EbConfig *app_cfg, uint8_t is_16bit, EbBuff
         /* if input is a y4m file, read next line which contains "FRAME" */
         read_y4m_frame_delimiter(app_cfg->input_file, app_cfg->error_log_file);
     }
-    uint64_t luma_read_size = (uint64_t)input_padded_width * input_padded_height << is_16bit;
-    uint8_t *eb_input_ptr   = input_ptr->luma;
+    uint64_t luma_read_size   = (uint64_t)input_padded_width * input_padded_height << is_16bit;
+    uint64_t chroma_read_size = chroma_width * chroma_height << is_16bit;
+    uint64_t read_size        = luma_read_size + 2 * chroma_read_size;
+
+    uint8_t *eb_input_ptr = input_ptr->luma;
     if (!app_cfg->y4m_input && app_cfg->processed_frame_count == 0 &&
         (app_cfg->input_file == stdin || app_cfg->input_file_is_fifo)) {
         /* 9 bytes were already buffered during the the YUV4MPEG2 header probe */
@@ -654,8 +656,8 @@ static void normal_read_input_frames(EbConfig *app_cfg, uint8_t is_16bit, EbBuff
         header_ptr->n_filled_len += (uint32_t)fread(input_ptr->luma, 1, luma_read_size, input_file);
     }
 
-    header_ptr->n_filled_len += (uint32_t)fread(input_ptr->cb, 1, luma_read_size >> (3 - color_format), input_file);
-    header_ptr->n_filled_len += (uint32_t)fread(input_ptr->cr, 1, luma_read_size >> (3 - color_format), input_file);
+    header_ptr->n_filled_len += (uint32_t)fread(input_ptr->cb, 1, chroma_read_size, input_file);
+    header_ptr->n_filled_len += (uint32_t)fread(input_ptr->cr, 1, chroma_read_size, input_file);
 
     if (read_size != header_ptr->n_filled_len && !app_cfg->input_file_is_fifo) {
         fseek(input_file, 0, SEEK_SET);
@@ -664,8 +666,8 @@ static void normal_read_input_frames(EbConfig *app_cfg, uint8_t is_16bit, EbBuff
             read_y4m_frame_delimiter(app_cfg->input_file, app_cfg->error_log_file);
         }
         header_ptr->n_filled_len = (uint32_t)fread(input_ptr->luma, 1, luma_read_size, input_file);
-        header_ptr->n_filled_len += (uint32_t)fread(input_ptr->cb, 1, luma_read_size >> (3 - color_format), input_file);
-        header_ptr->n_filled_len += (uint32_t)fread(input_ptr->cr, 1, luma_read_size >> (3 - color_format), input_file);
+        header_ptr->n_filled_len += (uint32_t)fread(input_ptr->cb, 1, chroma_read_size, input_file);
+        header_ptr->n_filled_len += (uint32_t)fread(input_ptr->cr, 1, chroma_read_size, input_file);
     }
 
     if (feof(input_file) != 0) {
@@ -688,16 +690,19 @@ static void buffered_read_input_frames(EbConfig *app_cfg, uint8_t is_16bit, EbBu
     const uint32_t input_padded_height = app_cfg->input_padded_height;
     EbSvtIOFormat *input_ptr           = (EbSvtIOFormat *)header_ptr->p_buffer;
 
-    const uint8_t color_format  = app_cfg->config.encoder_color_format;
-    const uint8_t subsampling_x = (color_format == EB_YUV444 ? 1 : 2) - 1;
+    const uint8_t  color_format  = app_cfg->config.encoder_color_format;
+    const uint8_t  subsampling_x = (color_format == EB_YUV444 ? 0 : 1);
+    const uint8_t  subsampling_y = ((color_format == EB_YUV444 || color_format == EB_YUV422) ? 0 : 1);
+    const uint32_t chroma_width  = (app_cfg->input_padded_width + subsampling_x) >> subsampling_x;
+    const uint32_t chroma_height = (app_cfg->input_padded_height + subsampling_y) >> subsampling_y;
 
     input_ptr->y_stride  = input_padded_width;
-    input_ptr->cr_stride = input_padded_width >> subsampling_x;
-    input_ptr->cb_stride = input_padded_width >> subsampling_x;
+    input_ptr->cr_stride = chroma_width;
+    input_ptr->cb_stride = chroma_width;
 
     //Normal unpacked mode:yuv420p10le yuv422p10le yuv444p10le
     const size_t luma_size   = (input_padded_width * input_padded_height) << is_16bit;
-    const size_t chroma_size = luma_size >> (3 - color_format);
+    const size_t chroma_size = chroma_width * chroma_height << is_16bit;
 
     uint8_t *base   = app_cfg->sequence_buffer[app_cfg->processed_frame_count % app_cfg->buffered_input];
     input_ptr->luma = base;
@@ -722,21 +727,25 @@ void init_reader(EbConfig *app_cfg) {
 ***************************************/
 void process_output_statistics_buffer(EbBufferHeaderType *header_ptr, EbConfig *app_cfg) {
     uint32_t max_luma_value = (app_cfg->config.encoder_bit_depth == 8) ? 255 : 1023;
+    uint8_t  temporal_layer_index;
+    uint32_t avg_qp;
     uint64_t picture_stream_size, luma_sse, cr_sse, cb_sse, picture_number, picture_qp;
     double   luma_ssim, cr_ssim, cb_ssim;
     double   temp_var, luma_psnr, cb_psnr, cr_psnr;
     uint32_t source_width  = app_cfg->config.source_width;
     uint32_t source_height = app_cfg->config.source_height;
 
-    picture_stream_size = header_ptr->n_filled_len;
-    luma_sse            = header_ptr->luma_sse;
-    cr_sse              = header_ptr->cr_sse;
-    cb_sse              = header_ptr->cb_sse;
-    picture_number      = header_ptr->pts;
-    picture_qp          = header_ptr->qp;
-    luma_ssim           = header_ptr->luma_ssim;
-    cr_ssim             = header_ptr->cr_ssim;
-    cb_ssim             = header_ptr->cb_ssim;
+    picture_stream_size  = header_ptr->n_filled_len;
+    luma_sse             = header_ptr->luma_sse;
+    cr_sse               = header_ptr->cr_sse;
+    cb_sse               = header_ptr->cb_sse;
+    picture_number       = header_ptr->pts;
+    temporal_layer_index = header_ptr->temporal_layer_index;
+    picture_qp           = header_ptr->qp;
+    avg_qp               = header_ptr->avg_qp;
+    luma_ssim            = header_ptr->luma_ssim;
+    cr_ssim              = header_ptr->cr_ssim;
+    cb_ssim              = header_ptr->cb_ssim;
 
     temp_var = (double)max_luma_value * max_luma_value * (source_width * source_height);
 
@@ -764,13 +773,15 @@ void process_output_statistics_buffer(EbBufferHeaderType *header_ptr, EbConfig *
     // Write statistic Data to file
     if (app_cfg->stat_file) {
         fprintf(app_cfg->stat_file,
-                "Picture Number: %4d\t QP: %4d  [ "
+                "Picture Number: %4d\tTemporal Layer Index: %4d\t QP: %4d\t Average QP: %4d  [ "
                 "PSNR-Y: %.2f dB,\tPSNR-U: %.2f dB,\tPSNR-V: %.2f "
                 "dB,\tMSE-Y: %.2f,\tMSE-U: %.2f,\tMSE-V: %.2f,\t"
                 "SSIM-Y: %.5f,\tSSIM-U: %.5f,\tSSIM-V: %.5f"
                 " ]\t %6d bytes\n",
                 (int)picture_number,
+                (int)temporal_layer_index,
                 (int)picture_qp,
+                (int)avg_qp,
                 luma_psnr,
                 cb_psnr,
                 cr_psnr,

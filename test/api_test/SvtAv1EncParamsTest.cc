@@ -76,8 +76,7 @@ class EncParamTestBase : public ::testing::Test {
     virtual void SetUp() override {
         // initialize encoder and get handle
         ASSERT_EQ(EB_ErrorNone,
-                  svt_av1_enc_init_handle(
-                      &ctxt_.enc_handle, &ctxt_, &ctxt_.enc_params))
+                  svt_av1_enc_init_handle(&ctxt_.enc_handle, &ctxt_.enc_params))
             << "svt_av1_enc_init_handle failed";
         // setup encoder parameters with all default
         ASSERT_NE(nullptr, ctxt_.enc_handle) << "enc_handle is invalid";
@@ -276,20 +275,14 @@ PARAM_TEST(EncParamMaxQPAllowTest);
 /** Test case for min_qp_allowed*/
 DEFINE_PARAM_TEST_CLASS(EncParamMinQPAllowTest, min_qp_allowed);
 PARAM_TEST(EncParamMinQPAllowTest);
-
-/** Test case for high_dynamic_range_input*/
-DEFINE_PARAM_TEST_CLASS(EncParamHighDynamicRangeInputTest,
-                        high_dynamic_range_input);
-PARAM_TEST(EncParamHighDynamicRangeInputTest);
-
 /** Test case for profile, requiure YUV 422 or 444 which is unsupported now */
 // DEFINE_PARAM_TEST_CLASS(EncParamProfileTest, profile);
 // PARAM_TEST(EncParamProfileTest);
-
+#if !FIX_TIER
 /** Test case for tier*/
 DEFINE_PARAM_TEST_CLASS(EncParamTierTest, tier);
 PARAM_TEST(EncParamTierTest);
-
+#endif
 /** Test case for level*/
 DEFINE_PARAM_TEST_CLASS(EncParamLevelTest, level);
 PARAM_TEST(EncParamLevelTest);
@@ -306,21 +299,9 @@ PARAM_TEST(EncParamChIdTest);
 DEFINE_PARAM_TEST_CLASS(EncParamActiveChCountTest, active_channel_count);
 PARAM_TEST(EncParamActiveChCountTest);
 
-#if CLN_LP_LVLS
-#if SVT_AV1_CHECK_VERSION(3, 0, 0)
 /** Test case for logical_processors*/
 DEFINE_PARAM_TEST_CLASS(EncParamLevelOfParallelismTest, level_of_parallelism);
 PARAM_TEST(EncParamLevelOfParallelismTest);
-#else
-/** Test case for logical_processors*/
-DEFINE_PARAM_TEST_CLASS(EncParamLogicalProcessorsTest, logical_processors);
-PARAM_TEST(EncParamLogicalProcessorsTest);
-#endif
-#else
-/** Test case for logical_processors*/
-DEFINE_PARAM_TEST_CLASS(EncParamLogicalProcessorsTest, logical_processors);
-PARAM_TEST(EncParamLogicalProcessorsTest);
-#endif
 
 /** Test case for target_socket*/
 DEFINE_PARAM_TEST_CLASS(EncParamTargetSocketTest, target_socket);
