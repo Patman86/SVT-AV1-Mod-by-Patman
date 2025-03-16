@@ -1155,7 +1155,7 @@ static void sb_setup_lambda(PictureControlSet *pcs, SuperBlock *sb_ptr) {
                 ppcs_ptr->pa_me_data->tpl_rdmult_scaling_factors[index];
         }
     }
-    ppcs_ptr->blk_lambda_tuning = TRUE;
+    ppcs_ptr->blk_lambda_tuning = true;
 }
 /******************************************************************************
 * compute_deltaq
@@ -2120,10 +2120,7 @@ static int rc_pick_q_and_bounds_no_stats_cbr(PictureControlSet *pcs) {
     // Limit Q range for the adaptive loop.
     if (pcs->ppcs->frm_hdr.frame_type == KEY_FRAME && !rc->this_key_frame_forced && pcs->ppcs->frame_offset != 0) {
         int qdelta = 0;
-#ifdef ARCH_X86_64
-        aom_clear_system_state();
-#endif
-        qdelta = svt_av1_compute_qdelta_by_rate(
+        qdelta     = svt_av1_compute_qdelta_by_rate(
             rc, pcs->ppcs->frm_hdr.frame_type, active_worst_quality, 2.0, bit_depth, pcs->ppcs->sc_class1);
         pcs->ppcs->top_index = active_worst_quality + qdelta;
         pcs->ppcs->top_index = AOMMAX(pcs->ppcs->top_index, pcs->ppcs->bottom_index);
@@ -2156,10 +2153,7 @@ static int rc_pick_q_and_bounds_no_stats_cbr(PictureControlSet *pcs) {
             q      = (q + q1) / 2;
         } else if (pcs->slice_type != I_SLICE && pcs->ppcs->temporal_layer_index == 0) {
             int qdelta = 0;
-#ifdef ARCH_X86_64
-            aom_clear_system_state();
-#endif
-            qdelta = svt_av1_compute_qdelta_by_rate(
+            qdelta     = svt_av1_compute_qdelta_by_rate(
                 rc, pcs->ppcs->frm_hdr.frame_type, active_worst_quality, QFACTOR, bit_depth, pcs->ppcs->sc_class1);
             q = q + qdelta;
         }
@@ -2260,9 +2254,6 @@ static void av1_rc_update_rate_correction_factors(PictureParentControlSet *ppcs,
     // Do not update the rate factors for arf overlay frames.
     if (ppcs->is_overlay)
         return;
-
-    // Clear down mmx registers to allow floating point in what follows
-    //aom_clear_system_state();
 
     // Work out how big we would have expected the frame to be at this Q given
     // the current correction factor.
@@ -2797,7 +2788,6 @@ void recode_loop_update_q(PictureParentControlSet *ppcs, int *const loop, int *c
 
     const int min_cr = rc_cfg->min_cr;
     if (min_cr > 0) {
-        //aom_clear_system_state();
         const double compression_ratio = av1_get_compression_ratio(ppcs, ppcs->projected_frame_size >> 3);
         const double target_cr         = min_cr / 100.0;
         if (compression_ratio < target_cr) {
@@ -3007,8 +2997,8 @@ static void store_param(PictureParentControlSet *ppcs, RateControlIntervalParamC
 static void coded_frames_stat_calc(PictureParentControlSet *ppcs) {
     int32_t                   queue_entry_index;
     coded_frames_stats_entry *queue_entry_ptr;
-    Bool                      move_slide_window_flag = TRUE;
-    Bool                      end_of_sequence_flag   = TRUE;
+    bool                      move_slide_window_flag = true;
+    bool                      end_of_sequence_flag   = true;
     SequenceControlSet       *scs                    = ppcs->scs;
     EncodeContext            *enc_ctx                = scs->enc_ctx;
     RATE_CONTROL             *rc                     = &enc_ctx->rc;
@@ -3025,14 +3015,14 @@ static void coded_frames_stat_calc(PictureParentControlSet *ppcs) {
     queue_entry_ptr->picture_number         = ppcs->picture_number;
     queue_entry_ptr->end_of_sequence_flag   = ppcs->end_of_sequence_flag;
 
-    move_slide_window_flag = TRUE;
+    move_slide_window_flag = true;
     while (move_slide_window_flag) {
         // Check if the sliding window condition is valid
         uint32_t queue_entry_index_temp = rc->coded_frames_stat_queue_head_index;
         if (rc->coded_frames_stat_queue[queue_entry_index_temp]->frame_total_bit_actual != -1)
             end_of_sequence_flag = rc->coded_frames_stat_queue[queue_entry_index_temp]->end_of_sequence_flag;
         else
-            end_of_sequence_flag = FALSE;
+            end_of_sequence_flag = false;
         while (move_slide_window_flag && !end_of_sequence_flag &&
                queue_entry_index_temp < rc->coded_frames_stat_queue_head_index + rc->rate_average_periodin_frames) {
             uint32_t queue_entry_index_temp2 = (queue_entry_index_temp > CODED_FRAMES_STAT_QUEUE_MAX_DEPTH - 1)
@@ -3040,14 +3030,14 @@ static void coded_frames_stat_calc(PictureParentControlSet *ppcs) {
                 : queue_entry_index_temp;
 
             move_slide_window_flag =
-                (Bool)(move_slide_window_flag &&
+                (bool)(move_slide_window_flag &&
                        (rc->coded_frames_stat_queue[queue_entry_index_temp2]->frame_total_bit_actual != -1));
 
             if (rc->coded_frames_stat_queue[queue_entry_index_temp2]->frame_total_bit_actual != -1) {
                 // check if it is the last frame. If we have reached the last frame, we would output the buffered frames in the Queue.
                 end_of_sequence_flag = rc->coded_frames_stat_queue[queue_entry_index_temp2]->end_of_sequence_flag;
             } else
-                end_of_sequence_flag = FALSE;
+                end_of_sequence_flag = false;
             queue_entry_index_temp++;
         }
 
@@ -3056,7 +3046,7 @@ static void coded_frames_stat_calc(PictureParentControlSet *ppcs) {
             queue_entry_ptr        = (rc->coded_frames_stat_queue[rc->coded_frames_stat_queue_head_index]);
             queue_entry_index_temp = rc->coded_frames_stat_queue_head_index;
             // This is set to false, so the last frame would go inside the loop
-            end_of_sequence_flag        = FALSE;
+            end_of_sequence_flag        = false;
             uint32_t frames_in_sw       = 0;
             rc->total_bit_actual_per_sw = 0;
 
@@ -3150,7 +3140,7 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
 
         rc_tasks                     = (RateControlTasks *)rate_control_tasks_wrapper_ptr->object_ptr;
         task_type                    = rc_tasks->task_type;
-        Bool is_superres_recode_task = (task_type == RC_INPUT_SUPERRES_RECODE) ? TRUE : FALSE;
+        bool is_superres_recode_task = (task_type == RC_INPUT_SUPERRES_RECODE) ? true : false;
 
         // Modify these for different temporal layers later
         switch (task_type) {
@@ -3191,7 +3181,7 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
             }
 
             if (!is_superres_recode_task) {
-                pcs->ppcs->blk_lambda_tuning = FALSE;
+                pcs->ppcs->blk_lambda_tuning = false;
             }
             reset_rc_param(pcs->ppcs);
 
@@ -3237,7 +3227,7 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
                     if (pcs->ppcs->seq_param_changed)
                         rc->active_worst_quality = quantizer_to_qindex[scs_qp];
                     frm_hdr->quantization_params.base_q_idx = quantizer_to_qindex[pcs->picture_qp];
-                    if (pcs->ppcs->qp_on_the_fly == TRUE) {
+                    if (pcs->ppcs->qp_on_the_fly == true) {
                         pcs->picture_qp = (uint8_t)CLIP3((int32_t)scs->static_config.min_qp_allowed,
                                                          (int32_t)scs->static_config.max_qp_allowed,
                                                          pcs->ppcs->picture_qp);
@@ -3269,11 +3259,28 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
                                 : frm_hdr->quantization_params
                                       .base_q_idx; // do not shut the auto QPS if use_fixed_qindex_offsets 2
 
-                            if (!frame_is_intra_only(pcs->ppcs)) {
+                            if (!frame_is_intra_only(pcs->ppcs))
                                 qindex += scs->static_config.qindex_offsets[pcs->temporal_layer_index];
-                            } else {
+                            else
                                 qindex += scs->static_config.key_frame_qindex_offset;
-                            }
+
+                            qindex = CLIP3(quantizer_to_qindex[scs->static_config.min_qp_allowed],
+                                           quantizer_to_qindex[scs->static_config.max_qp_allowed],
+                                           qindex);
+
+                            frm_hdr->quantization_params.base_q_idx = qindex;
+                        }
+
+                        if (scs->static_config.luminance_qp_bias) {
+                            int32_t qindex = frm_hdr->quantization_params.base_q_idx;
+
+                            // Frame-level luma adjustment; gives more bitrate to darker scenes.
+                            qindex += (int32_t)rint(-pow((255 - pcs->ppcs->avg_luma) /
+                                                             (1024.0 /
+                                                              (pcs->temporal_layer_index * 4 *
+                                                               (0.01 * scs->static_config.luminance_qp_bias))),
+                                                         0.5) *
+                                                    (qindex / 8.0));
 
                             qindex = CLIP3(quantizer_to_qindex[scs->static_config.min_qp_allowed],
                                            quantizer_to_qindex[scs->static_config.max_qp_allowed],
@@ -3300,7 +3307,7 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
                     frm_hdr->quantization_params.delta_q_dc[1]     = frm_hdr->quantization_params.delta_q_dc[2] =
                         frm_hdr->quantization_params.delta_q_ac[1] = frm_hdr->quantization_params.delta_q_ac[2] =
                             chroma_qindex - frm_hdr->quantization_params.base_q_idx;
-                    if (scs->enable_qp_scaling_flag && pcs->ppcs->qp_on_the_fly == FALSE) {
+                    if (scs->enable_qp_scaling_flag && pcs->ppcs->qp_on_the_fly == false) {
                         // max bit rate is only active for 1 pass CRF
                         if (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF &&
                             scs->static_config.max_bit_rate)
@@ -3415,7 +3422,7 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
                         svt_aom_init_resize_picture(scs, pcs->ppcs);
                         if (pcs->ppcs->frame_superres_enabled || pcs->ppcs->frame_resize_enabled) {
                             // reset gm based on super-res on/off
-                            bool super_res_off = pcs->ppcs->frame_superres_enabled == FALSE &&
+                            bool super_res_off = pcs->ppcs->frame_superres_enabled == false &&
                                 scs->static_config.resize_mode == RESIZE_NONE;
                             svt_aom_set_gm_controls(pcs->ppcs, svt_aom_derive_gm_level(pcs->ppcs, super_res_off));
                             // Initialize Segments as picture decision process

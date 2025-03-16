@@ -158,7 +158,7 @@
 #endif
 #endif
 
-/* Macros SET_* use local variable EbCpuFlags flags and Bool check_pointer_was_set */
+/* Macros SET_* use local variable EbCpuFlags flags and bool check_pointer_was_set */
 #ifdef ARCH_X86_64
     #define SET_ONLY_C(ptr, c)                                      SET_FUNCTIONS(ptr, c, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     #define SET_SSE2(ptr, c, sse2)                                  SET_FUNCTIONS(ptr, c, 0, 0, sse2, 0, 0, 0, 0, 0, 0, 0)
@@ -186,9 +186,9 @@
 
 void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
     /* Avoid check that pointer is set double, after first  setup. */
-    static Bool first_call_setup = TRUE;
-    Bool        check_pointer_was_set = first_call_setup;
-    first_call_setup = FALSE;
+    static bool first_call_setup = true;
+    bool        check_pointer_was_set = first_call_setup;
+    first_call_setup = false;
     /** Should be done during library initialization,
         but for safe limiting cpu flags again. */
 #if defined ARCH_X86_64 || defined ARCH_AARCH64
@@ -558,8 +558,8 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
     SET_NEON_SVE(svt_av1_compute_stats, svt_av1_compute_stats_c, svt_av1_compute_stats_neon, svt_av1_compute_stats_sve);
     SET_NEON_SVE(svt_av1_compute_stats_highbd, svt_av1_compute_stats_highbd_c, svt_av1_compute_stats_highbd_neon, svt_av1_compute_stats_highbd_sve);
     SET_NEON(svt_av1_lowbd_pixel_proj_error, svt_av1_lowbd_pixel_proj_error_c, svt_av1_lowbd_pixel_proj_error_neon);
-    SET_ONLY_C(svt_av1_highbd_pixel_proj_error, svt_av1_highbd_pixel_proj_error_c);
-    SET_ONLY_C(svt_subtract_average, svt_subtract_average_c);
+    SET_NEON(svt_av1_highbd_pixel_proj_error, svt_av1_highbd_pixel_proj_error_c, svt_av1_highbd_pixel_proj_error_neon);
+    SET_NEON(svt_subtract_average, svt_subtract_average_c, svt_subtract_average_neon);
     SET_NEON(svt_get_proj_subspace, svt_get_proj_subspace_c, svt_get_proj_subspace_neon);
     SET_NEON(svt_aom_quantize_b, svt_aom_quantize_b_c_ii, svt_aom_quantize_b_neon);
     SET_NEON(svt_aom_highbd_quantize_b, svt_aom_highbd_quantize_b_c, svt_aom_highbd_quantize_b_neon);
@@ -878,7 +878,7 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
     SET_ONLY_C(svt_av1_haar_ac_sad_8x8_uint8_input, svt_av1_haar_ac_sad_8x8_uint8_input_c);
     SET_NEON(svt_unpack_and_2bcompress, svt_unpack_and_2bcompress_c, svt_unpack_and_2bcompress_neon);
     SET_NEON(svt_estimate_noise_fp16, svt_estimate_noise_fp16_c, svt_estimate_noise_fp16_neon);
-    SET_ONLY_C(svt_estimate_noise_highbd_fp16, svt_estimate_noise_highbd_fp16_c);
+    SET_NEON(svt_estimate_noise_highbd_fp16, svt_estimate_noise_highbd_fp16_c, svt_estimate_noise_highbd_fp16_neon);
     SET_NEON(svt_copy_mi_map_grid, svt_copy_mi_map_grid_c, svt_copy_mi_map_grid_neon);
     SET_ONLY_C(svt_av1_add_block_observations_internal, svt_av1_add_block_observations_internal_c);
     SET_ONLY_C(svt_av1_pointwise_multiply, svt_av1_pointwise_multiply_c);

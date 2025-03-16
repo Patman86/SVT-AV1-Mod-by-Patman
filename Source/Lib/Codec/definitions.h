@@ -455,14 +455,6 @@ typedef int16_t InterpKernel[SUBPEL_TAPS];
 /***************************************************/
 /****************** Helper Macros ******************/
 /***************************************************/
-#ifdef ARCH_X86_64
-extern void RunEmms();
-#define aom_clear_system_state() RunEmms()
-#else
-#define aom_clear_system_state() \
-    {}
-#endif
-
 /* Shift down with rounding for use when n >= 0, value >= 0 */
 #define ROUND_POWER_OF_TWO(value, n) (((value) + (((1 << (n)) >> 1))) >> (n))
 
@@ -1834,10 +1826,10 @@ static INLINE int32_t get_ext_tx_set(TxSize tx_size, int32_t is_inter, int32_t u
     const TxSetType set_type = get_ext_tx_set_type(tx_size, is_inter, use_reduced_set);
     return ext_tx_set_index[is_inter][set_type];
 }
-static INLINE Bool is_intra_mode(PredictionMode mode) {
+static INLINE bool is_intra_mode(PredictionMode mode) {
     return mode < INTRA_MODE_END; // && mode >= INTRA_MODE_START; // mode is always greater than INTRA_MODE_START
 }
-static INLINE Bool is_inter_mode(PredictionMode mode) {
+static INLINE bool is_inter_mode(PredictionMode mode) {
     return mode >= SINGLE_INTER_MODE_START && mode < COMP_INTER_MODE_END;
 }
 static INLINE int32_t is_inter_compound_mode(PredictionMode mode) {
@@ -2062,6 +2054,7 @@ static const EbWarpedMotionParams default_warp_params = {
 #define INPUT_SIZE_720p_TH                  0x16DA00     // 1.5 Million
 #define INPUT_SIZE_1080p_TH                 0x535200     // 5.46 Million
 #define INPUT_SIZE_4K_TH                    0x140A000    // 21 Million
+#define INPUT_SIZE_8K_TH                    0X5028000    // 84 Million
 #define EB_OUTPUTSTREAMBUFFERSIZE_MACRO(ResolutionSize)                ((ResolutionSize) < (INPUT_SIZE_720p_TH) ? 0x1E8480 : 0x2DC6C0)
 /** Redefine ASSERT() to avoid warnings
 */
@@ -2214,10 +2207,10 @@ typedef struct EbLinkedListNode
                                                             // release_cb_fnc_ptr may need to access it.
     EbLinkedListType       type;                      // type of data pointed by "data" member variable
     uint32_t                    size;                      // size of (data)
-    Bool                   passthrough;               // whether this is passthrough data from application
+    bool                   passthrough;               // whether this is passthrough data from application
     void(*release_cb_fnc_ptr)(struct EbLinkedListNode*); // callback to be executed by encoder when picture reaches end of pipeline, or
                                                         // when aborting. However, at end of pipeline encoder shall
-                                                        // NOT invoke this callback if passthrough is TRUE (but
+                                                        // NOT invoke this callback if passthrough is true (but
                                                         // still needs to do so when aborting)
     void                     *data;                      // pointer to application's data
     struct EbLinkedListNode  *next;                      // pointer to next node (null when last)

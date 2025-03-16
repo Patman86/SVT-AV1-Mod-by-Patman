@@ -192,7 +192,9 @@
 #define VARIANCE_BOOST_STRENGTH_TOKEN "--variance-boost-strength"
 #define VARIANCE_OCTILE_TOKEN "--variance-octile"
 #define TF_STRENGTH_FILTER_TOKEN "--tf-strength"
+#define SHARPNESS_TOKEN "--sharpness"
 #define VARIANCE_BOOST_CURVE_TOKEN "--variance-boost-curve"
+#define LUMINANCE_QP_BIAS_TOKEN "--luminance-qp-bias"
 #define LOSSLESS_TOKEN "--lossless"
 #define AVIF_TOKEN "--avif"
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
@@ -273,28 +275,28 @@ static EbErrorType str_to_str(const char *nptr, char **out, const char *token) {
 static HANDLE get_file_handle(FILE *fp) { return (HANDLE)_get_osfhandle(_fileno(fp)); }
 #endif
 
-static Bool fopen_and_lock(FILE **file, const char *name, Bool write) {
+static bool fopen_and_lock(FILE **file, const char *name, bool write) {
     if (!file || !name)
-        return FALSE;
+        return false;
 
     const char *mode = write ? "wb" : "rb";
     FOPEN(*file, name, mode);
     if (!*file)
-        return FALSE;
+        return false;
 
 #ifdef _WIN32
     HANDLE handle = get_file_handle(*file);
     if (handle == INVALID_HANDLE_VALUE)
-        return FALSE;
+        return false;
     if (LockFile(handle, 0, 0, MAXDWORD, MAXDWORD))
-        return TRUE;
+        return true;
 #else
     int fd = fileno(*file);
     if (flock(fd, LOCK_EX | LOCK_NB) == 0)
-        return TRUE;
+        return true;
 #endif
     fprintf(stderr, "ERROR: locking %s failed, is it used by other encoder?\n", name);
-    return FALSE;
+    return false;
 }
 
 static EbErrorType open_file(FILE **file, const char *token, const char *name, const char *mode) {
@@ -331,7 +333,7 @@ static EbErrorType set_cfg_input_file(EbConfig *cfg, const char *token, const ch
 
     if (!strcmp(value, "stdin") || !strcmp(value, "-")) {
         cfg->input_file         = stdin;
-        cfg->input_file_is_fifo = TRUE;
+        cfg->input_file_is_fifo = true;
     } else
         FOPEN(cfg->input_file, value, "rb");
 
@@ -764,8 +766,12 @@ ConfigEntry config_entry_global_options[] = {
     // Asm Type
     {SINGLE_INPUT,
      ASM_TYPE_TOKEN,
-     "Limit assembly instruction set, only applicable to x86, default is max [c, mmx, sse, sse2, "
-     "sse3, ssse3, sse4_1, sse4_2, avx, avx2, avx512, max]",
+#ifdef ARCH_AARCH64
+     "Limit assembly instruction set, default is max [c, neon, crc32, neon_dotprod, neon_i8mm, sve, sve2, max]",
+#else
+     "Limit assembly instruction set, only applicable to x86, default is max [c, mmx, sse, sse2, sse3, ssse3, "
+     "sse4_1, sse4_2, avx, avx2, avx512, max]",
+#endif
      set_cfg_generic_token},
     {SINGLE_INPUT,
      THREAD_MGMNT,
@@ -922,6 +928,16 @@ ConfigEntry config_entry_rc[] = {
     {SINGLE_INPUT,
      TF_STRENGTH_FILTER_TOKEN,
      "[PSY] Adjust temporal filtering strength, default is 1 [0-4]",
+     set_cfg_generic_token},
+    // Frame-level luminance-based QP bias
+    {SINGLE_INPUT,
+     LUMINANCE_QP_BIAS_TOKEN,
+     "Adjusts a frame's QP based on its average luma value, default is 0 [0-100]",
+     set_cfg_generic_token},
+    // Sharpness
+    {SINGLE_INPUT,
+     SHARPNESS_TOKEN,
+     "Bias towards decreased/increased sharpness, default is 0 [-7 to 7]",
      set_cfg_generic_token},
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
@@ -1349,6 +1365,9 @@ ConfigEntry config_entry[] = {
     // ROI
     {SINGLE_INPUT, ROI_MAP_FILE_TOKEN, "RoiMapFile", set_cfg_roi_map_file},
 
+    // Sharpness
+    {SINGLE_INPUT, SHARPNESS_TOKEN, "Sharpness", set_cfg_generic_token},
+
     // Variance boost
     {SINGLE_INPUT, ENABLE_VARIANCE_BOOST_TOKEN, "EnableVarianceBoost", set_cfg_generic_token},
     {SINGLE_INPUT, VARIANCE_BOOST_STRENGTH_TOKEN, "VarianceBoostStrength", set_cfg_generic_token},
@@ -1357,6 +1376,9 @@ ConfigEntry config_entry[] = {
 
     // TF Strength
     {SINGLE_INPUT, TF_STRENGTH_FILTER_TOKEN, "TemporalFilteringStrength", set_cfg_generic_token},
+
+    // Frame-level luminance-based QP bias
+    {SINGLE_INPUT, LUMINANCE_QP_BIAS_TOKEN, "LuminanceQpBias", set_cfg_generic_token},
 
     // Lossless coding
     {SINGLE_INPUT, LOSSLESS_TOKEN, "Lossless", set_cfg_generic_token},
@@ -1453,7 +1475,7 @@ EbErrorType enc_channel_ctor(EncChannel *c) {
     c->exit_cond_output = APP_ExitConditionError;
     c->exit_cond_recon  = APP_ExitConditionError;
     c->exit_cond_input  = APP_ExitConditionError;
-    c->active           = FALSE;
+    c->active           = false;
     return svt_av1_enc_init_handle(&c->app_cfg->svt_encoder_handle, &c->app_cfg->config);
 }
 
@@ -1617,7 +1639,7 @@ static EbErrorType read_config_file(EbConfig *app_cfg, const char *config_path, 
 }
 
 /* get config->rc_stats_buffer from config->input_stat_file */
-Bool load_twopass_stats_in(EbConfig *cfg) {
+bool load_twopass_stats_in(EbConfig *cfg) {
     EbSvtAv1EncConfiguration *config = &cfg->config;
 #ifdef _WIN32
     int          fd = _fileno(cfg->input_stat_file);
@@ -1626,20 +1648,20 @@ Bool load_twopass_stats_in(EbConfig *cfg) {
 #else
     int         fd = fileno(cfg->input_stat_file);
     struct stat file_stat;
-    int         ret         = fstat(fd, &file_stat);
+    int         ret = fstat(fd, &file_stat);
 #endif
     if (ret) {
-        return FALSE;
+        return false;
     }
     config->rc_stats_buffer.buf = malloc(file_stat.st_size);
     if (config->rc_stats_buffer.buf) {
         config->rc_stats_buffer.sz = (uint64_t)file_stat.st_size;
         if (fread(config->rc_stats_buffer.buf, 1, file_stat.st_size, cfg->input_stat_file) !=
             (size_t)file_stat.st_size) {
-            return FALSE;
+            return false;
         }
         if (file_stat.st_size == 0) {
-            return FALSE;
+            return false;
         }
     }
     return config->rc_stats_buffer.buf != NULL;
@@ -1650,7 +1672,7 @@ EbErrorType handle_stats_file(EbConfig *app_cfg, EncPass enc_pass, const SvtAv1F
     case ENC_SINGLE_PASS: {
         const char *stats = app_cfg->stats ? app_cfg->stats : "svtav1_2pass.log";
         if (app_cfg->config.pass == 1) {
-            if (!fopen_and_lock(&app_cfg->output_stat_file, stats, TRUE)) {
+            if (!fopen_and_lock(&app_cfg->output_stat_file, stats, true)) {
                 fprintf(app_cfg->error_log_file,
                         "Error instance %u: can't open stats file %s for write \n",
                         channel_number + 1,
@@ -1660,7 +1682,7 @@ EbErrorType handle_stats_file(EbConfig *app_cfg, EncPass enc_pass, const SvtAv1F
         }
         // Final pass
         else if (app_cfg->config.pass == 2) {
-            if (!fopen_and_lock(&app_cfg->input_stat_file, stats, FALSE)) {
+            if (!fopen_and_lock(&app_cfg->input_stat_file, stats, false)) {
                 fprintf(app_cfg->error_log_file,
                         "Error instance %u: can't read stats file %s for read\n",
                         channel_number + 1,
@@ -1679,7 +1701,7 @@ EbErrorType handle_stats_file(EbConfig *app_cfg, EncPass enc_pass, const SvtAv1F
         // for combined two passes,
         // we only ouptut first pass stats when user explicitly set the --stats
         if (app_cfg->stats) {
-            if (!fopen_and_lock(&app_cfg->output_stat_file, app_cfg->stats, TRUE)) {
+            if (!fopen_and_lock(&app_cfg->output_stat_file, app_cfg->stats, true)) {
                 fprintf(app_cfg->error_log_file,
                         "Error instance %u: can't open stats file %s for write \n",
                         channel_number + 1,
@@ -1754,7 +1776,7 @@ static EbErrorType app_verify_config(EbConfig *app_cfg, uint32_t channel_number)
         return_error = EB_ErrorBadParameter;
     }
 
-    if (app_cfg->config.use_qp_file == TRUE && app_cfg->qp_file == NULL) {
+    if (app_cfg->config.use_qp_file == true && app_cfg->qp_file == NULL) {
         fprintf(app_cfg->error_log_file,
                 "Error instance %u: Could not find QP file, UseQpFile is set to 1\n",
                 channel_number + 1);
@@ -1867,7 +1889,7 @@ int get_version(int argc, char *argv[]) {
 #ifdef NDEBUG
     static int debug_build = 1;
 #else
-    static int  debug_build = 0;
+    static int debug_build = 0;
 #endif
     if (find_token(argc, argv, VERSION_TOKEN, NULL))
         return 0;
@@ -2180,7 +2202,7 @@ uint32_t get_number_of_channels(int32_t argc, char *const argv[]) {
     return 1;
 }
 
-static Bool check_two_pass_conflicts(int32_t argc, char *const argv[]) {
+static bool check_two_pass_conflicts(int32_t argc, char *const argv[]) {
     char        config_string[COMMAND_LINE_MAX_SIZE];
     const char *conflicts[] = {
         PASS_TOKEN,
@@ -2191,11 +2213,11 @@ static Bool check_two_pass_conflicts(int32_t argc, char *const argv[]) {
     while ((token = conflicts[i])) {
         if (find_token(argc, argv, token, config_string) == 0) {
             fprintf(stderr, "[SVT-Error]: --passes is not accepted in combination with %s\n", token);
-            return TRUE;
+            return true;
         }
         i++;
     }
-    return FALSE;
+    return false;
 }
 /*
 * Returns the number of passes, multi_pass_mode
@@ -2357,7 +2379,7 @@ uint32_t get_passes(int32_t argc, char *const argv[], EncPass enc_pass[MAX_ENC_P
     return passes;
 }
 
-static Bool is_negative_number(const char *string) {
+static bool is_negative_number(const char *string) {
     char *end;
     return strtol(string, &end, 10) < 0 && *end == '\0';
 }
@@ -2394,7 +2416,7 @@ int32_t compute_frames_to_be_encoded(EbConfig *app_cfg) {
     return frame_count;
 }
 
-static Bool warn_legacy_token(const char *const token) {
+static bool warn_legacy_token(const char *const token) {
     static struct warn_set {
         const char *old_token;
         const char *new_token;
@@ -2413,9 +2435,9 @@ static Bool warn_legacy_token(const char *const token) {
         if (strcmp(token, tok->old_token))
             continue;
         fprintf(stderr, "[SVT-Error]: %s has been removed, use %s instead\n", tok->old_token, tok->new_token);
-        return TRUE;
+        return true;
     }
-    return FALSE;
+    return false;
 }
 
 static void free_config_strings(unsigned nch, char *config_strings[MAX_CHANNEL_NUMBER]) {
@@ -2686,7 +2708,7 @@ EbErrorType read_command_line(int32_t argc, char *const argv[], EncChannel *chan
 
     for (index = 0; index < num_channels; ++index) {
         EncChannel *c = channels + index;
-        if (c->app_cfg->y4m_input == TRUE) {
+        if (c->app_cfg->y4m_input == true) {
             ret_y4m = read_y4m_header(c->app_cfg);
             if (ret_y4m == EB_ErrorBadParameter) {
                 fprintf(stderr, "Error found when reading the y4m file parameters.\n");

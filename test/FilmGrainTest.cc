@@ -318,18 +318,18 @@ static void denoise_and_model_dctor(EbPtr p) {
 static AomFilmGrain expected_film_grain = {
     1 /* apply_grain */,
     1 /* update_parameters */,
-    {{0, 36}, {54, 36}, {134, 34}, {255, 36}, },
-    4 /* num_y_points */,
-    {{0, 25}, {54, 25}, {121, 22}, {134, 22}, {161, 23}, {255, 23}, },
-    6 /* num_cb_points */,
-    {{0, 25}, {54, 25}, {121, 22}, {134, 22}, {161, 23}, {255, 23}, },
-    6 /* num_cr_points */,
+    {{0, 33}, {255, 34}, {0, 0}, {0, 0}, },
+    2 /* num_y_points */,
+    {{0, 21}, {94, 22}, {228, 23}, {255, 23}, {0, 0}, },
+    4 /* num_cb_points */,
+    {{0, 21}, {94, 22}, {228, 23}, {255, 23}, {0, 0}, },
+    4 /* num_cr_points */,
     11,
     3,
-    {0, 0, -1, -2, -1, 0, 0, 0, -1, -1, -2, 0, -1, 0, 0, 0, -2, -6, -2, 0, 0, 0, -2, -7},
-    {1, 0, 0, -1, -1, 0, -1, 1, -1, 0, -1, 0, 0, 0, 1, -2, -3, -7, -3, 1, 0, -1, -3, -6, 69},
-    {1, 0, 0, -1, -1, 0, -1, 1, -1, 0, -1, 0, 0, 0, 1, -2, -3, -7, -3, 1, 0, -1, -3, -6, 69},
-    6 /* ar_coeff_shift */,
+    {-3, -5, -6, -5, -4, -2, -2, -3, -7, -4, -7, -6, -4, -1, -5, -6, -7, -15, -5, -1, -3, -2, -6, -15},
+    {-3, -1, -10, -7, -6, -3, -3, -4, -9, -17, -13, -12, -4, 1, -7, -12, -26, -29, -17, -5, 2, 1, -9, -28, 111},
+    {-3, -1, -10, -7, -6, -3, -3, -4, -9, -17, -13, -12, -4, 1, -7, -12, -26, -29, -17, -5, 2, 1, -9, -28, 111},
+    7 /* ar_coeff_shift */,
     128 /* cb_mult */,
     192 /* cb_luma_mult */,
     256 /* cb_offset */,
@@ -368,8 +368,8 @@ class DenoiseModelRunTest : public ::testing::Test {
         pbd_init_data.top_padding = 0;
         pbd_init_data.bot_padding = 0;
         pbd_init_data.color_format = EB_YUV420;
-        pbd_init_data.split_mode = FALSE;
-        pbd_init_data.is_16bit_pipeline = FALSE;
+        pbd_init_data.split_mode = false;
+        pbd_init_data.is_16bit_pipeline = false;
 
         subsampling_x_ = (pbd_init_data.color_format == EB_YUV444 ? 0 : 1);
         subsampling_y_ = (pbd_init_data.color_format >= EB_YUV422 ? 0 : 1);
@@ -383,7 +383,7 @@ class DenoiseModelRunTest : public ::testing::Test {
         fg_init_data.encoder_bit_depth = EB_EIGHT_BIT;
         fg_init_data.encoder_color_format = EB_YUV420;
         fg_init_data.noise_level = 4;  // TODO: check the range;
-        fg_init_data.denoise_apply = FALSE;
+        fg_init_data.denoise_apply = false;
         fg_init_data.width = width_;
         fg_init_data.height = height_;
         fg_init_data.stride_y = width_;

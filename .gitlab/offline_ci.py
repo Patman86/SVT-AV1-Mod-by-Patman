@@ -159,10 +159,30 @@ def pull_json(project_name: str) -> dict:
         return json.loads(json_cache.read_text())
 
 
+class DevNullLike(IOBase):
+    """DevNullLike class"""
+
+    def write(self, _):
+        """Write to devnull"""
+        pass
+
+    def writelines(self, _):
+        """Write lines to devnull"""
+        pass
+
+    def flush(self):
+        """Flush devnull"""
+        pass
+
+    def fileno(self):
+        """Return the file number"""
+        return -3
+
+
 async def run_subprocess(prog, *args: List, log: IOBase = None, **kwargs) -> Process:
     """Run a subprocess"""
     if log is None:
-        log = DEVNULL
+        log = DevNullLike()
     print("Running", file=log, flush=True)
     print(
         f"{' '.join(['$ ' + shquote(str(prog))] + [shquote(str(arg)) for arg in args])}",
@@ -170,7 +190,10 @@ async def run_subprocess(prog, *args: List, log: IOBase = None, **kwargs) -> Pro
     print(f"with kwargs {kwargs}", file=log, flush=True)
 
     if "stdout" not in kwargs:
-        kwargs["stdout"] = log
+        if isinstance(log, DevNullLike):
+            kwargs["stdout"] = DEVNULL
+        else:
+            kwargs["stdout"] = log
     if "stderr" not in kwargs:
         kwargs["stderr"] = STDOUT
     return await create_subprocess_exec(prog, *args, **kwargs)
@@ -243,9 +266,10 @@ def expand_matrix(matrix: List[Dict[str, Union[list, str, int]]]
 
 def detect_os(yml_job: Dict) -> OS:
     """Detect the OS of a job"""
-    if 'svt-windows-docker' in yml_job.get("tags", []):
+    tags: List[str] = yml_job.get("tags", [])
+    if 'svt-windows-docker' in tags:
         return OS.WINDOWS
-    if 'macos-ci' in yml_job.get("tags", []):
+    if 'macos-ci' in tags or 'macos' in tags:
         return OS.MACOS
     return OS.LINUX
 
@@ -389,6 +413,7 @@ def write_script(job: dict, safe_name: str, project_dir: Path, variables: Dict) 
     """Write out the scripts for a job, returns the command to run"""
     outside_dir = Path(project_dir)
     inside_dir = Path("/") / REPO_DIR.name
+    inside_git_dir = inside_dir / ".git"
 
     before_script = job["before_script"]
     script = job["script"]
@@ -401,6 +426,7 @@ def write_script(job: dict, safe_name: str, project_dir: Path, variables: Dict) 
         write_script_ps1(outside_script_base, before_script, script, after_script,
                          [
                              f"git config --global --add safe.directory \"{inside_dir}\"",
+                             f"git config --global --add safe.directory \"{inside_git_dir}\"",
                              f". \"{inside_script_base}_before_script.ps1\"",
                              f". \"{inside_script_base}_script.ps1\"",
                              f". \"{inside_script_base}_after_script.ps1\""
@@ -415,12 +441,21 @@ def write_script(job: dict, safe_name: str, project_dir: Path, variables: Dict) 
     write_script_sh(outside_script_base, before_script, script, after_script, [
         eval_string,
         f"git config --global --add safe.directory {shquote(str(inside_dir))} || true",
+        f"git config --global --add safe.directory {shquote(str(inside_git_dir))} || true",
         f". {shquote(f'{inside_script_base}_before_script.sh')}",
         f". {shquote(f'{inside_script_base}_script.sh')}",
         f". {shquote(f'{inside_script_base}_after_script.sh')}"
     ])
 
-    ret = ["sh", "-x", f"{shquote(str(inside_script_base) + '.sh')}"]
+    ret = [
+        "sh", "-xec",
+        f"cd {shquote(str(inside_dir))}; "
+        "if type bash > /dev/null 2>&1; then "
+        f"bash {shquote(str(inside_script_base) + '.sh')}; "
+        "else "
+        f"sh {shquote(str(inside_script_base) + '.sh')}; "
+        "fi"
+    ]
     return ret
 
 
@@ -471,7 +506,11 @@ def extract_deps(deps: Set[str], project_dir: Path) -> int:
             print(f"Error!: {dep} artifacts not found")
             return 1
         with tarfile.open(tar_location, "r:gz") as tar:
-            tar.extractall(path=project_dir)
+            # Added in 3.12
+            if hasattr(tarfile, "data_filter"):
+                tar.extractall(path=project_dir, filter="data")
+            else:
+                tar.extractall(path=project_dir)
     return 0
 
 

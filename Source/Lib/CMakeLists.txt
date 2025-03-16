@@ -12,8 +12,8 @@
 # Encoder Library directory CMakeLists.txt
 
 # Shared Encoder Version
-set(ENC_VERSION_MAJOR 2)
-set(ENC_VERSION_MINOR 3)
+set(ENC_VERSION_MAJOR 3)
+set(ENC_VERSION_MINOR 0)
 set(ENC_VERSION_PATCH 0)
 set(ENC_VERSION ${ENC_VERSION_MAJOR}.${ENC_VERSION_MINOR}.${ENC_VERSION_PATCH})
 
@@ -137,11 +137,7 @@ set_target_properties(SvtAv1Enc PROPERTIES VERSION ${ENC_VERSION})
 set_target_properties(SvtAv1Enc PROPERTIES SOVERSION ${ENC_VERSION_MAJOR})
 set_target_properties(SvtAv1Enc PROPERTIES C_VISIBILITY_PRESET hidden)
 target_link_libraries(SvtAv1Enc PUBLIC ${PLATFORM_LIBS})
-if(USE_EXTERNAL_CPUINFO)
-    target_link_libraries(SvtAv1Enc PRIVATE cpuinfo::cpuinfo)
-elseif(NOT COMPILE_C_ONLY AND HAVE_X86_PLATFORM)
-    target_link_libraries(SvtAv1Enc PRIVATE cpuinfo_public)
-endif()
+target_link_libraries(SvtAv1Enc PRIVATE cpuinfo::cpuinfo)
 
 set(ENC_PKG_CONFIG_EXTRA_CFLAGS "")
 if (BUILD_SHARED_LIBS)

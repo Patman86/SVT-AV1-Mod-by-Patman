@@ -772,7 +772,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * @brief Signal to the library to treat intra_period_length as seconds and
      * multiply by fps_num/fps_den.
      */
-    uint8_t multiply_keyint;
+    bool multiply_keyint;
     // reference scaling parameters
     /**
      * @brief Reference scaling mode
@@ -907,6 +907,12 @@ typedef struct EbSvtAv1EncConfiguration {
      *  Default is 6 */
     uint8_t variance_octile;
 
+    /* @brief Bias towards decreased/increased sharpness in the deblocking loop filter & during rate distortion
+     * Minimum value is -7 (less sharp).
+     * Maximum value is 7 (more sharp).
+     * Default is 0 (medium sharpness). */
+    int8_t sharpness;
+
     /* @brief Enable the user to configure which curve variance boost uses.
      * Curve 1 emphasizes boosting low-medium contrast regions at a modest bitrate increase over the default curve
      *  0: default curve
@@ -914,6 +920,13 @@ typedef struct EbSvtAv1EncConfiguration {
      *  2: still picture curve, tuned for SSIMULACRA2 performance on the CID22 Validation Set
      *  Default is 0. */
     uint8_t variance_boost_curve;
+
+    /* @brief Frame-level luminance-based QP bias to improve quality in low luma scenarios
+     * Works by adjusting frame-level QP based on average luminance across a frame
+     *  0: Disable luminance-based QP bias
+     *  1-100: Enable frame-level luminance-based QP bias. Higher values strengthen the bias
+     *  Default is 0 (disabled). */
+    uint8_t luminance_qp_bias;
 
     /* @brief Signal to the library to enable losless coding
      *

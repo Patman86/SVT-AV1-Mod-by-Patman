@@ -31,10 +31,10 @@ extern "C" {
 
 typedef struct MdcpLocalBlkStruct {
     uint64_t early_cost;
-    Bool     early_split_flag;
+    bool     early_split_flag;
     uint32_t split_context;
-    Bool     selected_cu;
-    Bool     stop_split;
+    bool     selected_cu;
+    bool     stop_split;
 } MdcpLocalBlkStruct;
 
 typedef struct ModeDecisionConfigurationContext {
@@ -50,6 +50,10 @@ typedef struct ModeDecisionConfigurationContext {
 EbErrorType svt_aom_mode_decision_configuration_context_ctor(EbThreadContext   *thread_ctx,
                                                              const EbEncHandle *enc_handle_ptr, int input_index,
                                                              int output_index);
+
+void svt_av1_build_quantizer(PictureParentControlSet *pcs, EbBitDepth bit_depth, int32_t y_dc_delta_q,
+                             int32_t u_dc_delta_q, int32_t u_ac_delta_q, int32_t v_dc_delta_q, int32_t v_ac_delta_q,
+                             Quants *const quants, Dequants *const deq);
 
 extern void *svt_aom_mode_decision_configuration_kernel(void *input_ptr);
 

@@ -571,11 +571,8 @@ static void gf_group_rate_assingment(PictureParentControlSet *pcs, FIRSTPASS_STA
     RATE_CONTROL *const          rc        = &enc_ctx->rc;
     TWO_PASS *const              twopass   = &scs->twopass;
     const FIRSTPASS_STATS *const start_pos = twopass->stats_in;
-#ifdef ARCH_X86_64
-    aom_clear_system_state();
-#endif
-    GF_GROUP_STATS gf_stats;
-    int            use_alt_ref;
+    GF_GROUP_STATS               gf_stats;
+    int                          use_alt_ref;
     calculate_gf_stats(pcs, &gf_stats, this_frame, &use_alt_ref);
 
     // Calculate the bits to be allocated to the gf/arf group as a whole
@@ -962,7 +959,7 @@ static void dynamic_resize_one_pass_cbr(PictureParentControlSet *ppcs) {
     // Don't allow for resized frame to go below 160x90, resize in steps of 3/4.
     const int32_t min_width    = (160 * 4) / 3;
     const int32_t min_height   = (90 * 4) / 3;
-    Bool          down_size_on = TRUE;
+    bool          down_size_on = true;
 
     // Step 1: check frame type
     // Don't resize on key frame; reset the counters on key frame.
@@ -976,7 +973,7 @@ static void dynamic_resize_one_pass_cbr(PictureParentControlSet *ppcs) {
     // Step 2: check frame size
     // No resizing down if frame size is below some limit.
     if ((ppcs->frame_width * ppcs->frame_height) < min_width * min_height)
-        down_size_on = FALSE;
+        down_size_on = false;
 
     // Step 3: calculate dynamic resize state
     // Resize based on average buffer underflow and QP over some window.
@@ -1099,10 +1096,7 @@ void svt_aom_one_pass_rt_rate_alloc(PictureParentControlSet *pcs) {
 void svt_aom_process_rc_stat(PictureParentControlSet *pcs) {
     SequenceControlSet *scs     = pcs->scs;
     TWO_PASS *const     twopass = &scs->twopass;
-#ifdef ARCH_X86_64
-    aom_clear_system_state();
-#endif
-    FIRSTPASS_STATS this_frame;
+    FIRSTPASS_STATS     this_frame;
     av1_zero(this_frame);
     process_first_pass_stats(pcs, &this_frame);
 

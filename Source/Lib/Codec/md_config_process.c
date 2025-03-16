@@ -108,13 +108,26 @@ void set_global_motion_field(PictureControlSet *pcs) {
     }
 }
 
-void svt_av1_build_quantizer(EbBitDepth bit_depth, int32_t y_dc_delta_q, int32_t u_dc_delta_q, int32_t u_ac_delta_q,
-                             int32_t v_dc_delta_q, int32_t v_ac_delta_q, Quants *const quants, Dequants *const deq) {
+void svt_av1_build_quantizer(PictureParentControlSet *pcs, EbBitDepth bit_depth, int32_t y_dc_delta_q,
+                             int32_t u_dc_delta_q, int32_t u_ac_delta_q, int32_t v_dc_delta_q, int32_t v_ac_delta_q,
+                             Quants *const quants, Dequants *const deq) {
     int32_t i, q, quant_qtx;
 
     for (q = 0; q < QINDEX_RANGE; q++) {
-        const int32_t qzbin_factor     = svt_aom_get_qzbin_factor(q, bit_depth);
-        const int32_t qrounding_factor = q == 0 ? 64 : 48;
+        int32_t qzbin_factor     = svt_aom_get_qzbin_factor(q, bit_depth);
+        int32_t qrounding_factor = q == 0 ? 64 : 48;
+        //  diff: q-range diff based on current quantizer
+        int           diff          = q - pcs->frm_hdr.quantization_params.base_q_idx;
+        const int32_t sharpness_val = pcs->scs->static_config.sharpness;
+
+        if ((sharpness_val > 0 && diff < 0) || (sharpness_val < 0 && diff > 0)) {
+            int32_t offset = sharpness_val > 0 ? MAX(sharpness_val << 1, abs(diff))
+                                               : MIN(abs(sharpness_val) << 1, diff);
+            qzbin_factor += (sharpness_val > 0) ? -offset : offset;
+            qrounding_factor += (sharpness_val > 0) ? offset : -offset;
+            qzbin_factor     = CLIP3(1, 256, qzbin_factor);
+            qrounding_factor = CLIP3(1, 256, qrounding_factor);
+        }
 
         for (i = 0; i < 2; ++i) {
             int32_t qrounding_factor_fp = 64;
@@ -280,7 +293,7 @@ void mode_decision_configuration_init_qp_update(PictureControlSet *pcs) {
     }
     // Initial Rate Estimation of the syntax elements
     svt_aom_estimate_syntax_rate(md_rate_est_ctx,
-                                 pcs->slice_type == I_SLICE ? TRUE : FALSE,
+                                 pcs->slice_type == I_SLICE ? true : false,
                                  pcs->ppcs->scs->seq_header.filter_intra_level,
                                  pcs->ppcs->frm_hdr.allow_screen_content_tools,
                                  pcs->ppcs->enable_restoration,
@@ -659,7 +672,7 @@ void *svt_aom_mode_decision_configuration_kernel(void *input_ptr) {
         // -------
         if ((pcs->ppcs->frame_superres_enabled == 1 || scs->static_config.resize_mode != RESIZE_NONE) &&
             pcs->slice_type != I_SLICE) {
-            if (pcs->ppcs->is_ref == TRUE && pcs->ppcs->ref_pic_wrapper != NULL) {
+            if (pcs->ppcs->is_ref == true && pcs->ppcs->ref_pic_wrapper != NULL) {
                 // update mi_rows and mi_cols for the reference pic wrapper (used in mfmv for other
                 // pictures)
                 EbReferenceObject *ref_object = pcs->ppcs->ref_pic_wrapper->object_ptr;
@@ -707,7 +720,7 @@ void *svt_aom_mode_decision_configuration_kernel(void *input_ptr) {
         }
         // Initial Rate Estimation of the syntax elements
         svt_aom_estimate_syntax_rate(md_rate_est_ctx,
-                                     pcs->slice_type == I_SLICE ? TRUE : FALSE,
+                                     pcs->slice_type == I_SLICE ? true : false,
                                      scs->seq_header.filter_intra_level,
                                      pcs->ppcs->frm_hdr.allow_screen_content_tools,
                                      pcs->ppcs->enable_restoration,
@@ -901,7 +914,7 @@ void *svt_aom_mode_decision_configuration_kernel(void *input_ptr) {
 
         pcs->mimic_only_tx_4x4 = 0;
         if (frm_hdr->segmentation_params.segmentation_enabled) {
-            Bool has_lossless_segment = 0;
+            bool has_lossless_segment = 0;
             // Loop through each segment to determine if it is coded losslessly
             for (int segment_id = 0; segment_id < MAX_SEGMENTS; segment_id++) {
                 pcs->lossless[segment_id] = 0;

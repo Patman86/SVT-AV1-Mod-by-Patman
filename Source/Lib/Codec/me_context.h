@@ -273,12 +273,12 @@ typedef struct IntraReferenceSamplesOpenLoop {
     // Scratch buffers used in the interpolaiton process
     uint8_t reference_above_line_y[MAX_INTRA_REFERENCE_SAMPLES];
     uint8_t reference_left_line_y[MAX_INTRA_REFERENCE_SAMPLES];
-    Bool    above_ready_flag_y;
-    Bool    left_ready_flag_y;
+    bool    above_ready_flag_y;
+    bool    left_ready_flag_y;
 } IntraReferenceSamplesOpenLoop;
 
 typedef struct MeHmeRefPruneCtrls {
-    Bool enable_me_hme_ref_pruning;
+    bool enable_me_hme_ref_pruning;
     // TH used to prune references based on hme sad deviation
     uint16_t prune_ref_if_hme_sad_dev_bigger_than_th;
     // TH used to prune references based on me sad deviation
@@ -376,40 +376,40 @@ typedef struct MeContext {
     uint8_t *b64_src_ptr;
     uint32_t b64_src_stride;
 
-    uint8_t  *quarter_b64_buffer;
-    uint32_t  quarter_b64_buffer_stride;
-    uint8_t  *sixteenth_b64_buffer;
-    uint32_t  sixteenth_b64_buffer_stride;
-    uint8_t  *integer_buffer_ptr[MAX_NUM_OF_REF_PIC_LIST][MAX_REF_IDX];
-    uint32_t *p_best_sad_8x8;
-    uint32_t *p_best_sad_16x16;
-    uint32_t *p_best_sad_32x32;
-    uint32_t *p_best_sad_64x64;
-    uint32_t *p_best_mv8x8;
-    uint32_t *p_best_mv16x16;
-    uint32_t *p_best_mv32x32;
-    uint32_t *p_best_mv64x64;
-    EB_ALIGN(16) uint32_t p_sad32x32[4];
-    EB_ALIGN(64) uint32_t p_sad16x16[16];
-    EB_ALIGN(64) uint32_t p_sad8x8[64];
-    uint32_t  p_sb_best_sad[MAX_NUM_OF_REF_PIC_LIST][MAX_REF_IDX][SQUARE_PU_COUNT];
-    uint32_t  p_sb_best_mv[MAX_NUM_OF_REF_PIC_LIST][MAX_REF_IDX][SQUARE_PU_COUNT];
-    uint32_t *p_best_full_pel_mv8x8;
-    uint32_t *p_best_full_pel_mv16x16;
-    uint32_t *p_best_full_pel_mv32x32;
-    uint32_t *p_best_full_pel_mv64x64;
-    uint8_t   full_quarter_pel_refinement;
-    uint16_t *p_eight_pos_sad16x16;
-    EB_ALIGN(64) uint32_t p_eight_sad32x32[4][8];
-    EB_ALIGN(64) uint32_t p_eight_sad16x16[16][8];
-    EB_ALIGN(64) uint32_t p_eight_sad8x8[64][8];
+    uint8_t           *quarter_b64_buffer;
+    uint32_t           quarter_b64_buffer_stride;
+    uint8_t           *sixteenth_b64_buffer;
+    uint32_t           sixteenth_b64_buffer_stride;
+    uint8_t           *integer_buffer_ptr[MAX_NUM_OF_REF_PIC_LIST][MAX_REF_IDX];
+    uint32_t          *p_best_sad_8x8;
+    uint32_t          *p_best_sad_16x16;
+    uint32_t          *p_best_sad_32x32;
+    uint32_t          *p_best_sad_64x64;
+    uint32_t          *p_best_mv8x8;
+    uint32_t          *p_best_mv16x16;
+    uint32_t          *p_best_mv32x32;
+    uint32_t          *p_best_mv64x64;
+    uint32_t           p_sad32x32[4];
+    uint32_t           p_sad16x16[16];
+    uint32_t           p_sad8x8[64];
+    uint32_t           p_sb_best_sad[MAX_NUM_OF_REF_PIC_LIST][MAX_REF_IDX][SQUARE_PU_COUNT];
+    uint32_t           p_sb_best_mv[MAX_NUM_OF_REF_PIC_LIST][MAX_REF_IDX][SQUARE_PU_COUNT];
+    uint32_t          *p_best_full_pel_mv8x8;
+    uint32_t          *p_best_full_pel_mv16x16;
+    uint32_t          *p_best_full_pel_mv32x32;
+    uint32_t          *p_best_full_pel_mv64x64;
+    uint8_t            full_quarter_pel_refinement;
+    uint16_t          *p_eight_pos_sad16x16;
+    uint32_t           p_eight_sad32x32[4][8];
+    uint32_t           p_eight_sad16x16[16][8];
+    uint32_t           p_eight_sad8x8[64][8];
     EbBitFraction     *mvd_bits_array;
     uint8_t            hme_search_method;
     uint8_t            me_search_method;
-    Bool               enable_hme_flag;
-    Bool               enable_hme_level0_flag;
-    Bool               enable_hme_level1_flag;
-    Bool               enable_hme_level2_flag;
+    bool               enable_hme_flag;
+    bool               enable_hme_level0_flag;
+    bool               enable_hme_level1_flag;
+    bool               enable_hme_level2_flag;
     MeHmeRefPruneCtrls me_hme_prune_ctrls;
     MeSrCtrls          me_sr_adjustment_ctrls;
     Me8x8VarCtrls      me_8x8_var_ctrls;
@@ -463,49 +463,49 @@ typedef struct MeContext {
     uint8_t num_of_ref_pic_to_search[2];
     uint8_t temporal_layer_index;
     // Flag will be true if the current frame is used as a reference picture by other frames.
-    Bool                        is_ref;
+    bool                        is_ref;
     EbDownScaledBufDescPtrArray me_ds_ref_array[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH];
     // tf
-    uint8_t      tf_chroma;
-    int          tf_frame_index;
-    int          tf_index_center;
-    signed short tf_64x64_mv_x;
-    signed short tf_64x64_mv_y;
-    uint64_t     tf_64x64_block_error;
-    signed short tf_16x16_mv_x[16];
-    signed short tf_16x16_mv_y[16];
-    uint64_t     tf_16x16_block_error[16];
-    signed short tf_8x8_mv_x[64];
-    signed short tf_8x8_mv_y[64];
-    uint64_t     tf_8x8_block_error[64];
-    int          tf_16x16_block_split_flag[4][4];
+    uint8_t  tf_chroma;
+    int      tf_frame_index;
+    int      tf_index_center;
+    int16_t  tf_64x64_mv_x;
+    int16_t  tf_64x64_mv_y;
+    uint64_t tf_64x64_block_error;
+    int16_t  tf_16x16_mv_x[16];
+    int16_t  tf_16x16_mv_y[16];
+    uint64_t tf_16x16_block_error[16];
+    int16_t  tf_8x8_mv_x[64];
+    int16_t  tf_8x8_mv_y[64];
+    uint64_t tf_8x8_block_error[64];
+    int      tf_16x16_block_split_flag[4][4];
 
-    signed short tf_32x32_mv_x[4];
-    signed short tf_32x32_mv_y[4];
-    uint64_t     tf_32x32_block_error[4];
-    int          tf_32x32_block_split_flag[4];
-    int          tf_block_row;
-    int          tf_block_col;
-    uint32_t     idx_32x32;
-    uint16_t     tf_mv_dist_th;
-    int32_t      prune_me_candidates_th;
-    uint8_t      use_best_unipred_cand_only; // Use only the best unipred candidate when MRP is off
-    uint8_t      reduce_hme_l0_sr_th_min;
-    uint8_t      reduce_hme_l0_sr_th_max;
-    uint16_t     tf_me_exit_th;
-    uint8_t      tf_use_pred_64x64_only_th;
-    uint8_t      tf_subpel_early_exit_th;
-    uint32_t     zz_sad[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH];
-    uint32_t     me_early_exit_th;
-    uint32_t     me_safe_limit_zz_th;
-    uint32_t     tf_tot_vert_blks; //total vertical motion blocks in TF
-    uint32_t     tf_tot_horz_blks; //total horizontal motion blocks in TF
-    uint8_t      skip_frame;
-    uint8_t      bypass_blk_step;
-    uint32_t     b64_width;
-    uint32_t     b64_height;
-    uint8_t      performed_phme[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH][2];
-    uint32_t     prev_me_stage_based_exit_th;
+    int16_t  tf_32x32_mv_x[4];
+    int16_t  tf_32x32_mv_y[4];
+    uint64_t tf_32x32_block_error[4];
+    int      tf_32x32_block_split_flag[4];
+    int      tf_block_row;
+    int      tf_block_col;
+    uint32_t idx_32x32;
+    uint16_t tf_mv_dist_th;
+    int32_t  prune_me_candidates_th;
+    uint8_t  use_best_unipred_cand_only; // Use only the best unipred candidate when MRP is off
+    uint8_t  reduce_hme_l0_sr_th_min;
+    uint8_t  reduce_hme_l0_sr_th_max;
+    uint16_t tf_me_exit_th;
+    uint8_t  tf_use_pred_64x64_only_th;
+    uint8_t  tf_subpel_early_exit_th;
+    uint32_t zz_sad[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH];
+    uint32_t me_early_exit_th;
+    uint32_t me_safe_limit_zz_th;
+    uint32_t tf_tot_vert_blks; //total vertical motion blocks in TF
+    uint32_t tf_tot_horz_blks; //total horizontal motion blocks in TF
+    uint8_t  skip_frame;
+    uint8_t  bypass_blk_step;
+    uint32_t b64_width;
+    uint32_t b64_height;
+    uint8_t  performed_phme[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH][2];
+    uint32_t prev_me_stage_based_exit_th;
 } MeContext;
 
 typedef uint64_t (*EB_ME_DISTORTION_FUNC)(uint8_t *src, uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,

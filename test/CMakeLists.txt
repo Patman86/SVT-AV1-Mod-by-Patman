@@ -106,6 +106,7 @@ set(multi_arch_files
     TemporalFilterTestPlanewise.cc
     VarianceTest.cc
     WedgeUtilTest.cc
+    av1_convolve_scale_test.cc
     convolve_test.cc
     hadamard_test.cc
     intrapred_cfl_test.cc
@@ -114,6 +115,7 @@ set(multi_arch_files
     intrapred_test.cc
     quantize_func_test.cc
     selfguided_filter_test.cc
+    subtract_avg_cfl_test.cc
     warp_filter_test.cc
     warp_filter_test_util.cc
     warp_filter_test_util.h
@@ -132,12 +134,10 @@ if(HAVE_X86_PLATFORM)
       MotionEstimationTest.cc
       PaletteModeUtilTest.cc
       PsnrTest.cc
-      av1_convolve_scale_test.cc
       compute_mean_test.cc
       corner_match_test.cc
       dwt_test.cc
-      frame_error_test.cc
-      subtract_avg_cfl_test.cc)
+      frame_error_test.cc)
 endif()
 
 if(HAVE_ARM_PLATFORM)
@@ -149,15 +149,15 @@ set(arch_neutral_lib_list
     $<TARGET_OBJECTS:C_DEFAULT>
     $<TARGET_OBJECTS:GLOBALS>
     $<TARGET_OBJECTS:CODEC>
-    gtest_all)
+    gtest_all
+    cpuinfo::cpuinfo)
 
 if(HAVE_X86_PLATFORM)
   set(x86_arch_lib_list
       $<TARGET_OBJECTS:ASM_SSE2>
       $<TARGET_OBJECTS:ASM_SSSE3>
       $<TARGET_OBJECTS:ASM_SSE4_1>
-      $<TARGET_OBJECTS:ASM_AVX2>
-      $<IF:$<BOOL:${USE_EXTERNAL_CPUINFO}>,cpuinfo::cpuinfo,cpuinfo_public>)
+      $<TARGET_OBJECTS:ASM_AVX2>)
   if(ENABLE_AVX512)
     list(APPEND x86_arch_lib_list
       $<TARGET_OBJECTS:ASM_AVX512>)

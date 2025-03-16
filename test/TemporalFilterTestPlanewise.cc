@@ -971,7 +971,7 @@ typedef void (*get_final_filtered_pixels_fn)(
     struct MeContext *me_ctx, EbByte *src_center_ptr_start,
     uint16_t **altref_buffer_highbd_start, uint32_t **accum, uint16_t **count,
     const uint32_t *stride, int blk_y_src_offset, int blk_ch_src_offset,
-    uint16_t blk_width_ch, uint16_t blk_height_ch, Bool is_highbd);
+    uint16_t blk_width_ch, uint16_t blk_height_ch, bool is_highbd);
 
 class TemporalFilterTestGetFinalFilteredPixels
     : public ::testing::TestWithParam<get_final_filtered_pixels_fn> {
@@ -1040,7 +1040,7 @@ class TemporalFilterTestGetFinalFilteredPixels
         }
     }
 
-    void SetRandData(Bool is_highbd) {
+    void SetRandData(bool is_highbd) {
         for (int color_channel = 0; color_channel < 3; ++color_channel) {
             for (int i = 0; i < BH * BW; ++i) {
                 if (is_highbd) {
@@ -1061,7 +1061,7 @@ class TemporalFilterTestGetFinalFilteredPixels
         me_ctx->tf_chroma = rand() % 2;
     }
 
-    void RunTest(Bool is_highbd) {
+    void RunTest(bool is_highbd) {
         int blk_y_src_offset = 1;
         int blk_ch_src_offset = 2;
         uint16_t blk_width_ch = 48;
@@ -1404,14 +1404,12 @@ class EstimateNoiseTestFP
     uint32_t encoder_bit_depth;
     int stride;
 };
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(EstimateNoiseTestFP);
 
 TEST_P(EstimateNoiseTestFP, fixed_point) {
     RunTest();
 }
 
 using EstimateNoiseTestFPHbd = EstimateNoiseTestFP;
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(EstimateNoiseTestFPHbd);
 
 TEST_P(EstimateNoiseTestFPHbd, fixed_point) {
     RunTest();
@@ -1423,17 +1421,17 @@ INSTANTIATE_TEST_SUITE_P(
     AVX2, EstimateNoiseTestFP,
     ::testing::Combine(::testing::Values(estimate_noise_fp16_c_wrapper),
                        ::testing::Values(estimate_noise_fp16_avx2_wrapper),
-                       ::testing::Values(3840, 1920, 1280, 800, 640, 360),
-                       ::testing::Values(2160, 1080, 720, 600, 480, 240),
+                       ::testing::Values(3840, 1920, 1280, 800, 640, 360, 357),
+                       ::testing::Values(2160, 1080, 720, 600, 480, 240, 237),
                        ::testing::Values(8)));
 
 INSTANTIATE_TEST_SUITE_P(
     AVX2, EstimateNoiseTestFPHbd,
     ::testing::Combine(::testing::Values(svt_estimate_noise_highbd_fp16_c),
                        ::testing::Values(svt_estimate_noise_highbd_fp16_avx2),
-                       ::testing::Values(3840, 1920, 1280, 800, 640, 360),
-                       ::testing::Values(2160, 1080, 720, 600, 480, 240),
-                       ::testing::Values(10, 12)));
+                       ::testing::Values(3840, 1920, 1280, 800, 640, 360, 357),
+                       ::testing::Values(2160, 1080, 720, 600, 480, 240, 237),
+                       ::testing::Values(10)));
 
 #endif
 
@@ -1443,10 +1441,17 @@ INSTANTIATE_TEST_SUITE_P(
     NEON, EstimateNoiseTestFP,
     ::testing::Combine(::testing::Values(estimate_noise_fp16_c_wrapper),
                        ::testing::Values(estimate_noise_fp16_neon_wrapper),
-                       ::testing::Values(3840, 1920, 1280, 800, 640, 360),
-                       ::testing::Values(2160, 1080, 720, 600, 480, 240),
+                       ::testing::Values(3840, 1920, 1280, 800, 640, 360, 357),
+                       ::testing::Values(2160, 1080, 720, 600, 480, 240, 237),
                        ::testing::Values(8)));
 
+INSTANTIATE_TEST_SUITE_P(
+    NEON, EstimateNoiseTestFPHbd,
+    ::testing::Combine(::testing::Values(svt_estimate_noise_highbd_fp16_c),
+                       ::testing::Values(svt_estimate_noise_highbd_fp16_neon),
+                       ::testing::Values(3840, 1920, 1280, 800, 640, 360, 357),
+                       ::testing::Values(2160, 1080, 720, 600, 480, 240, 237),
+                       ::testing::Values(10)));
 #endif
 
 typedef double (*EstimateNoiseFuncDbl)(const uint16_t *src, int width,

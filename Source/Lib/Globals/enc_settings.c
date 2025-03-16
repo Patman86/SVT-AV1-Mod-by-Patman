@@ -14,6 +14,7 @@
 /**************************************
  * Includes
  **************************************/
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -449,11 +450,18 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     }
 
     if (config->use_cpu_flags & EB_CPU_FLAGS_INVALID) {
+#ifdef ARCH_AARCH64
+        SVT_ERROR(
+            "Instance %u: param '--asm' have invalid value.\n"
+            "Value should be [0 - 6] or [c, neon, crc32, neon_dotprod, neon_i8mm, sve, sve2, max]\n",
+            channel_number + 1);
+#else
         SVT_ERROR(
             "Instance %u: param '--asm' have invalid value.\n"
             "Value should be [0 - 11] or [c, mmx, sse, sse2, sse3, ssse3, sse4_1, sse4_2, avx, "
             "avx2, avx512, avx512icl, max]\n",
             channel_number + 1);
+#endif
         return_error = EB_ErrorBadParameter;
     }
 
@@ -840,7 +848,16 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
 
     if (config->variance_boost_curve > 2) {
         SVT_ERROR("Instance %u: Variance boost curve must be between 0 and 2\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
 
+    if (config->luminance_qp_bias > 100) {
+        SVT_ERROR("Instance %u: Luminance-based QP bias value must be between 0 and 100\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+
+    if (config->sharpness > 7 || config->sharpness < -7) {
+        SVT_ERROR("Instance %u: Sharpness level must be between -7 and 7\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -868,7 +885,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->tile_rows                = DEFAULT;
     config_ptr->tile_columns             = DEFAULT;
     config_ptr->qp                       = DEFAULT_QP;
-    config_ptr->use_qp_file              = FALSE;
+    config_ptr->use_qp_file              = false;
     config_ptr->use_fixed_qindex_offsets = 0;
     memset(config_ptr->qindex_offsets, 0, sizeof(config_ptr->qindex_offsets));
     config_ptr->key_frame_chroma_qindex_offset = 0;
@@ -893,11 +910,11 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->enable_adaptive_quantization = 2;
     config_ptr->enc_mode                     = ENC_M8;
     config_ptr->intra_period_length          = -2;
-    config_ptr->multiply_keyint              = FALSE;
+    config_ptr->multiply_keyint              = false;
     config_ptr->intra_refresh_type           = 2;
     config_ptr->hierarchical_levels          = 0;
     config_ptr->pred_structure               = SVT_AV1_PRED_RANDOM_ACCESS;
-    config_ptr->enable_dlf_flag              = TRUE;
+    config_ptr->enable_dlf_flag              = true;
     config_ptr->cdef_level                   = DEFAULT;
     config_ptr->enable_restoration_filtering = DEFAULT;
     config_ptr->enable_mfmv                  = DEFAULT;
@@ -942,7 +959,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
 
     // Alt-Ref default values
     config_ptr->enable_tf       = 1;
-    config_ptr->enable_overlays = FALSE;
+    config_ptr->enable_overlays = false;
     config_ptr->tune            = 1;
     // Super-resolution default values
     config_ptr->superres_mode      = SUPERRES_NONE;
@@ -984,11 +1001,15 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->frame_scale_evts.start_frame_nums = NULL;
     config_ptr->enable_roi_map                    = false;
     config_ptr->fgs_table                         = NULL;
-    config_ptr->enable_variance_boost             = FALSE;
+    config_ptr->enable_variance_boost             = false;
     config_ptr->variance_boost_strength           = 2;
     config_ptr->variance_octile                   = 6;
     config_ptr->tf_strength                       = 3;
     config_ptr->variance_boost_curve              = 0;
+    config_ptr->luminance_qp_bias                 = 0;
+    config_ptr->sharpness                         = 0;
+    config_ptr->lossless                          = false;
+    config_ptr->avif                              = false;
     return return_error;
 }
 static const char *tier_to_str(unsigned in) {
@@ -1106,6 +1127,10 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                      config->film_grain_denoise_apply,
                      config->film_grain_denoise_strength);
         }
+        SVT_INFO("SVT [config]: sharpness / luminance-based QP bias \t\t\t: %d / %d\n",
+                 config->sharpness,
+                 config->luminance_qp_bias);
+        SVT_INFO("");
 
         switch (config->enable_tf) {
         case 1:
@@ -1349,9 +1374,9 @@ static uint32_t count_params(const char *nptr) {
 static EbErrorType str_to_bool(const char *nptr, bool *out) {
     bool val;
     if (!strcmp(nptr, "1") || !strcasecmp(nptr, "true") || !strcasecmp(nptr, "yes"))
-        val = TRUE;
+        val = true;
     else if (!strcmp(nptr, "0") || !strcasecmp(nptr, "false") || !strcasecmp(nptr, "no"))
-        val = FALSE;
+        val = false;
     else
         return EB_ErrorBadParameter;
 
@@ -1374,7 +1399,7 @@ static EbErrorType str_to_crf(const char *nptr, EbSvtAv1EncConfiguration *config
     return EB_ErrorNone;
 }
 
-static EbErrorType str_to_keyint(const char *nptr, int32_t *out, Bool *multi) {
+static EbErrorType str_to_keyint(const char *nptr, int32_t *out, bool *multi) {
     char      *suff;
     const long keyint = strtol(nptr, &suff, 0);
 
@@ -1384,11 +1409,11 @@ static EbErrorType str_to_keyint(const char *nptr, int32_t *out, Bool *multi) {
     switch (*suff) {
     case 's':
         // signal we need to multiply keyint * frame_rate
-        *multi = TRUE;
+        *multi = true;
         *out   = keyint;
         break;
     case '\0':
-        *multi = FALSE;
+        *multi = false;
         *out   = keyint < 0 ? keyint : keyint - 1;
         break;
     default:
@@ -1493,7 +1518,6 @@ static EbErrorType str_to_intra_rt(const char *nptr, SvtAv1IntraRefreshType *out
 }
 
 static EbErrorType str_to_asm(const char *nptr, EbCpuFlags *out) {
-    // need to keep in sync with set_asm_type()
     // need to handle numbers in here since the numbers to no match the
     // internal representation
     const struct {
@@ -1528,6 +1552,16 @@ static EbErrorType str_to_asm(const char *nptr, EbCpuFlags *out) {
 #elif defined(ARCH_AARCH64)
         {"neon", (EB_CPU_FLAGS_NEON << 1) - 1},
         {"1", (EB_CPU_FLAGS_NEON << 1) - 1},
+        {"crc32", (EB_CPU_FLAGS_ARM_CRC32 << 1) - 1},
+        {"2", (EB_CPU_FLAGS_ARM_CRC32 << 1) - 1},
+        {"neon_dotprod", (EB_CPU_FLAGS_NEON_DOTPROD << 1) - 1},
+        {"3", (EB_CPU_FLAGS_NEON_DOTPROD << 1) - 1},
+        {"neon_i8mm", (EB_CPU_FLAGS_NEON_I8MM << 1) - 1},
+        {"4", (EB_CPU_FLAGS_NEON_I8MM << 1) - 1},
+        {"sve", (EB_CPU_FLAGS_SVE << 1) - 1},
+        {"5", (EB_CPU_FLAGS_SVE << 1) - 1},
+        {"sve2", (EB_CPU_FLAGS_SVE2 << 1) - 1},
+        {"6", (EB_CPU_FLAGS_SVE2 << 1) - 1},
 #endif
         {"max", EB_CPU_FLAGS_ALL},
         {"100", EB_CPU_FLAGS_ALL},
@@ -1956,6 +1990,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"variance-octile", &config_struct->variance_octile},
         {"variance-boost-curve", &config_struct->variance_boost_curve},
         {"fast-decode", &config_struct->fast_decode},
+        {"luminance-qp-bias", &config_struct->luminance_qp_bias},
         {"enable-tf", &config_struct->enable_tf},
         {"tf-strength", &config_struct->tf_strength},
     };
@@ -2028,6 +2063,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         int8_t     *out;
     } int8_opts[] = {
         {"preset", &config_struct->enc_mode},
+        {"sharpness", &config_struct->sharpness},
         {"startup-qp-offset", &config_struct->startup_qp_offset},
     };
     const size_t int8_opts_size = sizeof(int8_opts) / sizeof(int8_opts[0]);
@@ -2046,7 +2082,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         }
     }
 
-    // Bool fields
+    // bool fields
     const struct {
         const char *name;
         bool       *out;

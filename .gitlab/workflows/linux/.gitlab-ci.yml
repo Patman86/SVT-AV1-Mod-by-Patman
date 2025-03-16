@@ -9,6 +9,7 @@
 .linux-compiler-base:
   extends: .common-ci-base
   stage: compile
+  dependencies: []
   tags:
     - gitlab-org
   image: registry.gitlab.com/aomediacodec/aom-testing/ubuntu2004
@@ -146,9 +147,9 @@ Linux (GCC 11, Tests, Static):
   variables:
     CC: gcc-11
     CXX: g++-11
-    EXTRA_CFLAGS: -g
-    EXTRA_CXXFLAGS: -g
-    EXTRA_LDFLAGS: -static -static-libgcc -static-libstdc++
+    EXTRA_CFLAGS: -g -Wno-error
+    EXTRA_CXXFLAGS: -g -Wno-error
+    EXTRA_LDFLAGS: -static -static-libgcc -static-libstdc++ -Wno-error
     EXTRA_CMAKE_FLAGS: -DBUILD_TESTING=ON -DBUILD_APPS=OFF
   artifacts:
     untracked: false
@@ -344,26 +345,26 @@ Enc Default Diff test:
     - success=true
     - |
       for dist in test-*-*-*-*bit-*.ivf; do
-        case $dist in *-default-Linux-Release-*bit-*.ivf) continue;; esac
+        case $dist in *-default-Linux_x86_64-Release-*bit-*.ivf) continue;; esac
         printf 'Testing %s\n' "$dist"
         case $dist in
-        test-*-8bit-m2.ivf) diff -q test-default-Linux-Release-8bit-m2.ivf "$dist" || success=false ;;
-        test-*-8bit-m8.ivf) diff -q test-default-Linux-Release-8bit-m8.ivf "$dist" || success=false ;;
-        test-*-10bit-m2.ivf) diff -q test-default-Linux-Release-10bit-m2.ivf "$dist" || success=false ;;
-        test-*-10bit-m8.ivf) diff -q test-default-Linux-Release-10bit-m8.ivf "$dist" || success=false ;;
+        test-*-8bit-m2.ivf) diff -q test-default-Linux_x86_64-Release-8bit-m2.ivf "$dist" || success=false ;;
+        test-*-8bit-m8.ivf) diff -q test-default-Linux_x86_64-Release-8bit-m8.ivf "$dist" || success=false ;;
+        test-*-10bit-m2.ivf) diff -q test-default-Linux_x86_64-Release-10bit-m2.ivf "$dist" || success=false ;;
+        test-*-10bit-m8.ivf) diff -q test-default-Linux_x86_64-Release-10bit-m8.ivf "$dist" || success=false ;;
 
-        vbr1pass-*-8bit-m2.ivf) diff -q vbr1pass-default-Linux-Release-8bit-m2.ivf "$dist" || success=false ;;
-        vbr1pass-*-8bit-m8.ivf) diff -q vbr1pass-default-Linux-Release-8bit-m8.ivf "$dist" || success=false ;;
-        vbr1pass-*-10bit-m2.ivf) diff -q vbr1pass-default-Linux-Release-10bit-m2.ivf "$dist" || success=false ;;
-        vbr1pass-*-10bit-m8.ivf) diff -q vbr1pass-default-Linux-Release-10bit-m8.ivf "$dist" || success=false ;;
-        vbr2pass-*-8bit-m2.ivf) diff -q vbr2pass-default-Linux-Release-8bit-m2.ivf "$dist" || success=false ;;
-        vbr2pass-*-8bit-m8.ivf) diff -q vbr2pass-default-Linux-Release-8bit-m8.ivf "$dist" || success=false ;;
-        vbr2pass-*-10bit-m2.ivf) diff -q vbr2pass-default-Linux-Release-10bit-m2.ivf "$dist" || success=false ;;
-        vbr2pass-*-10bit-m8.ivf) diff -q vbr2pass-default-Linux-Release-10bit-m8.ivf "$dist" || success=false ;;
-        cbr-*-8bit-m2.ivf) diff -q cbr-default-Linux-Release-8bit-m2.ivf "$dist" || success=false ;;
-        cbr-*-8bit-m8.ivf) diff -q cbr-default-Linux-Release-8bit-m8.ivf "$dist" || success=false ;;
-        cbr-*-10bit-m2.ivf) diff -q cbr-default-Linux-Release-10bit-m2.ivf "$dist" || success=false ;;
-        cbr-*-10bit-m8.ivf) diff -q cbr-default-Linux-Release-10bit-m8.ivf "$dist" || success=false ;;
+        vbr1pass-*-8bit-m2.ivf) diff -q vbr1pass-default-Linux_x86_64-Release-8bit-m2.ivf "$dist" || success=false ;;
+        vbr1pass-*-8bit-m8.ivf) diff -q vbr1pass-default-Linux_x86_64-Release-8bit-m8.ivf "$dist" || success=false ;;
+        vbr1pass-*-10bit-m2.ivf) diff -q vbr1pass-default-Linux_x86_64-Release-10bit-m2.ivf "$dist" || success=false ;;
+        vbr1pass-*-10bit-m8.ivf) diff -q vbr1pass-default-Linux_x86_64-Release-10bit-m8.ivf "$dist" || success=false ;;
+        vbr2pass-*-8bit-m2.ivf) diff -q vbr2pass-default-Linux_x86_64-Release-8bit-m2.ivf "$dist" || success=false ;;
+        vbr2pass-*-8bit-m8.ivf) diff -q vbr2pass-default-Linux_x86_64-Release-8bit-m8.ivf "$dist" || success=false ;;
+        vbr2pass-*-10bit-m2.ivf) diff -q vbr2pass-default-Linux_x86_64-Release-10bit-m2.ivf "$dist" || success=false ;;
+        vbr2pass-*-10bit-m8.ivf) diff -q vbr2pass-default-Linux_x86_64-Release-10bit-m8.ivf "$dist" || success=false ;;
+        cbr-*-8bit-m2.ivf) diff -q cbr-default-Linux_x86_64-Release-8bit-m2.ivf "$dist" || success=false ;;
+        cbr-*-8bit-m8.ivf) diff -q cbr-default-Linux_x86_64-Release-8bit-m8.ivf "$dist" || success=false ;;
+        cbr-*-10bit-m2.ivf) diff -q cbr-default-Linux_x86_64-Release-10bit-m2.ivf "$dist" || success=false ;;
+        cbr-*-10bit-m8.ivf) diff -q cbr-default-Linux_x86_64-Release-10bit-m8.ivf "$dist" || success=false ;;
         esac
       done
     - $success
@@ -395,6 +396,7 @@ Enc Intra Diff Test:
 Linux Gstreamer (Static):
   extends: .linux-test-base
   stage: standalone
+  dependencies: []
   variables:
     CC: gcc-11
     CXX: g++-11
@@ -419,6 +421,7 @@ Linux Gstreamer (Static):
 Linux libavif (Static):
   extends: .linux-test-base
   stage: standalone
+  dependencies: []
   variables:
     CC: gcc-11
     CXX: g++-11
@@ -433,7 +436,6 @@ Linux libavif (Static):
     - git clone $PWD svtav1-src
     - git clone https://github.com/AOMediaCodec/libavif.git libavif-src
     - git clone https://code.videolan.org/videolan/dav1d.git dav1d-src
-    - git -C libavif-src apply $PWD/.gitlab/workflows/linux/libavif_api_job_fix.patch
     - !reference [.ffmpeg-before-script-export]
     - apt update && apt install -yyy libpng-dev libjpeg-dev
   script:
@@ -453,9 +455,10 @@ Linux libavif (Static):
     - cmake --build libavif-build --config Release --target install
     - valgrind --error-exitcode=1 --track-origins=yes --suppressions=/usr/lib/valgrind/debian.supp -- avifenc -c svt -d 8 -y 420 -r limited -j 2 ./Docs/img/me_fig_new.png out.avif
 
-Linux FFmpeg (n7.0.2, Static):
+Linux FFmpeg (n7.1, Static):
   extends: .linux-test-base
   stage: ffmpeg
+  dependencies: []
   variables:
     CC: gcc-11
     CXX: g++-11
@@ -467,7 +470,7 @@ Linux FFmpeg (n7.0.2, Static):
   before_script:
     - !reference [.ffmpeg-before-script-git-setup]
     - !reference [.ffmpeg-before-script-clone]
-    - git -C ffmpeg-src checkout n7.0.2
+    - git -C ffmpeg-src checkout n7.1
     - git -C ffmpeg-src apply $PWD/.gitlab/workflows/linux/ffmpeg_n7_fix.patch
     - !reference [.ffmpeg-before-script-export]
   script:
@@ -499,6 +502,7 @@ Linux FFmpeg (n7.0.2, Static):
 Linux FFmpeg (n5.0, Static):
   extends: .linux-test-base
   stage: ffmpeg
+  dependencies: []
   variables:
     CC: gcc-11
     CXX: g++-11
