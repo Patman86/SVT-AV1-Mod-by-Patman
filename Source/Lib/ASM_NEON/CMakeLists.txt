@@ -20,6 +20,7 @@ target_sources(
   PUBLIC aom_sum_squares_neon.c
   PUBLIC av1_inv_txfm_neon.c
   PUBLIC av1_inv_txfm_neon.c
+  PUBLIC av1_k_means_neon.c
   PUBLIC av1_quantize_neon.c
   PUBLIC blend_a64_mask_neon.c
   PUBLIC block_error_neon.c
@@ -31,6 +32,7 @@ target_sources(
   PUBLIC compute_sad_neon.c
   PUBLIC convolve_neon.c
   PUBLIC convolve_scale_neon.c
+  PUBLIC corner_match_neon.c
   PUBLIC dav1d_asm.S
   PUBLIC dav1d_util.S
   PUBLIC deblocking_filter_intrinsic_neon.c
@@ -48,6 +50,7 @@ target_sources(
   PUBLIC highbd_pickrst_neon.c
   PUBLIC highbd_quantize_neon.c
   PUBLIC highbd_sse_neon.c
+  PUBLIC highbd_subtract_block_neon.c
   PUBLIC highbd_variance_neon.c
   PUBLIC highbd_warp_plane_neon.c
   PUBLIC highbd_wiener_convolve_neon.c
@@ -57,6 +60,7 @@ target_sources(
   PUBLIC obmc_sad_neon.c
   PUBLIC obmc_variance_neon.c
   PUBLIC pack_unpack_intrin_neon.c
+  PUBLIC pic_analysis_neon.c
   PUBLIC pickrst_neon.c
   PUBLIC picture_operators_intrinsic_neon.c
   PUBLIC restoration_pick_neon.c

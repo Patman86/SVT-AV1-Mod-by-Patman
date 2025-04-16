@@ -992,6 +992,24 @@ static INLINE uint8x8_t load_unaligned_u8_2x2(const uint8_t *buf, int stride) {
     return vreinterpret_u8_u16(a_u16);
 }
 
+static INLINE uint8x8_t load_unaligned_u8_2x4(const uint8_t *buf, int stride) {
+    uint16_t   a;
+    uint16x4_t a_u16;
+
+    memcpy(&a, buf, 2);
+    buf += stride;
+    a_u16 = vdup_n_u16(a);
+    memcpy(&a, buf, 2);
+    a_u16 = vset_lane_u16(a, a_u16, 1);
+    buf += stride;
+    memcpy(&a, buf, 2);
+    buf += stride;
+    a_u16 = vset_lane_u16(a, a_u16, 2);
+    memcpy(&a, buf, 2);
+    a_u16 = vset_lane_u16(a, a_u16, 3);
+    return vreinterpret_u8_u16(a_u16);
+}
+
 static INLINE uint8x8_t load_unaligned_u8_4x1(const uint8_t *buf) {
     uint32_t   a;
     uint32x2_t a_u32;
@@ -1224,6 +1242,14 @@ static INLINE void load_unaligned_u16_4x4(const uint16_t *buf, uint32_t stride, 
     *tu1 = load_unaligned_u16_4x2(buf, stride);
 }
 
+static INLINE int32x4_t load_s32_2x2(int32_t *s, int stride) { return vcombine_s32(vld1_s32(s), vld1_s32(s + stride)); }
+
+static INLINE void load_s32_4x2(int32_t *s, int32_t p, int32x4_t *s1, int32x4_t *s2) {
+    *s1 = vld1q_s32(s);
+    s += p;
+    *s2 = vld1q_s32(s);
+}
+
 static INLINE void load_s32_4x4(int32_t *s, int32_t p, int32x4_t *s1, int32x4_t *s2, int32x4_t *s3, int32x4_t *s4) {
     *s1 = vld1q_s32(s);
     s += p;
@@ -1232,6 +1258,25 @@ static INLINE void load_s32_4x4(int32_t *s, int32_t p, int32x4_t *s1, int32x4_t 
     *s3 = vld1q_s32(s);
     s += p;
     *s4 = vld1q_s32(s);
+}
+
+static INLINE void load_s32_4x8(int32_t *s, int32_t p, int32x4_t *s0, int32x4_t *s1, int32x4_t *s2, int32x4_t *s3,
+                                int32x4_t *s4, int32x4_t *s5, int32x4_t *s6, int32x4_t *s7) {
+    *s0 = vld1q_s32(s);
+    s += p;
+    *s1 = vld1q_s32(s);
+    s += p;
+    *s2 = vld1q_s32(s);
+    s += p;
+    *s3 = vld1q_s32(s);
+    s += p;
+    *s4 = vld1q_s32(s);
+    s += p;
+    *s5 = vld1q_s32(s);
+    s += p;
+    *s6 = vld1q_s32(s);
+    s += p;
+    *s7 = vld1q_s32(s);
 }
 
 static INLINE void store_s32_4x4(int32_t *s, int32_t p, int32x4_t s1, int32x4_t s2, int32x4_t s3, int32x4_t s4) {
@@ -1255,6 +1300,12 @@ static INLINE void load_u32_4x4(uint32_t *s, int32_t p, uint32x4_t *s1, uint32x4
     *s4 = vld1q_u32(s);
 }
 
+static INLINE void store_u32_4x2(uint32_t *s, int32_t p, uint32x4_t s1, uint32x4_t s2) {
+    vst1q_u32(s, s1);
+    s += p;
+    vst1q_u32(s, s2);
+}
+
 static INLINE void store_u32_4x4(uint32_t *s, int32_t p, uint32x4_t s1, uint32x4_t s2, uint32x4_t s3, uint32x4_t s4) {
     vst1q_u32(s, s1);
     s += p;
@@ -1263,6 +1314,25 @@ static INLINE void store_u32_4x4(uint32_t *s, int32_t p, uint32x4_t s1, uint32x4
     vst1q_u32(s, s3);
     s += p;
     vst1q_u32(s, s4);
+}
+
+static INLINE void store_s32_8x4(int32_t *s, int32_t p, int32x4_t s0, int32x4_t s1, int32x4_t s2, int32x4_t s3,
+                                 int32x4_t s4, int32x4_t s5, int32x4_t s6, int32x4_t s7) {
+    vst1q_s32(s, s0);
+    s += p;
+    vst1q_s32(s, s1);
+    s += p;
+    vst1q_s32(s, s2);
+    s += p;
+    vst1q_s32(s, s3);
+    s += p;
+    vst1q_s32(s, s4);
+    s += p;
+    vst1q_s32(s, s5);
+    s += p;
+    vst1q_s32(s, s6);
+    s += p;
+    vst1q_s32(s, s7);
 }
 
 static INLINE int16x8_t load_tran_low_to_s16q(const tran_low_t *buf) {

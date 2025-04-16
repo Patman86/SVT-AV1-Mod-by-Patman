@@ -10,7 +10,7 @@
   extends: .common-ci-base
   stage: compile
   dependencies: []
-  image: registry.gitlab.com/aomediacodec/aom-testing/core1809
+  image: registry.gitlab.com/aomediacodec/aom-testing/ltsc2025
   tags:
     - svt-windows-docker
   script:
@@ -26,12 +26,12 @@
 .windows-test-base:
   extends: .common-ci-base
   stage: test
-  image: registry.gitlab.com/aomediacodec/aom-testing/core1809
+  image: registry.gitlab.com/aomediacodec/aom-testing/ltsc2025
   tags:
     - svt-windows-docker
   before_script:
     - Move-Item C:/*.zst .
-    - zstd -d *.zst
+    - zstd -d $(Get-ChildItem *.zst)
 
 .windows-unit-test-base:
   extends: .windows-test-base

@@ -1,5 +1,27 @@
 # Changelog
 
+## [3.0.2] - 2025-3-21
+
+Encoder
+
+- More Arm simd improvements (!2401, !2402, !2403, !2405, !2409, !2410)
+- Fixed mising initalization of lossless and avif (#2255, !2404)
+
+Documentation
+- Add missing `--luminance-qp-bias` documentation (!2407)
+
+## [3.0.1] - 2025-3-10
+
+Encoder cleanup and bug fixes
+- Further Arm improvements along with fixing arm vs x86 output mismatches (!2393, !2399, !2400, #2247)
+- Fixed memory leak in compute_global_motion (!2395, #2248)
+- Fixed integer overflow in subpel search to prevent an assertion (!2396, #2250)
+- Clean up some undefined behavior (!2398)
+- API change fixes now available in FFmpeg and GStreamer (#2249, #2252)
+
+Known issue
+- Hard to reproduce SIGTRAP being raised on macOS m1 with libavif's avifsvttest (#2251)
+
 ## [3.0.0] - 2025-2-18
 
 API updates

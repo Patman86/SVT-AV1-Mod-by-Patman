@@ -832,12 +832,12 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     }
 
     if (config->variance_boost_strength < 1 || config->variance_boost_strength > 4) {
-        SVT_ERROR("Instance %u: Variance boost strength must be between 1 and 4\n", channel_number + 1);
+        SVT_ERROR("Instance %u: Variance Boost strength must be between 1 and 4\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 
     if (config->variance_octile < 1 || config->variance_octile > 8) {
-        SVT_ERROR("Instance %u: Variance boost octile must be between 1 and 8\n", channel_number + 1);
+        SVT_ERROR("Instance %u: Variance Boost octile must be between 1 and 8\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -847,7 +847,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     }
 
     if (config->variance_boost_curve > 2) {
-        SVT_ERROR("Instance %u: Variance boost curve must be between 0 and 2\n", channel_number + 1);
+        SVT_ERROR("Instance %u: Variance Boost curve must be between 0 and 2\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -1127,10 +1127,9 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                      config->film_grain_denoise_apply,
                      config->film_grain_denoise_strength);
         }
-        SVT_INFO("SVT [config]: sharpness / luminance-based QP bias \t\t\t: %d / %d\n",
+        SVT_INFO("SVT [config]: sharpness / luminance-based QP bias \t\t\t\t: %d / %d\n",
                  config->sharpness,
                  config->luminance_qp_bias);
-        SVT_INFO("");
 
         switch (config->enable_tf) {
         case 1:

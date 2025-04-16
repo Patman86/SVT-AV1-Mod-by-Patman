@@ -680,6 +680,15 @@ INSTANTIATE_TEST_SUITE_P(
                        ::testing::ValuesIn(TEST_LOOP_AREAS),
                        ::testing::Values(0, 1),
                        ::testing::Values(svt_sad_loop_kernel_neon)));
+
+#if HAVE_NEON_DOTPROD
+INSTANTIATE_TEST_SUITE_P(
+    NEON_DOTPROD, sad_LoopTest,
+    ::testing::Combine(::testing::ValuesIn(TEST_PATTERNS),
+                       ::testing::ValuesIn(TEST_LOOP_AREAS),
+                       ::testing::Values(0, 1),
+                       ::testing::Values(svt_sad_loop_kernel_neon_dotprod)));
+#endif  // HAVE_NEON_DOTPROD
 #endif  // ARCH_AARCH64
 
 /**
@@ -845,6 +854,24 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::ValuesIn(TEST_PATTERNS),
         ::testing::ValuesIn(TEST_SAD_PATTERNS),
         ::testing::Values(svt_ext_all_sad_calculation_8x8_16x16_neon)));
+
+#if HAVE_NEON_DOTPROD
+INSTANTIATE_TEST_SUITE_P(
+    NEON_DOTPROD, Allsad8x8_CalculationTest,
+    ::testing::Combine(
+        ::testing::ValuesIn(TEST_PATTERNS),
+        ::testing::ValuesIn(TEST_SAD_PATTERNS),
+        ::testing::Values(svt_ext_all_sad_calculation_8x8_16x16_neon_dotprod)));
+#endif  // HAVE_NEON_DOTPROD
+
+#if HAVE_SVE
+INSTANTIATE_TEST_SUITE_P(
+    SVE, Allsad8x8_CalculationTest,
+    ::testing::Combine(
+        ::testing::ValuesIn(TEST_PATTERNS),
+        ::testing::ValuesIn(TEST_SAD_PATTERNS),
+        ::testing::Values(svt_ext_all_sad_calculation_8x8_16x16_sve)));
+#endif  // HAVE_SVE
 #endif  // ARCH_AARCH64
 
 typedef void (*svt_ext_eight_sad_calculation_32x32_64x64_fn)(
@@ -1099,6 +1126,15 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::ValuesIn(TEST_PATTERNS),
         ::testing::ValuesIn(TEST_SAD_PATTERNS),
         ::testing::Values(svt_ext_sad_calculation_8x8_16x16_neon_intrin)));
+
+#if HAVE_NEON_DOTPROD
+INSTANTIATE_TEST_SUITE_P(
+    NEON_DOTPROD, Extsad8x8_CalculationTest,
+    ::testing::Combine(
+        ::testing::ValuesIn(TEST_PATTERNS),
+        ::testing::ValuesIn(TEST_SAD_PATTERNS),
+        ::testing::Values(svt_ext_sad_calculation_8x8_16x16_neon_dotprod)));
+#endif  // NEON_DOTPROD
 #endif  // ARCH_AARCH64
 
 /**
@@ -1208,6 +1244,15 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::ValuesIn(TEST_SAD_PATTERNS),
         ::testing::Values(svt_ext_sad_calculation_32x32_64x64_sse4_intrin)));
 #endif  // ARCH_X86_64
+
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, Extsad32x32_CalculationTest,
+    ::testing::Combine(
+        ::testing::ValuesIn(TEST_PATTERNS),
+        ::testing::ValuesIn(TEST_SAD_PATTERNS),
+        ::testing::Values(svt_ext_sad_calculation_32x32_64x64_neon)));
+#endif  // ARCH_AARCH64
 
 typedef void (*InitBufferFunc)(uint32_t *pointer, uint32_t count128,
                                uint32_t count32, uint32_t value);
@@ -1492,7 +1537,6 @@ class SADTestSubSample16bit
 
     SadSubsample16BitFunc test_func_;
 };
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(SADTestSubSample16bit);
 
 BlkSize TEST_BLOCK_SAD_SIZES[] = {
     BlkSize(16, 10),   BlkSize(16, 5),   BlkSize(32, 10), BlkSize(32, 20),
@@ -1526,6 +1570,13 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(::testing::ValuesIn(TEST_PATTERNS),
                        ::testing::Values(svt_aom_sad_16bit_kernel_avx2)));
 #endif
+
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, SADTestSubSample16bit,
+    ::testing::Combine(::testing::ValuesIn(TEST_PATTERNS),
+                       ::testing::Values(svt_aom_sad_16b_kernel_neon)));
+#endif  // ARCH_AARCH64
 
 typedef void (*PmeSadLoopKernel)(
     const struct svt_mv_cost_param *mv_cost_params, uint8_t *src,

@@ -20,6 +20,8 @@ check_both_flags_add(-march=armv8.2-a+dotprod+i8mm+sve)
 target_sources(
   ASM_SVE
   PUBLIC aom_sum_squares_sve.c
+  PUBLIC block_error_sve.c
+  PUBLIC corner_match_sve.c
   PUBLIC highbd_convolve_sve.c
   PUBLIC highbd_jnt_convolve_sve.c
   PUBLIC highbd_pickrst_sve.c
@@ -27,6 +29,7 @@ target_sources(
   PUBLIC highbd_variance_sve.c
   PUBLIC highbd_warp_plane_sve.c
   PUBLIC pickrst_sve.c
+  PUBLIC sad_sve.c
   PUBLIC warp_plane_sve.c
   PUBLIC wedge_utils_sve.c)
 
@@ -36,4 +39,5 @@ target_include_directories(
   PRIVATE ${PROJECT_SOURCE_DIR}/Source/Lib/Codec/
   PRIVATE ${PROJECT_SOURCE_DIR}/Source/Lib/C_DEFAULT/
   PRIVATE ${PROJECT_SOURCE_DIR}/Source/Lib/ASM_NEON/
+  PRIVATE ${PROJECT_SOURCE_DIR}/Source/Lib/ASM_NEON_DOTPROD/
   PRIVATE ${PROJECT_SOURCE_DIR}/Source/Lib/ASM_SVE/)
