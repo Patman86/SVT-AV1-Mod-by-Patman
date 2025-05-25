@@ -507,7 +507,7 @@ static void compute_stats_win3_highbd_neon(const int16_t *const d, const int32_t
     } while (++i < wiener_win);
 }
 
-static INLINE void compute_stats_win5_highbd_neon(const int16_t *const d, const int32_t d_stride,
+static inline void compute_stats_win5_highbd_neon(const int16_t *const d, const int32_t d_stride,
                                                   const int16_t *const s, const int32_t s_stride, const int32_t width,
                                                   const int32_t height, int64_t *const M, int64_t *const H,
                                                   EbBitDepth bit_depth) {
@@ -771,10 +771,10 @@ static INLINE void compute_stats_win5_highbd_neon(const int16_t *const d, const 
             int32x4_t deltas[WIENER_WIN_CHROMA * 2] = {vdupq_n_s32(0)};
             int16x8_t ds[WIENER_WIN_CHROMA * 2];
 
-            ds[0] = load_unaligned_s16_4x2(d_t + 0 * d_stride, width);
-            ds[1] = load_unaligned_s16_4x2(d_t + 1 * d_stride, width);
-            ds[2] = load_unaligned_s16_4x2(d_t + 2 * d_stride, width);
-            ds[3] = load_unaligned_s16_4x2(d_t + 3 * d_stride, width);
+            ds[0] = load_s16_4x2(d_t + 0 * d_stride, width);
+            ds[1] = load_s16_4x2(d_t + 1 * d_stride, width);
+            ds[2] = load_s16_4x2(d_t + 2 * d_stride, width);
+            ds[3] = load_s16_4x2(d_t + 3 * d_stride, width);
 
             step3_win5_neon(d_t + 4 * d_stride, d_stride, width, height, ds, deltas);
 
@@ -1218,7 +1218,7 @@ static INLINE void compute_stats_win5_highbd_neon(const int16_t *const d, const 
     } while (++i < wiener_win);
 }
 
-static INLINE void compute_stats_win7_highbd_neon(const int16_t *const d, const int32_t d_stride,
+static inline void compute_stats_win7_highbd_neon(const int16_t *const d, const int32_t d_stride,
                                                   const int16_t *const s, const int32_t s_stride, const int32_t width,
                                                   const int32_t height, int64_t *const M, int64_t *const H,
                                                   EbBitDepth bit_depth) {
@@ -1861,7 +1861,7 @@ static INLINE void compute_stats_win7_highbd_neon(const int16_t *const d, const 
     } while (++i < wiener_win);
 }
 
-static INLINE void sub_avg_block_highbd_neon(const uint16_t *src, const int32_t src_stride, const uint16_t avg,
+static inline void sub_avg_block_highbd_neon(const uint16_t *src, const int32_t src_stride, const uint16_t avg,
                                              const int32_t width, const int32_t height, int16_t *dst,
                                              const int32_t dst_stride) {
     const uint16x8_t a = vdupq_n_u16(avg);
@@ -1881,7 +1881,7 @@ static INLINE void sub_avg_block_highbd_neon(const uint16_t *src, const int32_t 
     } while (--i);
 }
 
-static INLINE uint16_t highbd_find_average_neon(const uint16_t *src, int src_stride, int width, int height) {
+static inline uint16_t highbd_find_average_neon(const uint16_t *src, int src_stride, int width, int height) {
     assert(width > 0);
     assert(height > 0);
 

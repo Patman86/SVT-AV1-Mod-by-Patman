@@ -20,7 +20,7 @@
 #include "transpose_neon.h"
 #include "utility.h"
 
-static INLINE uint8_t find_average_neon(const uint8_t *src, int src_stride, int width, int height) {
+static inline uint8_t find_average_neon(const uint8_t *src, int src_stride, int width, int height) {
     uint64_t sum = 0;
 
     if (width >= 16) {
@@ -104,7 +104,7 @@ static INLINE uint8_t find_average_neon(const uint8_t *src, int src_stride, int 
     return (uint8_t)(sum / (width * height));
 }
 
-static INLINE void compute_sub_avg(const uint8_t *buf, int buf_stride, int avg, int16_t *buf_avg, int buf_avg_stride,
+static inline void compute_sub_avg(const uint8_t *buf, int buf_stride, int avg, int16_t *buf_avg, int buf_avg_stride,
                                    int width, int height) {
     uint8x8_t avg_u8 = vdup_n_u8(avg);
 
@@ -514,7 +514,7 @@ static void compute_stats_win3_neon(const int16_t *const d, const int32_t d_stri
     } while (++i < wiener_win);
 }
 
-static INLINE void compute_stats_win5_neon(const int16_t *const d, const int32_t d_stride, const int16_t *const s,
+static inline void compute_stats_win5_neon(const int16_t *const d, const int32_t d_stride, const int16_t *const s,
                                            const int32_t s_stride, const int32_t width, const int32_t height,
                                            int64_t *const M, int64_t *const H) {
     const int32_t     wiener_win  = WIENER_WIN_CHROMA;
@@ -652,10 +652,10 @@ static INLINE void compute_stats_win5_neon(const int16_t *const d, const int32_t
             int32x4_t deltas[WIENER_WIN_CHROMA * 2] = {vdupq_n_s32(0)};
             int16x8_t ds[WIENER_WIN_CHROMA * 2];
 
-            ds[0] = load_unaligned_s16_4x2(d_t + 0 * d_stride, width);
-            ds[1] = load_unaligned_s16_4x2(d_t + 1 * d_stride, width);
-            ds[2] = load_unaligned_s16_4x2(d_t + 2 * d_stride, width);
-            ds[3] = load_unaligned_s16_4x2(d_t + 3 * d_stride, width);
+            ds[0] = load_s16_4x2(d_t + 0 * d_stride, width);
+            ds[1] = load_s16_4x2(d_t + 1 * d_stride, width);
+            ds[2] = load_s16_4x2(d_t + 2 * d_stride, width);
+            ds[3] = load_s16_4x2(d_t + 3 * d_stride, width);
 
             step3_win5_neon(d_t + 4 * d_stride, d_stride, width, height, ds, deltas);
 
@@ -1098,7 +1098,7 @@ static INLINE void compute_stats_win5_neon(const int16_t *const d, const int32_t
     } while (++i < wiener_win);
 }
 
-static INLINE void compute_stats_win7_neon(const int16_t *const d, const int32_t d_stride, const int16_t *const s,
+static inline void compute_stats_win7_neon(const int16_t *const d, const int32_t d_stride, const int16_t *const s,
                                            const int32_t s_stride, const int32_t width, const int32_t height,
                                            int64_t *const M, int64_t *const H) {
     const int32_t     wiener_win  = WIENER_WIN;

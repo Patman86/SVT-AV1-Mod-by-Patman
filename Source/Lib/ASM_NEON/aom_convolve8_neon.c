@@ -18,7 +18,7 @@
 #include "mem_neon.h"
 #include "transpose_neon.h"
 
-static INLINE void convolve8_horiz_8tap_neon(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst,
+static inline void convolve8_horiz_8tap_neon(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst,
                                              ptrdiff_t dst_stride, const int16_t *filter_x, int w, int h) {
     // All filter values are even so halve them to reduce intermediate precision
     // requirements.
@@ -178,7 +178,7 @@ static INLINE void convolve8_horiz_8tap_neon(const uint8_t *src, ptrdiff_t src_s
     }
 }
 
-static INLINE void convolve8_horiz_4tap_neon(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst,
+static inline void convolve8_horiz_4tap_neon(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst,
                                              ptrdiff_t dst_stride, const int16_t *filter_x, int w, int h) {
     // All filter values are even, halve to reduce intermediate precision
     // requirements.
@@ -188,10 +188,10 @@ static INLINE void convolve8_horiz_4tap_neon(const uint8_t *src, ptrdiff_t src_s
         do {
             uint8x8_t t01[4];
 
-            t01[0] = load_unaligned_u8(src + 0, (int)src_stride);
-            t01[1] = load_unaligned_u8(src + 1, (int)src_stride);
-            t01[2] = load_unaligned_u8(src + 2, (int)src_stride);
-            t01[3] = load_unaligned_u8(src + 3, (int)src_stride);
+            t01[0] = load_u8_4x2(src + 0, (int)src_stride);
+            t01[1] = load_u8_4x2(src + 1, (int)src_stride);
+            t01[2] = load_u8_4x2(src + 2, (int)src_stride);
+            t01[3] = load_u8_4x2(src + 3, (int)src_stride);
 
             int16x8_t s01[4];
             s01[0] = vreinterpretq_s16_u16(vmovl_u8(t01[0]));
@@ -268,7 +268,7 @@ void svt_aom_convolve8_horiz_neon(const uint8_t *src, ptrdiff_t src_stride, uint
     }
 }
 
-static INLINE void convolve8_vert_8tap_neon(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst,
+static inline void convolve8_vert_8tap_neon(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst,
                                             ptrdiff_t dst_stride, const int16_t *filter_y, int w, int h) {
     // All filter values are even so halve them to reduce intermediate precision
     // requirements.

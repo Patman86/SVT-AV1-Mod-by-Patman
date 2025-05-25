@@ -14,6 +14,7 @@
 #include "cabac_context_model.h"
 #include "common_utils.h"
 #include "full_loop.h"
+#include "mem_neon.h"
 #include "motion_estimation.h" //svt_aom_downsample_2d_c()
 
 void svt_av1_txb_init_levels_neon(const TranLow *const coeff, const int32_t width, const int32_t height,
@@ -175,7 +176,7 @@ static const DECLARE_ALIGNED(16, uint8_t, c_16_po_ver[16]) = {SIG_COEF_CONTEXTS_
 
 /* end of coefficients declaration area */
 
-static INLINE uint8x16_t load_8bit_4x4_to_1_reg(const uint8_t *const src, const int byte_stride) {
+static inline uint8x16_t load_8bit_4x4_to_1_reg(const uint8_t *const src, const int byte_stride) {
     uint32x4_t v_data = vld1q_u32((uint32_t *)src);
     v_data            = vld1q_lane_u32((uint32_t *)(src + 1 * byte_stride), v_data, 1);
     v_data            = vld1q_lane_u32((uint32_t *)(src + 2 * byte_stride), v_data, 2);
@@ -184,16 +185,16 @@ static INLINE uint8x16_t load_8bit_4x4_to_1_reg(const uint8_t *const src, const 
     return vreinterpretq_u8_u32(v_data);
 }
 
-static INLINE uint8x16_t load_8bit_8x2_to_1_reg(const uint8_t *const src, const int byte_stride) {
+static inline uint8x16_t load_8bit_8x2_to_1_reg(const uint8_t *const src, const int byte_stride) {
     uint64x2_t v_data = vld1q_u64((uint64_t *)src);
     v_data            = vld1q_lane_u64((uint64_t *)(src + 1 * byte_stride), v_data, 1);
 
     return vreinterpretq_u8_u64(v_data);
 }
 
-static INLINE uint8x16_t load_8bit_16x1_to_1_reg(const uint8_t *const src) { return vld1q_u8(src); }
+static inline uint8x16_t load_8bit_16x1_to_1_reg(const uint8_t *const src) { return vld1q_u8(src); }
 
-static INLINE void load_levels_4x4x5(const uint8_t *const src, const int stride, const ptrdiff_t *const offsets,
+static inline void load_levels_4x4x5(const uint8_t *const src, const int stride, const ptrdiff_t *const offsets,
                                      uint8x16_t *const level) {
     level[0] = load_8bit_4x4_to_1_reg(&src[1], stride);
     level[1] = load_8bit_4x4_to_1_reg(&src[stride], stride);
@@ -202,7 +203,7 @@ static INLINE void load_levels_4x4x5(const uint8_t *const src, const int stride,
     level[4] = load_8bit_4x4_to_1_reg(&src[offsets[2]], stride);
 }
 
-static INLINE void load_levels_8x2x5(const uint8_t *const src, const int stride, const ptrdiff_t *const offsets,
+static inline void load_levels_8x2x5(const uint8_t *const src, const int stride, const ptrdiff_t *const offsets,
                                      uint8x16_t *const level) {
     level[0] = load_8bit_8x2_to_1_reg(&src[1], stride);
     level[1] = load_8bit_8x2_to_1_reg(&src[stride], stride);
@@ -211,7 +212,7 @@ static INLINE void load_levels_8x2x5(const uint8_t *const src, const int stride,
     level[4] = load_8bit_8x2_to_1_reg(&src[offsets[2]], stride);
 }
 
-static INLINE void load_levels_16x1x5(const uint8_t *const src, const int stride, const ptrdiff_t *const offsets,
+static inline void load_levels_16x1x5(const uint8_t *const src, const int stride, const ptrdiff_t *const offsets,
                                       uint8x16_t *const level) {
     level[0] = load_8bit_16x1_to_1_reg(&src[1]);
     level[1] = load_8bit_16x1_to_1_reg(&src[stride]);
@@ -220,7 +221,7 @@ static INLINE void load_levels_16x1x5(const uint8_t *const src, const int stride
     level[4] = load_8bit_16x1_to_1_reg(&src[offsets[2]]);
 }
 
-static INLINE uint8x16_t get_coeff_contexts_kernel(uint8x16_t *const level) {
+static inline uint8x16_t get_coeff_contexts_kernel(uint8x16_t *const level) {
     const uint8x16_t const_3 = vdupq_n_u8(3);
     const uint8x16_t const_4 = vdupq_n_u8(4);
     uint8x16_t       count;
@@ -240,7 +241,7 @@ static INLINE uint8x16_t get_coeff_contexts_kernel(uint8x16_t *const level) {
     return count;
 }
 
-static INLINE void get_4_nz_map_contexts_2d(const uint8_t *levels, const int32_t height, const ptrdiff_t *const offsets,
+static inline void get_4_nz_map_contexts_2d(const uint8_t *levels, const int32_t height, const ptrdiff_t *const offsets,
                                             uint8_t *const coeff_contexts) {
     const int32_t    stride              = 4 + TX_PAD_HOR;
     const uint8x16_t pos_to_offset_large = vdupq_n_u8(21);
@@ -268,7 +269,7 @@ static INLINE void get_4_nz_map_contexts_2d(const uint8_t *levels, const int32_t
     coeff_contexts[0] = 0;
 }
 
-static INLINE void get_8_coeff_contexts_2d(const uint8_t *levels, const int32_t height, const ptrdiff_t *const offsets,
+static inline void get_8_coeff_contexts_2d(const uint8_t *levels, const int32_t height, const ptrdiff_t *const offsets,
                                            uint8_t *coeff_contexts) {
     const int32_t stride = 8 + TX_PAD_HOR;
     uint8_t      *cc     = coeff_contexts;
@@ -306,7 +307,7 @@ static INLINE void get_8_coeff_contexts_2d(const uint8_t *levels, const int32_t 
     coeff_contexts[0] = 0;
 }
 
-static INLINE void get_16n_coeff_contexts_2d(const uint8_t *levels, const int32_t real_width, const int32_t real_height,
+static inline void get_16n_coeff_contexts_2d(const uint8_t *levels, const int32_t real_width, const int32_t real_height,
                                              const int32_t width, const int32_t height, const ptrdiff_t *const offsets,
                                              uint8_t *coeff_contexts) {
     const int32_t stride = width + TX_PAD_HOR;
@@ -366,7 +367,7 @@ static INLINE void get_16n_coeff_contexts_2d(const uint8_t *levels, const int32_
     coeff_contexts[0] = 0;
 }
 
-static INLINE void get_4_nz_map_contexts_hor(const uint8_t *levels, const int32_t height,
+static inline void get_4_nz_map_contexts_hor(const uint8_t *levels, const int32_t height,
                                              const ptrdiff_t *const offsets, uint8_t *coeff_contexts) {
     const int32_t    stride                         = 4 + TX_PAD_HOR;
     const int32_t    sig_coef_contexts_2d_x4_051010 = (SIG_COEF_CONTEXTS_2D + ((SIG_COEF_CONTEXTS_2D + 5) << 8) +
@@ -391,7 +392,7 @@ static INLINE void get_4_nz_map_contexts_hor(const uint8_t *levels, const int32_
     } while (row);
 }
 
-static INLINE void get_4_nz_map_contexts_ver(const uint8_t *levels, const int32_t height,
+static inline void get_4_nz_map_contexts_ver(const uint8_t *levels, const int32_t height,
                                              const ptrdiff_t *const offsets, uint8_t *coeff_contexts) {
     const int32_t    stride              = 4 + TX_PAD_HOR;
     const uint8x16_t pos_to_offset_large = vdupq_n_u8(SIG_COEF_CONTEXTS_2D + 10);
@@ -416,7 +417,7 @@ static INLINE void get_4_nz_map_contexts_ver(const uint8_t *levels, const int32_
     } while (row);
 }
 
-static INLINE void get_8_coeff_contexts_hor(const uint8_t *levels, const int32_t height, const ptrdiff_t *const offsets,
+static inline void get_8_coeff_contexts_hor(const uint8_t *levels, const int32_t height, const ptrdiff_t *const offsets,
                                             uint8_t *coeff_contexts) {
     const int32_t stride = 8 + TX_PAD_HOR;
 
@@ -439,7 +440,7 @@ static INLINE void get_8_coeff_contexts_hor(const uint8_t *levels, const int32_t
     } while (row);
 }
 
-static INLINE void get_8_coeff_contexts_ver(const uint8_t *levels, const int32_t height, const ptrdiff_t *const offsets,
+static inline void get_8_coeff_contexts_ver(const uint8_t *levels, const int32_t height, const ptrdiff_t *const offsets,
                                             uint8_t *coeff_contexts) {
     const int32_t    stride              = 8 + TX_PAD_HOR;
     const uint8x16_t pos_to_offset_large = vdupq_n_u8(SIG_COEF_CONTEXTS_2D + 10);
@@ -464,7 +465,7 @@ static INLINE void get_8_coeff_contexts_ver(const uint8_t *levels, const int32_t
     } while (row);
 }
 
-static INLINE void get_16n_coeff_contexts_hor(const uint8_t *levels, const int32_t width, const int32_t height,
+static inline void get_16n_coeff_contexts_hor(const uint8_t *levels, const int32_t width, const int32_t height,
                                               const ptrdiff_t *const offsets, uint8_t *coeff_contexts) {
     const int32_t stride = width + TX_PAD_HOR;
 
@@ -495,7 +496,7 @@ static INLINE void get_16n_coeff_contexts_hor(const uint8_t *levels, const int32
     } while (--row);
 }
 
-static INLINE void get_16n_coeff_contexts_ver(const uint8_t *levels, const int32_t width, const int32_t height,
+static inline void get_16n_coeff_contexts_ver(const uint8_t *levels, const int32_t width, const int32_t height,
                                               const ptrdiff_t *const offsets, uint8_t *coeff_contexts) {
     const int32_t stride = width + TX_PAD_HOR;
 
@@ -594,17 +595,11 @@ void svt_av1_get_nz_map_contexts_neon(const uint8_t *const levels, const int16_t
     }
 }
 
-static INLINE uint8x8_t compute_sum(uint8x16_t *in, uint8x16_t *prev_in) {
-    int16x8_t prev_in_lo_half = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(*prev_in)));
-    int16x8_t prev_in_hi_half = vreinterpretq_s16_u16(vmovl_u8(vget_high_u8(*prev_in)));
+static inline uint8x8_t compute_sum(uint8x16_t in, uint8x16_t prev_in) {
+    uint16x8_t sum = vpaddlq_u8(in);
+    sum            = vpadalq_u8(sum, prev_in);
 
-    int16x8_t in_lo_half = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(*in)));
-    int16x8_t in_hi_half = vreinterpretq_s16_u16(vmovl_u8(vget_high_u8(*in)));
-
-    int16x8_t sum = vaddq_s16(vpaddq_s16(prev_in_lo_half, prev_in_hi_half), vpaddq_s16(in_lo_half, in_hi_half));
-    sum           = vrshrq_n_s16(sum, 2);
-
-    return vqmovun_s16(sum);
+    return vqrshrn_n_u16(sum, 2);
 }
 
 void svt_aom_downsample_2d_neon(uint8_t *input_samples, // input parameter, input samples Ptr
@@ -629,7 +624,7 @@ void svt_aom_downsample_2d_neon(uint8_t *input_samples, // input parameter, inpu
             for (uint32_t horiz_idx = 1; horiz_idx < width_align16; horiz_idx += 16) {
                 uint8x16_t prev_in  = vld1q_u8(prev_in_line + horiz_idx - 1);
                 uint8x16_t in       = vld1q_u8(in_ptr + horiz_idx - 1);
-                uint8x8_t  sum_epu8 = compute_sum(&in, &prev_in);
+                uint8x8_t  sum_epu8 = compute_sum(in, prev_in);
                 vst1_u8(out_ptr + decim_horizontal_index, sum_epu8);
                 decim_horizontal_index += 8;
             }
@@ -639,7 +634,7 @@ void svt_aom_downsample_2d_neon(uint8_t *input_samples, // input parameter, inpu
                 DECLARE_ALIGNED(16, uint8_t, tmp_buf[8]);
                 uint8x16_t prev_in  = vld1q_u8(prev_in_line + width_align16);
                 uint8x16_t in       = vld1q_u8(in_ptr + width_align16);
-                uint8x8_t  sum_epu8 = compute_sum(&in, &prev_in);
+                uint8x8_t  sum_epu8 = compute_sum(in, prev_in);
                 int        count    = (input_area_width - width_align16) >> 1;
                 vst1_u8(tmp_buf, sum_epu8);
                 memcpy(out_ptr + decim_horizontal_index, tmp_buf, count * sizeof(uint8_t));
@@ -649,33 +644,28 @@ void svt_aom_downsample_2d_neon(uint8_t *input_samples, // input parameter, inpu
             out_ptr += decim_stride;
         }
     } else if (decim_step == 4) {
-        const uint8_t values[] = {
-            0x00, 0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C, 0x0E, 0x01, 0x03, 0x05, 0x07, 0x09, 0x0B, 0x0D, 0x0F};
-        const uint8x16_t mask = vld1q_u8(values);
         in_ptr += 2 * input_stride;
         for (uint32_t vertical_index = 2; vertical_index < input_area_height; vertical_index += 4) {
             uint8_t *prev_in_line           = in_ptr - input_stride;
             uint32_t decim_horizontal_index = 0;
 
             for (uint32_t horiz_idx = 2; horiz_idx < width_align16; horiz_idx += 16) {
-                uint8x16_t prev_in                              = vld1q_u8(prev_in_line + horiz_idx - 1);
-                uint8x16_t in                                   = vld1q_u8(in_ptr + horiz_idx - 1);
-                uint8x8_t  sum_epu8                             = compute_sum(&in, &prev_in);
-                uint8x16_t sum_epu8_ext                         = vcombine_u8(sum_epu8, vdup_n_u8(0));
-                sum_epu8_ext                                    = vqtbl1q_u8(sum_epu8_ext, mask);
-                *(uint32_t *)(out_ptr + decim_horizontal_index) = vgetq_lane_u32(vreinterpretq_u32_u8(sum_epu8_ext), 0);
+                uint8x16_t prev_in  = vld1q_u8(prev_in_line + horiz_idx - 1);
+                uint8x16_t in       = vld1q_u8(in_ptr + horiz_idx - 1);
+                uint8x8_t  sum_epu8 = compute_sum(in, prev_in);
+                sum_epu8            = vuzp1_u8(sum_epu8, sum_epu8);
+                store_u8_4x1(out_ptr + decim_horizontal_index, sum_epu8);
                 decim_horizontal_index += 4;
             }
 
             // complement when input_area_width is not multiple of 16
             if (width_align16 < input_area_width) {
-                uint8x16_t prev_in      = vld1q_u8(prev_in_line + width_align16 + 1);
-                uint8x16_t in           = vld1q_u8(in_ptr + width_align16 + 1);
-                uint8x8_t  sum_epu8     = compute_sum(&in, &prev_in);
-                uint8x16_t sum_epu8_ext = vcombine_u8(sum_epu8, vdup_n_u8(0));
-                sum_epu8_ext            = vqtbl1q_u8(sum_epu8_ext, mask);
-                int      count          = (input_area_width - width_align16) >> 2;
-                uint32_t tmp            = vgetq_lane_u32(vreinterpretq_u32_u8(sum_epu8_ext), 0);
+                uint8x16_t prev_in  = vld1q_u8(prev_in_line + width_align16 + 1);
+                uint8x16_t in       = vld1q_u8(in_ptr + width_align16 + 1);
+                uint8x8_t  sum_epu8 = compute_sum(in, prev_in);
+                sum_epu8            = vuzp1_u8(sum_epu8, sum_epu8);
+                int      count      = (input_area_width - width_align16) >> 2;
+                uint32_t tmp        = vget_lane_u32(vreinterpret_u32_u8(sum_epu8), 0);
                 memcpy(out_ptr + decim_horizontal_index, &tmp, count * sizeof(uint8_t));
             }
 

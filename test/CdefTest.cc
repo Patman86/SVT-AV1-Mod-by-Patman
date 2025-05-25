@@ -830,16 +830,20 @@ class CDEFComputeCdefDist16Bit
                         // Allowable subsampling values are: 1, 2
                         for (uint8_t subsampling = 1; subsampling <= 2;
                              subsampling <<= 1) {
+                            // Subsampling factor can only be 1 for 4x4 blocks.
+                            if (i == 0 && subsampling == 2) {
+                                continue;
+                            }
                             const uint64_t ref_mse =
-                                svt_aom_compute_cdef_dist_c(dst_data_,
-                                                            stride,
-                                                            src_data_,
-                                                            dlist,
-                                                            cdef_count,
-                                                            test_bs[i],
-                                                            coeff_shift,
-                                                            plane,
-                                                            subsampling);
+                                svt_aom_compute_cdef_dist_16bit_c(dst_data_,
+                                                                  stride,
+                                                                  src_data_,
+                                                                  dlist,
+                                                                  cdef_count,
+                                                                  test_bs[i],
+                                                                  coeff_shift,
+                                                                  plane,
+                                                                  subsampling);
 
                             const uint64_t test_mse = test_func_(dst_data_,
                                                                  stride,
@@ -884,6 +888,12 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     NEON, CDEFComputeCdefDist16Bit,
     ::testing::Values(svt_aom_compute_cdef_dist_16bit_neon));
+
+#if HAVE_SVE
+INSTANTIATE_TEST_SUITE_P(
+    SVE, CDEFComputeCdefDist16Bit,
+    ::testing::Values(svt_aom_compute_cdef_dist_16bit_sve));
+#endif  // HAVE_SVE
 #endif  // ARCH_AARCH64
 
 using ComputeCdefDist8BitFunc =
@@ -937,6 +947,10 @@ class CDEFComputeCdefDist8BitTest
                         // Allowable subsampling values are: 1, 2
                         for (uint8_t subsampling = 1; subsampling <= 2;
                              subsampling <<= 1) {
+                            // Subsampling factor can only be 1 for 4x4 blocks.
+                            if (i == 0 && subsampling == 2) {
+                                continue;
+                            }
                             const uint64_t ref_mse =
                                 svt_aom_compute_cdef_dist_8bit_c(dst_data_,
                                                                  stride,
@@ -991,6 +1005,12 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     NEON, CDEFComputeCdefDist8BitTest,
     ::testing::Values(svt_aom_compute_cdef_dist_8bit_neon));
+
+#if HAVE_NEON_DOTPROD
+INSTANTIATE_TEST_SUITE_P(
+    NEON_DOTPROD, CDEFComputeCdefDist8BitTest,
+    ::testing::Values(svt_aom_compute_cdef_dist_8bit_neon_dotprod));
+#endif  // HAVE_NEON_DOTPROD
 #endif  // ARCH_AARCH64
 
 /**

@@ -17,15 +17,15 @@
 #include "sum_neon.h"
 #include "aom_dsp_rtcd.h"
 
-static void var_filter_block2d_bil_w4(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride, int pixel_step,
-                                      int dst_height, int filter_offset) {
+static inline void var_filter_block2d_bil_w4(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride, int pixel_step,
+                                             int dst_height, int filter_offset) {
     const uint8x8_t f0 = vdup_n_u8(8 - filter_offset);
     const uint8x8_t f1 = vdup_n_u8(filter_offset);
 
     int i = dst_height;
     do {
-        uint8x8_t  s0      = load_unaligned_u8(src_ptr, src_stride);
-        uint8x8_t  s1      = load_unaligned_u8(src_ptr + pixel_step, src_stride);
+        uint8x8_t  s0      = load_u8_4x2(src_ptr, src_stride);
+        uint8x8_t  s1      = load_u8_4x2(src_ptr + pixel_step, src_stride);
         uint16x8_t blend   = vmull_u8(s0, f0);
         blend              = vmlal_u8(blend, s1, f1);
         uint8x8_t blend_u8 = vrshrn_n_u16(blend, 3);
@@ -37,8 +37,8 @@ static void var_filter_block2d_bil_w4(const uint8_t *src_ptr, uint8_t *dst_ptr, 
     } while (i != 0);
 }
 
-static void var_filter_block2d_bil_w8(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride, int pixel_step,
-                                      int dst_height, int filter_offset) {
+static inline void var_filter_block2d_bil_w8(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride, int pixel_step,
+                                             int dst_height, int filter_offset) {
     const uint8x8_t f0 = vdup_n_u8(8 - filter_offset);
     const uint8x8_t f1 = vdup_n_u8(filter_offset);
 
@@ -56,8 +56,8 @@ static void var_filter_block2d_bil_w8(const uint8_t *src_ptr, uint8_t *dst_ptr, 
     } while (--i != 0);
 }
 
-static void var_filter_block2d_bil_large(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride, int pixel_step,
-                                         int dst_width, int dst_height, int filter_offset) {
+static inline void var_filter_block2d_bil_large(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride,
+                                                int pixel_step, int dst_width, int dst_height, int filter_offset) {
     const uint8x8_t f0 = vdup_n_u8(8 - filter_offset);
     const uint8x8_t f1 = vdup_n_u8(filter_offset);
 
@@ -82,28 +82,28 @@ static void var_filter_block2d_bil_large(const uint8_t *src_ptr, uint8_t *dst_pt
     } while (--i != 0);
 }
 
-static void var_filter_block2d_bil_w16(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride, int pixel_step,
-                                       int dst_height, int filter_offset) {
+static inline void var_filter_block2d_bil_w16(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride, int pixel_step,
+                                              int dst_height, int filter_offset) {
     var_filter_block2d_bil_large(src_ptr, dst_ptr, src_stride, pixel_step, 16, dst_height, filter_offset);
 }
 
-static void var_filter_block2d_bil_w32(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride, int pixel_step,
-                                       int dst_height, int filter_offset) {
+static inline void var_filter_block2d_bil_w32(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride, int pixel_step,
+                                              int dst_height, int filter_offset) {
     var_filter_block2d_bil_large(src_ptr, dst_ptr, src_stride, pixel_step, 32, dst_height, filter_offset);
 }
 
-static void var_filter_block2d_bil_w64(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride, int pixel_step,
-                                       int dst_height, int filter_offset) {
+static inline void var_filter_block2d_bil_w64(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride, int pixel_step,
+                                              int dst_height, int filter_offset) {
     var_filter_block2d_bil_large(src_ptr, dst_ptr, src_stride, pixel_step, 64, dst_height, filter_offset);
 }
 
-static void var_filter_block2d_bil_w128(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride, int pixel_step,
-                                        int dst_height, int filter_offset) {
+static inline void var_filter_block2d_bil_w128(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride, int pixel_step,
+                                               int dst_height, int filter_offset) {
     var_filter_block2d_bil_large(src_ptr, dst_ptr, src_stride, pixel_step, 128, dst_height, filter_offset);
 }
 
-static void var_filter_block2d_avg(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride, int pixel_step,
-                                   int dst_width, int dst_height) {
+static inline void var_filter_block2d_avg(const uint8_t *src_ptr, uint8_t *dst_ptr, int src_stride, int pixel_step,
+                                          int dst_width, int dst_height) {
     // We only specialise on the filter values for large block sizes (>= 16x16.)
     assert(dst_width >= 16 && dst_width % 16 == 0);
 
