@@ -21,6 +21,12 @@ extern "C" {
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+
+#if defined(_MSC_VER)
+#define ALIGNED(n) __declspec(align(n))
+#else
+#define ALIGNED(n) __attribute__((aligned(n)))
+#endif
 /**
  * @brief SVT-AV1 encoder ABI version
  *
@@ -214,7 +220,7 @@ typedef struct SvtAv1FrameScaleEvts {
 
 // Will contain the EbEncApi which will live in the EncHandle class
 // Only modifiable during config-time.
-typedef struct EbSvtAv1EncConfiguration {
+typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     /**
      * @brief Encoder preset used.
      * -2 and -1 are for debug purposes and should not be used.
@@ -940,8 +946,6 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     bool avif;
 
-    /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128];
 } EbSvtAv1EncConfiguration;
 
 /**
