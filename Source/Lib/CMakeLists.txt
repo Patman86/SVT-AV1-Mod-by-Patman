@@ -13,8 +13,8 @@
 
 # Shared Encoder Version
 set(ENC_VERSION_MAJOR 3)
-set(ENC_VERSION_MINOR 0)
-set(ENC_VERSION_PATCH 2)
+set(ENC_VERSION_MINOR 1)
+set(ENC_VERSION_PATCH 0)
 set(ENC_VERSION ${ENC_VERSION_MAJOR}.${ENC_VERSION_MINOR}.${ENC_VERSION_PATCH})
 
 add_library(common_lib INTERFACE)
@@ -137,7 +137,6 @@ set_target_properties(SvtAv1Enc PROPERTIES VERSION ${ENC_VERSION})
 set_target_properties(SvtAv1Enc PROPERTIES SOVERSION ${ENC_VERSION_MAJOR})
 set_target_properties(SvtAv1Enc PROPERTIES C_VISIBILITY_PRESET hidden)
 target_link_libraries(SvtAv1Enc PUBLIC ${PLATFORM_LIBS})
-target_link_libraries(SvtAv1Enc PRIVATE cpuinfo::cpuinfo)
 
 set(ENC_PKG_CONFIG_EXTRA_CFLAGS "")
 if (BUILD_SHARED_LIBS)

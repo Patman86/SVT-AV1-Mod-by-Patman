@@ -17,9 +17,6 @@
 #include "aom_dsp_rtcd.h"
 #include "svt_log.h"
 
-void *svt_aom_memalign(size_t align, size_t size);
-void  svt_aom_free(void *memblk);
-
 float svt_aom_noise_psd_get_default_value(int32_t block_size, float factor) {
     return (factor * factor / 10000) * block_size * block_size / 8;
 }

@@ -10,13 +10,15 @@
  */
 
 #include <arm_neon.h>
+
+#include "aom_dsp_rtcd.h"
+#include "common_dsp_rtcd.h"
+#include "compute_sad_c.h"
+#include "compute_sad_neon.h"
+#include "mcomp.h"
 #include "mem_neon.h"
 #include "sum_neon.h"
-#include "common_dsp_rtcd.h"
-#include "aom_dsp_rtcd.h"
-#include "compute_sad_c.h"
 #include "utility.h"
-#include "mcomp.h"
 
 static inline uint16x8_t sad16_neon_init(uint8x16_t src, uint8x16_t ref) {
     const uint8x16_t abs_diff = vabdq_u8(src, ref);
@@ -26,107 +28,6 @@ static inline uint16x8_t sad16_neon_init(uint8x16_t src, uint8x16_t ref) {
 static inline void sad16_neon(uint8x16_t src, uint8x16_t ref, uint16x8_t *const sad_sum) {
     const uint8x16_t abs_diff = vabdq_u8(src, ref);
     *sad_sum                  = vpadalq_u8(*sad_sum, abs_diff);
-}
-
-/* Find the position of the first occurrence of 'value' in the vector 'x'.
- * Returns the position (index) of the first occurrence of 'value' in the vector 'x'. */
-static inline uint16_t findposq_u16(uint16x8_t x, uint16_t value) {
-    uint16x8_t val_mask;
-    uint8x16_t is_one;
-    uint64_t   idx;
-
-    val_mask = vdupq_n_u16(value);
-
-    /* Divide each lane in half by using vreinterpret. */
-    is_one = vreinterpretq_u8_u16(vceqq_u16(x, val_mask));
-
-    /* Pack the information in the lower 64 bits of the register by considering only alternate
-     * 8-bit lanes. */
-    is_one = vuzp1q_u8(is_one, is_one);
-
-    /* Get the lower 64 bits from the 128-bit register. */
-    idx = vgetq_lane_u64(vreinterpretq_u64_u8(vrev64q_u8(is_one)), 0);
-
-    /* Calculate the position as an index, dividing by 8 to account for 8-bit lanes. */
-    return __builtin_clzl(idx) / 8;
-}
-
-/* Find the position of the first occurrence of 'value' in the vector 'x'.
- * Returns the position (index) of the first occurrence of 'value' in the vector 'x'. */
-static inline uint16_t findposq_u32(uint32x4_t x, uint32_t value) {
-    uint32x4_t val_mask;
-    uint16x8_t is_one;
-    uint64_t   idx;
-
-    val_mask = vdupq_n_u32(value);
-
-    /* Divide each lane in half by using vreinterpret. */
-    is_one = vreinterpretq_u16_u32(vceqq_u32(x, val_mask));
-
-    /* Pack the information in the lower 64 bits of the register by considering only alternate
-     * 16-bit lanes. */
-    is_one = vuzp1q_u16(is_one, is_one);
-
-    /* Get the lower 64 bits from the 128-bit register. */
-    idx = vgetq_lane_u64(vreinterpretq_u64_u16(vrev64q_u16(is_one)), 0);
-
-    /* Calculate the position as an index, dividing by 16 to account for 16-bit lanes. */
-    return __builtin_clzl(idx) / 16;
-}
-
-static inline void update_best_sad_u32(uint32x4_t sad4, uint64_t *best_sad, int16_t *x_search_center,
-                                       int16_t *y_search_center, int16_t x_search_index, int16_t y_search_index) {
-    uint64_t temp_sad;
-
-    /* Find the minimum SAD value out of the 4 search spaces. */
-    temp_sad = vminvq_u32(sad4);
-
-    if (temp_sad < *best_sad) {
-        *best_sad        = temp_sad;
-        *x_search_center = (int16_t)(x_search_index + findposq_u32(sad4, temp_sad));
-        *y_search_center = y_search_index;
-    }
-}
-
-static inline void update_best_sad_u16(uint16x8_t sad8, uint64_t *best_sad, int16_t *x_search_center,
-                                       int16_t *y_search_center, int16_t x_search_index, int16_t y_search_index) {
-    uint64_t temp_sad;
-
-    /* Find the minimum SAD value out of the 8 search spaces. */
-    temp_sad = vminvq_u16(sad8);
-
-    if (temp_sad < *best_sad) {
-        *best_sad        = temp_sad;
-        *x_search_center = (int16_t)(x_search_index + findposq_u16(sad8, temp_sad));
-        *y_search_center = y_search_index;
-    }
-}
-
-static inline void update_best_sad(uint64_t temp_sad, uint64_t *best_sad, int16_t *x_search_center,
-                                   int16_t *y_search_center, int16_t x_search_index, int16_t y_search_index) {
-    if (temp_sad < *best_sad) {
-        *best_sad        = temp_sad;
-        *x_search_center = x_search_index;
-        *y_search_center = y_search_index;
-    }
-}
-
-/* Return a uint16x8 vector with 'n' lanes filled with 0 and the others filled with 65535
- * The valid range for 'n' is 0 to 7 */
-static inline uint16x8_t prepare_maskq_u16(uint16_t n) {
-    uint64_t mask    = UINT64_MAX;
-    mask             = mask << (8 * n);
-    uint8x8_t _mask8 = vcreate_u8(mask);
-    return vreinterpretq_u16_u8(vcombine_u8(vzip1_u8(_mask8, _mask8), vzip2_u8(_mask8, _mask8)));
-}
-
-/* Return a uint32x4 vector with 'n' lanes filled with 0 and the others filled with 4294967295
- * The valid range for 'n' is 0 to 4 */
-static inline uint32x4_t prepare_maskq_u32(uint16_t n) {
-    uint64_t mask     = UINT64_MAX;
-    mask              = n < 4 ? (mask << (16 * n)) : 0;
-    uint16x4_t _mask8 = vcreate_u16(mask);
-    return vreinterpretq_u32_u16(vcombine_u16(vzip1_u16(_mask8, _mask8), vzip2_u16(_mask8, _mask8)));
 }
 
 static inline uint32_t sad128xh_neon(const uint8_t *src_ptr, uint32_t src_stride, const uint8_t *ref_ptr,
@@ -291,27 +192,6 @@ static inline uint32_t sad16xh_neon(const uint8_t *src_ptr, uint32_t src_stride,
 
         diff = vabdq_u8(s, r);
         sum  = vpadalq_u8(sum, diff);
-
-        src_ptr += src_stride;
-        ref_ptr += ref_stride;
-    } while (--i != 0);
-
-    return vaddlvq_u16(sum);
-}
-
-static inline uint32_t sad8xh_neon(const uint8_t *src_ptr, uint32_t src_stride, const uint8_t *ref_ptr,
-                                   uint32_t ref_stride, uint32_t h) {
-    uint16x8_t sum;
-    uint8x8_t  s, r;
-    uint32_t   i;
-
-    sum = vdupq_n_u16(0);
-    i   = h;
-    do {
-        s = vld1_u8(src_ptr);
-        r = vld1_u8(ref_ptr);
-
-        sum = vabal_u8(sum, s, r);
 
         src_ptr += src_stride;
         ref_ptr += ref_stride;
@@ -521,33 +401,6 @@ static inline uint32x4_t sad16xhx4d_neon(const uint8_t *src, uint32_t src_stride
     return horizontal_add_4d_u32x4(sum_u32);
 }
 
-static inline uint32x4_t sad8xhx4d_neon(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
-                                        uint32_t ref_stride, uint32_t h) {
-    uint16x8_t sum[4];
-    uint8x8_t  s;
-    uint32_t   i, ref_offset;
-
-    sum[0] = vdupq_n_u16(0);
-    sum[1] = vdupq_n_u16(0);
-    sum[2] = vdupq_n_u16(0);
-    sum[3] = vdupq_n_u16(0);
-
-    ref_offset = 0;
-    i          = h;
-    do {
-        s      = vld1_u8(src);
-        sum[0] = vabal_u8(sum[0], s, vld1_u8(ref + 0 + ref_offset));
-        sum[1] = vabal_u8(sum[1], s, vld1_u8(ref + 1 + ref_offset));
-        sum[2] = vabal_u8(sum[2], s, vld1_u8(ref + 2 + ref_offset));
-        sum[3] = vabal_u8(sum[3], s, vld1_u8(ref + 3 + ref_offset));
-
-        src += src_stride;
-        ref_offset += ref_stride;
-    } while (--i != 0);
-
-    return horizontal_add_4d_u16x8(sum);
-}
-
 static inline uint32x4_t sad24xhx4d_neon(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
                                          uint32_t ref_stride, uint32_t h) {
     uint32x4_t sad4_0, sad4_1;
@@ -564,15 +417,15 @@ static inline uint32x4_t sad48xhx4d_neon(const uint8_t *src, uint32_t src_stride
     return vaddq_u32(sad4_0, sad4_1);
 }
 
-DECLARE_ALIGNED(16, static const uint8_t, kPermTable[48]) = {0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6,  6,  7,  7,  8,
-                                                             2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8,  8,  9,  9,  10,
-                                                             4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12};
+DECLARE_ALIGNED(16, static const uint8_t, kPermTable2xh[48]) = {0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6,  6,  7,  7,  8,
+                                                                2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8,  8,  9,  9,  10,
+                                                                4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12};
 
 static inline uint16x8_t sad4xhx8d_neon(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
                                         uint32_t ref_stride, uint32_t h) {
     /* Initialize 'res' to store the sum of absolute differences (SAD) of 8 search spaces. */
     uint16x8_t   res      = vdupq_n_u16(0);
-    uint8x16x2_t perm_tbl = vld1q_u8_x2(kPermTable);
+    uint8x16x2_t perm_tbl = vld1q_u8_x2(kPermTable2xh);
 
     do {
         uint8x16_t src0 = vreinterpretq_u8_u16(vld1q_dup_u16((const uint16_t *)src));
@@ -597,7 +450,7 @@ static inline uint16x8_t sad6xhx8d_neon(const uint8_t *src, uint32_t src_stride,
                                         uint32_t ref_stride, uint32_t h) {
     /* Initialize 'res' to store the sum of absolute differences (SAD) of 8 search spaces. */
     uint16x8_t   res      = vdupq_n_u16(0);
-    uint8x16x3_t perm_tbl = vld1q_u8_x3(kPermTable);
+    uint8x16x3_t perm_tbl = vld1q_u8_x3(kPermTable2xh);
 
     do {
         uint8x16_t src0 = vreinterpretq_u8_u16(vld1q_dup_u16((const uint16_t *)src));
@@ -695,30 +548,6 @@ static inline void svt_sad_loop_kernel6xh_neon(uint8_t *src, uint32_t src_stride
             update_best_sad_u16(sad8, best_sad, x_search_center, y_search_center, x_search_index, y_search_index);
         }
 
-        ref += src_stride_raw;
-    }
-}
-
-static inline void svt_sad_loop_kernel8xh_neon(uint8_t *src, uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                               uint32_t block_height, uint64_t *best_sad, int16_t *x_search_center,
-                                               int16_t *y_search_center, uint32_t src_stride_raw,
-                                               int16_t search_area_width, int16_t search_area_height) {
-    int16_t    x_search_index, y_search_index;
-    uint32x4_t sad4;
-    uint64_t   temp_sad;
-
-    for (y_search_index = 0; y_search_index < search_area_height; y_search_index++) {
-        for (x_search_index = 0; x_search_index <= search_area_width - 4; x_search_index += 4) {
-            /* Get the SAD of 4 search spaces aligned along the width and store it in 'sad4'. */
-            sad4 = sad8xhx4d_neon(src, src_stride, ref + x_search_index, ref_stride, block_height);
-            update_best_sad_u32(sad4, best_sad, x_search_center, y_search_center, x_search_index, y_search_index);
-        }
-
-        for (; x_search_index < search_area_width; x_search_index++) {
-            /* Get the SAD of 1 search spaces aligned along the width and store it in 'temp_sad'. */
-            temp_sad = sad8xh_neon(src, src_stride, ref + x_search_index, ref_stride, block_height);
-            update_best_sad(temp_sad, best_sad, x_search_center, y_search_center, x_search_index, y_search_index);
-        }
         ref += src_stride_raw;
     }
 }
@@ -920,6 +749,178 @@ static inline void svt_sad_loop_kernel128xh_neon(uint8_t *src, uint32_t src_stri
     }
 }
 
+DECLARE_ALIGNED(16, static const uint8_t, kPermTable4xh[16]) = {0, 1, 2, 3, 1, 2, 3, 4, 2, 3, 4, 5, 3, 4, 5, 6};
+
+static inline uint32x4_t sadwxhx4d_neon(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
+                                        uint32_t ref_stride, uint32_t width, uint32_t height) {
+    uint32x4_t sum_u32[4] = {vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0)};
+    uint32x4_t sum4       = vdupq_n_u32(0);
+    uint16x8_t sum        = vdupq_n_u16(0);
+
+    // We can accumulate 257 absolute differences in a 16-bit element before
+    // it overflows. Given that we're accumulating in 8 16-bit elements we
+    // therefore need width * height < (257 * 8). (This isn't quite true as some
+    // elements in the tail loops have a different accumulator, but it's a good
+    // enough approximation).
+    uint32_t h_overflow = (257 * 8) / width;
+    uint32_t h_limit    = h_overflow >= height ? height : h_overflow;
+
+    uint32_t i = 0;
+    do {
+        uint16x8_t sum_u16[4] = {vdupq_n_u16(0), vdupq_n_u16(0), vdupq_n_u16(0), vdupq_n_u16(0)};
+
+        do {
+            int w = width;
+
+            const uint8_t *src_ptr = src;
+            const uint8_t *ref_ptr = ref;
+
+            while (w >= 16) {
+                const uint8x16_t s = vld1q_u8(src_ptr);
+                sad16_neon(s, vld1q_u8(ref_ptr + 0), &sum_u16[0]);
+                sad16_neon(s, vld1q_u8(ref_ptr + 1), &sum_u16[1]);
+                sad16_neon(s, vld1q_u8(ref_ptr + 2), &sum_u16[2]);
+                sad16_neon(s, vld1q_u8(ref_ptr + 3), &sum_u16[3]);
+
+                src_ptr += 16;
+                ref_ptr += 16;
+                w -= 16;
+            }
+
+            if (w >= 8) {
+                const uint8x8_t s = vld1_u8(src_ptr);
+                sum_u16[0]        = vabal_u8(sum_u16[0], s, vld1_u8(ref_ptr + 0));
+                sum_u16[1]        = vabal_u8(sum_u16[1], s, vld1_u8(ref_ptr + 1));
+                sum_u16[2]        = vabal_u8(sum_u16[2], s, vld1_u8(ref_ptr + 2));
+                sum_u16[3]        = vabal_u8(sum_u16[3], s, vld1_u8(ref_ptr + 3));
+
+                src_ptr += 8;
+                ref_ptr += 8;
+                w -= 8;
+            }
+
+            if (w >= 4) {
+                uint8x16_t perm_tbl = vld1q_u8(kPermTable4xh);
+                uint8x16_t s        = vreinterpretq_u8_u32(vld1q_dup_u32((const uint32_t *)src_ptr));
+
+                uint8x16_t r   = vqtbl1q_u8(vld1q_u8(ref_ptr), perm_tbl);
+                uint8x16_t abs = vabdq_u8(s, r);
+
+                uint16x8_t abs_u16 = vpaddlq_u8(abs);
+                sum4               = vpadalq_u16(sum4, abs_u16);
+
+                src_ptr += 4;
+                ref_ptr += 4;
+                w -= 4;
+            }
+
+            while (w != 0) {
+                uint8x8_t s = vld1_dup_u8(src_ptr + w - 1);
+                uint8x8_t r = load_u8_4x1(ref_ptr + w - 1);
+                sum         = vabal_u8(sum, s, r);
+
+                w--;
+            }
+
+            src += src_stride;
+            ref += ref_stride;
+        } while (++i < h_limit);
+
+        sum_u32[0] = vpadalq_u16(sum_u32[0], sum_u16[0]);
+        sum_u32[1] = vpadalq_u16(sum_u32[1], sum_u16[1]);
+        sum_u32[2] = vpadalq_u16(sum_u32[2], sum_u16[2]);
+        sum_u32[3] = vpadalq_u16(sum_u32[3], sum_u16[3]);
+
+        uint32_t h_inc = h_limit + h_overflow < height ? h_overflow : height - h_limit;
+        h_limit += h_inc;
+    } while (i < height);
+
+    return vaddq_u32(vaddw_u16(sum4, vget_low_u16(sum)), horizontal_add_4d_u32x4(sum_u32));
+}
+
+static inline uint32_t sadwxh_neon(const uint8_t *src, uint32_t src_stride, const uint8_t *ref, uint32_t ref_stride,
+                                   uint32_t width, uint32_t height) {
+    uint32x4_t sum_u32 = vdupq_n_u32(0);
+    uint32_t   sum     = 0;
+
+    // We can accumulate 257 absolute differences in a 16-bit element before
+    // it overflows. Given that we're accumulating in 8 16-bit elements we
+    // therefore need width * height < (257 * 8). (This isn't quite true as some
+    // elements in the tail loops have a different accumulator, but it's a good
+    // enough approximation).
+    uint32_t h_overflow = (257 * 8) / width;
+    uint32_t h_limit    = h_overflow >= height ? height : h_overflow;
+
+    uint32_t i = 0;
+    do {
+        uint16x8_t sum_u16 = vdupq_n_u16(0);
+
+        do {
+            int w = width;
+
+            const uint8_t *src_ptr = src;
+            const uint8_t *ref_ptr = ref;
+
+            while (w >= 16) {
+                const uint8x16_t s = vld1q_u8(src_ptr);
+                sad16_neon(s, vld1q_u8(ref_ptr), &sum_u16);
+
+                src_ptr += 16;
+                ref_ptr += 16;
+                w -= 16;
+            }
+
+            if (w >= 8) {
+                const uint8x8_t s = vld1_u8(src_ptr);
+                sum_u16           = vabal_u8(sum_u16, s, vld1_u8(ref_ptr));
+
+                src_ptr += 8;
+                ref_ptr += 8;
+                w -= 8;
+            }
+
+            while (w != 0) {
+                sum += EB_ABS_DIFF(src_ptr[w - 1], ref_ptr[w - 1]);
+
+                w--;
+            }
+            src += src_stride;
+            ref += ref_stride;
+        } while (++i < h_limit);
+
+        sum_u32 = vpadalq_u16(sum_u32, sum_u16);
+
+        uint32_t h_inc = h_limit + h_overflow < height ? h_overflow : height - h_limit;
+        h_limit += h_inc;
+    } while (i < height);
+
+    return sum + vaddvq_u32(sum_u32);
+}
+
+static inline void svt_sad_loop_kernelwxh_neon(uint8_t *src, uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
+                                               uint32_t block_width, uint32_t block_height, uint64_t *best_sad,
+                                               int16_t *x_search_center, int16_t *y_search_center,
+                                               uint32_t src_stride_raw, int16_t search_area_width,
+                                               int16_t search_area_height) {
+    for (int16_t y_search_index = 0; y_search_index < search_area_height; y_search_index++) {
+        int16_t x_search_index;
+        for (x_search_index = 0; x_search_index <= search_area_width - 4; x_search_index += 4) {
+            /* Get the SAD of 4 search spaces aligned along the width and store it in 'sad4'. */
+            uint32x4_t sad4 = sadwxhx4d_neon(
+                src, src_stride, ref + x_search_index, ref_stride, block_width, block_height);
+            update_best_sad_u32(sad4, best_sad, x_search_center, y_search_center, x_search_index, y_search_index);
+        }
+
+        for (; x_search_index < search_area_width; x_search_index++) {
+            /* Get the SAD of 1 search spaces aligned along the width and store it in 'temp_sad'. */
+            uint64_t temp_sad = sadwxh_neon(
+                src, src_stride, ref + x_search_index, ref_stride, block_width, block_height);
+            update_best_sad(temp_sad, best_sad, x_search_center, y_search_center, x_search_index, y_search_index);
+        }
+        ref += src_stride_raw;
+    }
+}
+
 void svt_sad_loop_kernel_neon(uint8_t *src, uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
                               uint32_t block_height, uint32_t block_width, uint64_t *best_sad, int16_t *x_search_center,
                               int16_t *y_search_center, uint32_t src_stride_raw, uint8_t skip_search_line,
@@ -1068,19 +1069,18 @@ void svt_sad_loop_kernel_neon(uint8_t *src, uint32_t src_stride, uint8_t *ref, u
         break;
     }
     default: {
-        svt_sad_loop_kernel_c(src,
-                              src_stride,
-                              ref,
-                              ref_stride,
-                              block_height,
-                              block_width,
-                              best_sad,
-                              x_search_center,
-                              y_search_center,
-                              src_stride_raw,
-                              skip_search_line,
-                              search_area_width,
-                              search_area_height);
+        svt_sad_loop_kernelwxh_neon(src,
+                                    src_stride,
+                                    ref,
+                                    ref_stride,
+                                    block_width,
+                                    block_height,
+                                    best_sad,
+                                    x_search_center,
+                                    y_search_center,
+                                    src_stride_raw,
+                                    search_area_width,
+                                    search_area_height);
         break;
     }
     }
@@ -1089,13 +1089,13 @@ void svt_sad_loop_kernel_neon(uint8_t *src, uint32_t src_stride, uint8_t *ref, u
 static inline uint32x4_t get_mv_cost_vector(const struct svt_mv_cost_param *mv_cost_params, int16_t row, int16_t col,
                                             int16_t mvx, int16_t mvy, int16_t search_position_start_x,
                                             int16_t search_position_start_y) {
-    const MV   baseMv = {(int16_t)(mvy + (search_position_start_y + row) * 8),
-                         (int16_t)(mvx + (search_position_start_x + col) * 8)};
-    const MV   mvs[4] = {{baseMv.row, baseMv.col + 8 * 0},
-                         {baseMv.row, baseMv.col + 8 * 1},
-                         {baseMv.row, baseMv.col + 8 * 2},
-                         {baseMv.row, baseMv.col + 8 * 3}};
-    uint32_t   costs[4];
+    const Mv baseMv = {
+        {(int16_t)(mvx + (search_position_start_x + col) * 8), (int16_t)(mvy + (search_position_start_y + row) * 8)}};
+    const Mv mvs[4] = {{{baseMv.y, baseMv.x + 8 * 0}},
+                       {{baseMv.y, baseMv.x + 8 * 1}},
+                       {{baseMv.y, baseMv.x + 8 * 2}},
+                       {{baseMv.y, baseMv.x + 8 * 3}}};
+    uint32_t costs[4];
     costs[0] = (uint32_t)svt_aom_fp_mv_err_cost(&mvs[0], mv_cost_params);
     costs[1] = (uint32_t)svt_aom_fp_mv_err_cost(&mvs[1], mv_cost_params);
     costs[2] = (uint32_t)svt_aom_fp_mv_err_cost(&mvs[2], mv_cost_params);

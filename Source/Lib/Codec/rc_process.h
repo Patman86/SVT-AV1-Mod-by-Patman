@@ -138,7 +138,14 @@ typedef struct {
     int rc_2_frame;
     int q_1_frame;
     int q_2_frame;
-
+    /*!
+     * Active adjustment delta for cyclic refresh for rate control.
+     */
+    int percent_refresh_adjustment;
+    /*!
+    * Active adjustment of qdelta rate ratio for enhanced rate control
+    */
+    double rate_ratio_qdelta_adjustment;
     // Auto frame-scaling variables.
     //   int rf_level_maxq[RATE_FACTOR_LEVELS];
     float_t arf_boost_factor;
@@ -185,11 +192,10 @@ typedef struct {
  * Input Port Types
  **************************************/
 typedef enum RateControlInputPortTypes {
-    RATE_CONTROL_INPUT_PORT_INLME          = 0,
-    RATE_CONTROL_INPUT_PORT_PACKETIZATION  = 1,
-    RATE_CONTROL_INPUT_PORT_ENTROPY_CODING = 2,
-    RATE_CONTROL_INPUT_PORT_TOTAL_COUNT    = 3,
-    RATE_CONTROL_INPUT_PORT_INVALID        = ~0,
+    RATE_CONTROL_INPUT_PORT_INLME         = 0,
+    RATE_CONTROL_INPUT_PORT_PACKETIZATION = 1,
+    RATE_CONTROL_INPUT_PORT_TOTAL_COUNT   = 2,
+    RATE_CONTROL_INPUT_PORT_INVALID       = ~0,
 } RateControlInputPortTypes;
 
 /**************************************
@@ -228,8 +234,10 @@ EbErrorType svt_aom_rate_control_context_ctor(EbThreadContext *thread_ctx, const
 extern void *svt_aom_rate_control_kernel(void *input_ptr);
 int svt_aom_compute_rd_mult_based_on_qindex(EbBitDepth bit_depth, SvtAv1FrameUpdateType update_type, int qindex);
 struct PictureControlSet;
-int svt_aom_compute_rd_mult(struct PictureControlSet *pcs, uint8_t q_index, uint8_t me_q_index, uint8_t bit_depth);
-int svt_aom_compute_fast_lambda(struct PictureControlSet *pcs, uint8_t q_index, uint8_t me_q_index, uint8_t bit_depth);
+int  svt_aom_compute_rd_mult(struct PictureControlSet *pcs, uint8_t q_index, uint8_t me_q_index, uint8_t bit_depth);
+int  svt_aom_compute_fast_lambda(struct PictureControlSet *pcs, uint8_t q_index, uint8_t me_q_index, uint8_t bit_depth);
+void svt_aom_lambda_assign(struct PictureControlSet *pcs, uint32_t *fast_lambda, uint32_t *full_lambda,
+                           uint8_t bit_depth, uint16_t qp_index, bool multiply_lambda);
 struct PictureParentControlSet;
 void svt_aom_cyclic_refresh_init(struct PictureParentControlSet *ppcs);
 

@@ -13,7 +13,6 @@
 #define EbNeighborArrays_h
 
 #include "definitions.h"
-#include "motion_vector_unit.h"
 #include "object.h"
 
 #ifdef __cplusplus

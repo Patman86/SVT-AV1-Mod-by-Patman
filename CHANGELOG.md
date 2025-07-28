@@ -1,5 +1,58 @@
 # Changelog
 
+## [3.1.0] - 2025-7-24
+
+API updates
+
+- Added new flags for --chroma-qm-min and --chroma-qm-max from SVT-AV1-PSY (!2442)
+- Introducing --rtc flag to set the default parameters for an improved RTC performance (!2443)
+- Enabled M11 and M12 presets for rtc mode for faster speed levels (!2452)
+
+Encoder
+
+- Improved mid and high quality presets quality vs speed tradeoffs for fast-decode 0,1,2 modes in random access (!2443):
+- ~15-25% speedup for M1-M5 at the same quality levels for fast-decode 0
+- ~15-20% speedup for M3-M7 at the same quality levels for fast-decode 1,2
+- 1-1.5% BD-Rate improvement for M0 MR
+- Significant improvements in Low Delay mode and enabling presets 0-6 by enabling missing coding features
+- Improved performance of the RTC mode with ~5-10% BD-Rate improvements at similar complexity across presets M7-M10 (!2452)
+- Further Arm Neon and SVE2 optimizations that improve high bitdepth encoding by an average of ~10% in low resolutions
+- Added S-Frame support for random access mode (!2451)
+- Additional improvements / porting of features from SVT-AV1-PSY for variance boost (!2431, !2432)
+
+Cleanup Build and bug fixes and documentation
+
+- General testing improvements and fixes (!2406, !2454)
+- Deprecated unused avx512{er,pf} as they were never used and also removed with GCC 15 (!2415)
+- Visual console display fixes (!2420, !2423)
+- Fixed compilation bugs and cleanup with Arm (!2417, #2259, !2427, !2434, !2438, !2439)
+- Fixed some formulas in the documentation (!2444)
+- Added new options to slim down SVT-AV1 for RTC use cases (!2456, !2457, !2459)
+- Fixed some issues with QP handling, vbr stability, and screen content (!2458, #2262, #2272, #2273)
+- Fixes issue with resize-mode (!2463, #2282, #2260)
+- Removed cpuinfo dependency and instead use cpu detection code from aom (!2426, !2453)
+
+Arm Improvements
+
+- Speed comparison was done against v3.0.2 on AWS Graviton4 instances with Clang 20
+- Uplits are geometric means across presets 0-10
+
+Landscape video:
+
+- 1080p: +4%
+- 720p: +6%
+- 480p: +6%
+- 360p: +3%
+- 240p: +4%
+
+Portrait video:
+
+- 1080p: +8%
+- 720p: +4%
+- 480p: +3%
+- 360p: +7%
+- 240p: +4%
+
 ## [3.0.2] - 2025-3-21
 
 Encoder

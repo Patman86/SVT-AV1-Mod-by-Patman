@@ -18,7 +18,7 @@
 #include "cabac_context_model.h"
 #include "hash.h"
 #include "definitions.h"
-#include "motion_vector_unit.h"
+#include "mv.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,17 +55,13 @@ static const uint32_t intra_luma_to_chroma[INTRA_MODES] = // EB_INTRA_PLANAR
 };
 
 typedef struct {
-    IntMv   mfmv0;
+    Mv      mfmv0;
     uint8_t ref_frame_offset;
 } TPL_MV_REF;
 typedef struct {
-    IntMv            mv;
+    Mv               mv;
     MvReferenceFrame ref_frame;
 } MV_REF;
-
-typedef struct ModeInfo {
-    MbModeInfo mbmi;
-} ModeInfo;
 
 typedef struct MacroBlockDPlane {
     int          subsampling_x;
@@ -101,17 +97,17 @@ typedef struct MacroBlockPlane {
 
 typedef struct MacroBlockD {
     // block dimension in the unit of mode_info.
-    uint8_t    n8_w, n8_h;
-    uint8_t    n4_w, n4_h; // for warped motion
-    uint8_t    ref_mv_count[MODE_CTX_REF_FRAMES];
-    uint8_t    is_sec_rect;
-    int8_t     up_available;
-    int8_t     left_available;
-    int8_t     chroma_up_available;
-    int8_t     chroma_left_available;
-    TileInfo   tile;
-    int32_t    mi_stride;
-    ModeInfo **mi;
+    uint8_t      n8_w, n8_h;
+    uint8_t      n4_w, n4_h; // for warped motion
+    uint8_t      ref_mv_count[MODE_CTX_REF_FRAMES];
+    uint8_t      is_sec_rect;
+    int8_t       up_available;
+    int8_t       left_available;
+    int8_t       chroma_up_available;
+    int8_t       chroma_left_available;
+    TileInfo     tile;
+    int32_t      mi_stride;
+    MbModeInfo **mi;
 
     /* Distance of MB away from frame edges in subpixels (1/8th pixel)  */
     int32_t        mb_to_left_edge;
@@ -150,9 +146,9 @@ typedef struct IntraBcContext {
     // bitcost unit).
     int errorperbit;
     // Store the best motion vector during motion search
-    IntMv best_mv;
+    Mv best_mv;
     // Store the second best motion vector during full-pixel motion search
-    IntMv        second_best_mv;
+    Mv           second_best_mv;
     MacroBlockD *xd;
     int         *nmv_vec_cost;
     int        **mv_cost_stack;
@@ -210,62 +206,37 @@ typedef struct BlkStruct {
     uint8_t      palette_mem; // status of palette info alloc
     uint8_t      palette_size[2];
 
-    Mv      mv[MAX_NUM_OF_REF_PIC_LIST]; // 16-bytes
-    IntMv   predmv[MAX_NUM_OF_REF_PIC_LIST];
-    uint8_t inter_pred_direction_index;
+    BlockModeInfo block_mi;
 
-    // Intra Mode
-    int8_t           angle_delta[PLANE_TYPES];
-    UvPredictionMode intra_chroma_mode;
-    // Inter Mode
-    uint8_t    ref_frame_type;
-    MotionMode motion_mode;
-    uint16_t   num_proj_ref;
-    uint32_t   overlappable_neighbors;
-    uint8_t    cfl_alpha_idx; // Index of the alpha Cb and alpha Cr combination
-    uint8_t    cfl_alpha_signs; // Joint sign of alpha Cb and alpha Cr
+    Mv predmv[2]; // unipred MV stored in idx 0
 
-    InterInterCompoundData interinter_comp;
-    uint32_t               interp_filters;
-    uint8_t                interintra_wedge_index;
-    int16_t                inter_mode_ctx;
+    uint32_t overlappable_neighbors;
+    int16_t  inter_mode_ctx;
     // equivalent of leaf_index in the nscu context. we will keep both for now and use the right one
     // on a case by case basis.
     uint16_t mds_idx;
-    // txb
-    uint8_t tx_depth;
-    uint8_t compound_idx;
-    uint8_t comp_group_idx;
 
     uint8_t qindex;
     uint8_t split_flag;
-    uint8_t skip_mode; // skips mode_info + coeff. as defined in section 6.10.10 of the av1 text
     uint8_t drl_index;
     // Store the drl ctx in coding loop to avoid storing final_ref_mv_stack and ref_mv_count for EC
     int8_t drl_ctx[2];
     // Store the drl ctx in coding loop to avoid storing final_ref_mv_stack and ref_mv_count for EC
-    int8_t         drl_ctx_near[2];
-    PredictionMode pred_mode;
+    int8_t drl_ctx_near[2];
 
     uint8_t segment_id;
 
-    PartitionType  part;
-    uint16_t       best_d1_blk;
-    InterIntraMode interintra_mode;
-    uint8_t        is_interintra_used;
-    uint8_t        use_wedge_interintra;
-    uint8_t        filter_intra_mode;
-    uint8_t        use_intrabc;
+    PartitionType part;
+    uint16_t      best_d1_blk;
 
     PartitionContextType left_neighbor_partition;
     PartitionContextType above_neighbor_partition;
 
     // wm
-    EbWarpedMotionParams wm_params_l0;
-    EbWarpedMotionParams wm_params_l1;
+    WarpedMotionParams wm_params_l0;
+    WarpedMotionParams wm_params_l1;
 
     unsigned cnt_nz_coeff : 12;
-    unsigned prediction_mode_flag : 2;
     // ec; skip coeff only. as defined in section 6.10.11 of the av1 text
     unsigned block_has_coeff : 1;
 } BlkStruct;
@@ -275,22 +246,11 @@ typedef struct EcBlkStruct {
     TxType       tx_type[MAX_TXB_COUNT];
     TxType       tx_type_uv;
 
-    PaletteInfo           *palette_info;
-    uint8_t                palette_size[2];
-    IntMv                  predmv[2];
-    InterInterCompoundData interinter_comp;
-
-    // Intra Mode
-    int8_t angle_delta[PLANE_TYPES];
-    // Inter Mode
-    MotionMode motion_mode;
-    uint16_t   num_proj_ref;
-    uint32_t   overlappable_neighbors;
-    uint8_t    cfl_alpha_idx; // Index of the alpha Cb and alpha Cr combination
-    uint8_t    cfl_alpha_signs; // Joint sign of alpha Cb and alpha Cr
-    uint8_t    interintra_wedge_index;
-
-    int16_t inter_mode_ctx;
+    PaletteInfo *palette_info;
+    uint8_t      palette_size[2];
+    Mv           predmv[2];
+    uint32_t     overlappable_neighbors;
+    int16_t      inter_mode_ctx;
     // equivalent of leaf_index in the nscu context. we will keep both for now and use the right one
     // on a case by case basis.
     uint16_t mds_idx;
@@ -303,10 +263,6 @@ typedef struct EcBlkStruct {
     // Store the drl ctx in coding loop to avoid storing final_ref_mv_stack and ref_mv_count for EC
     int8_t drl_ctx_near[2];
 
-    InterIntraMode interintra_mode;
-    uint8_t        is_interintra_used;
-    uint8_t        use_wedge_interintra;
-    uint8_t        filter_intra_mode;
 } EcBlkStruct;
 
 typedef struct TplStats {
@@ -316,7 +272,7 @@ typedef struct TplStats {
     int64_t  recrf_rate;
     int64_t  mc_dep_rate;
     int64_t  mc_dep_dist;
-    MV       mv;
+    Mv       mv;
     uint64_t ref_frame_poc;
 } TplStats;
 
@@ -324,7 +280,7 @@ typedef struct TplSrcStats {
     int64_t        srcrf_dist;
     int64_t        srcrf_rate;
     uint64_t       ref_frame_poc;
-    MV             mv;
+    Mv             mv;
     uint8_t        best_mode;
     int32_t        best_rf_idx;
     PredictionMode best_intra_mode;
@@ -346,8 +302,8 @@ typedef struct SuperBlock {
 
 extern EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock *larget_coding_unit_ptr, uint8_t sb_size,
                                                     uint16_t sb_origin_x, uint16_t sb_origin_y, uint16_t sb_index,
-                                                    EncMode enc_mode, uint16_t max_block_cnt,
-
+                                                    EncMode enc_mode, bool rtc, uint32_t screen_content_mode,
+                                                    uint16_t                  max_block_cnt,
                                                     struct PictureControlSet *picture_control_set);
 
 #ifdef __cplusplus

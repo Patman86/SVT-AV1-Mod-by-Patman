@@ -26,15 +26,17 @@ typedef struct BlockList {
     uint16_t blk_mds_table[3]; //stores a max of 3 redundant blocks
 } BlockList_t;
 typedef enum GeomIndex {
-    GEOM_0, //64x64  ->8x8  NSQ:OFF
-    GEOM_1, //64x64  ->8x8  NSQ:ON (only H & V shapes, but not 8x4 and 4x8 and not 16x8 and 8x16)
-    GEOM_2, //64x64  ->8x8  NSQ:ON (only H & V shapes, but not 8x4 and 4x8)
-    GEOM_3, //64x64  ->8x8  NSQ:ON (only H & V shapes)
-    GEOM_4, //64x64  ->4x4  NSQ:ON (only H & V shapes)
-    GEOM_5, //64x64  ->4x4  NSQ:ON (only H, V, H4, V4 shapes)
-    GEOM_6, //64x64  ->4x4  NSQ:ON (all shapes)
-    GEOM_7, //128x128->4x4  NSQ:ON (all shapes)
-    GEOM_8, //128x128->8x8  NSQ:ON  (only H, V, H4, V4 shapes)
+    GEOM_0, //64x64  ->16x16  NSQ:OFF
+    GEOM_1, //64x64  ->16x16  NSQ:ON (only H & V shapes, but not 16x8 and 8x16)
+    GEOM_2, //64x64  ->8x8    NSQ:OFF
+    GEOM_3, //64x64  ->8x8    NSQ:ON (only H & V shapes, but not 8x4 and 4x8 and not 16x8 and 8x16)
+    GEOM_4, //64x64  ->8x8    NSQ:ON (only H & V shapes, but not 8x4 and 4x8)
+    GEOM_5, //64x64  ->8x8    NSQ:ON (only H & V shapes)
+    GEOM_6, //64x64  ->4x4    NSQ:ON (only H & V shapes)
+    GEOM_7, //64x64  ->4x4    NSQ:ON (only H, V, H4, V4 shapes)
+    GEOM_8, //64x64  ->4x4    NSQ:ON (all shapes)
+    GEOM_9, //128x128->4x4    NSQ:ON (all shapes)
+    GEOM_10, //128x128->8x8    NSQ:ON (only H, V, H4, V4 shapes)
     GEOM_TOT
 } GeomIndex;
 void svt_aom_build_blk_geom(GeomIndex geom);
@@ -124,17 +126,22 @@ static INLINE TxSize av1_get_max_uv_txsize(BlockSize bsize, int32_t subsampling_
 
 #define NOT_USED_VALUE 0
 //gives the index of parent from the last qudrant child
-static const uint32_t parent_depth_offset[GEOM_TOT][6] = {{NOT_USED_VALUE, 64, 16, 4, NOT_USED_VALUE, NOT_USED_VALUE},
-                                                          {NOT_USED_VALUE, 80, 20, 4, NOT_USED_VALUE, NOT_USED_VALUE},
-                                                          {NOT_USED_VALUE, 128, 32, 8, NOT_USED_VALUE, NOT_USED_VALUE},
-                                                          {NOT_USED_VALUE, 320, 80, 20, NOT_USED_VALUE, NOT_USED_VALUE},
-                                                          {NOT_USED_VALUE, 512, 128, 32, 8, NOT_USED_VALUE},
-                                                          {NOT_USED_VALUE, 640, 160, 40, 8, NOT_USED_VALUE},
-                                                          {NOT_USED_VALUE, 832, 208, 52, 8, NOT_USED_VALUE},
-                                                          {NOT_USED_VALUE, 3320, 832, 208, 52, 8},
-                                                          {NOT_USED_VALUE, 1784, 448, 112, 28, NOT_USED_VALUE}};
+static const uint32_t parent_depth_offset[GEOM_TOT][6] = {
+    {NOT_USED_VALUE, 16, 4, NOT_USED_VALUE, NOT_USED_VALUE, NOT_USED_VALUE},
+    {NOT_USED_VALUE, 32, 8, NOT_USED_VALUE, NOT_USED_VALUE, NOT_USED_VALUE},
+    {NOT_USED_VALUE, 64, 16, 4, NOT_USED_VALUE, NOT_USED_VALUE},
+    {NOT_USED_VALUE, 80, 20, 4, NOT_USED_VALUE, NOT_USED_VALUE},
+    {NOT_USED_VALUE, 128, 32, 8, NOT_USED_VALUE, NOT_USED_VALUE},
+    {NOT_USED_VALUE, 320, 80, 20, NOT_USED_VALUE, NOT_USED_VALUE},
+    {NOT_USED_VALUE, 512, 128, 32, 8, NOT_USED_VALUE},
+    {NOT_USED_VALUE, 640, 160, 40, 8, NOT_USED_VALUE},
+    {NOT_USED_VALUE, 832, 208, 52, 8, NOT_USED_VALUE},
+    {NOT_USED_VALUE, 3320, 832, 208, 52, 8},
+    {NOT_USED_VALUE, 1784, 448, 112, 28, NOT_USED_VALUE}};
 //gives the index of next quadrant child within a depth
-static const uint32_t ns_depth_offset[GEOM_TOT][6] = {{85, 21, 5, 1, NOT_USED_VALUE, NOT_USED_VALUE},
+static const uint32_t ns_depth_offset[GEOM_TOT][6] = {{21, 5, 1, 1, NOT_USED_VALUE, NOT_USED_VALUE},
+                                                      {41, 9, 1, 1, NOT_USED_VALUE, NOT_USED_VALUE},
+                                                      {85, 21, 5, 1, NOT_USED_VALUE, NOT_USED_VALUE},
                                                       {105, 25, 5, 1, NOT_USED_VALUE, NOT_USED_VALUE},
                                                       {169, 41, 9, 1, NOT_USED_VALUE, NOT_USED_VALUE},
                                                       {425, 105, 25, 5, NOT_USED_VALUE, NOT_USED_VALUE},
@@ -145,6 +152,8 @@ static const uint32_t ns_depth_offset[GEOM_TOT][6] = {{85, 21, 5, 1, NOT_USED_VA
                                                       {2377, 593, 145, 33, 5, NOT_USED_VALUE}};
 //gives the next depth block(first qudrant child) from a given parent square
 static const uint32_t d1_depth_offset[GEOM_TOT][6] = {{1, 1, 1, 1, 1, NOT_USED_VALUE},
+                                                      {5, 5, 1, 1, 1, NOT_USED_VALUE},
+                                                      {1, 1, 1, 1, 1, NOT_USED_VALUE},
                                                       {5, 5, 1, 1, 1, NOT_USED_VALUE},
                                                       {5, 5, 5, 1, 1, NOT_USED_VALUE},
                                                       {5, 5, 5, 5, 1, NOT_USED_VALUE},
@@ -188,17 +197,7 @@ typedef struct CodedBlockStats {
     uint8_t parent32x32_index;
 } CodedBlockStats;
 
-extern void*                  svt_aom_memalign(size_t align, size_t size);
-extern void*                  svt_aom_malloc(size_t size);
-extern void                   svt_aom_free(void* memblk);
-extern void*                  svt_aom_memset16(void* dest, int32_t val, size_t length);
 extern const CodedBlockStats* svt_aom_get_coded_blk_stats(const uint32_t cu_idx);
-
-#define PU_ORIGIN_ADJUST(cu_origin, cu_size, offset) ((((cu_size) * (offset)) >> 2) + (cu_origin))
-#define PU_SIZE_ADJUST(cu_size, puSize) (((cu_size) * (puSize)) >> 2)
-
-#define TU_ORIGIN_ADJUST(cu_origin, cu_size, offset) ((((cu_size) * (offset)) >> 2) + (cu_origin))
-#define TU_SIZE_ADJUST(cu_size, tuDepth) ((cu_size) >> (tuDepth))
 
 /****************************
      * MACROS
@@ -287,18 +286,6 @@ extern const CodedBlockStats* svt_aom_get_coded_blk_stats(const uint32_t cu_idx)
 #define MIN_SIGNED_VALUE ~0 - ((signed)(~0u >> 1))
 #define MAX_SIGNED_VALUE ((signed)(~0u >> 1))
 #define CONST_SQRT2 (1.4142135623730950488016887242097) /*sqrt(2)*/
-
-// Helper functions for EbLinkedListNode.
-
-// concatenate two linked list, and return the pointer to the new concatenated list
-EbLinkedListNode* svt_aom_concat_eb_linked_list(EbLinkedListNode* a, EbLinkedListNode* b);
-
-// split a linked list into two. return the pointer to a linked list whose nodes meets the condition
-// predicate_func(node) == true, the rest of the nodes will be collected into another linked list to which (*restLL) is
-// set. Does not gaurantee the original order of the nodes.
-
-EbLinkedListNode* svt_aom_split_eb_linked_list(EbLinkedListNode* input, EbLinkedListNode** restLL,
-                                               bool (*predicate_func)(EbLinkedListNode*));
 
 #define MINI_GOP_MAX_COUNT 31
 #define MINI_GOP_WINDOW_MAX_COUNT 16 // window subdivision: 16 x 2L

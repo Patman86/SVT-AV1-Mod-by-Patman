@@ -23,6 +23,7 @@
 #include "enc_inter_prediction.h"
 #include "svt_log.h"
 #include "random.h"
+#include "pic_operators.h"
 
 #define DIVIDE_AND_ROUND(x, y) (((x) + ((y) >> 1)) / (y))
 
@@ -460,6 +461,7 @@ EbErrorType svt_av1_resize_plane_horizontal(const uint8_t *const input, int heig
     return EB_ErrorNone;
 }
 
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
 void svt_av1_highbd_interpolate_core_c(const uint16_t *const input, int in_length, uint16_t *output, int out_length,
                                        int bd, const int16_t *interp_filters) {
     const int32_t delta  = (((uint32_t)in_length << RS_SCALE_SUBPEL_BITS) + out_length / 2) / out_length;
@@ -733,11 +735,6 @@ EbErrorType svt_av1_highbd_resize_plane_horizontal(const uint16_t *const input, 
     return EB_ErrorNone;
 }
 
-void svt_aom_pack_highbd_pic(const EbPictureBufferDesc *pic_ptr, uint16_t *buffer_16bit[3], uint32_t ss_x,
-                             uint32_t ss_y, bool include_padding);
-
-void svt_aom_unpack_highbd_pic(uint16_t *buffer_highbd[3], EbPictureBufferDesc *pic_ptr, uint32_t ss_x, uint32_t ss_y,
-                               bool include_padding);
 #if DEBUG_SCALING
 void save_YUV_to_file(char *filename, EbByte buffer_y, EbByte buffer_u, EbByte buffer_v, uint16_t width,
                       uint16_t height, uint16_t stride_y, uint16_t stride_u, uint16_t stride_v, uint16_t org_y,
@@ -747,10 +744,6 @@ void save_YUV_to_file_highbd(char *filename, uint16_t *buffer_y, uint16_t *buffe
                              uint16_t height, uint16_t stride_y, uint16_t stride_u, uint16_t stride_v, uint16_t org_y,
                              uint16_t org_x, uint32_t ss_x, uint32_t ss_y);
 #endif
-typedef EbErrorType (*Av1HighbdResizePlane)(const uint16_t *const input, int height, int width, int in_stride,
-                                            uint16_t *output, int height2, int width2, int out_stride, int bd);
-typedef EbErrorType (*Av1ResizePlane)(const uint8_t *const input, int height, int width, int in_stride, uint8_t *output,
-                                      int height2, int width2, int out_stride);
 
 static void pack_highbd_pic_2d(const EbPictureBufferDesc *pic_ptr, uint16_t *buffer_16bit[3], uint32_t ss_x,
                                uint32_t ss_y) {
@@ -820,6 +813,12 @@ static void svt_aom_unpack_highbd_pic_2d(uint16_t *buffer_highbd[3], EbPictureBu
                           (width + ss_x) >> ss_x,
                           (height + ss_y) >> ss_y);
 }
+#endif // CONFIG_ENABLE_HIGH_BIT_DEPTH
+
+typedef EbErrorType (*Av1HighbdResizePlane)(const uint16_t *const input, int height, int width, int in_stride,
+                                            uint16_t *output, int height2, int width2, int out_stride, int bd);
+typedef EbErrorType (*Av1ResizePlane)(const uint8_t *const input, int height, int width, int in_stride, uint8_t *output,
+                                      int height2, int width2, int out_stride);
 
 /*
  * Resize frame according to dst resolution.
@@ -831,6 +830,7 @@ EbErrorType svt_aom_resize_frame(const EbPictureBufferDesc *src, EbPictureBuffer
     uint16_t *src_buffer_highbd[MAX_MB_PLANE];
     uint16_t *dst_buffer_highbd[MAX_MB_PLANE];
 
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
     if (bd > 8 && !is_packed) {
         EB_MALLOC_ARRAY(src_buffer_highbd[0], src->luma_size);
         EB_MALLOC_ARRAY(src_buffer_highbd[1], src->chroma_size);
@@ -842,7 +842,9 @@ EbErrorType svt_aom_resize_frame(const EbPictureBufferDesc *src, EbPictureBuffer
             svt_aom_pack_highbd_pic(src, src_buffer_highbd, ss_x, ss_y, true);
         else
             pack_highbd_pic_2d(src, src_buffer_highbd, ss_x, ss_y);
-    } else {
+    } else
+#endif
+    {
         src_buffer_highbd[0] = (uint16_t *)src->buffer_y;
         src_buffer_highbd[1] = (uint16_t *)src->buffer_cb;
         src_buffer_highbd[2] = (uint16_t *)src->buffer_cr;
@@ -882,6 +884,7 @@ EbErrorType svt_aom_resize_frame(const EbPictureBufferDesc *src, EbPictureBuffer
 #endif
 
     for (int plane = 0; plane <= AOMMIN(num_planes, MAX_MB_PLANE - 1); ++plane) {
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
         if (bd > 8) {
             Av1HighbdResizePlane resize_plane_func = (src->height == dst->height)
                 ? svt_av1_highbd_resize_plane_horizontal
@@ -927,7 +930,9 @@ EbErrorType svt_aom_resize_frame(const EbPictureBufferDesc *src, EbPictureBuffer
                 break;
             default: break;
             }
-        } else {
+        } else
+#endif
+        {
             Av1ResizePlane resize_plane_func = (src->height == dst->height) ? svt_av1_resize_plane_horizontal
                                                                             : svt_av1_resize_plane;
             switch (plane) {
@@ -970,6 +975,7 @@ EbErrorType svt_aom_resize_frame(const EbPictureBufferDesc *src, EbPictureBuffer
     }
 
     // padding before unpack to support 10-bit with 2b compressed format
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
     if (bd > 8) {
         if ((buffer_enable_mask & PICTURE_BUFFER_DESC_Y_FLAG) && dst_buffer_highbd[0])
             svt_aom_generate_padding16_bit(
@@ -988,7 +994,9 @@ EbErrorType svt_aom_resize_frame(const EbPictureBufferDesc *src, EbPictureBuffer
                                            (dst->height + ss_y) >> ss_y,
                                            (dst->org_x + ss_x) >> ss_x,
                                            (dst->org_y + ss_y) >> ss_y);
-    } else {
+    } else
+#endif
+    {
         if ((buffer_enable_mask & PICTURE_BUFFER_DESC_Y_FLAG) && dst->buffer_y)
             svt_aom_generate_padding(dst->buffer_y, dst->stride_y, dst->width, dst->height, dst->org_x, dst->org_y);
         if ((buffer_enable_mask & PICTURE_BUFFER_DESC_Cb_FLAG) && dst->buffer_cb)
@@ -1037,6 +1045,7 @@ EbErrorType svt_aom_resize_frame(const EbPictureBufferDesc *src, EbPictureBuffer
                          1,
                          1);
 #endif
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
     if (bd > 8 && !is_packed) {
         if (is_2bcompress)
             svt_aom_unpack_highbd_pic(dst_buffer_highbd, dst, ss_x, ss_y, true);
@@ -1049,7 +1058,7 @@ EbErrorType svt_aom_resize_frame(const EbPictureBufferDesc *src, EbPictureBuffer
         EB_FREE(dst_buffer_highbd[1]);
         EB_FREE(dst_buffer_highbd[2]);
     }
-
+#endif
     return EB_ErrorNone;
 }
 
@@ -1489,19 +1498,15 @@ static EbErrorType allocate_downscaled_source_reference_pics(EbPictureBufferDesc
 void scale_source_references(SequenceControlSet *scs, PictureParentControlSet *pcs, EbPictureBufferDesc *input_pic) {
     EbPaReferenceObject *ref_object;
 
-    uint8_t        sr_denom_idx          = svt_aom_get_denom_idx(pcs->superres_denom);
-    uint8_t        resize_denom_idx      = svt_aom_get_denom_idx(pcs->resize_denom);
-    const int32_t  num_planes            = 0; // Y only
-    const uint32_t ss_x                  = scs->subsampling_x;
-    const uint32_t ss_y                  = scs->subsampling_y;
-    uint32_t       num_of_list_to_search = (pcs->slice_type == P_SLICE) ? 1 /*List 0 only*/ : 2 /*List 0 + 1*/;
-
-    for (uint8_t list_index = REF_LIST_0; list_index < num_of_list_to_search; ++list_index) {
-        uint8_t ref_pic_index;
-        uint8_t num_of_ref_pic_to_search = (pcs->slice_type == P_SLICE) ? pcs->ref_list0_count
-            : (list_index == REF_LIST_0)                                ? pcs->ref_list0_count
-                                                                        : pcs->ref_list1_count;
-        for (ref_pic_index = 0; ref_pic_index < num_of_ref_pic_to_search; ++ref_pic_index) {
+    uint8_t        sr_denom_idx     = svt_aom_get_denom_idx(pcs->superres_denom);
+    uint8_t        resize_denom_idx = svt_aom_get_denom_idx(pcs->resize_denom);
+    const int32_t  num_planes       = 0; // Y only
+    const uint32_t ss_x             = scs->subsampling_x;
+    const uint32_t ss_y             = scs->subsampling_y;
+    for (uint8_t list_index = REF_LIST_0; list_index < MAX_NUM_OF_REF_PIC_LIST; ++list_index) {
+        const uint8_t num_of_ref_pic_to_search = (list_index == REF_LIST_0) ? pcs->ref_list0_count
+                                                                            : pcs->ref_list1_count;
+        for (uint8_t ref_pic_index = 0; ref_pic_index < num_of_ref_pic_to_search; ++ref_pic_index) {
             ref_object = (EbPaReferenceObject *)pcs->ref_pa_pic_ptr_array[list_index][ref_pic_index]->object_ptr;
 
             uint64_t ref_picture_number = pcs->ref_pic_poc_array[list_index][ref_pic_index];
@@ -1622,30 +1627,27 @@ static void scale_input_references(PictureParentControlSet *pcs, superres_params
  * Allocate memory and perform scaling of the reconstructed reference pictures
  * to match with the input picture resolution
  */
-void svt_aom_scale_rec_references(PictureControlSet *pcs, EbPictureBufferDesc *input_pic, uint8_t hbd_md) {
+void svt_aom_scale_rec_references(PictureControlSet *pcs, EbPictureBufferDesc *input_pic) {
     EbReferenceObject *ref_object;
 
     PictureParentControlSet *ppcs = pcs->ppcs;
     SequenceControlSet      *scs  = ppcs->scs;
 
-    uint8_t        sr_denom_idx          = svt_aom_get_denom_idx(ppcs->superres_denom);
-    uint8_t        resize_denom_idx      = svt_aom_get_denom_idx(ppcs->resize_denom);
-    const int32_t  num_planes            = av1_num_planes(&scs->seq_header.color_config);
-    const uint32_t ss_x                  = scs->subsampling_x;
-    const uint32_t ss_y                  = scs->subsampling_y;
-    uint32_t       num_of_list_to_search = (pcs->slice_type == P_SLICE) ? 1 /*List 0 only*/ : 2 /*List 0 + 1*/;
-
-    for (uint8_t list_index = REF_LIST_0; list_index < num_of_list_to_search; ++list_index) {
-        uint8_t ref_pic_index;
-        uint8_t num_of_ref_pic_to_search = (ppcs->slice_type == P_SLICE) ? ppcs->ref_list0_count
-            : (list_index == REF_LIST_0)                                 ? ppcs->ref_list0_count
-                                                                         : ppcs->ref_list1_count;
-        for (ref_pic_index = 0; ref_pic_index < num_of_ref_pic_to_search; ++ref_pic_index) {
+    uint8_t        sr_denom_idx     = svt_aom_get_denom_idx(ppcs->superres_denom);
+    uint8_t        resize_denom_idx = svt_aom_get_denom_idx(ppcs->resize_denom);
+    const int32_t  num_planes       = av1_num_planes(&scs->seq_header.color_config);
+    const uint32_t ss_x             = scs->subsampling_x;
+    const uint32_t ss_y             = scs->subsampling_y;
+    for (uint8_t list_index = REF_LIST_0; list_index < MAX_NUM_OF_REF_PIC_LIST; ++list_index) {
+        const uint8_t num_of_ref_pic_to_search = (list_index == REF_LIST_0) ? ppcs->ref_list0_count
+                                                                            : ppcs->ref_list1_count;
+        for (uint8_t ref_pic_index = 0; ref_pic_index < num_of_ref_pic_to_search; ++ref_pic_index) {
             ref_object = (EbReferenceObject *)pcs->ref_pic_ptr_array[list_index][ref_pic_index]->object_ptr;
 
             uint64_t ref_picture_number = ppcs->ref_pic_poc_array[list_index][ref_pic_index];
 
-            EbPictureBufferDesc *ref_pic_ptr = svt_aom_get_ref_pic_buffer(pcs, hbd_md, list_index, ref_pic_index);
+            EbPictureBufferDesc *ref_pic_ptr = svt_aom_get_ref_pic_buffer(
+                pcs, svt_get_ref_frame_type(list_index, ref_pic_index));
             // if the size of the reference pic is different than the size of the input pic, then scale references
             if (ref_pic_ptr->width != input_pic->width) {
                 bool do_resize = false;

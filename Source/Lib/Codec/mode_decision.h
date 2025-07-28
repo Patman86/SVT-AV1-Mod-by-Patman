@@ -30,6 +30,16 @@ extern "C" {
 #define MAX_MPM_CANDIDATES 3
 #define MERGE_PENALTY 10
 
+/*! \brief Holds the motion samples for warp motion model estimation
+ */
+typedef struct WarpSampleInfo {
+    //! Number of samples.
+    uint8_t num;
+    //! Sample locations in current frame.
+    int pts[SAMPLES_ARRAY_SIZE];
+    //! Sample location in the reference frame.
+    int pts_inref[SAMPLES_ARRAY_SIZE];
+} WarpSampleInfo;
 // Create incomplete struct definition for the following function pointer typedefs
 struct ModeDecisionCandidateBuffer;
 struct ModeDecisionContext;
@@ -38,42 +48,18 @@ struct ModeDecisionContext;
     * Mode Decision Candidate
     **************************************/
 typedef struct ModeDecisionCandidate {
-    Mv                     mv[MAX_NUM_OF_REF_PIC_LIST];
-    Mv                     pred_mv[MAX_NUM_OF_REF_PIC_LIST];
-    PaletteInfo           *palette_info;
-    uint32_t               interp_filters;
-    EbWarpedMotionParams   wm_params_l0;
-    EbWarpedMotionParams   wm_params_l1;
-    InterInterCompoundData interinter_comp;
-    TxType                 transform_type[MAX_TXB_COUNT];
-    TxType                 transform_type_uv;
-    uint16_t               num_proj_ref;
-    uint8_t                palette_size[PLANE_TYPES];
+    BlockModeInfo      block_mi;
+    Mv                 pred_mv[2]; // unipred MV stored in idx 0
+    PaletteInfo       *palette_info;
+    WarpedMotionParams wm_params_l0;
+    WarpedMotionParams wm_params_l1;
+    TxType             transform_type[MAX_TXB_COUNT];
+    TxType             transform_type_uv;
+    uint8_t            palette_size[PLANE_TYPES];
 
-    CandClass      cand_class;
-    PredictionMode pred_mode;
-    uint8_t        skip_mode; // skip mode_info + coeff. as defined in section 6.10.10 of the av1 text
-    bool           skip_mode_allowed;
-    uint8_t        use_intrabc;
-
-    // Intra Mode
-    int8_t           angle_delta[PLANE_TYPES]; // [-3,3]
-    uint8_t          filter_intra_mode;
-    UvPredictionMode intra_chroma_mode; // INTRA only
-    uint8_t          cfl_alpha_idx; // Index of the alpha Cb and alpha Cr combination
-    uint8_t          cfl_alpha_signs; // Joint sign of alpha Cb and alpha Cr
-
-    // Inter Mode
-    uint8_t        ref_frame_type;
-    uint8_t        drl_index;
-    MotionMode     motion_mode;
-    uint8_t        tx_depth;
-    uint8_t        compound_idx;
-    uint8_t        comp_group_idx;
-    InterIntraMode interintra_mode;
-    uint8_t        is_interintra_used;
-    uint8_t        use_wedge_interintra;
-    int8_t         interintra_wedge_index;
+    CandClass cand_class;
+    bool      skip_mode_allowed;
+    uint8_t   drl_index;
 } ModeDecisionCandidate;
 
 /**************************************
@@ -83,8 +69,7 @@ typedef EbErrorType (*EbPredictionFunc)(uint8_t hbd_md, struct ModeDecisionConte
                                         struct ModeDecisionCandidateBuffer *cand_bf);
 typedef uint64_t (*EbFastCostFunc)(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
                                    struct ModeDecisionCandidateBuffer *cand_bf, uint64_t lambda,
-                                   uint64_t luma_distortion, uint64_t chroma_distortion);
-
+                                   uint64_t luma_distortion);
 typedef EbErrorType (*EbAv1FullCostFunc)(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
                                          struct ModeDecisionCandidateBuffer *cand_bf, BlkStruct *blk_ptr,
                                          uint64_t y_distortion[DIST_TOTAL][DIST_CALC_TOTAL],
@@ -136,8 +121,8 @@ typedef struct ModeDecisionCandidateBuffer {
     uint8_t     u_has_coeff;
     uint8_t     v_has_coeff;
     uint16_t    y_has_coeff;
-    bool
-        valid_pred; // The prediction of SIMPLE_TRANSLATION is not valid when OBMC face-off is used (where OBMC will re-use the pred buffer of SIMPLE_TRANSLATION)
+    // The prediction of SIMPLE_TRANSLATION is not valid when OBMC face-off is used (where OBMC will re-use the pred buffer of SIMPLE_TRANSLATION)
+    bool valid_luma_pred;
 } ModeDecisionCandidateBuffer;
 
 /**************************************
@@ -154,23 +139,21 @@ extern EbErrorType svt_aom_mode_decision_scratch_cand_bf_ctor(ModeDecisionCandid
 
 uint32_t product_full_mode_decision_light_pd0(struct ModeDecisionContext *ctx, BlkStruct *blk_ptr,
                                               ModeDecisionCandidateBuffer **buffer_ptr_array);
-void     svt_aom_product_full_mode_decision_light_pd1(struct ModeDecisionContext *ctx, BlkStruct *blk_ptr,
-                                                      PictureControlSet *pcs, uint32_t sb_addr,
-                                                      ModeDecisionCandidateBuffer *cand_bf);
-uint32_t svt_aom_product_full_mode_decision(struct ModeDecisionContext *ctx, BlkStruct *blk_ptr, PictureControlSet *pcs,
-                                            uint32_t sb_addr, ModeDecisionCandidateBuffer **buffer_ptr_array,
+void     svt_aom_product_full_mode_decision_light_pd1(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
+                                                      uint32_t sb_addr, ModeDecisionCandidateBuffer *cand_bf);
+uint32_t svt_aom_product_full_mode_decision(PictureControlSet *pcs, struct ModeDecisionContext *ctx, uint32_t sb_addr,
+                                            ModeDecisionCandidateBuffer **buffer_ptr_array,
                                             uint32_t candidate_total_count, uint32_t *best_candidate_index_array);
-extern uint8_t svt_aom_wm_motion_refinement(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
-                                            ModeDecisionCandidateBuffer *cand_bf, ModeDecisionCandidate *can,
-                                            uint8_t list_idx, int early_exit);
-extern uint8_t svt_aom_obmc_motion_refinement(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
-                                              ModeDecisionCandidate *cand, uint8_t ref_list_idx, int refine_level);
-EbErrorType    generate_md_stage_0_cand(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
-                                        uint32_t *fast_candidate_total_count);
-void           generate_md_stage_0_cand_light_pd1(struct ModeDecisionContext *ctx, uint32_t *fast_candidate_total_count,
-                                                  PictureControlSet *pcs);
-EbErrorType    generate_md_stage_0_cand_light_pd0(struct ModeDecisionContext *ctx, uint32_t *fast_candidate_total_count,
-                                                  PictureControlSet *pcs);
+uint8_t  svt_aom_wm_motion_refinement(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
+                                      ModeDecisionCandidate *cand, const bool shut_approx);
+uint8_t  svt_aom_obmc_motion_refinement(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
+                                        ModeDecisionCandidate *cand, int refine_level);
+EbErrorType generate_md_stage_0_cand(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
+                                     uint32_t *fast_candidate_total_count);
+void        generate_md_stage_0_cand_light_pd1(struct ModeDecisionContext *ctx, uint32_t *fast_candidate_total_count,
+                                               PictureControlSet *pcs);
+EbErrorType generate_md_stage_0_cand_light_pd0(struct ModeDecisionContext *ctx, uint32_t *fast_candidate_total_count,
+                                               PictureControlSet *pcs);
 
 static INLINE int svt_aom_is_interintra_allowed_bsize(const BlockSize bsize) {
     return (bsize >= BLOCK_8X8) && (bsize <= BLOCK_32X32);
@@ -183,17 +166,15 @@ static INLINE int svt_aom_is_interintra_allowed_mode(const PredictionMode mode) 
 static INLINE int svt_aom_is_interintra_allowed_ref(const MvReferenceFrame rf[2]) {
     return (rf[0] > INTRA_FRAME) && (rf[1] <= INTRA_FRAME);
 }
-int svt_is_interintra_allowed(uint8_t enable_inter_intra, BlockSize bsize, PredictionMode mode,
-                              const MvReferenceFrame ref_frame[2]);
-int svt_aom_filter_intra_allowed_bsize(BlockSize bs);
-int svt_aom_filter_intra_allowed(uint8_t enable_filter_intra, BlockSize bsize, uint8_t palette_size, uint32_t mode);
-
-void svt_aom_choose_best_av1_mv_pred(struct ModeDecisionContext *ctx, struct MdRateEstimationContext *md_rate_est_ctx,
-                                     BlkStruct *blk_ptr, MvReferenceFrame ref_frame, uint8_t is_compound,
+int  svt_is_interintra_allowed(uint8_t enable_inter_intra, BlockSize bsize, PredictionMode mode,
+                               const MvReferenceFrame ref_frame[2]);
+int  svt_aom_filter_intra_allowed_bsize(BlockSize bs);
+int  svt_aom_filter_intra_allowed(uint8_t enable_filter_intra, BlockSize bsize, uint8_t palette_size, uint32_t mode);
+void svt_aom_choose_best_av1_mv_pred(struct ModeDecisionContext *ctx, MvReferenceFrame ref_frame,
                                      PredictionMode mode, // NEW or NEW_NEW
-                                     int16_t mv0x, int16_t mv0y, int16_t mv1x, int16_t mv1y,
+                                     Mv mv0, Mv mv1,
                                      uint8_t *bestDrlIndex, // output
-                                     IntMv    best_pred_mv[2] // output
+                                     Mv       best_pred_mv[2] // output
 );
 static const uint32_t me_idx_85[] = {
     0,  1,  5,  21, 22, 29, 30, 6,  23, 24, 31, 32, 9,  37, 38, 45, 46, 10, 39, 40, 47, 48, 2,  7,  25, 26, 33, 34, 8,

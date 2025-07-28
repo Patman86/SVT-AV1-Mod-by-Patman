@@ -16,7 +16,7 @@ if("${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_BINARY_DIR}")
                     "Please use the Build folder or create your own.")
 endif()
 
-project(svt-av1 VERSION 3.0.2
+project(svt-av1 VERSION 3.1.0
     LANGUAGES C CXX)
 
 set(VERSION_TAG "")
@@ -66,6 +66,16 @@ option(COMPILE_C_ONLY "Compile only C code with no simds (autodetect, default of
 option(MINIMAL_BUILD "Enable minimal build" OFF)
 if(MINIMAL_BUILD)
     add_definitions(-DMINIMAL_BUILD=1)
+endif()
+
+option(LOG_QUIET "Disable all logging from encoder" OFF)
+if(LOG_QUIET)
+    add_definitions(-DCONFIG_LOG_QUIET=1)
+endif()
+
+option(RTC_BUILD "Optimize build for RTC by disabling unused features and logging" OFF)
+if(RTC_BUILD)
+    add_definitions(-DRTC_BUILD=1)
 endif()
 
 if(NOT COMPILE_C_ONLY AND HAVE_X86_PLATFORM)
@@ -407,8 +417,6 @@ if(SVT_AV1_LTO)
         set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
     endif()
 endif()
-
-include(cmake/cpuinfo.cmake)
 
 check_both_flags_add(PREPEND -Wextra -Wformat -Wformat-security)
 

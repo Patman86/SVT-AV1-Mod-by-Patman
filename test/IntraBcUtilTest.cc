@@ -28,7 +28,7 @@
 namespace {
 using std::make_tuple;
 
-typedef std::tuple<MV,            /**< DV */
+typedef std::tuple<Mv,            /**< DV */
                    int,           /**< offset of MI row */
                    int,           /**< offset of MI colum */
                    BlockSize, int /**< the result of dv validation function */
@@ -38,68 +38,69 @@ typedef std::tuple<MV,            /**< DV */
 static const int kSubPelScale = 8;
 static const int kTileMaxMibWidth = 8;
 static const DvValidationParam dv_validation_params[] = {
-    DvValidationParam({0, 0}, 0, 0, BLOCK_128X128, 0),
-    DvValidationParam({0, 0}, 0, 0, BLOCK_64X64, 0),
-    DvValidationParam({0, 0}, 0, 0, BLOCK_32X32, 0),
-    DvValidationParam({0, 0}, 0, 0, BLOCK_16X16, 0),
-    DvValidationParam({0, 0}, 0, 0, BLOCK_8X8, 0),
-    DvValidationParam({0, 0}, 0, 0, BLOCK_4X4, 0),
-    DvValidationParam({-MAX_SB_SIZE * kSubPelScale, -MAX_SB_SIZE* kSubPelScale},
-                      MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_16X16,
-                      1),
-    DvValidationParam({0, -MAX_SB_SIZE* kSubPelScale}, MAX_SB_SIZE / MI_SIZE,
+    DvValidationParam({{0, 0}}, 0, 0, BLOCK_128X128, 0),
+    DvValidationParam({{0, 0}}, 0, 0, BLOCK_64X64, 0),
+    DvValidationParam({{0, 0}}, 0, 0, BLOCK_32X32, 0),
+    DvValidationParam({{0, 0}}, 0, 0, BLOCK_16X16, 0),
+    DvValidationParam({{0, 0}}, 0, 0, BLOCK_8X8, 0),
+    DvValidationParam({{0, 0}}, 0, 0, BLOCK_4X4, 0),
+    DvValidationParam(
+        {{-MAX_SB_SIZE * kSubPelScale, -MAX_SB_SIZE* kSubPelScale}},
+        MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_16X16, 1),
+    DvValidationParam({{-MAX_SB_SIZE * kSubPelScale, 0}}, MAX_SB_SIZE / MI_SIZE,
                       MAX_SB_SIZE / MI_SIZE, BLOCK_16X16, 0),
-    DvValidationParam({-MAX_SB_SIZE * kSubPelScale, 0}, MAX_SB_SIZE / MI_SIZE,
+    DvValidationParam({{0, -MAX_SB_SIZE* kSubPelScale}}, MAX_SB_SIZE / MI_SIZE,
                       MAX_SB_SIZE / MI_SIZE, BLOCK_16X16, 1),
-    DvValidationParam({MAX_SB_SIZE * kSubPelScale, 0}, MAX_SB_SIZE / MI_SIZE,
+    DvValidationParam({{0, MAX_SB_SIZE* kSubPelScale}}, MAX_SB_SIZE / MI_SIZE,
                       MAX_SB_SIZE / MI_SIZE, BLOCK_16X16, 0),
-    DvValidationParam({0, MAX_SB_SIZE* kSubPelScale}, MAX_SB_SIZE / MI_SIZE,
+    DvValidationParam({{MAX_SB_SIZE * kSubPelScale, 0}}, MAX_SB_SIZE / MI_SIZE,
                       MAX_SB_SIZE / MI_SIZE, BLOCK_16X16, 0),
-    DvValidationParam({-32 * kSubPelScale, -32 * kSubPelScale},
+    DvValidationParam({{-32 * kSubPelScale, -32 * kSubPelScale}},
                       MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_32X32,
                       1),
-    DvValidationParam({-32 * kSubPelScale, -32 * kSubPelScale}, 32 / MI_SIZE,
+    DvValidationParam({{-32 * kSubPelScale, -32 * kSubPelScale}}, 32 / MI_SIZE,
                       32 / MI_SIZE, BLOCK_32X32, 0),
     DvValidationParam(
-        {-32 * kSubPelScale - kSubPelScale / 2, -32 * kSubPelScale},
+        {{-32 * kSubPelScale, -32 * kSubPelScale - kSubPelScale / 2}},
         MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_32X32, 0),
-    DvValidationParam({-33 * kSubPelScale, -32 * kSubPelScale},
+    DvValidationParam({{-32 * kSubPelScale, -33 * kSubPelScale}},
                       MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_32X32,
                       1),
     DvValidationParam(
-        {-32 * kSubPelScale, -32 * kSubPelScale - kSubPelScale / 2},
+        {{-32 * kSubPelScale - kSubPelScale / 2, -32 * kSubPelScale}},
         MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_32X32, 0),
-    DvValidationParam({-32 * kSubPelScale, -33 * kSubPelScale},
+    DvValidationParam({{-33 * kSubPelScale, -32 * kSubPelScale}},
                       MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_32X32,
                       1),
-    DvValidationParam({-MAX_SB_SIZE * kSubPelScale, -MAX_SB_SIZE* kSubPelScale},
-                      MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE,
-                      BLOCK_LARGEST, 1),
     DvValidationParam(
-        {-(MAX_SB_SIZE + 1) * kSubPelScale, -MAX_SB_SIZE* kSubPelScale},
-        MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_LARGEST, 0),
-    DvValidationParam(
-        {-MAX_SB_SIZE * kSubPelScale, -(MAX_SB_SIZE + 1) * kSubPelScale},
-        MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_LARGEST, 0),
-    DvValidationParam(
-        {-(MAX_SB_SIZE - 1) * kSubPelScale, -MAX_SB_SIZE* kSubPelScale},
-        MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_LARGEST, 0),
-    DvValidationParam(
-        {-MAX_SB_SIZE * kSubPelScale, -(MAX_SB_SIZE - 1) * kSubPelScale},
+        {{-MAX_SB_SIZE * kSubPelScale, -MAX_SB_SIZE* kSubPelScale}},
         MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_LARGEST, 1),
     DvValidationParam(
-        {-(MAX_SB_SIZE - 1) * kSubPelScale, -(MAX_SB_SIZE - 1) * kSubPelScale},
+        {{-MAX_SB_SIZE * kSubPelScale, -(MAX_SB_SIZE + 1) * kSubPelScale}},
         MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_LARGEST, 0),
-    DvValidationParam({-MAX_SB_SIZE * kSubPelScale, MAX_SB_SIZE* kSubPelScale},
-                      MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE,
-                      BLOCK_LARGEST, 0),
-    DvValidationParam({-MAX_SB_SIZE * kSubPelScale,
-                       (kTileMaxMibWidth - 2) * MAX_SB_SIZE* kSubPelScale},
+    DvValidationParam(
+        {{-(MAX_SB_SIZE + 1) * kSubPelScale, -MAX_SB_SIZE* kSubPelScale}},
+        MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_LARGEST, 0),
+    DvValidationParam(
+        {{-MAX_SB_SIZE * kSubPelScale, -(MAX_SB_SIZE - 1) * kSubPelScale}},
+        MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_LARGEST, 0),
+    DvValidationParam(
+        {{-(MAX_SB_SIZE - 1) * kSubPelScale, -MAX_SB_SIZE* kSubPelScale}},
+        MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_LARGEST, 1),
+    DvValidationParam({{-(MAX_SB_SIZE - 1) * kSubPelScale,
+                        -(MAX_SB_SIZE - 1) * kSubPelScale}},
                       MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE,
                       BLOCK_LARGEST, 0),
     DvValidationParam(
-        {-MAX_SB_SIZE * kSubPelScale,
-         ((kTileMaxMibWidth - 2) * MAX_SB_SIZE + 1) * kSubPelScale},
+        {{MAX_SB_SIZE * kSubPelScale, -MAX_SB_SIZE* kSubPelScale}},
+        MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_LARGEST, 0),
+    DvValidationParam({{(kTileMaxMibWidth - 2) * MAX_SB_SIZE * kSubPelScale,
+                        -MAX_SB_SIZE* kSubPelScale}},
+                      MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE,
+                      BLOCK_LARGEST, 0),
+    DvValidationParam(
+        {{((kTileMaxMibWidth - 2) * MAX_SB_SIZE + 1) * kSubPelScale,
+          -MAX_SB_SIZE* kSubPelScale}},
         MAX_SB_SIZE / MI_SIZE, MAX_SB_SIZE / MI_SIZE, BLOCK_LARGEST, 0),
 };
 

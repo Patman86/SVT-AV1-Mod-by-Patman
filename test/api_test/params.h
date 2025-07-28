@@ -135,7 +135,7 @@ static const vector<uint32_t> invalid_hierarchical_levels = {
 };
 
 /* Prediction structure used to construct GOP. There are two main structures
- * supported, which are: Low Delay (P or b) and Random Access.
+ * supported, which are: Low Delay and Random Access.
  *
  * In Low Delay structure, pictures within a mini GOP refer to the previously
  * encoded pictures in display order. In other words, pictures with display
@@ -147,22 +147,17 @@ static const vector<uint32_t> invalid_hierarchical_levels = {
  * same reference picture.
  *
  * Following values are supported and defined in definitions.h
- * #define SVT_AV1_PRED_LOW_DELAY_P     0
- * #define SVT_AV1_PRED_LOW_DELAY_B     1
- * #define SVT_AV1_PRED_RANDOM_ACCESS   2
- * #define SVT_AV1_PRED_TOTAL_COUNT     3
+ * #define LOW_DELAY       1
+ * #define RANDOM_ACCESS   2
 
  * In Random Access structure, the b/b pictures can refer to reference pictures
  * from both directions (past and future).
  *
  * Default is 2. */
 static const vector<uint8_t> default_pred_structure = {
-    SVT_AV1_PRED_RANDOM_ACCESS,
+    RANDOM_ACCESS,
 };
-static const vector<uint8_t> valid_pred_structure = {
-    SVT_AV1_PRED_LOW_DELAY_P,
-    SVT_AV1_PRED_LOW_DELAY_B,
-    SVT_AV1_PRED_RANDOM_ACCESS};
+static const vector<uint8_t> valid_pred_structure = {LOW_DELAY, RANDOM_ACCESS};
 static const vector<uint8_t> invalid_pred_structure = {
     /* _pred_structure override in code
     SVT_AV1_PRED_TOTAL_COUNT, SVT_AV1_PRED_TOTAL_COUNT + 1, EB_PRED_INVALID*/};

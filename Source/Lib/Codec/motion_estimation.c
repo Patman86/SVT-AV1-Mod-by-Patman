@@ -1241,7 +1241,30 @@ uint16_t svt_aom_get_scaled_picture_distance(uint16_t dist) {
     uint8_t round_up = ((dist % 8) == 0) ? 0 : 1;
     return ((dist * 5) / 8) + round_up;
 }
+static const double search_area_multipliers[3][5] = {
+     { 1.0, 1.0, 3.0, 4.0, 5.0 }, /* boost=1 */
+     { 1.0, 1.0, 2.5, 3.5, 4.5 }, /* boost=2 */
+     { 1.0, 1.0, 2.0, 2.5, 3.5 }  /* boost=3 */
+};
 
+static void apply_me_sa_boost(int16_t *width, int16_t *height, int hme_sad, int sc_class_me_boost) {
+
+    int index;
+    if (hme_sad > 4 * 64 * 64) {
+        index = 4;
+    } else if (hme_sad > 3 * 64 * 64) {
+        index = 3;
+    } else if (hme_sad > 2 * 64 * 64) {
+        index = 2;
+    } else {
+        index = 0;
+    }
+
+    const double mult = search_area_multipliers[sc_class_me_boost - 1][index];
+
+    *width  = (int16_t)(*width  * mult);
+    *height = (int16_t)(*height * mult);
+}
 /*******************************************
  *   performs integer search motion estimation for
  all avaiable references frames
@@ -1308,7 +1331,12 @@ static void integer_search_b64(PictureParentControlSet *pcs, MeContext* me_ctx,
                 if (ABS(y_search_center) > me_ctx->mv_based_sa_adj.mv_size_th)
                     search_area_height *= me_ctx->mv_based_sa_adj.sa_multiplier;
             }
-
+            if (me_ctx->sc_class_me_boost &&
+                (pcs->ahd_error == (uint32_t)~0 || // Use ahd_error only when it is derived
+                 pcs->ahd_error < ((((20 * pcs->enhanced_pic->width * pcs->enhanced_pic->height) / 128)) * (uint32_t) (INPUT_SIZE_COUNT - pcs->input_resolution)))) { // Only if there are low temporal variations between frames
+                const uint64_t hme_sad = me_ctx->search_results[list_index][ref_pic_index].hme_sad;
+                apply_me_sa_boost(&search_area_width, &search_area_height, hme_sad, me_ctx->sc_class_me_boost);
+            }
             // Constrain x_ME to be a multiple of 8 (round up)
             // Update ME search reagion size based on hme-data
             search_area_width = (MAX(1, (search_area_width / me_ctx->reduce_me_sr_divisor[list_index][ref_pic_index])) + 7) & ~0x07;
@@ -1647,8 +1675,8 @@ static void prehme_core(MeContext *me_ctx, int16_t org_x, int16_t org_y, uint32_
         sb_width,
         /* results */
         &prehme_data->sad,
-        &prehme_data->best_mv.as_mv.col,
-        &prehme_data->best_mv.as_mv.row,
+        &prehme_data->best_mv.x,
+        &prehme_data->best_mv.y,
         sixteenth_ref_pic_ptr->stride_y,
         me_ctx->prehme_ctrl.skip_search_line,
         search_area_width,
@@ -1657,10 +1685,10 @@ static void prehme_core(MeContext *me_ctx, int16_t org_x, int16_t org_y, uint32_
     prehme_data->sad = (me_ctx->hme_search_method == FULL_SAD_SEARCH)
         ? prehme_data->sad
         : prehme_data->sad * 2; // Multiply by 2 because considered only ever other line
-    prehme_data->best_mv.as_mv.col += x_search_area_origin;
-    prehme_data->best_mv.as_mv.col *= 4; // Multiply by 4 because operating on 1/4 resolution
-    prehme_data->best_mv.as_mv.row += y_search_area_origin;
-    prehme_data->best_mv.as_mv.row *= 4; // Multiply by 4 because operating on 1/4 resolution
+    prehme_data->best_mv.x += x_search_area_origin;
+    prehme_data->best_mv.x *= 4; // Multiply by 4 because operating on 1/4 resolution
+    prehme_data->best_mv.y += y_search_area_origin;
+    prehme_data->best_mv.y *= 4; // Multiply by 4 because operating on 1/4 resolution
     prehme_data->valid = 1;
     return;
 }
@@ -1695,8 +1723,7 @@ static bool check_prehme_early_exit(MeContext *me_ctx, uint8_t list_i, uint8_t r
 
     if (me_ctx->me_early_exit_th) {
         if (me_ctx->zz_sad[list_i][ref_i] < me_ctx->me_early_exit_th) {
-            prehme_data->best_mv.as_mv.col = 0;
-            prehme_data->best_mv.as_mv.row = 0;
+            prehme_data->best_mv.as_int = 0;
             prehme_data->sad               = 0;
             prehme_data->valid             = 1;
             return 1;
@@ -1706,10 +1733,10 @@ static bool check_prehme_early_exit(MeContext *me_ctx, uint8_t list_i, uint8_t r
     if (me_ctx->prehme_ctrl.l1_early_exit) {
         if (list_i == 1 && me_ctx->prehme_data[0][ref_i][sr_i].valid  &&
             ((me_ctx->prehme_data[0][ref_i][sr_i].sad < (32 * 32)) ||
-             ((ABS(me_ctx->prehme_data[0][ref_i][sr_i].best_mv.as_mv.col) < 16) &&
-              (ABS(me_ctx->prehme_data[0][ref_i][sr_i].best_mv.as_mv.row) < 16)))) {
-            prehme_data->best_mv.as_mv.col = -me_ctx->prehme_data[0][ref_i][sr_i].best_mv.as_mv.col;
-            prehme_data->best_mv.as_mv.row = -me_ctx->prehme_data[0][ref_i][sr_i].best_mv.as_mv.row;
+             ((ABS(me_ctx->prehme_data[0][ref_i][sr_i].best_mv.x) < 16) &&
+              (ABS(me_ctx->prehme_data[0][ref_i][sr_i].best_mv.y) < 16)))) {
+            prehme_data->best_mv.x = -me_ctx->prehme_data[0][ref_i][sr_i].best_mv.x;
+            prehme_data->best_mv.y = -me_ctx->prehme_data[0][ref_i][sr_i].best_mv.y;
             prehme_data->sad               = me_ctx->prehme_data[0][ref_i][sr_i].sad;
             prehme_data->valid             = 1;
             return 1;
@@ -1743,8 +1770,7 @@ static void prehme_b64(PictureParentControlSet *pcs, uint32_t org_x, uint32_t or
 
                     SearchInfo *prehme_data = &me_ctx->prehme_data[list_i][ref_i][sr_i];
                     if (!me_ctx->search_results[list_i][ref_i].do_ref) {
-                        prehme_data->best_mv.as_mv.col = 0;
-                        prehme_data->best_mv.as_mv.row = 0;
+                        prehme_data->best_mv.as_int = 0;
                         prehme_data->sad = MAX_U32;
                         continue;
                     }
@@ -1769,10 +1795,10 @@ static void prehme_b64(PictureParentControlSet *pcs, uint32_t org_x, uint32_t or
             } else {
                 // PW: Does this account for base pictures
                 for (uint8_t sr_i = 0; sr_i < SEARCH_REGION_COUNT; sr_i++) {
-                    me_ctx->prehme_data[1][ref_i][sr_i].best_mv.as_mv.col =
-                        -me_ctx->prehme_data[0][ref_i][sr_i].best_mv.as_mv.col;
-                    me_ctx->prehme_data[1][ref_i][sr_i].best_mv.as_mv.row =
-                        -me_ctx->prehme_data[0][ref_i][sr_i].best_mv.as_mv.row;
+                    me_ctx->prehme_data[1][ref_i][sr_i].best_mv.x =
+                        -me_ctx->prehme_data[0][ref_i][sr_i].best_mv.x;
+                    me_ctx->prehme_data[1][ref_i][sr_i].best_mv.y =
+                        -me_ctx->prehme_data[0][ref_i][sr_i].best_mv.y;
                     me_ctx->prehme_data[1][ref_i][sr_i].sad = me_ctx->prehme_data[0][ref_i][sr_i].sad;
                 }
             }
@@ -1944,9 +1970,9 @@ static void hme_level0_b64(PictureParentControlSet *pcs, uint32_t org_x, uint32_
                         for (uint32_t sr_idx_y = 0; sr_idx_y < me_ctx->num_hme_sa_h; sr_idx_y++) {
                             for (uint32_t sr_idx_x = 0; sr_idx_x < me_ctx->num_hme_sa_w; sr_idx_x++) {
                                 me_ctx->x_hme_level0_search_center[list_index][ref_pic_index][sr_idx_x]
-                                    [sr_idx_y] = me_ctx->prehme_data[list_index][ref_pic_index][sr_i].best_mv.as_mv.col;
+                                    [sr_idx_y] = me_ctx->prehme_data[list_index][ref_pic_index][sr_i].best_mv.x;
                                 me_ctx->y_hme_level0_search_center[list_index][ref_pic_index][sr_idx_x]
-                                    [sr_idx_y] = me_ctx->prehme_data[list_index][ref_pic_index][sr_i].best_mv.as_mv.row;
+                                    [sr_idx_y] = me_ctx->prehme_data[list_index][ref_pic_index][sr_i].best_mv.y;
                                 me_ctx->hme_level0_sad[list_index][ref_pic_index][sr_idx_x][sr_idx_y] = me_ctx->prehme_data[list_index][ref_pic_index][sr_i].sad;
                             }
                         }
@@ -2023,11 +2049,11 @@ static void hme_level0_b64(PictureParentControlSet *pcs, uint32_t org_x, uint32_
 
                         me_ctx->x_hme_level0_search_center[list_index][ref_pic_index][sr_w_max]
                                                        [sr_h_max] =
-                            me_ctx->prehme_data[list_index][ref_pic_index][sr_i].best_mv.as_mv.col;
+                            me_ctx->prehme_data[list_index][ref_pic_index][sr_i].best_mv.x;
 
                         me_ctx->y_hme_level0_search_center[list_index][ref_pic_index][sr_w_max]
                                                        [sr_h_max] =
-                            me_ctx->prehme_data[list_index][ref_pic_index][sr_i].best_mv.as_mv.row;
+                            me_ctx->prehme_data[list_index][ref_pic_index][sr_i].best_mv.y;
                     }
                 }
             }
@@ -2842,7 +2868,6 @@ static void perform_gm_detection(
         *me_ctx // input parameter, ME Context Ptr, used to store decimated/interpolated SB/SR
 ) {
     SequenceControlSet *scs        = pcs->scs;
-    uint64_t            stationary_cnt = 0;
     uint64_t            per_sig_cnt[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH][NUM_MV_COMPONENTS]
                         [NUM_MV_HIST];
     uint64_t tot_cnt = 0;
@@ -2871,14 +2896,7 @@ static void perform_gm_detection(
                 : me_candidate->ref_idx_l1;
 
             // Active block detection
-            uint64_t pcs_pic_num = pcs->picture_number;
-            uint64_t ref_pic_num =
-                me_ctx->me_ds_ref_array[list_index][ref_pic_index].picture_number;
-            uint16_t dist = ABS(
-                (int16_t)(MAX(pcs_pic_num, ref_pic_num) - MIN(pcs_pic_num, ref_pic_num)));
-            int active_th = (pcs->gm_ctrls.use_distance_based_active_th) ? MAX(dist >> 1, 4)
-                                                                             : 4;
-
+            const int active_th = 4;
             int mx = _MVXT(me_ctx->p_sb_best_mv[list_index][ref_pic_index][n_idx]) << 2;
             if (mx < -active_th)
                 per_sig_cnt[list_index][ref_pic_index][0][0]++;
@@ -2889,11 +2907,6 @@ static void perform_gm_detection(
                 per_sig_cnt[list_index][ref_pic_index][1][0]++;
             else if (my > active_th)
                 per_sig_cnt[list_index][ref_pic_index][1][1]++;
-
-            // Stationary block detection
-            int stationary_th = 0;
-            if (abs(mx) <= stationary_th && abs(my) <= stationary_th)
-                stationary_cnt++;
 
             tot_cnt++;
         }
@@ -2916,12 +2929,7 @@ static void perform_gm_detection(
                 : me_candidate->ref_idx_l1;
 
             // Active block detection
-            uint16_t dist = ABS(
-                (int16_t)(pcs->picture_number -
-                          me_ctx->me_ds_ref_array[list_index][ref_pic_index].picture_number));
-            int active_th = (pcs->gm_ctrls.use_distance_based_active_th) ? MAX(dist * 16, 32)
-                                                                             : 32;
-
+            const int active_th = 32;
             int mx = _MVXT(me_ctx->p_sb_best_mv[list_index][ref_pic_index][n_idx]) << 2;
             if (mx < -active_th)
                 per_sig_cnt[list_index][ref_pic_index][0][0]++;
@@ -2933,18 +2941,9 @@ static void perform_gm_detection(
             else if (my > active_th)
                 per_sig_cnt[list_index][ref_pic_index][1][1]++;
 
-            // Stationary block detection
-            int stationary_th = 4;
-            if (abs(mx) <= stationary_th && abs(my) <= stationary_th)
-                stationary_cnt++;
-
             tot_cnt++;
         }
     }
-
-    // Set stationary_block_present_sb to 1 if stationary_cnt is higher than 5%
-    if (stationary_cnt > ((tot_cnt * 5) / 100))
-        pcs->stationary_block_present_sb[sb_index] = 1;
 
     for (int l = 0; l < MAX_NUM_OF_REF_PIC_LIST; l++) {
         for (int r = 0; r < REF_LIST_MAX_DEPTH; r++) {
@@ -3143,7 +3142,6 @@ EbErrorType svt_aom_motion_estimation_b64(
             compute_distortion(pcs, b64_index, me_ctx);
 
         // Perform GM detection if GM is enabled
-        pcs->stationary_block_present_sb[b64_index] = 0;
         pcs->rc_me_allow_gm[b64_index]              = 0;
 
         if (pcs->gm_ctrls.enabled)

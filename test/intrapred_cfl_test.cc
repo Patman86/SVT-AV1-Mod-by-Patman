@@ -197,7 +197,7 @@ INSTANTIATE_TEST_SUITE_P(NEON, HbdCflPredTest,
 
 typedef void (*AomUpsampledPredFunc)(MacroBlockD *,
                                      const struct AV1Common *const, int, int,
-                                     const MV *const, uint8_t *, int, int, int,
+                                     const Mv *const, uint8_t *, int, int, int,
                                      int, const uint8_t *, int, int);
 
 typedef ::testing::tuple<BlockSize, AomUpsampledPredFunc, int, int, int,

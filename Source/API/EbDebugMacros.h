@@ -35,11 +35,11 @@ extern "C" {
 #endif // __cplusplus
 
 //FOR DEBUGGING - Do not remove
-#define FIX_AVX512_ICL_RTCD         1 // Correct avx512icl support detection
 #define OPT_LD_LATENCY2         1 // Latency optimization for low delay - to keep the Macro for backwards testing until 3.0
 #define LOG_ENC_DONE            0 // log encoder job one
 #define DEBUG_TPL               0 // Prints to debug TPL
 #define DETAILED_FRAME_OUTPUT   0 // Prints detailed frame output from the library for debugging
+#define DEBUG_BUFFERS           0 // Print process count and segments info
 #define TUNE_CHROMA_SSIM        0 // Allows for Chroma and SSIM BDR-based Tuning
 #define TUNE_CQP_CHROMA_SSIM    0 // Tune CQP qp scaling towards improved chroma and SSIM BDR
 
@@ -56,7 +56,6 @@ extern "C" {
 // Super-resolution debugging code
 #define DEBUG_SCALING           0
 #define DEBUG_TF                0
-#define DEBUG_UPSCALING         0
 #define DEBUG_SUPERRES_RECODE   0
 #define DEBUG_SUPERRES_ENERGY   0
 #define DEBUG_RC_CAP_LOG        0 // Prints for RC cap

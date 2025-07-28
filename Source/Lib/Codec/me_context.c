@@ -18,7 +18,6 @@
 static void me_context_dctor(EbPtr p) {
     MeContext *obj = (MeContext *)p;
 
-    EB_FREE_ARRAY(obj->mvd_bits_array);
     EB_FREE_ARRAY(obj->p_eight_pos_sad16x16);
 }
 EbErrorType svt_aom_me_context_ctor(MeContext *object_ptr) {

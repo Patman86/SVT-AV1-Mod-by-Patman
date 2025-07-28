@@ -12,6 +12,7 @@
 //
 #ifndef EbDefinitions_h
 #define EbDefinitions_h
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,12 +21,21 @@
 #include "EbSvtAv1.h"
 #include "EbSvtAv1Enc.h"
 #include <stdbool.h>
+
 #ifdef _WIN32
 #define inline __inline
 #elif __GNUC__
 #define inline __inline__
 #else
 #define inline
+#endif
+
+#define INLINE inline
+
+#ifdef _WIN32
+#define NOINLINE __declspec(noinline)
+#else
+#define NOINLINE __attribute__((noinline))
 #endif
 
 #ifdef __cplusplus
@@ -41,7 +51,7 @@ extern "C" {
 #define MAX_TPL_GROUP_SIZE 512 //enough to cover 6L gop
 
 #define MAX_TPL_EXT_GROUP_SIZE MAX_TPL_GROUP_SIZE
-#define OUT_Q_ADVANCE(h) ((h == REFERENCE_QUEUE_MAX_DEPTH - 1) ? 0 : h + 1)
+#define OUT_Q_ADVANCE(h, size) (((h) == (size) - 1) ? 0 : (h) + 1)
 #define MIN_LAD_MG 1
 #define RC_DEFAULT_LAD_MG 2 // default look ahead value for rate control
 void svt_aom_assert_err(uint32_t condition, char *err_msg);
@@ -68,9 +78,6 @@ void svt_aom_assert_err(uint32_t condition, char *err_msg);
 #define VQ_NOISE_LVL_TH 15000
 #define VQ_STABILITY_ME_VAR_TH 750
 #define VQ_PIC_AVG_VARIANCE_TH 1000
-
-#define MDS0_REDUCE_ANGULAR_INTRA_TH 25
-
 #define NUM_MV_COMPONENTS 2
 #define NUM_MV_HIST 2
 #define MAX_MV_HIST_SIZE 2 * REF_LIST_MAX_DEPTH *NUM_MV_COMPONENTS *NUM_MV_HIST
@@ -87,14 +94,8 @@ typedef struct SharpnessCtrls {
     uint8_t restoration;
     uint8_t rdoq;
 } SharpnessCtrls;
-
-typedef struct StabilityCtrls {
-    uint8_t depth_refinement;
-} StabilityCtrls;
-
 typedef struct VqCtrls {
     SharpnessCtrls sharpness_ctrls;
-    StabilityCtrls stability_ctrls;
 } VqCtrls;
 typedef struct MrpCtrls {
     /*
@@ -134,6 +135,14 @@ typedef struct MrpCtrls {
     //2:use with TPL constraint                 faster
     //3:use with no constraint                  fastest
     uint8_t use_best_references;
+    // When LD rtc is used, reduce the number of ref buffers based on the number of references used
+    // and the known rps structure. Signal is set automatically based on refs used.
+    // 0: off, use at least DPB ref buffers.
+    // 1: on; when each ref list uses <=2 refs, reduce the number of ref frame buffers because only
+    // base and layer1 pics are added to the dpb.
+    // 2: on; when each ref list uses <=1 refs, further reduce the number of ref frame buffers because only
+    // one base and one layer1 pic are added to the dpb at a time.
+    uint8_t ld_reduce_ref_buffs;
 
 } MrpCtrls;
 typedef struct TfControls {
@@ -320,8 +329,6 @@ enum {
 #define MAX_TXB_COUNT_UV 4 // Maximum number of transform blocks per depth for chroma planes
 #define MAX_LAD 120 // max lookahead-distance 2x60fps
 #define ROUND_UV(x) (((x) >> 3) << 3)
-#define AV1_PROB_COST_SHIFT 9
-#define AOMINNERBORDERINPIXELS 160
 #define SWITCHABLE_FILTER_CONTEXTS ((SWITCHABLE_FILTERS + 1) * 4)
 #define MAX_MB_PLANE 3
 #define CFL_MAX_BlockSize (BLOCK_32X32)
@@ -335,9 +342,6 @@ enum {
 #define CONFIG_BUFFER_MODEL 1
 #define CONFIG_COEFFICIENT_RANGE_CHECKING 0
 #define CONFIG_ENTROPY_STATS 0
-#define CONFIG_FP_MB_STATS 0
-#define CONFIG_INTERNAL_STATS 0
-#define CONFIG_RD_DEBUG 0
 
 // Max superblock size
 #define MAX_SB_SIZE_LOG2 7
@@ -477,7 +481,6 @@ typedef int16_t InterpKernel[SUBPEL_TAPS];
 #define EB_EXTERN
 #endif // __cplusplus
 
-#define INLINE __inline
 #define RESTRICT
 #ifdef _WIN32
 #define FOPEN(f, s, m) fopen_s(&f, s, m)
@@ -703,12 +706,6 @@ static const uint32_t MD_STAGE_NICS_SCAL_NUM[NICS_SCALING_LEVELS][MD_STAGE_TOTAL
     {0, 2, 0, 0}, // LEVEL 14
     {0, 0, 0, 0} // LEVEL 15
 };
-// NICS
-#define MAX_FRAME_TYPE 3 // Max number of frame type allowed for nics
-#define ALL_S0 -1 // Allow all candidates from stage0
-#define MAX_REF_TYPE_CAND 30
-#define PRUNE_REC_TH 5
-#define PRUNE_REF_ME_TH 2
 typedef enum {
     EIGHTTAP_REGULAR,
     EIGHTTAP_SMOOTH,
@@ -752,6 +749,12 @@ typedef enum IfsLevel {
     IFS_MDS2, // IFS @ md_stage_2()
     IFS_MDS3, // IFS @ md_stage_3()
 } IfsLevel;
+typedef enum SpatialSseLevel {
+    SSSE_MDS1, // Spatial SSE @ md_stage_1() and beyond
+    SSSE_MDS2, // Spatial SSE @ md_stage_2() and beyond
+    SSSE_MDS3, // Spatial SSE @ md_stage_3() and beyond
+    SSSE_OFF // Spatial SSE OFF
+} SpatialSseLevel;
 typedef enum DistortionType { SAD, VAR, SSD, DIST_TYPES } DistortionType;
 // Profile 0.  8-bit and 10-bit 4:2:0 and 4:0:0 only.
 // Profile 1.  8-bit and 10-bit 4:4:4
@@ -1428,8 +1431,6 @@ MAX_NUM_TEMPORAL_LAYERS * MAX_NUM_SPATIAL_LAYERS
 static INLINE int32_t is_valid_seq_level_idx(uint8_t seq_level_idx) {
     return seq_level_idx < 24 || seq_level_idx == 31;
 }
-#define TXCOEFF_TIMER 0
-#define TXCOEFF_COST_TIMER 0
 
 typedef enum
 {
@@ -1873,10 +1874,6 @@ typedef enum FrameContextIndex {
 // Total number of QM sets stored
 #define QM_LEVEL_BITS 4
 #define NUM_QM_LEVELS (1 << QM_LEVEL_BITS)
-//**********************************************************************************************************************//
-// blockd.h
-#define NO_FILTER_FOR_IBC 1 // Disable in-loop filters for frame with intrabc
-//**********************************************************************************************************************//
 // av1_loopfilter.h
 #define MAX_LOOP_FILTER 63
 #define MAX_SHARPNESS 7
@@ -1904,10 +1901,6 @@ struct LoopFilter {
 #define MAX_SEGMENTS 8
 #define MAX_MB_PLANE 3
 
-#define MAX_LOOP_FILTER 63
-#define MAX_SHARPNESS 7
-
-#define SIMD_WIDTH 16
 // Need to align this structure so when it is declared and
 // passed it can be loaded into vector registers.
 typedef struct LoopFilterThresh {
@@ -1930,7 +1923,7 @@ typedef struct LoopFilterInfoN {
 // Given the general homography:
 //      [x'     (a  b  c   [x
 //  z .  y'  =   d  e  f *  y
-//       1]      g  h  i)    1]
+//       1]      0  0  1)    1]
 //
 // Constants using the name ALPHA here are related to parameters
 // a, b, d, e. Constants using the name TRANS are related
@@ -1980,8 +1973,7 @@ typedef struct LoopFilterInfoN {
 #define GM_ALPHA_MIN -GM_ALPHA_MAX
 #define GM_ROW3HOMO_MIN -GM_ROW3HOMO_MAX
 /* clang-format off */
-typedef enum TransformationType
-{
+typedef enum TransformationType {
     IDENTITY = 0,      // identity transformation, 0-parameter
     TRANSLATION = 1,   // translational motion 2-parameter
     ROTZOOM = 2,       // simplified affine with rotation + zoom only, 4-parameter
@@ -1994,12 +1986,12 @@ typedef enum TransformationType
 //      [x'     (m2 m3 m0   [x
 //  z .  y'  =   m4 m5 m1 *  y
 //       1]       0  0 1)    1]
-typedef struct EbWarpedMotionParams {
+typedef struct WarpedMotionParams {
     TransformationType wmtype;
     int32_t wmmat[MAX_PARAMDIM];
     int16_t alpha, beta, gamma, delta;
     int8_t invalid;
-} EbWarpedMotionParams;
+} WarpedMotionParams;
 
 /*! Scale factors and scaling function pointers  when reference and current frame dimensions are not equal */
 typedef struct ScaleFactors {
@@ -2013,7 +2005,7 @@ typedef struct ScaleFactors {
 } ScaleFactors;
 
 /* clang-format off */
-static const EbWarpedMotionParams default_warp_params = {
+static const WarpedMotionParams default_warp_params = {
     IDENTITY,
 { 0, 0, (1 << WARPEDMODEL_PREC_BITS), 0, 0, (1 << WARPEDMODEL_PREC_BITS) },
 0, 0, 0, 0,
@@ -2024,14 +2016,6 @@ static const EbWarpedMotionParams default_warp_params = {
 
 //**********************************************************************************************************************//
 //**********************************************************************************************************************//
-
-#ifdef _WIN32
-#define NOINLINE                __declspec ( noinline )
-#define FORCE_INLINE            __forceinline
-#else
-#define NOINLINE                __attribute__(( noinline ))
-#define FORCE_INLINE            __attribute__((always_inline))
-#endif
 
 // ***************************** Definitions *****************************
 
@@ -2118,24 +2102,29 @@ typedef enum MD_BIT_DEPTH_MODE
     EB_DUAL_BIT_MD  = 2     // Auto: 8bit & 10bit mode decision
 } MD_BIT_DEPTH_MODE;
 
+ /* Indicates what prediction structure to use
+  *
+  * SVT_AV1_PRED_UNUSED is not used, and not supported in the code. It is a placeholder after removing SVT_AV1_PRED_LOW_DELAY_P
+  * so that the values for --pred-struct don't need to change.
+  *
+  * TODO: At v4.0 remove PRED_UNUSED to have only LOW_DELAY and RANDOM_ACCESS. Need to update documentation for --pred-struct
+  */
+typedef enum PredStructure {
+    PRED_UNUSED = 0, // Do not use
+    LOW_DELAY = 1,
+    RANDOM_ACCESS = 2,
+    PRED_TOTAL_COUNT = 3,
+    PRED_INVALID = 0xFF
+} PredStructure;
 /*
  * The SliceType type is used to describe the slice prediction type.
  */
 typedef enum ATTRIBUTE_PACKED {
-    B_SLICE = 0,
-    P_SLICE = 1,
-    I_SLICE = 2,
-    IDR_SLICE = 3,
+    B_SLICE = 0, // Inter frame
+    I_SLICE = 1, // Intra only frame
     INVALID_SLICE = 0xFF
 } SliceType;
 
-/** The EbModeType type is used to describe the PU type.
-*/
-typedef uint8_t EbModeType;
-#define INTER_MODE 1
-#define INTRA_MODE 2
-
-#define INVALID_MODE 0xFFu
 #define SPEED_CONTROL_INIT_MOD ENC_M5;
 typedef enum ATTRIBUTE_PACKED {
     REF_LIST_0 = 0,
@@ -2193,29 +2182,6 @@ object_init_data_ptr is a EbPtr to a data structure used to initialize the objec
 typedef EbErrorType(*EbCreator)(
     EbPtr *object_dbl_ptr,
     EbPtr object_init_data_ptr);
-
-#define INVALID_MV            0x80008000 //0xFFFFFFFF    //ICOPY They changed this to 0x80008000
-/***************************************
-* Generic linked list data structure for passing data into/out from the library
-***************************************/
-typedef int32_t EbLinkedListType;
-
-typedef struct EbLinkedListNode
-{
-    void*                     app;                       // points to an application object this node is associated
-                                                            // with. this is an opaque pointer to the encoder lib, but
-                                                            // release_cb_fnc_ptr may need to access it.
-    EbLinkedListType       type;                      // type of data pointed by "data" member variable
-    uint32_t                    size;                      // size of (data)
-    bool                   passthrough;               // whether this is passthrough data from application
-    void(*release_cb_fnc_ptr)(struct EbLinkedListNode*); // callback to be executed by encoder when picture reaches end of pipeline, or
-                                                        // when aborting. However, at end of pipeline encoder shall
-                                                        // NOT invoke this callback if passthrough is true (but
-                                                        // still needs to do so when aborting)
-    void                     *data;                      // pointer to application's data
-    struct EbLinkedListNode  *next;                      // pointer to next node (null when last)
-} EbLinkedListNode;
-
 typedef enum DistCalcType
 {
     DIST_CALC_RESIDUAL = 0,    // SSE(Coefficients - ReconCoefficients)
@@ -2247,10 +2213,6 @@ typedef struct EbMemoryMapEntry
     EbPtrType                ptr_type;       // pointer type
     EbPtr                    prev_entry;     // pointer to the prev entry
 } EbMemoryMapEntry;
-
-// Rate Control
-#define THRESHOLD1QPINCREASE     1
-#define THRESHOLD2QPINCREASE     2
 
 #define ALVALUE 64
 
@@ -2298,9 +2260,6 @@ svt_memcpy_intrin_sse(void* dst_ptr, const void* src_ptr, size_t size);
 #define EB_MEMSET(dst, val, count) \
 memset(dst, val, count)
 
-//#ifdef __cplusplus
-//}
-//#endif // __cplusplus
 
 /**************************************
 * Callback Functions
@@ -2322,23 +2281,13 @@ void(*error_handler)(
 
 //***Encoding Parameters***
 
-#define INTERNAL_BIT_DEPTH                          8 // to be modified
-#define MAX_SAMPLE_VALUE                            ((1 << INTERNAL_BIT_DEPTH) - 1)
-#define MAX_SAMPLE_VALUE_10BIT                      0x3FF
 #define BLOCK_SIZE_64                                64u
 #define LOG2F_MAX_SB_SIZE                          6u
 #define LOG2_64_SIZE                                6 // log2(BLOCK_SIZE_64)
 #define MAX_LEVEL_COUNT                             5 // log2(BLOCK_SIZE_64) - log2(MIN_BLOCK_SIZE)
 #define LOG_MIN_BLOCK_SIZE                          3
 #define MIN_BLOCK_SIZE                              (1 << LOG_MIN_BLOCK_SIZE)
-#define LOG_MIN_PU_SIZE                             2
-#define MIN_PU_SIZE                                 (1 << LOG_MIN_PU_SIZE)
-#define MAX_NUM_OF_PU_PER_CU                        1
 #define MAX_NUM_OF_REF_PIC_LIST                     2
-#define MAX_NUM_OF_PART_SIZE                        8
-#define MIN_CU_BLK_COUNT                            ((BLOCK_SIZE_64 / MIN_BLOCK_SIZE) * (BLOCK_SIZE_64 / MIN_BLOCK_SIZE))
-#define MAX_NUM_OF_TU_PER_CU                        21
-#define MIN_NUM_OF_TU_PER_CU                        5
 // super-resolution definitions
 #define MIN_SUPERRES_DENOM                          8
 #define MAX_SUPERRES_DENOM                          16
@@ -2359,15 +2308,6 @@ void(*error_handler)(
 
 #define _MVXT(mv) ( (int16_t)((mv) &  0xFFFF) )
 #define _MVYT(mv) ( (int16_t)((mv) >> 16    ) )
-
-//***MCP***
-
-#define InternalBitDepth            8                                     // to be modified
-#define MAX_Sample_Value            ((1 << InternalBitDepth) - 1)
-#define IF_Shift                    6                                     // to be modified
-#define IF_Prec                     14                                    // to be modified
-#define IF_Negative_Offset          (IF_Prec - 1)                         // to be modified
-#define InternalBitDepthIncrement   (InternalBitDepth - 8)
 
 #define MIN_QP_VALUE                     0
 #define MAX_QP_VALUE                    63
@@ -2609,7 +2549,6 @@ typedef struct StatStruct
     uint8_t    worst_qindex;
     uint8_t    temporal_layer_index;
 } StatStruct;
-#define SC_MAX_LEVEL 2 // 2 sets of HME/ME settings are used depending on the scene content mode
 static const uint8_t me_idx_85_8x8_to_16x16_conversion[] = {
     5,5,      6,6,      7,7,      8,8,
     5,5,      6,6,      7,7,      8,8,

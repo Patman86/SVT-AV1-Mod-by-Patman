@@ -28,15 +28,15 @@ typedef struct PacketizationReorderEntry {
     uint64_t         picture_number;
     EbObjectWrapper *output_stream_wrapper_ptr;
 
-    EbLinkedListNode *out_meta_data;
-
     uint64_t start_time_seconds;
     uint64_t start_time_u_seconds;
 
-    uint8_t    slice_type;
-    uint64_t   ref_poc_list0;
-    uint64_t   ref_poc_list1;
-    uint64_t   ref_poc_array[7];
+    SliceType slice_type;
+#if DETAILED_FRAME_OUTPUT
+    uint64_t ref_poc_list0;
+    uint64_t ref_poc_list1;
+    uint64_t ref_poc_array[7];
+#endif
     uint64_t   poc;
     uint64_t   total_num_bits;
     FrameType  frame_type;

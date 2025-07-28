@@ -79,6 +79,8 @@ static void svt_reference_object_dctor(EbPtr p) {
     EB_FREE_ARRAY(obj->sb_64x64_mvp);
     EB_FREE_ARRAY(obj->sb_me_64x64_dist);
     EB_FREE_ARRAY(obj->sb_me_8x8_cost_var);
+    EB_FREE_ARRAY(obj->sb_min_sq_size);
+    EB_FREE_ARRAY(obj->sb_max_sq_size);
     for (uint8_t sr_denom_idx = 0; sr_denom_idx < NUM_SR_SCALES + 1; sr_denom_idx++) {
         for (uint8_t resize_denom_idx = 0; resize_denom_idx < NUM_RESIZE_SCALES + 1; resize_denom_idx++) {
             if (obj->downscaled_reference_picture[sr_denom_idx][resize_denom_idx] != NULL) {
@@ -194,6 +196,8 @@ EbErrorType svt_reference_object_ctor(EbReferenceObject *ref_object, EbPtr objec
     EB_MALLOC_ARRAY(ref_object->sb_64x64_mvp, picture_buffer_desc_init_data_ptr->sb_total_count);
     EB_MALLOC_ARRAY(ref_object->sb_me_64x64_dist, picture_buffer_desc_init_data_ptr->sb_total_count);
     EB_MALLOC_ARRAY(ref_object->sb_me_8x8_cost_var, picture_buffer_desc_init_data_ptr->sb_total_count);
+    EB_MALLOC_ARRAY(ref_object->sb_min_sq_size, picture_buffer_desc_init_data_ptr->sb_total_count);
+    EB_MALLOC_ARRAY(ref_object->sb_max_sq_size, picture_buffer_desc_init_data_ptr->sb_total_count);
     return EB_ErrorNone;
 }
 
@@ -407,22 +411,15 @@ void svt_aom_release_pa_reference_objects(SequenceControlSet *scs, PictureParent
     (void)scs;
     // PA Reference Pictures
     if (pcs->slice_type != I_SLICE) {
-        const uint32_t num_of_list_to_search = (pcs->slice_type == P_SLICE) ? 1 /*List 0 only*/ : 2 /*List 0 + 1*/;
-
-        // List Loop
-        for (uint32_t list_index = REF_LIST_0; list_index < num_of_list_to_search; ++list_index) {
-            // Release PA Reference Pictures
-            uint8_t num_of_ref_pic_to_search = (list_index == REF_LIST_0) ? pcs->ref_list0_count : pcs->ref_list1_count;
-
-            for (uint32_t ref_pic_index = 0; ref_pic_index < num_of_ref_pic_to_search; ++ref_pic_index) {
-                if (pcs->ref_pa_pic_ptr_array[list_index][ref_pic_index] != NULL) {
-                    //assert((int32_t)pcs->ref_pa_pic_ptr_array[list_index][ref_pic_index]->live_count > 0);
-                    svt_release_object(pcs->ref_pa_pic_ptr_array[list_index][ref_pic_index]);
-
-                    if (pcs->ref_y8b_array[list_index][ref_pic_index]) {
-                        //y8b  needs to get decremented at the same time of pa ref
-                        svt_release_object(pcs->ref_y8b_array[list_index][ref_pic_index]);
-                    }
+        // Release the PA reference Pictures from both lists
+        for (REF_FRAME_MINUS1 ref = LAST; ref < ALT + 1; ref++) {
+            const uint8_t list_idx = get_list_idx(ref + 1);
+            const uint8_t ref_idx  = get_ref_frame_idx(ref + 1);
+            if (pcs->ref_pa_pic_ptr_array[list_idx][ref_idx] != NULL) {
+                svt_release_object(pcs->ref_pa_pic_ptr_array[list_idx][ref_idx]);
+                if (pcs->ref_y8b_array[list_idx][ref_idx]) {
+                    //y8b  needs to get decremented at the same time of pa ref
+                    svt_release_object(pcs->ref_y8b_array[list_idx][ref_idx]);
                 }
             }
         }

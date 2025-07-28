@@ -20,17 +20,6 @@
 #include "rest_process.h"
 #include "svt_log.h"
 
-void svt_aom_foreach_rest_unit_in_frame_seg(Av1Common *cm, int32_t plane, RestTileStartVisitor on_tile,
-                                            RestUnitVisitor on_rest_unit, void *priv,
-                                            uint8_t rest_segments_column_count, uint8_t rest_segments_row_count,
-                                            uint32_t segment_index);
-
-void svt_av1_selfguided_restoration_c(const uint8_t *dgd8, int32_t width, int32_t height, int32_t dgd_stride,
-                                      int32_t *flt0, int32_t *flt1, int32_t flt_stride, int32_t sgr_params_idx,
-                                      int32_t bit_depth, int32_t highbd);
-void svt_aom_foreach_rest_unit_in_frame(Av1Common *cm, int32_t plane, RestTileStartVisitor on_tile,
-                                        RestUnitVisitor on_rest_unit, void *priv);
-
 // When set to RESTORE_WIENER or RESTORE_SGRPROJ only those are allowed.
 // When set to RESTORE_TYPES we allow switchable.
 //static const RestorationType force_restore_type = RESTORE_TYPES;
@@ -49,9 +38,11 @@ static const SsePartExtractorType sse_part_extractors[NUM_EXTRACTORS] = {
     svt_aom_get_y_sse_part,
     svt_aom_get_u_sse_part,
     svt_aom_get_v_sse_part,
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
     svt_aom_highbd_get_y_sse_part,
     svt_aom_highbd_get_u_sse_part,
     svt_aom_highbd_get_v_sse_part,
+#endif
 };
 static int64_t sse_restoration_unit(const RestorationTileLimits *limits, const Yv12BufferConfig *src,
                                     const Yv12BufferConfig *dst, int32_t plane, int32_t highbd) {
@@ -230,6 +221,7 @@ int64_t svt_av1_lowbd_pixel_proj_error_c(const uint8_t *src8, int32_t width, int
     return err;
 }
 
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
 int64_t svt_av1_highbd_pixel_proj_error_c(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride,
                                           const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride,
                                           int32_t *flt1, int32_t flt1_stride, int32_t xq[2],
@@ -301,6 +293,7 @@ int64_t svt_av1_highbd_pixel_proj_error_c(const uint8_t *src8, int32_t width, in
     }
     return err;
 }
+#endif
 
 static int64_t get_pixel_proj_error(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride,
                                     const uint8_t *dat8, int32_t dat_stride, int32_t use_highbitdepth, int32_t *flt0,
@@ -311,10 +304,13 @@ static int64_t get_pixel_proj_error(const uint8_t *src8, int32_t width, int32_t 
     if (!use_highbitdepth) {
         return svt_av1_lowbd_pixel_proj_error(
             src8, width, height, src_stride, dat8, dat_stride, flt0, flt0_stride, flt1, flt1_stride, xq, params);
-    } else {
+    }
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
+    else {
         return svt_av1_highbd_pixel_proj_error(
             src8, width, height, src_stride, dat8, dat_stride, flt0, flt0_stride, flt1, flt1_stride, xq, params);
     }
+#endif
 }
 
 static int64_t finer_search_pixel_proj_error(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride,
@@ -693,6 +689,7 @@ void svt_av1_compute_stats_c(int32_t wiener_win, const uint8_t *dgd, const uint8
         for (l = k + 1; l < wiener_win2; ++l) H[l * wiener_win2 + k] = H[k * wiener_win2 + l];
     }
 }
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
 void svt_av1_compute_stats_highbd_c(int32_t wiener_win, const uint8_t *dgd8, const uint8_t *src8, int32_t h_start,
                                     int32_t h_end, int32_t v_start, int32_t v_end, int32_t dgd_stride,
                                     int32_t src_stride, int64_t *M, int64_t *H, EbBitDepth bit_depth) {
@@ -743,6 +740,7 @@ void svt_av1_compute_stats_highbd_c(int32_t wiener_win, const uint8_t *dgd8, con
         }
     }
 }
+#endif
 
 static INLINE int32_t wrap_index(int32_t i, int32_t wiener_win) {
     const int32_t wiener_halfwin1 = (wiener_win >> 1) + 1;
@@ -1198,9 +1196,6 @@ static int32_t rest_tiles_in_plane(const Av1Common *cm, int32_t plane) {
     return rsi->units_per_tile;
 }
 
-void *svt_aom_memalign(size_t align, size_t size);
-void  svt_aom_free(void *memblk);
-
 /* Perform search for the best self-guided filter parameters and compute the SSE. */
 static void search_sgrproj_seg(const RestorationTileLimits *limits, const Av1PixelRect *tile, int32_t rest_unit_idx,
                                void *priv) {
@@ -1305,7 +1300,8 @@ static void search_wiener_seg(const RestorationTileLimits *limits, const Av1Pixe
         EB_ALIGN(32) int64_t H[WIENER_WIN2 * WIENER_WIN2];
         int32_t              vfilterd[WIENER_WIN], hfilterd[WIENER_WIN];
 
-        if (cm->use_highbitdepth)
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
+        if (cm->use_highbitdepth) {
             svt_av1_compute_stats_highbd(wiener_win,
                                          rsc->dgd_buffer,
                                          rsc->src_buffer,
@@ -1318,7 +1314,9 @@ static void search_wiener_seg(const RestorationTileLimits *limits, const Av1Pixe
                                          M,
                                          H,
                                          (EbBitDepth)cm->bit_depth);
-        else
+        } else
+#endif
+        {
             svt_av1_compute_stats(wiener_win,
                                   rsc->dgd_buffer,
                                   rsc->src_buffer,
@@ -1330,6 +1328,7 @@ static void search_wiener_seg(const RestorationTileLimits *limits, const Av1Pixe
                                   rsc->src_stride,
                                   M,
                                   H);
+        }
 
         if (!wiener_decompose_sep_sym(wiener_win, M, H, vfilterd, hfilterd)) {
             SVT_LOG("CHKN never get here\n");

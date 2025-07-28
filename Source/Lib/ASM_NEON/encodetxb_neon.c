@@ -679,8 +679,8 @@ void svt_aom_downsample_2d_neon(uint8_t *input_samples, // input parameter, inpu
     }
 }
 
-void svt_copy_mi_map_grid_neon(ModeInfo **mi_grid_ptr, uint32_t mi_stride, uint8_t num_rows, uint8_t num_cols) {
-    ModeInfo *target = mi_grid_ptr[0];
+void svt_copy_mi_map_grid_neon(MbModeInfo **mi_grid_ptr, uint32_t mi_stride, uint8_t num_rows, uint8_t num_cols) {
+    MbModeInfo *target = mi_grid_ptr[0];
     if (num_cols == 1) {
         for (uint8_t mi_y = 0; mi_y < num_rows; mi_y++) {
             const int32_t mi_idx = 0 + mi_y * mi_stride;

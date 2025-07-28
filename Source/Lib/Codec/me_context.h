@@ -328,7 +328,7 @@ typedef struct SearchAreaMinMax {
 } SearchAreaMinMax;
 typedef struct SearchInfo {
     SearchArea sa; // search area sizes
-    IntMv      best_mv; // best mv
+    Mv         best_mv; // best mv
     uint64_t   sad; // best sad
     uint8_t    valid; //1 if the mv+sad are valid; invalid for some pruned references.
 } SearchInfo;
@@ -403,7 +403,6 @@ typedef struct MeContext {
     uint32_t           p_eight_sad32x32[4][8];
     uint32_t           p_eight_sad16x16[16][8];
     uint32_t           p_eight_sad8x8[64][8];
-    EbBitFraction     *mvd_bits_array;
     uint8_t            hme_search_method;
     uint8_t            me_search_method;
     bool               enable_hme_flag;
@@ -479,7 +478,6 @@ typedef struct MeContext {
     int16_t  tf_8x8_mv_y[64];
     uint64_t tf_8x8_block_error[64];
     int      tf_16x16_block_split_flag[4][4];
-
     int16_t  tf_32x32_mv_x[4];
     int16_t  tf_32x32_mv_y[4];
     uint64_t tf_32x32_block_error[4];
@@ -490,6 +488,7 @@ typedef struct MeContext {
     uint16_t tf_mv_dist_th;
     int32_t  prune_me_candidates_th;
     uint8_t  use_best_unipred_cand_only; // Use only the best unipred candidate when MRP is off
+    uint8_t  sc_class_me_boost;
     uint8_t  reduce_hme_l0_sr_th_min;
     uint8_t  reduce_hme_l0_sr_th_max;
     uint16_t tf_me_exit_th;

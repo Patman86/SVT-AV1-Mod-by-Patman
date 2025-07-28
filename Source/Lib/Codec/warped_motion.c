@@ -349,7 +349,7 @@ static int16_t resolve_divisor_32(uint32_t D, int16_t *shift) {
     return div_lut[f];
 }
 
-static int is_affine_valid(const EbWarpedMotionParams *const wm) {
+static int is_affine_valid(const WarpedMotionParams *const wm) {
     const int32_t *mat = wm->wmmat;
     return (mat[2] > 0);
 }
@@ -362,8 +362,8 @@ static int is_affine_shear_allowed(int16_t alpha, int16_t beta, int16_t gamma, i
         return 1;
 }
 
-static int find_affine_int(int np, const int *pts1, const int *pts2, BlockSize bsize, int mvy, int mvx,
-                           EbWarpedMotionParams *wm, int mi_row, int mi_col) {
+static int find_affine_int(int np, const int *pts1, const int *pts2, BlockSize bsize, Mv mv, WarpedMotionParams *wm,
+                           int mi_row, int mi_col) {
     int32_t A[2][2] = {{0, 0}, {0, 0}};
     int32_t bx[2]   = {0, 0};
     int32_t by[2]   = {0, 0};
@@ -375,8 +375,8 @@ static int find_affine_int(int np, const int *pts1, const int *pts2, BlockSize b
     const int rsux = (AOMMAX(bw, MI_SIZE) / 2 - 1);
     const int suy  = rsuy * 8;
     const int sux  = rsux * 8;
-    const int duy  = suy + mvy;
-    const int dux  = sux + mvx;
+    const int duy  = suy + mv.y;
+    const int dux  = sux + mv.x;
     const int isuy = (mi_row * MI_SIZE + rsuy);
     const int isux = (mi_col * MI_SIZE + rsux);
 
@@ -459,9 +459,9 @@ static int find_affine_int(int np, const int *pts1, const int *pts2, BlockSize b
     // 2nd and 3rd terms are (2^16 - 1) * (2^13 - 1). That leaves enough room
     // for the first term so that the overall sum in the worst case fits
     // within 32 bits overall.
-    int32_t vx = mvx * (1 << (WARPEDMODEL_PREC_BITS - 3)) -
+    int32_t vx = mv.x * (1 << (WARPEDMODEL_PREC_BITS - 3)) -
         (isux * (wm->wmmat[2] - (1 << WARPEDMODEL_PREC_BITS)) + isuy * wm->wmmat[3]);
-    int32_t vy = mvy * (1 << (WARPEDMODEL_PREC_BITS - 3)) -
+    int32_t vy = mv.y * (1 << (WARPEDMODEL_PREC_BITS - 3)) -
         (isux * wm->wmmat[4] + isuy * (wm->wmmat[5] - (1 << WARPEDMODEL_PREC_BITS)));
     wm->wmmat[0] = clamp(vx, -WARPEDMODEL_TRANS_CLAMP, WARPEDMODEL_TRANS_CLAMP - 1);
     wm->wmmat[1] = clamp(vy, -WARPEDMODEL_TRANS_CLAMP, WARPEDMODEL_TRANS_CLAMP - 1);
@@ -469,9 +469,9 @@ static int find_affine_int(int np, const int *pts1, const int *pts2, BlockSize b
     return 0;
 }
 
-bool svt_find_projection(int np, int *pts1, int *pts2, BlockSize bsize, int mvy, int mvx,
-                         EbWarpedMotionParams *wm_params, int mi_row, int mi_col) {
-    if (find_affine_int(np, pts1, pts2, bsize, mvy, mvx, wm_params, mi_row, mi_col)) {
+bool svt_find_projection(int np, int *pts1, int *pts2, BlockSize bsize, Mv mv, WarpedMotionParams *wm_params,
+                         int mi_row, int mi_col) {
+    if (find_affine_int(np, pts1, pts2, bsize, mv, wm_params, mi_row, mi_col)) {
         return 1;
     }
 
@@ -678,9 +678,9 @@ void svt_av1_warp_affine_c(const int32_t *mat, const uint8_t *ref, int width, in
     }
 }
 
-void svt_warp_plane(EbWarpedMotionParams *wm, const uint8_t *const ref, int width, int height, int stride,
-                    uint8_t *pred, int p_col, int p_row, int p_width, int p_height, int p_stride, int subsampling_x,
-                    int subsampling_y, ConvolveParams *conv_params) {
+void svt_warp_plane(WarpedMotionParams *wm, const uint8_t *const ref, int width, int height, int stride, uint8_t *pred,
+                    int p_col, int p_row, int p_width, int p_height, int p_stride, int subsampling_x, int subsampling_y,
+                    ConvolveParams *conv_params) {
     assert(wm->wmtype <= AFFINE);
     if (wm->wmtype == ROTZOOM) {
         wm->wmmat[5] = wm->wmmat[2];
@@ -818,7 +818,7 @@ void svt_av1_highbd_warp_affine_c(const int32_t *mat, const uint8_t *ref8b, cons
     }
 }
 
-void svt_highbd_warp_plane(EbWarpedMotionParams *wm, const uint8_t *const ref8, const uint8_t *const ref_2b, int width,
+void svt_highbd_warp_plane(WarpedMotionParams *wm, const uint8_t *const ref8, const uint8_t *const ref_2b, int width,
                            int height, int stride, const uint8_t *const pred8, int p_col, int p_row, int p_width,
                            int p_height, int p_stride, int subsampling_x, int subsampling_y, int bd,
                            ConvolveParams *conv_params) {
@@ -857,7 +857,7 @@ void svt_highbd_warp_plane(EbWarpedMotionParams *wm, const uint8_t *const ref8, 
                                delta);
 }
 
-void svt_av1_warp_plane(EbWarpedMotionParams *wm, int use_hbd, int bd, const uint8_t *ref, const uint8_t *ref_2b,
+void svt_av1_warp_plane(WarpedMotionParams *wm, int use_hbd, int bd, const uint8_t *ref, const uint8_t *ref_2b,
                         int width, int height, int stride, uint8_t *pred, int p_col, int p_row, int p_width,
                         int p_height, int p_stride, int subsampling_x, int subsampling_y, ConvolveParams *conv_params) {
     if (use_hbd)
@@ -895,7 +895,7 @@ void svt_av1_warp_plane(EbWarpedMotionParams *wm, int use_hbd, int bd, const uin
 }
 
 // Returns 1 on success or 0 on an invalid affine set
-int svt_get_shear_params(EbWarpedMotionParams *wm) {
+int svt_get_shear_params(WarpedMotionParams *wm) {
     const int32_t *mat = wm->wmmat;
     if (!is_affine_valid(wm))
         return 0;
@@ -921,52 +921,23 @@ int svt_get_shear_params(EbWarpedMotionParams *wm) {
 }
 
 // Select samples according to the motion vector difference.
-int svt_aom_select_samples(MV *mv, int *pts, int *pts_inref, int len, BlockSize bsize) {
-    const uint8_t bw                          = block_size_wide[bsize];
-    const uint8_t bh                          = block_size_high[bsize];
-    const int     thresh                      = clamp(AOMMAX(bw, bh), 16, 112);
-    int           pts_mvd[SAMPLES_ARRAY_SIZE] = {0};
-    int           i, j, k, l = len;
-    int           ret = 0;
+uint8_t svt_aom_select_samples(Mv mv, int *pts, int *pts_inref, int len, BlockSize bsize) {
+    const int bw     = block_size_wide[bsize];
+    const int bh     = block_size_high[bsize];
+    const int thresh = clamp(AOMMAX(bw, bh), 16, 112);
+    uint8_t   ret    = 0;
 
-    // Obtain the motion vector difference.
-    for (i = 0; i < len; ++i) {
-        pts_mvd[i] = abs(pts_inref[2 * i] - pts[2 * i] - mv->col) +
-            abs(pts_inref[2 * i + 1] - pts[2 * i + 1] - mv->row);
-
-        if (pts_mvd[i] > thresh)
-            pts_mvd[i] = -1;
-        else
-            ret++;
-    }
-
-    // Keep at least 1 sample.
-    if (!ret)
-        return 1;
-
-    i = 0;
-    j = l - 1;
-    for (k = 0; k < l - ret; k++) {
-        while (pts_mvd[i] != -1) i++;
-        if (j < 0)
-            break;
-        while (pts_mvd[j] == -1) {
-            j--;
-            if (j < 0)
-                break;
+    // Only keep the samples with MV differences within threshold.
+    for (int i = 0; i < len; ++i) {
+        const int diff = abs(pts_inref[2 * i] - pts[2 * i] - mv.x) + abs(pts_inref[2 * i + 1] - pts[2 * i + 1] - mv.y);
+        if (diff > thresh)
+            continue;
+        if (ret != i) {
+            memcpy(pts + 2 * ret, pts + 2 * i, 2 * sizeof(pts[0]));
+            memcpy(pts_inref + 2 * ret, pts_inref + 2 * i, 2 * sizeof(pts_inref[0]));
         }
-        if (i > j)
-            break;
-
-        // Replace the discarded samples;
-        pts_mvd[i]           = pts_mvd[j];
-        pts[2 * i]           = pts[2 * j];
-        pts[2 * i + 1]       = pts[2 * j + 1];
-        pts_inref[2 * i]     = pts_inref[2 * j];
-        pts_inref[2 * i + 1] = pts_inref[2 * j + 1];
-        i++;
-        j--;
+        ++ret;
     }
-
-    return ret;
+    // Keep at least 1 sample.
+    return AOMMAX(ret, 1);
 }

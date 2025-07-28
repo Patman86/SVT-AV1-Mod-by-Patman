@@ -35,9 +35,7 @@ extern "C" {
  * been changed. Used to keep track if a field has been added or not.
  */
 #define SVT_AV1_ENC_ABI_VERSION 0
-
-//***HME***
-
+#define HIERARCHICAL_LEVELS_AUTO ((uint32_t)(~0))
 #define MAX_HIERARCHICAL_LEVEL 6
 #define REF_LIST_MAX_DEPTH 4
 /*!\brief Decorator indicating that given struct/union/enum is packed */
@@ -179,9 +177,9 @@ typedef enum EbSFrameMode {
         2, /**< If the considered frame is not an altref frame, the next base layer inter frame will be made into an S-Frame */
 } EbSFrameMode;
 
-/* Indicates what prediction structure to use
- * was PredStructure in definitions.h
- * Only SVT_AV1_PRED_LOW_DELAY_B and SVT_AV1_PRED_RANDOM_ACCESS are valid
+#if !SVT_AV1_CHECK_VERSION(4, 0, 0) // to be deprecated in v4.0
+/* Do not use the values in SvtAv1PredStructure. Use PredStructure (in definitions.h) instead.
+ * SvtAv1PredStructure will be deprecated in v4.0.
  */
 typedef enum SvtAv1PredStructure {
     SVT_AV1_PRED_LOW_DELAY_P   = 0, // No longer active
@@ -190,6 +188,7 @@ typedef enum SvtAv1PredStructure {
     SVT_AV1_PRED_TOTAL_COUNT   = 3,
     SVT_AV1_PRED_INVALID       = 0xFF,
 } SvtAv1PredStructure;
+#endif
 
 /* Indicates what rate control mode is used.
  * Currently, cqp is distinguised by setting enable_adaptive_quantization to 0
@@ -255,31 +254,25 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      *
      * Default is 1. */
     SvtAv1IntraRefreshType intra_refresh_type;
-
     /* Number of hierarchical layers used to construct GOP.
      * Minigop size = 2^HierarchicalLevels.
      *
-     * Default is 5 upt to M12 4, for M13. */
+     * Default is auto */
     uint32_t hierarchical_levels;
-
     /* Prediction structure used to construct GOP. There are two main structures
-     * supported, which are: Low Delay (P or B) and Random Access.
+     * supported, which are: Low Delay and Random Access.
      *
      * In Low Delay structure, pictures within a mini GOP refer to the previously
      * encoded pictures in display order. In other words, pictures with display
      * order N can only be referenced by pictures with display order greater than
-     * N, and it can only refer pictures with picture order lower than N. The Low
-     * Delay structure can be flat structured (e.g. IPPPPPPP...) or hierarchically
-     * structured. B/b pictures can be used instead of P/p pictures. However, the
-     * reference picture list 0 and the reference picture list 1 will contain the
-     * same reference picture.
+     * N, and it can only refer pictures with picture order lower than N.
      *
      * In Random Access structure, the B/b pictures can refer to reference pictures
      * from both directions (past and future).
      *
-     * Refer to SvtAv1PredStructure enum for valid values.
+     * Refer to PredStructure enum for valid values.
      *
-     * Default is SVT_AV1_PRED_RANDOM_ACCESS. */
+     * Default is RANDOM_ACCESS. */
     uint8_t pred_structure;
 
     // Input Info
@@ -428,15 +421,11 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      *
      * Default is 0. */
     uint32_t max_bit_rate;
-    /* Maxium QP value allowed for rate control use, only applicable when rate
-     * control mode is set to 1. It has to be greater or equal to minQpAllowed.
-     *
+    /* Maxium QP value
      * Default is 63. */
     uint32_t max_qp_allowed;
-    /* Minimum QP value allowed for rate control use, only applicable when rate
-     * control mode is set to 1 or 2. It has to be smaller or equal to maxQpAllowed.
-     *
-     * Default is 4. */
+    /* Minimum QP value
+     * Default is auto. */
     uint32_t min_qp_allowed;
     /**
      * @brief Variable Bit Rate Minimum Section Percentage
@@ -803,6 +792,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * Default is false.
      */
     bool enable_qm;
+
     /**
      * @brief Min quant matrix flatness. Applicable when enable_qm is true.
      * Min value is 0.
@@ -946,6 +936,33 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      */
     bool avif;
 
+    /**
+     * @brief Min chroma quant matrix flatness. Applicable when enable_qm is true.
+     * Min value is 0.
+     * Max value is 15.
+     * Default is 8.
+     */
+    uint8_t min_chroma_qm_level;
+
+    /**
+     * @brief Max chroma quant matrix flatness. Applicable when enable_qm is true.
+     * Min value is 0.
+     * Max value is 15.
+     * Default is 15.
+     */
+    uint8_t max_chroma_qm_level;
+
+    /* @brief Signal to the library to enable real-time coding
+     *
+     * Default is false.
+     */
+    bool rtc;
+    // clang-format off
+    /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
+    uint8_t padding[128 - (sizeof(uint8_t) * 2)
+        - sizeof(bool)
+    ];
+    // clang-format on
 } EbSvtAv1EncConfiguration;
 
 /**

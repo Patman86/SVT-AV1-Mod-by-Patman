@@ -23,6 +23,7 @@
 #include "firstpass.h"
 #include "sequence_control_set.h"
 #include "entropy_coding.h"
+#include "pd_process.h"
 
 static void init_gf_stats(GF_GROUP_STATS *gf_stats);
 // Calculate a modified Error used in distributing bits between easier and
@@ -901,7 +902,7 @@ static void process_first_pass_stats(PictureParentControlSet *pcs, FIRSTPASS_STA
 // For P pictures in the incomplete minigops, since there is no order, we search all of them and set the flag accordingly
 static void is_new_gf_group(PictureParentControlSet *pcs) {
     pcs->is_new_gf_group = 0;
-    if (pcs->slice_type != P_SLICE)
+    if (!svt_aom_is_incomp_mg_frame(pcs))
         pcs->is_new_gf_group = pcs->gf_update_due;
     else {
         for (int pic_i = 0; pic_i < pcs->gf_interval; ++pic_i)
@@ -909,7 +910,7 @@ static void is_new_gf_group(PictureParentControlSet *pcs) {
             if (pcs->gf_group[pic_i] &&
                 (int)ABS((int64_t)pcs->gf_group[pic_i]->picture_number - (int64_t)pcs->picture_number) <=
                     pcs->gf_interval &&
-                pcs->gf_group[pic_i]->slice_type == P_SLICE && pcs->gf_group[pic_i]->gf_update_due)
+                svt_aom_is_incomp_mg_frame(pcs->gf_group[pic_i]) && pcs->gf_group[pic_i]->gf_update_due)
                 pcs->is_new_gf_group = 1;
         if (pcs->is_new_gf_group)
             for (int pic_i = 0; pic_i < pcs->gf_interval; ++pic_i)
@@ -1062,7 +1063,7 @@ void svt_aom_one_pass_rt_rate_alloc(PictureParentControlSet *pcs) {
      */
     // resize dynamic mode only works with 1-pass CBR low delay mode
     if (scs->static_config.resize_mode == RESIZE_DYNAMIC && scs->static_config.pass == ENC_SINGLE_PASS &&
-        scs->static_config.pred_structure == 1) {
+        scs->static_config.pred_structure == LOW_DELAY) {
         dynamic_resize_one_pass_cbr(pcs);
         if (rc->resize_state != scs->resize_pending_params.resize_state) {
             if (rc->resize_state == ORIG)

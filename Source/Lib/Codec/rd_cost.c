@@ -52,37 +52,37 @@ int  svt_aom_allow_intrabc(const FrameHeader *frm_hdr, SliceType slice_type);
 //    MV_JOINT_HNZVNZ = 3, /* Both components nonzero */
 //} MvJointType;
 
-MvJointType svt_av1_get_mv_joint(const MV *mv) {
-    if (mv->row == 0)
-        return mv->col == 0 ? MV_JOINT_ZERO : MV_JOINT_HNZVZ;
+MvJointType svt_av1_get_mv_joint(const Mv *mv) {
+    if (mv->y == 0)
+        return mv->x == 0 ? MV_JOINT_ZERO : MV_JOINT_HNZVZ;
     else
-        return mv->col == 0 ? MV_JOINT_HZVNZ : MV_JOINT_HNZVNZ;
+        return mv->x == 0 ? MV_JOINT_HZVNZ : MV_JOINT_HNZVNZ;
 }
-static int32_t mv_cost(const MV *mv, const int32_t *joint_cost, int32_t *const comp_cost[2]) {
+static int32_t mv_cost(const Mv *mv, const int32_t *joint_cost, int32_t *const comp_cost[2]) {
     int32_t jn_c = svt_av1_get_mv_joint(mv);
-    int32_t res  = joint_cost[jn_c] + comp_cost[0][CLIP3(MV_LOW, MV_UPP, mv->row)] +
-        comp_cost[1][CLIP3(MV_LOW, MV_UPP, mv->col)];
+    int32_t res  = joint_cost[jn_c] + comp_cost[0][CLIP3(MV_LOW, MV_UPP, mv->y)] +
+        comp_cost[1][CLIP3(MV_LOW, MV_UPP, mv->x)];
     return res;
 }
-int32_t svt_av1_mv_bit_cost_light(const MV *mv, const MV *ref) {
+int32_t svt_av1_mv_bit_cost_light(const Mv *mv, const Mv *ref) {
     const uint32_t factor     = 50;
-    const uint32_t absmvdiffx = ABS(mv->col - ref->col);
-    const uint32_t absmvdiffy = ABS(mv->row - ref->row);
+    const uint32_t absmvdiffx = ABS(mv->x - ref->x);
+    const uint32_t absmvdiffy = ABS(mv->y - ref->y);
     const uint32_t mv_rate    = 1296 + (factor * (absmvdiffx + absmvdiffy));
     return mv_rate;
 }
-int32_t svt_av1_mv_bit_cost(const MV *mv, const MV *ref, const int32_t *mvjcost, int32_t *mvcost[2], int32_t weight) {
+int32_t svt_av1_mv_bit_cost(const Mv *mv, const Mv *ref, const int32_t *mvjcost, int32_t *mvcost[2], int32_t weight) {
     // Restrict the size of the MV diff to be within the max AV1 range.  If the MV diff
     // is outside this range, the diff will index beyond the cost array, causing a seg fault.
     // Both the MVs and the MV diffs should be within the allowable range for accessing the MV cost
     // infrastructure.
-    MV temp_diff  = {mv->row - ref->row, mv->col - ref->col};
-    temp_diff.row = MAX(temp_diff.row, MV_LOW);
-    temp_diff.row = MIN(temp_diff.row, MV_UPP);
-    temp_diff.col = MAX(temp_diff.col, MV_LOW);
-    temp_diff.col = MIN(temp_diff.col, MV_UPP);
+    Mv temp_diff = {{mv->x - ref->x, mv->y - ref->y}};
+    temp_diff.y  = MAX(temp_diff.y, MV_LOW);
+    temp_diff.y  = MIN(temp_diff.y, MV_UPP);
+    temp_diff.x  = MAX(temp_diff.x, MV_LOW);
+    temp_diff.x  = MIN(temp_diff.x, MV_UPP);
 
-    const MV diff = temp_diff;
+    const Mv diff = temp_diff;
     return ROUND_POWER_OF_TWO(mv_cost(&diff, mvjcost, mvcost) * weight, 7);
 }
 
@@ -137,10 +137,10 @@ static int32_t av1_transform_type_rate_estimation(struct ModeDecisionContext *ct
         } else {
             if (ext_tx_set > 0) {
                 PredictionMode intra_dir;
-                if (cand_bf->cand->filter_intra_mode != FILTER_INTRA_MODES)
-                    intra_dir = fimode_to_intradir[cand_bf->cand->filter_intra_mode];
+                if (cand_bf->cand->block_mi.filter_intra_mode != FILTER_INTRA_MODES)
+                    intra_dir = fimode_to_intradir[cand_bf->cand->block_mi.filter_intra_mode];
                 else
-                    intra_dir = cand_bf->cand->pred_mode;
+                    intra_dir = cand_bf->cand->block_mi.mode;
                 assert(intra_dir < INTRA_MODES);
                 const TxSetType tx_set_type = get_ext_tx_set_type(transform_size, is_inter, reduced_tx_set_used);
 
@@ -468,7 +468,7 @@ uint64_t svt_av1_cost_coeffs_txb(struct ModeDecisionContext *ctx, uint8_t allow_
                                 width,
                                 height,
                                 levels); // NM - Needs to be optimized - to be combined with the quantisation.
-    const bool is_inter = is_inter_mode(cand_bf->cand->pred_mode);
+    const bool is_inter = is_inter_mode(cand_bf->cand->block_mi.mode);
     // Transform type bit estimation
     cost += plane_type > PLANE_TYPE_Y ? 0
                                       : av1_transform_type_rate_estimation(ctx,
@@ -562,14 +562,14 @@ uint64_t svt_aom_get_intra_uv_fast_rate(PictureControlSet *pcs, struct ModeDecis
     const BlockGeom *const blk_geom = ctx->blk_geom;
     ModeDecisionCandidate *cand     = cand_bf->cand;
     assert(blk_geom->has_uv);
-    assert(!(svt_aom_allow_intrabc(&pcs->ppcs->frm_hdr, pcs->ppcs->slice_type) && cand->use_intrabc));
+    assert(!(svt_aom_allow_intrabc(&pcs->ppcs->frm_hdr, pcs->ppcs->slice_type) && cand->block_mi.use_intrabc));
     MdRateEstimationContext *md_rate_est_ctx = ctx->md_rate_est_ctx;
     const uint8_t            is_cfl_allowed  = (blk_geom->bwidth <= 32 && blk_geom->bheight <= 32) ? 1 : 0;
-    PredictionMode           intra_mode      = (PredictionMode)cand->pred_mode;
+    PredictionMode           intra_mode      = (PredictionMode)cand->block_mi.mode;
     // If CFL alphas are not known yet, calculate the chroma mode bits based on DC Mode. If CFL is selected the chroma mode bits must be updated later
-    const UvPredictionMode chroma_mode = cand->intra_chroma_mode == UV_CFL_PRED && !use_accurate_cfl
+    const UvPredictionMode chroma_mode = cand->block_mi.uv_mode == UV_CFL_PRED && !use_accurate_cfl
         ? UV_DC_PRED
-        : cand->intra_chroma_mode;
+        : cand->block_mi.uv_mode;
     const uint32_t         mi_row      = ctx->blk_org_y >> MI_SIZE_LOG2;
     const uint32_t         mi_col      = ctx->blk_org_x >> MI_SIZE_LOG2;
     // Subsampling assumes YUV 420 content
@@ -582,16 +582,17 @@ uint64_t svt_aom_get_intra_uv_fast_rate(PictureControlSet *pcs, struct ModeDecis
 
     // Estimate chroma angular mode bits; angular offset only allow for bsize >= 8x8
     if (blk_geom->bsize >= BLOCK_8X8 && av1_is_directional_mode(get_uv_mode(chroma_mode))) {
-        chroma_rate += md_rate_est_ctx->angle_delta_fac_bits[chroma_mode - V_PRED]
-                                                            [MAX_ANGLE_DELTA + cand->angle_delta[PLANE_TYPE_UV]];
+        chroma_rate +=
+            md_rate_est_ctx->angle_delta_fac_bits[chroma_mode - V_PRED]
+                                                 [MAX_ANGLE_DELTA + cand->block_mi.angle_delta[PLANE_TYPE_UV]];
     }
 
     // Estimate CFL factor bits when CFL is used
     if (chroma_mode == UV_CFL_PRED) {
-        chroma_rate += (uint64_t)md_rate_est_ctx
-                           ->cfl_alpha_fac_bits[cand->cfl_alpha_signs][CFL_PRED_U][CFL_IDX_U(cand->cfl_alpha_idx)] +
-            (uint64_t)
-                md_rate_est_ctx->cfl_alpha_fac_bits[cand->cfl_alpha_signs][CFL_PRED_V][CFL_IDX_V(cand->cfl_alpha_idx)];
+        chroma_rate += (uint64_t)md_rate_est_ctx->cfl_alpha_fac_bits[cand->block_mi.cfl_alpha_signs][CFL_PRED_U]
+                                                                    [CFL_IDX_U(cand->block_mi.cfl_alpha_idx)] +
+            (uint64_t)md_rate_est_ctx->cfl_alpha_fac_bits[cand->block_mi.cfl_alpha_signs][CFL_PRED_V]
+                                                         [CFL_IDX_V(cand->block_mi.cfl_alpha_idx)];
     }
 
     // Estimate chroma palette mode bits (currently not supported, so just cost of signalling off)
@@ -606,38 +607,24 @@ uint64_t svt_aom_get_intra_uv_fast_rate(PictureControlSet *pcs, struct ModeDecis
     return chroma_rate;
 }
 uint64_t svt_aom_intra_fast_cost(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
-                                 ModeDecisionCandidateBuffer *cand_bf, uint64_t lambda, uint64_t luma_distortion,
-                                 uint64_t chroma_distortion) {
+                                 ModeDecisionCandidateBuffer *cand_bf, uint64_t lambda, uint64_t luma_distortion) {
     const BlockGeom       *blk_geom = ctx->blk_geom;
     BlkStruct             *blk_ptr  = ctx->blk_ptr;
     ModeDecisionCandidate *cand     = cand_bf->cand;
-    if (svt_aom_allow_intrabc(&pcs->ppcs->frm_hdr, pcs->ppcs->slice_type) && cand->use_intrabc) {
+    if (svt_aom_allow_intrabc(&pcs->ppcs->frm_hdr, pcs->ppcs->slice_type) && cand->block_mi.use_intrabc) {
         uint64_t rate = 0;
 
-        RefList ref_list_idx = 0;
-        int16_t pred_ref_x   = cand->pred_mv[ref_list_idx].x;
-        int16_t pred_ref_y   = cand->pred_mv[ref_list_idx].y;
-        int16_t mv_ref_x     = cand->mv[ref_list_idx].x;
-        int16_t mv_ref_y     = cand->mv[ref_list_idx].y;
-        MV      mv;
-        mv.row = mv_ref_y;
-        mv.col = mv_ref_x;
-        MV ref_mv;
-        ref_mv.row        = pred_ref_y;
-        ref_mv.col        = pred_ref_x;
+        Mv      mv        = {.as_int = cand->block_mi.mv[0].as_int};
+        Mv      ref_mv    = {.as_int = cand->pred_mv[0].as_int};
         int    *dvcost[2] = {(int *)&ctx->md_rate_est_ctx->dv_cost[0][MV_MAX],
                              (int *)&ctx->md_rate_est_ctx->dv_cost[1][MV_MAX]};
         int32_t mv_rate   = svt_av1_mv_bit_cost(
             &mv, &ref_mv, ctx->md_rate_est_ctx->dv_joint_cost, dvcost, MV_COST_WEIGHT_SUB);
 
-        rate                      = mv_rate + ctx->md_rate_est_ctx->intrabc_fac_bits[cand->use_intrabc];
+        rate                      = mv_rate + ctx->md_rate_est_ctx->intrabc_fac_bits[cand->block_mi.use_intrabc];
         cand_bf->fast_luma_rate   = rate;
         cand_bf->fast_chroma_rate = 0;
-        uint64_t luma_sad         = luma_distortion;
-        uint64_t chromasad_       = chroma_distortion;
-        uint64_t total_distortion = luma_sad + chromasad_;
-
-        return (RDCOST(lambda, rate, total_distortion));
+        return (RDCOST(lambda, rate, luma_distortion));
     } else {
         // Number of bits for each synatax element
         uint64_t       intra_mode_bits_num          = 0;
@@ -646,18 +633,14 @@ uint64_t svt_aom_intra_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
         uint64_t       intra_filter_mode_bits_num   = 0;
         uint64_t       skip_mode_rate               = 0;
         const uint8_t  skip_mode_ctx                = ctx->skip_mode_ctx;
-        PredictionMode intra_mode                   = (PredictionMode)cand->pred_mode;
+        PredictionMode intra_mode                   = (PredictionMode)cand->block_mi.mode;
         // Luma and chroma rate
         uint32_t rate;
         uint32_t luma_rate   = 0;
         uint32_t chroma_rate = 0;
-        uint64_t luma_sad, chromasad_;
-        assert(intra_mode < INTRA_MODES);
-        // Luma and chroma distortion
-        uint64_t total_distortion;
-        intra_mode_bits_num = pcs->slice_type != I_SLICE
-            ? (uint64_t)ctx->md_rate_est_ctx->mb_mode_fac_bits[size_group_lookup[blk_geom->bsize]][intra_mode]
-            : ZERO_COST;
+        intra_mode_bits_num  = pcs->slice_type != I_SLICE
+             ? (uint64_t)ctx->md_rate_est_ctx->mb_mode_fac_bits[size_group_lookup[blk_geom->bsize]][intra_mode]
+             : ZERO_COST;
 
         skip_mode_rate = pcs->slice_type != I_SLICE && pcs->ppcs->frm_hdr.skip_mode_params.skip_mode_flag &&
                 is_comp_ref_allowed(blk_geom->bsize)
@@ -669,12 +652,12 @@ uint64_t svt_aom_intra_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
                   ctx->md_rate_est_ctx->y_mode_fac_bits[ctx->intra_luma_top_ctx][ctx->intra_luma_left_ctx][intra_mode]
             : ZERO_COST;
         // Estimate luma angular mode bits
-        if (blk_geom->bsize >= BLOCK_8X8 && av1_is_directional_mode(cand->pred_mode)) {
+        if (blk_geom->bsize >= BLOCK_8X8 && av1_is_directional_mode(cand->block_mi.mode)) {
             assert((intra_mode - V_PRED) < 8);
             assert((intra_mode - V_PRED) >= 0);
             intra_luma_ang_mode_bits_num =
-                ctx->md_rate_est_ctx
-                    ->angle_delta_fac_bits[intra_mode - V_PRED][MAX_ANGLE_DELTA + cand->angle_delta[PLANE_TYPE_Y]];
+                ctx->md_rate_est_ctx->angle_delta_fac_bits[intra_mode - V_PRED]
+                                                          [MAX_ANGLE_DELTA + cand->block_mi.angle_delta[PLANE_TYPE_Y]];
         }
         if (svt_aom_allow_palette(pcs->ppcs->frm_hdr.allow_screen_content_tools, blk_geom->bsize) &&
             intra_mode == DC_PRED) {
@@ -711,9 +694,10 @@ uint64_t svt_aom_intra_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
                                          intra_mode)) {
             intra_filter_mode_bits_num =
                 ctx->md_rate_est_ctx
-                    ->filter_intra_fac_bits[blk_geom->bsize][cand->filter_intra_mode != FILTER_INTRA_MODES];
-            if (cand->filter_intra_mode != FILTER_INTRA_MODES) {
-                intra_filter_mode_bits_num += ctx->md_rate_est_ctx->filter_intra_mode_fac_bits[cand->filter_intra_mode];
+                    ->filter_intra_fac_bits[blk_geom->bsize][cand->block_mi.filter_intra_mode != FILTER_INTRA_MODES];
+            if (cand->block_mi.filter_intra_mode != FILTER_INTRA_MODES) {
+                intra_filter_mode_bits_num +=
+                    ctx->md_rate_est_ctx->filter_intra_mode_fac_bits[cand->block_mi.filter_intra_mode];
             }
         }
         if (blk_geom->has_uv) {
@@ -727,27 +711,16 @@ uint64_t svt_aom_intra_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
         luma_rate              = (uint32_t)(intra_mode_bits_num + skip_mode_rate + intra_luma_mode_bits_num +
                                intra_luma_ang_mode_bits_num + is_inter_rate + intra_filter_mode_bits_num);
         if (svt_aom_allow_intrabc(&pcs->ppcs->frm_hdr, pcs->ppcs->slice_type)) {
-            svt_aom_assert_err(cand->use_intrabc == 0, "this block ibc should be off\n");
-            luma_rate += ctx->md_rate_est_ctx->intrabc_fac_bits[cand->use_intrabc];
+            svt_aom_assert_err(cand->block_mi.use_intrabc == 0, "this block ibc should be off\n");
+            luma_rate += ctx->md_rate_est_ctx->intrabc_fac_bits[cand->block_mi.use_intrabc];
         }
         // Keep the Fast Luma and Chroma rate for future use
         cand_bf->fast_luma_rate   = luma_rate;
         cand_bf->fast_chroma_rate = chroma_rate;
-        luma_sad                  = luma_distortion;
-        chromasad_                = chroma_distortion;
-        total_distortion          = luma_sad + chromasad_;
-
-        rate = luma_rate + chroma_rate;
-
+        rate                      = luma_rate + chroma_rate;
         // Assign fast cost
-        return (RDCOST(lambda, rate, total_distortion));
+        return (RDCOST(lambda, rate, luma_distortion));
     }
-}
-static INLINE int svt_aom_has_second_ref(const MbModeInfo *mbmi) { return mbmi->block_mi.ref_frame[1] > INTRA_FRAME; }
-
-static INLINE int svt_aom_has_uni_comp_refs(const MbModeInfo *mbmi) {
-    return svt_aom_has_second_ref(mbmi) &&
-        (!((mbmi->block_mi.ref_frame[0] >= BWDREF_FRAME) ^ (mbmi->block_mi.ref_frame[1] >= BWDREF_FRAME)));
 }
 
 // This function encodes the reference frame
@@ -755,8 +728,7 @@ uint64_t estimate_ref_frame_type_bits(struct ModeDecisionContext *ctx, BlkStruct
                                       bool is_compound) {
     uint64_t ref_rate_bits = 0;
 
-    // const MbModeInfo *const mbmi = &blk_ptr->av1xd->mi[0]->mbmi;
-    MbModeInfo *const mbmi = &blk_ptr->av1xd->mi[0]->mbmi;
+    MbModeInfo *const mbmi = blk_ptr->av1xd->mi[0];
     MvReferenceFrame  ref_type[2];
     av1_set_ref_frame(ref_type, ref_frame_type);
     mbmi->block_mi.ref_frame[0] = ref_type[0];
@@ -764,8 +736,8 @@ uint64_t estimate_ref_frame_type_bits(struct ModeDecisionContext *ctx, BlkStruct
     //const int is_compound = svt_aom_has_second_ref(mbmi);
     {
         if (is_compound) {
-            const CompReferenceType comp_ref_type = svt_aom_has_uni_comp_refs(mbmi) ? UNIDIR_COMP_REFERENCE
-                                                                                    : BIDIR_COMP_REFERENCE;
+            const CompReferenceType comp_ref_type = has_uni_comp_refs(&mbmi->block_mi) ? UNIDIR_COMP_REFERENCE
+                                                                                       : BIDIR_COMP_REFERENCE;
 
             ref_rate_bits += ctx->md_rate_est_ctx->comp_ref_type_fac_bits[svt_aom_get_comp_reference_type_context_new(
                 blk_ptr->av1xd)][comp_ref_type];
@@ -892,31 +864,32 @@ uint64_t estimate_ref_frame_type_bits(struct ModeDecisionContext *ctx, BlkStruct
 
 int                    svt_aom_get_comp_group_idx_context_enc(const MacroBlockD *xd);
 int                    is_any_masked_compound_used(BlockSize bsize);
-static INLINE uint32_t get_compound_mode_rate(struct ModeDecisionContext *ctx, ModeDecisionCandidate *cand,
-                                              BlkStruct *blk_ptr, uint8_t ref_frame_type, BlockSize bsize,
-                                              SequenceControlSet *scs, PictureControlSet *pcs) {
-    uint32_t          comp_rate = 0;
-    MbModeInfo *const mbmi      = &blk_ptr->av1xd->mi[0]->mbmi;
-    MvReferenceFrame  rf[2];
-    av1_set_ref_frame(rf, ref_frame_type);
-    mbmi->block_mi.ref_frame[0] = rf[0];
-    mbmi->block_mi.ref_frame[1] = rf[1];
+static INLINE uint32_t get_compound_mode_rate(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
+                                              ModeDecisionCandidate *cand, BlockSize bsize) {
+    BlkStruct          *blk_ptr   = ctx->blk_ptr;
+    SequenceControlSet *scs       = pcs->ppcs->scs;
+    uint32_t            comp_rate = 0;
+    MbModeInfo *const   mbmi      = blk_ptr->av1xd->mi[0];
+    MvReferenceFrame    rf[2]     = {cand->block_mi.ref_frame[0], cand->block_mi.ref_frame[1]};
+    mbmi->block_mi.ref_frame[0]   = rf[0];
+    mbmi->block_mi.ref_frame[1]   = rf[1];
 
     //NOTE  :  Make sure, any cuPtr data is already set before   usage
 
-    if (svt_aom_has_second_ref(mbmi)) {
+    if (has_second_ref(&mbmi->block_mi)) {
         const int masked_compound_used = is_any_masked_compound_used(bsize) && scs->seq_header.enable_masked_compound;
 
         if (masked_compound_used) {
             const int ctx_comp_group_idx = svt_aom_get_comp_group_idx_context_enc(blk_ptr->av1xd);
-            comp_rate = ctx->md_rate_est_ctx->comp_group_idx_fac_bits[ctx_comp_group_idx][cand->comp_group_idx];
+            comp_rate =
+                ctx->md_rate_est_ctx->comp_group_idx_fac_bits[ctx_comp_group_idx][cand->block_mi.comp_group_idx];
         } else {
-            assert(cand->comp_group_idx == 0);
+            assert(cand->block_mi.comp_group_idx == 0);
         }
 
-        if (cand->comp_group_idx == 0) {
-            if (cand->compound_idx)
-                assert(cand->interinter_comp.type == COMPOUND_AVERAGE);
+        if (cand->block_mi.comp_group_idx == 0) {
+            if (cand->block_mi.compound_idx)
+                assert(cand->block_mi.interinter_comp.type == COMPOUND_AVERAGE);
 
             if (scs->seq_header.order_hint_info.enable_jnt_comp) {
                 const int comp_index_ctx = svt_aom_get_comp_index_context_enc(pcs->ppcs,
@@ -924,26 +897,29 @@ static INLINE uint32_t get_compound_mode_rate(struct ModeDecisionContext *ctx, M
                                                                               pcs->ppcs->ref_order_hint[rf[0] - 1],
                                                                               pcs->ppcs->ref_order_hint[rf[1] - 1],
                                                                               blk_ptr->av1xd);
-                comp_rate += ctx->md_rate_est_ctx->comp_idx_fac_bits[comp_index_ctx][cand->compound_idx];
+                comp_rate += ctx->md_rate_est_ctx->comp_idx_fac_bits[comp_index_ctx][cand->block_mi.compound_idx];
             } else {
-                assert(cand->compound_idx == 1);
+                assert(cand->block_mi.compound_idx == 1);
             }
         } else {
-            assert(pcs->ppcs->frm_hdr.reference_mode != SINGLE_REFERENCE && is_inter_compound_mode(cand->pred_mode));
+            assert(pcs->ppcs->frm_hdr.reference_mode != SINGLE_REFERENCE &&
+                   is_inter_compound_mode(cand->block_mi.mode));
             assert(masked_compound_used);
             // compound_diffwtd, wedge
-            assert(cand->interinter_comp.type == COMPOUND_WEDGE || cand->interinter_comp.type == COMPOUND_DIFFWTD);
+            assert(cand->block_mi.interinter_comp.type == COMPOUND_WEDGE ||
+                   cand->block_mi.interinter_comp.type == COMPOUND_DIFFWTD);
 
             if (is_interinter_compound_used(COMPOUND_WEDGE, bsize))
-                comp_rate +=
-                    ctx->md_rate_est_ctx->compound_type_fac_bits[bsize][cand->interinter_comp.type - COMPOUND_WEDGE];
+                comp_rate += ctx->md_rate_est_ctx
+                                 ->compound_type_fac_bits[bsize][cand->block_mi.interinter_comp.type - COMPOUND_WEDGE];
 
-            if (cand->interinter_comp.type == COMPOUND_WEDGE) {
+            if (cand->block_mi.interinter_comp.type == COMPOUND_WEDGE) {
                 assert(is_interinter_compound_used(COMPOUND_WEDGE, bsize));
-                comp_rate += ctx->md_rate_est_ctx->wedge_idx_fac_bits[bsize][cand->interinter_comp.wedge_index];
+                comp_rate +=
+                    ctx->md_rate_est_ctx->wedge_idx_fac_bits[bsize][cand->block_mi.interinter_comp.wedge_index];
                 comp_rate += av1_cost_literal(1);
             } else {
-                assert(cand->interinter_comp.type == COMPOUND_DIFFWTD);
+                assert(cand->block_mi.interinter_comp.type == COMPOUND_DIFFWTD);
                 comp_rate += av1_cost_literal(1);
             }
         }
@@ -951,35 +927,44 @@ static INLINE uint32_t get_compound_mode_rate(struct ModeDecisionContext *ctx, M
 
     return comp_rate;
 }
+int32_t svt_aom_get_switchable_rate(BlockModeInfo *block_mi, const FrameHeader *const frm_hdr, ModeDecisionContext *ctx,
+                                    const bool enable_dual_filter) {
+    if (frm_hdr->interpolation_filter != SWITCHABLE)
+        return 0;
+
+    int32_t   inter_filter_cost = 0;
+    const int max_dir           = enable_dual_filter ? 2 : 1;
+    for (int dir = 0; dir < max_dir; ++dir) {
+        const int32_t pred_ctx = svt_aom_get_pred_context_switchable_interp(
+            block_mi->ref_frame[0], block_mi->ref_frame[1], ctx->blk_ptr->av1xd, dir);
+        const InterpFilter filter = av1_extract_interp_filter(block_mi->interp_filters, dir);
+        assert(pred_ctx < SWITCHABLE_FILTER_CONTEXTS);
+        assert(filter < SWITCHABLE_FILTERS);
+        inter_filter_cost += ctx->md_rate_est_ctx->switchable_interp_fac_bitss[pred_ctx][filter];
+    }
+    return inter_filter_cost;
+}
 int             svt_aom_is_interintra_wedge_used(BlockSize bsize);
 static uint64_t av1_inter_fast_cost_light(struct ModeDecisionContext *ctx, BlkStruct *blk_ptr,
                                           ModeDecisionCandidateBuffer *cand_bf, uint64_t luma_distortion,
-                                          uint64_t chroma_distortion, uint64_t lambda, PictureControlSet *pcs,
-                                          CandidateMv *ref_mv_stack) {
+                                          uint64_t lambda, PictureControlSet *pcs, CandidateMv *ref_mv_stack) {
     ModeDecisionCandidate *cand = cand_bf->cand;
     // NM - fast inter cost estimation
     MdRateEstimationContext *r = ctx->md_rate_est_ctx;
     //_mm_prefetch(p, _MM_HINT_T2);
     // Luma rate
-    uint32_t luma_rate   = 0;
-    uint32_t chroma_rate = 0;
-    uint64_t mv_rate     = 0;
-    // Luma and chroma distortion
-    uint64_t luma_sad;
-    uint64_t chromasad_;
-    uint64_t total_distortion;
-
-    uint32_t             rate;
-    const PredictionMode inter_mode          = (PredictionMode)cand->pred_mode;
+    uint32_t             luma_rate           = 0;
+    uint64_t             mv_rate             = 0;
+    const PredictionMode inter_mode          = (PredictionMode)cand->block_mi.mode;
     const uint8_t        have_nearmv         = have_nearmv_in_inter_mode(inter_mode);
     uint64_t             inter_mode_bits_num = 0;
     const uint8_t        skip_mode_ctx       = ctx->skip_mode_ctx;
-    MvReferenceFrame     rf[2];
-    av1_set_ref_frame(rf, cand->ref_frame_type);
-    const uint8_t  is_compound  = is_inter_compound_mode(cand->pred_mode);
-    const uint32_t mode_context = svt_aom_mode_context_analyzer(ctx->inter_mode_ctx[cand->ref_frame_type], rf);
-    uint64_t       reference_picture_bits_num = 0;
-    reference_picture_bits_num                = ctx->estimate_ref_frames_num_bits[cand->ref_frame_type];
+    MvReferenceFrame     rf[2]               = {cand->block_mi.ref_frame[0], cand->block_mi.ref_frame[1]};
+    const int8_t         ref_frame_type      = av1_ref_frame_type(rf);
+    const uint8_t        is_compound         = is_inter_compound_mode(cand->block_mi.mode);
+    const uint32_t       mode_context        = svt_aom_mode_context_analyzer(ctx->inter_mode_ctx[ref_frame_type], rf);
+    uint64_t             reference_picture_bits_num = 0;
+    reference_picture_bits_num                      = ctx->estimate_ref_frames_num_bits[ref_frame_type];
     if (is_compound) {
         assert(INTER_COMPOUND_OFFSET(inter_mode) < INTER_COMPOUND_MODES);
         inter_mode_bits_num += r->inter_compound_mode_fac_bits[mode_context][INTER_COMPOUND_OFFSET(inter_mode)];
@@ -1004,7 +989,7 @@ static uint64_t av1_inter_fast_cost_light(struct ModeDecisionContext *ctx, BlkSt
         if (new_mv) {
             int32_t idx;
             for (idx = 0; idx < 2; ++idx) {
-                if (blk_ptr->av1xd->ref_mv_count[cand->ref_frame_type] > idx + 1) {
+                if (blk_ptr->av1xd->ref_mv_count[ref_frame_type] > idx + 1) {
                     uint8_t drl_1_ctx = av1_drl_ctx(ref_mv_stack, idx);
                     inter_mode_bits_num += r->drl_mode_fac_bits[drl_1_ctx][cand->drl_index != idx];
                     if (cand->drl_index == idx)
@@ -1015,7 +1000,7 @@ static uint64_t av1_inter_fast_cost_light(struct ModeDecisionContext *ctx, BlkSt
         if (have_nearmv) {
             int32_t idx;
             for (idx = 1; idx < 3; ++idx) {
-                if (blk_ptr->av1xd->ref_mv_count[cand->ref_frame_type] > idx + 1) {
+                if (blk_ptr->av1xd->ref_mv_count[ref_frame_type] > idx + 1) {
                     uint8_t drl_ctx = av1_drl_ctx(ref_mv_stack, idx);
                     inter_mode_bits_num += r->drl_mode_fac_bits[drl_ctx][cand->drl_index != (idx - 1)];
                     if (cand->drl_index == (idx - 1))
@@ -1030,138 +1015,92 @@ static uint64_t av1_inter_fast_cost_light(struct ModeDecisionContext *ctx, BlkSt
             mv_rate = 0;
             if (inter_mode == NEW_NEWMV) {
                 for (RefList ref_list_idx = 0; ref_list_idx < 2; ++ref_list_idx) {
-                    MV mv = {
-                        .row = cand->mv[ref_list_idx].y,
-                        .col = cand->mv[ref_list_idx].x,
-                    };
-
-                    MV ref_mv = {
-                        .row = cand->pred_mv[ref_list_idx].y,
-                        .col = cand->pred_mv[ref_list_idx].x,
-                    };
-                    const uint16_t absmvdiffx = ABS(mv.col - ref_mv.col);
-                    const uint16_t absmvdiffy = ABS(mv.row - ref_mv.row);
+                    Mv             mv         = cand->block_mi.mv[ref_list_idx];
+                    Mv             ref_mv     = cand->pred_mv[ref_list_idx];
+                    const uint16_t absmvdiffx = ABS(mv.x - ref_mv.x);
+                    const uint16_t absmvdiffy = ABS(mv.y - ref_mv.y);
                     mv_rate += 1296 + (factor * (absmvdiffx + absmvdiffy));
                 }
             } else if (inter_mode == NEAREST_NEWMV || inter_mode == NEAR_NEWMV) {
-                MV mv = {
-                    .row = cand->mv[REF_LIST_1].y,
-                    .col = cand->mv[REF_LIST_1].x,
-                };
-
-                MV ref_mv = {
-                    .row = cand->pred_mv[REF_LIST_1].y,
-                    .col = cand->pred_mv[REF_LIST_1].x,
-                };
-                const uint16_t absmvdiffx = ABS(mv.col - ref_mv.col);
-                const uint16_t absmvdiffy = ABS(mv.row - ref_mv.row);
+                // New MV is second ref
+                Mv             mv         = cand->block_mi.mv[1];
+                Mv             ref_mv     = cand->pred_mv[1];
+                const uint16_t absmvdiffx = ABS(mv.x - ref_mv.x);
+                const uint16_t absmvdiffy = ABS(mv.y - ref_mv.y);
                 mv_rate += 1296 + (factor * (absmvdiffx + absmvdiffy));
             } else {
                 assert(inter_mode == NEW_NEARESTMV || inter_mode == NEW_NEARMV);
-                MV mv = {
-                    .row = cand->mv[REF_LIST_0].y,
-                    .col = cand->mv[REF_LIST_0].x,
-                };
-
-                MV ref_mv = {
-                    .row = cand->pred_mv[REF_LIST_0].y,
-                    .col = cand->pred_mv[REF_LIST_0].x,
-                };
-                const uint16_t absmvdiffx = ABS(mv.col - ref_mv.col);
-                const uint16_t absmvdiffy = ABS(mv.row - ref_mv.row);
+                // New MV is first ref
+                Mv             mv         = cand->block_mi.mv[0];
+                Mv             ref_mv     = cand->pred_mv[0];
+                const uint16_t absmvdiffx = ABS(mv.x - ref_mv.x);
+                const uint16_t absmvdiffy = ABS(mv.y - ref_mv.y);
                 mv_rate += 1296 + (factor * (absmvdiffx + absmvdiffy));
             }
         } else {
             assert(!is_compound); // single ref inter prediction
-            RefList ref_list_idx = get_list_idx(rf[0]);
-            MV      mv           = {
-                               .row = cand->mv[ref_list_idx].y,
-                               .col = cand->mv[ref_list_idx].x,
-            };
-
-            MV ref_mv = {
-                .row = cand->pred_mv[ref_list_idx].y,
-                .col = cand->pred_mv[ref_list_idx].x,
-            };
-            const uint16_t absmvdiffx = ABS(mv.col - ref_mv.col);
-            const uint16_t absmvdiffy = ABS(mv.row - ref_mv.row);
+            // unipred MV stored in idx0
+            Mv             mv         = cand->block_mi.mv[0];
+            Mv             ref_mv     = cand->pred_mv[0];
+            const uint16_t absmvdiffx = ABS(mv.x - ref_mv.x);
+            const uint16_t absmvdiffy = ABS(mv.y - ref_mv.y);
             mv_rate += 1296 + (factor * (absmvdiffx + absmvdiffy));
         }
     }
-    // NM - To be added when the overlappable mode is adopted
-    //    read_compound_type(is_compound)
-    // NM - To be added when switchable filter is adopted
-    //    if (interpolation_filter == SWITCHABLE) {
-    //        for (dir = 0; dir < (enable_dual_filter ? 2 : 1); dir++) {
-    //            if (needs_interp_filter()) {
-    //            interp_filter[1] = interp_filter[0]
-    //    }
-    //    else {
-    //        for (dir = 0; dir < 2; dir++)
-    //            interp_filter[dir] = interpolation_filter
-    //    }
+    // Get the interpolation filter rate if IFS is performed at MDS0.  Otherwise, the filter is unknown, so the rate will be updated after IFS is performed.
+    uint32_t ifs_rate = 0;
+    if (ctx->ifs_ctrls.level == IFS_MDS0 &&
+        av1_is_interp_needed_md(&cand_bf->cand->block_mi, pcs, ctx->blk_geom->bsize) &&
+        pcs->ppcs->frm_hdr.interpolation_filter == SWITCHABLE) {
+        ifs_rate = svt_aom_get_switchable_rate(
+            &cand_bf->cand->block_mi, &pcs->ppcs->frm_hdr, ctx, pcs->scs->seq_header.enable_dual_filter);
+    }
     uint32_t is_inter_rate = r->intra_inter_fac_bits[ctx->is_inter_ctx][1];
 
     uint32_t skip_mode_rate = pcs->ppcs->frm_hdr.skip_mode_params.skip_mode_flag &&
             is_comp_ref_allowed(ctx->blk_geom->bsize)
         ? r->skip_mode_fac_bits[skip_mode_ctx][0]
         : 0;
-    luma_rate = (uint32_t)(reference_picture_bits_num + skip_mode_rate + inter_mode_bits_num + mv_rate + is_inter_rate);
-    //chroma_rate = intra_chroma_mode_bits_num + intra_chroma_ang_mode_bits_num;
-
+    luma_rate = (uint32_t)(reference_picture_bits_num + skip_mode_rate + inter_mode_bits_num + mv_rate + is_inter_rate +
+                           ifs_rate);
     // Keep the Fast Luma and Chroma rate for future use
     cand_bf->fast_luma_rate   = luma_rate;
-    cand_bf->fast_chroma_rate = chroma_rate;
-    luma_sad                  = luma_distortion;
-    chromasad_                = chroma_distortion;
-    total_distortion          = luma_sad + chromasad_;
-    //if (blk_geom->has_uv == 0 && chromasad_ != 0)
-    //    SVT_LOG("svt_aom_inter_fast_cost: Chroma error");
-    rate = luma_rate + chroma_rate;
+    cand_bf->fast_chroma_rate = 0;
     // Assign fast cost
     if (cand->skip_mode_allowed) {
         skip_mode_rate = r->skip_mode_fac_bits[skip_mode_ctx][1];
-        if (skip_mode_rate < rate)
-            return (RDCOST(lambda, skip_mode_rate, total_distortion));
+        if (skip_mode_rate < luma_rate)
+            return (RDCOST(lambda, skip_mode_rate, luma_distortion));
     }
-    return (RDCOST(lambda, rate, total_distortion));
+    return (RDCOST(lambda, luma_rate, luma_distortion));
 }
 uint64_t svt_aom_inter_fast_cost(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
-                                 ModeDecisionCandidateBuffer *cand_bf, uint64_t lambda, uint64_t luma_distortion,
-                                 uint64_t chroma_distortion) {
-    const BlockGeom       *blk_geom     = ctx->blk_geom;
-    BlkStruct             *blk_ptr      = ctx->blk_ptr;
-    ModeDecisionCandidate *cand         = cand_bf->cand;
-    CandidateMv           *ref_mv_stack = &(ctx->ref_mv_stack[cand->ref_frame_type][0]);
+                                 ModeDecisionCandidateBuffer *cand_bf, uint64_t lambda, uint64_t luma_distortion) {
+    const BlockGeom       *blk_geom       = ctx->blk_geom;
+    BlkStruct             *blk_ptr        = ctx->blk_ptr;
+    ModeDecisionCandidate *cand           = cand_bf->cand;
+    MvReferenceFrame       rf[2]          = {cand->block_mi.ref_frame[0], cand->block_mi.ref_frame[1]};
+    const int8_t           ref_frame_type = av1_ref_frame_type(cand->block_mi.ref_frame);
+    CandidateMv           *ref_mv_stack   = &(ctx->ref_mv_stack[ref_frame_type][0]);
 
     if (ctx->approx_inter_rate)
-        return av1_inter_fast_cost_light(
-            ctx, blk_ptr, cand_bf, luma_distortion, chroma_distortion, lambda, pcs, ref_mv_stack);
+        return av1_inter_fast_cost_light(ctx, blk_ptr, cand_bf, luma_distortion, lambda, pcs, ref_mv_stack);
     FrameHeader *frm_hdr = &pcs->ppcs->frm_hdr;
 
     // Luma rate
-    uint32_t luma_rate   = 0;
-    uint32_t chroma_rate = 0;
-    uint64_t mv_rate     = 0;
-    // Luma and chroma distortion
-    uint64_t luma_sad;
-    uint64_t chromasad_;
-    uint64_t total_distortion;
-
-    uint32_t       rate;
-    PredictionMode inter_mode = (PredictionMode)cand->pred_mode;
+    uint32_t       luma_rate  = 0;
+    uint64_t       mv_rate    = 0;
+    PredictionMode inter_mode = (PredictionMode)cand->block_mi.mode;
 
     uint64_t inter_mode_bits_num = 0;
 
-    const uint8_t    skip_mode_ctx = ctx->skip_mode_ctx;
-    MvReferenceFrame rf[2];
-    av1_set_ref_frame(rf, cand->ref_frame_type);
-    const uint8_t is_compound  = is_inter_compound_mode(cand->pred_mode);
-    uint32_t      mode_context = svt_aom_mode_context_analyzer(ctx->inter_mode_ctx[cand->ref_frame_type], rf);
+    const uint8_t skip_mode_ctx              = ctx->skip_mode_ctx;
+    const uint8_t is_compound                = is_inter_compound_mode(cand->block_mi.mode);
+    uint32_t      mode_context               = svt_aom_mode_context_analyzer(ctx->inter_mode_ctx[ref_frame_type], rf);
     uint64_t      reference_picture_bits_num = 0;
 
     //Reference Type and Mode Bit estimation
-    reference_picture_bits_num = ctx->estimate_ref_frames_num_bits[cand->ref_frame_type];
+    reference_picture_bits_num = ctx->estimate_ref_frames_num_bits[ref_frame_type];
     if (is_compound) {
         assert(INTER_COMPOUND_OFFSET(inter_mode) < INTER_COMPOUND_MODES);
         inter_mode_bits_num +=
@@ -1192,7 +1131,7 @@ uint64_t svt_aom_inter_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
         if (new_mv) {
             int32_t idx;
             for (idx = 0; idx < 2; ++idx) {
-                if (blk_ptr->av1xd->ref_mv_count[cand->ref_frame_type] > idx + 1) {
+                if (blk_ptr->av1xd->ref_mv_count[ref_frame_type] > idx + 1) {
                     uint8_t drl_1_ctx = av1_drl_ctx(ref_mv_stack, idx);
                     inter_mode_bits_num += ctx->md_rate_est_ctx->drl_mode_fac_bits[drl_1_ctx][cand->drl_index != idx];
                     if (cand->drl_index == idx)
@@ -1204,7 +1143,7 @@ uint64_t svt_aom_inter_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
         if (have_nearmv_in_inter_mode(inter_mode)) {
             int32_t idx;
             for (idx = 1; idx < 3; ++idx) {
-                if (blk_ptr->av1xd->ref_mv_count[cand->ref_frame_type] > idx + 1) {
+                if (blk_ptr->av1xd->ref_mv_count[ref_frame_type] > idx + 1) {
                     uint8_t drl_ctx = av1_drl_ctx(ref_mv_stack, idx);
                     inter_mode_bits_num +=
                         ctx->md_rate_est_ctx->drl_mode_fac_bits[drl_ctx][cand->drl_index != (idx - 1)];
@@ -1222,15 +1161,8 @@ uint64_t svt_aom_inter_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
 
             if (inter_mode == NEW_NEWMV) {
                 for (RefList ref_list_idx = 0; ref_list_idx < 2; ++ref_list_idx) {
-                    MV mv = {
-                        .row = cand->mv[ref_list_idx].y,
-                        .col = cand->mv[ref_list_idx].x,
-                    };
-
-                    MV ref_mv = {
-                        .row = cand->pred_mv[ref_list_idx].y,
-                        .col = cand->pred_mv[ref_list_idx].x,
-                    };
+                    Mv mv     = cand->block_mi.mv[ref_list_idx];
+                    Mv ref_mv = cand->pred_mv[ref_list_idx];
                     mv_rate += svt_av1_mv_bit_cost(&mv,
                                                    &ref_mv,
                                                    ctx->md_rate_est_ctx->nmv_vec_cost,
@@ -1238,15 +1170,8 @@ uint64_t svt_aom_inter_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
                                                    MV_COST_WEIGHT);
                 }
             } else if (inter_mode == NEAREST_NEWMV || inter_mode == NEAR_NEWMV) {
-                MV mv = {
-                    .row = cand->mv[REF_LIST_1].y,
-                    .col = cand->mv[REF_LIST_1].x,
-                };
-
-                MV ref_mv = {
-                    .row = cand->pred_mv[REF_LIST_1].y,
-                    .col = cand->pred_mv[REF_LIST_1].x,
-                };
+                Mv mv     = cand->block_mi.mv[1];
+                Mv ref_mv = cand->pred_mv[1];
                 mv_rate += svt_av1_mv_bit_cost(&mv,
                                                &ref_mv,
                                                ctx->md_rate_est_ctx->nmv_vec_cost,
@@ -1254,15 +1179,8 @@ uint64_t svt_aom_inter_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
                                                MV_COST_WEIGHT);
             } else {
                 assert(inter_mode == NEW_NEARESTMV || inter_mode == NEW_NEARMV);
-                MV mv = {
-                    .row = cand->mv[REF_LIST_0].y,
-                    .col = cand->mv[REF_LIST_0].x,
-                };
-
-                MV ref_mv = {
-                    .row = cand->pred_mv[REF_LIST_0].y,
-                    .col = cand->pred_mv[REF_LIST_0].x,
-                };
+                Mv mv     = cand->block_mi.mv[0];
+                Mv ref_mv = cand->pred_mv[0];
                 mv_rate += svt_av1_mv_bit_cost(&mv,
                                                &ref_mv,
                                                ctx->md_rate_est_ctx->nmv_vec_cost,
@@ -1271,53 +1189,48 @@ uint64_t svt_aom_inter_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
             }
         } else {
             assert(!is_compound); // single ref inter prediction
-            RefList ref_list_idx = get_list_idx(rf[0]);
-            MV      mv           = {
-                               .row = cand->mv[ref_list_idx].y,
-                               .col = cand->mv[ref_list_idx].x,
-            };
-
-            MV ref_mv = {
-                .row = cand->pred_mv[ref_list_idx].y,
-                .col = cand->pred_mv[ref_list_idx].x,
-            };
-            mv_rate = svt_av1_mv_bit_cost(
+            // unipred MVs stored in idx0
+            Mv mv     = cand->block_mi.mv[0];
+            Mv ref_mv = cand->pred_mv[0];
+            mv_rate   = svt_av1_mv_bit_cost(
                 &mv, &ref_mv, ctx->md_rate_est_ctx->nmv_vec_cost, ctx->md_rate_est_ctx->nmvcoststack, MV_COST_WEIGHT);
         }
     }
     // inter intra mode rate
-    if (pcs->ppcs->frm_hdr.reference_mode != COMPOUND_REFERENCE &&
-        pcs->ppcs->scs->seq_header.enable_interintra_compound &&
+    if (pcs->ppcs->scs->seq_header.enable_interintra_compound &&
         /* Check if inter-intra is allowed for current block size / mode (even if the feature is off
         * for the current block, we still need to signal inter-intra off.
         */
-        svt_is_interintra_allowed(true, blk_geom->bsize, cand->pred_mode, rf)) {
-        const int interintra  = cand->is_interintra_used;
+        svt_is_interintra_allowed(true, blk_geom->bsize, cand->block_mi.mode, rf)) {
+        const int interintra  = cand->block_mi.is_interintra_used;
         const int bsize_group = size_group_lookup[blk_geom->bsize];
 
-        inter_mode_bits_num += ctx->md_rate_est_ctx->inter_intra_fac_bits[bsize_group][cand->is_interintra_used];
+        inter_mode_bits_num +=
+            ctx->md_rate_est_ctx->inter_intra_fac_bits[bsize_group][cand->block_mi.is_interintra_used];
 
         if (interintra) {
-            inter_mode_bits_num += ctx->md_rate_est_ctx->inter_intra_mode_fac_bits[bsize_group][cand->interintra_mode];
+            inter_mode_bits_num +=
+                ctx->md_rate_est_ctx->inter_intra_mode_fac_bits[bsize_group][cand->block_mi.interintra_mode];
 
             if (svt_aom_is_interintra_wedge_used(blk_geom->bsize)) {
                 inter_mode_bits_num +=
-                    ctx->md_rate_est_ctx->wedge_inter_intra_fac_bits[blk_geom->bsize][cand->use_wedge_interintra];
+                    ctx->md_rate_est_ctx
+                        ->wedge_inter_intra_fac_bits[blk_geom->bsize][cand->block_mi.use_wedge_interintra];
 
-                if (cand->use_wedge_interintra) {
+                if (cand->block_mi.use_wedge_interintra) {
                     inter_mode_bits_num +=
-                        ctx->md_rate_est_ctx->wedge_idx_fac_bits[blk_geom->bsize][cand->interintra_wedge_index];
+                        ctx->md_rate_est_ctx
+                            ->wedge_idx_fac_bits[blk_geom->bsize][cand->block_mi.interintra_wedge_index];
                 }
             }
         }
     }
-    bool is_inter = inter_mode >= SINGLE_INTER_MODE_START && inter_mode < SINGLE_INTER_MODE_END;
-    if (is_inter && frm_hdr->is_motion_mode_switchable && rf[1] != INTRA_FRAME) {
-        MotionMode motion_mode_rd           = cand->motion_mode;
-        BlockSize  bsize                    = blk_geom->bsize;
-        blk_ptr->num_proj_ref               = cand->num_proj_ref;
-        MotionMode last_motion_mode_allowed = svt_aom_motion_mode_allowed(
-            pcs, blk_ptr->num_proj_ref, blk_ptr->overlappable_neighbors, bsize, rf[0], rf[1], inter_mode);
+    if (is_inter_singleref_mode(inter_mode) && frm_hdr->is_motion_mode_switchable && rf[1] != INTRA_FRAME) {
+        assert(!cand->block_mi.is_interintra_used);
+        const MotionMode motion_mode_rd           = cand->block_mi.motion_mode;
+        const BlockSize  bsize                    = blk_geom->bsize;
+        const MotionMode last_motion_mode_allowed = svt_aom_motion_mode_allowed(
+            pcs, cand->block_mi.num_proj_ref, blk_ptr->overlappable_neighbors, bsize, rf[0], rf[1], inter_mode);
         switch (last_motion_mode_allowed) {
         case SIMPLE_TRANSLATION: break;
         case OBMC_CAUSAL:
@@ -1327,51 +1240,31 @@ uint64_t svt_aom_inter_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
         }
     }
     // this func return 0 if masked=0 and distance=0
-    inter_mode_bits_num += get_compound_mode_rate(
-        ctx, cand, blk_ptr, cand->ref_frame_type, blk_geom->bsize, pcs->ppcs->scs, pcs);
-    // NM - To be added when the overlappable mode is adopted
-    //    read_compound_type(is_compound)
-    // NM - To be added when switchable filter is adopted
-    //    if (interpolation_filter == SWITCHABLE) {
-    //        for (dir = 0; dir < (enable_dual_filter ? 2 : 1); dir++) {
-    //            if (needs_interp_filter()) {
-    //                interp_filter[dir]    S()
-    //            }
-    //            else {
-    //                interp_filter[dir] = EIGHTTAP
-    //            }
-    //        }
-    //        if (!enable_dual_filter)
-    //            interp_filter[1] = interp_filter[0]
-    //    }
-    //    else {
-    //        for (dir = 0; dir < 2; dir++)
-    //            interp_filter[dir] = interpolation_filter
-    //    }
+    inter_mode_bits_num += get_compound_mode_rate(pcs, ctx, cand, blk_geom->bsize);
+    // Get the interpolation filter rate if IFS is performed at MDS0.  Otherwise, the filter is unknown, so the rate will be updated after IFS is performed.
+    uint32_t ifs_rate = 0;
+    if (ctx->ifs_ctrls.level == IFS_MDS0 &&
+        av1_is_interp_needed_md(&cand_bf->cand->block_mi, pcs, ctx->blk_geom->bsize) &&
+        frm_hdr->interpolation_filter == SWITCHABLE) {
+        ifs_rate = svt_aom_get_switchable_rate(
+            &cand_bf->cand->block_mi, frm_hdr, ctx, pcs->scs->seq_header.enable_dual_filter);
+    }
     uint32_t is_inter_rate  = ctx->md_rate_est_ctx->intra_inter_fac_bits[ctx->is_inter_ctx][1];
     uint32_t skip_mode_rate = pcs->ppcs->frm_hdr.skip_mode_params.skip_mode_flag && is_comp_ref_allowed(blk_geom->bsize)
         ? ctx->md_rate_est_ctx->skip_mode_fac_bits[skip_mode_ctx][0]
         : 0;
-    luma_rate = (uint32_t)(reference_picture_bits_num + skip_mode_rate + inter_mode_bits_num + mv_rate + is_inter_rate);
-
-    // chroma_rate = intra_chroma_mode_bits_num + intra_chroma_ang_mode_bits_num;
-
+    luma_rate = (uint32_t)(reference_picture_bits_num + skip_mode_rate + inter_mode_bits_num + mv_rate + is_inter_rate +
+                           ifs_rate);
     // Keep the Fast Luma and Chroma rate for future use
     cand_bf->fast_luma_rate   = luma_rate;
-    cand_bf->fast_chroma_rate = chroma_rate;
-    luma_sad                  = luma_distortion;
-    chromasad_                = chroma_distortion;
-    total_distortion          = luma_sad + chromasad_;
-    if (blk_geom->has_uv == 0 && chromasad_ != 0)
-        SVT_ERROR("svt_aom_inter_fast_cost: Chroma error");
-    rate = luma_rate + chroma_rate;
+    cand_bf->fast_chroma_rate = 0;
     // Assign fast cost
     if (cand->skip_mode_allowed) {
         skip_mode_rate = ctx->md_rate_est_ctx->skip_mode_fac_bits[skip_mode_ctx][1];
-        if (skip_mode_rate < rate)
-            return (RDCOST(lambda, skip_mode_rate, total_distortion));
+        if (skip_mode_rate < luma_rate)
+            return (RDCOST(lambda, skip_mode_rate, luma_distortion));
     }
-    return (RDCOST(lambda, rate, total_distortion));
+    return (RDCOST(lambda, luma_rate, luma_distortion));
 }
 /*
  */
@@ -1531,17 +1424,18 @@ void svt_aom_full_cost(PictureControlSet *pcs, ModeDecisionContext *ctx, struct 
     if (!ctx->shut_fast_rate && pcs->ppcs->frm_hdr.tx_mode == TX_MODE_SELECT) {
         if (cand_bf->block_has_coeff) {
             non_skip_tx_size_bits = svt_aom_get_tx_size_bits(
-                cand_bf, ctx, pcs, cand_bf->cand->tx_depth, /*cand_bf->block_has_coeff*/ 1);
+                cand_bf, ctx, pcs, cand_bf->cand->block_mi.tx_depth, /*cand_bf->block_has_coeff*/ 1);
         }
 
         skip_tx_size_bits = svt_aom_get_tx_size_bits(
-            cand_bf, ctx, pcs, cand_bf->cand->tx_depth, /*cand_bf->block_has_coeff*/ 0);
+            cand_bf, ctx, pcs, cand_bf->cand->block_mi.tx_depth, /*cand_bf->block_has_coeff*/ 0);
     }
 
-    assert(IMPLIES(is_inter_mode(cand_bf->cand->pred_mode), skip_tx_size_bits == 0));
+    assert(IMPLIES(is_inter_mode(cand_bf->cand->block_mi.mode), skip_tx_size_bits == 0));
 
     // Decide if block should be signalled as skip (send no coeffs)
-    if (ctx->blk_skip_decision && cand_bf->block_has_coeff && is_inter_mode(cand_bf->cand->pred_mode)) {
+    if (!svt_av1_is_lossless_segment(pcs, ctx->blk_ptr->segment_id) && ctx->blk_skip_decision &&
+        cand_bf->block_has_coeff && is_inter_mode(cand_bf->cand->block_mi.mode)) {
         const uint64_t non_skip_cost = RDCOST(
             lambda,
             (*y_coeff_bits + *cb_coeff_bits + *cr_coeff_bits + non_skip_tx_size_bits +
@@ -1569,7 +1463,7 @@ void svt_aom_full_cost(PictureControlSet *pcs, ModeDecisionContext *ctx, struct 
             cand_bf->cnt_nz_coeff       = 0;
 
             // For inter modes, signalling skip means no TX depth is used and the TX type will be DCT_DCT
-            cand_bf->cand->tx_depth          = 0;
+            cand_bf->cand->block_mi.tx_depth = 0;
             cand_bf->cand->transform_type_uv = DCT_DCT;
             assert(DCT_DCT == 0);
             memset(cand_bf->cand->transform_type, DCT_DCT, 16 * sizeof(cand_bf->cand->transform_type[0]));
@@ -1606,22 +1500,22 @@ void svt_aom_full_cost(PictureControlSet *pcs, ModeDecisionContext *ctx, struct 
             : 0;
         const uint64_t skip_mode_cost            = RDCOST(lambda, skip_mode_rate, skip_mode_distortion);
 
-        cand_bf->cand->skip_mode = false;
+        cand_bf->cand->block_mi.skip_mode = false;
         if (skip_mode_cost <= mode_cost) {
             // Update candidate cost
-            mode_cost                = skip_mode_cost;
-            mode_rate                = skip_mode_rate;
-            mode_distortion          = skip_mode_distortion;
-            mode_ssim_distortion     = skip_mode_ssim_distortion;
-            cand_bf->cand->skip_mode = true;
+            mode_cost                         = skip_mode_cost;
+            mode_rate                         = skip_mode_rate;
+            mode_distortion                   = skip_mode_distortion;
+            mode_ssim_distortion              = skip_mode_ssim_distortion;
+            cand_bf->cand->block_mi.skip_mode = true;
 
             // Update signals to correspond to skip_mode values (no coeffs, etc.)
-            cand_bf->block_has_coeff = 0;
-            cand_bf->y_has_coeff     = 0;
-            cand_bf->u_has_coeff     = 0;
-            cand_bf->v_has_coeff     = 0;
-            cand_bf->cnt_nz_coeff    = 0;
-            cand_bf->cand->tx_depth  = 0;
+            cand_bf->block_has_coeff         = 0;
+            cand_bf->y_has_coeff             = 0;
+            cand_bf->u_has_coeff             = 0;
+            cand_bf->v_has_coeff             = 0;
+            cand_bf->cnt_nz_coeff            = 0;
+            cand_bf->cand->block_mi.tx_depth = 0;
             assert(DCT_DCT == 0);
             memset(cand_bf->cand->transform_type, DCT_DCT, 16 * sizeof(cand_bf->cand->transform_type[0]));
             cand_bf->cand->transform_type_uv = DCT_DCT;
@@ -1742,8 +1636,8 @@ static uint64_t cost_tx_size_vartx(MacroBlockD *xd, const MbModeInfo *mbmi, TxSi
                                    int blk_col, MdRateEstimationContext *md_rate_est_ctx, FRAME_CONTEXT *ec_ctx,
                                    uint8_t allow_update_cdf) {
     uint64_t  bits            = 0;
-    const int max_blocks_high = max_block_high(xd, mbmi->block_mi.bsize, 0);
-    const int max_blocks_wide = max_block_wide(xd, mbmi->block_mi.bsize, 0);
+    const int max_blocks_high = max_block_high(xd, mbmi->bsize, 0);
+    const int max_blocks_wide = max_block_wide(xd, mbmi->bsize, 0);
 
     if (blk_row >= max_blocks_high || blk_col >= max_blocks_wide)
         return bits;
@@ -1755,8 +1649,8 @@ static uint64_t cost_tx_size_vartx(MacroBlockD *xd, const MbModeInfo *mbmi, TxSi
     }
 
     const int ctx = txfm_partition_context(
-        xd->above_txfm_context + blk_col, xd->left_txfm_context + blk_row, mbmi->block_mi.bsize, tx_size);
-    const int write_txfm_partition = (tx_size == tx_depth_to_tx_size[mbmi->block_mi.tx_depth][mbmi->block_mi.bsize]);
+        xd->above_txfm_context + blk_col, xd->left_txfm_context + blk_row, mbmi->bsize, tx_size);
+    const int write_txfm_partition = (tx_size == tx_depth_to_tx_size[mbmi->block_mi.tx_depth][mbmi->bsize]);
     if (write_txfm_partition) {
         bits += md_rate_est_ctx->txfm_partition_fac_bits[ctx][0];
 
@@ -1828,11 +1722,10 @@ static INLINE int tx_size_to_depth(TxSize tx_size, BlockSize bsize) {
 // left of the entries corresponding to real blocks.
 // The prediction flags in these dummy entries are initialized to 0.
 static INLINE int get_tx_size_context(const MacroBlockD *xd) {
-    const ModeInfo         *mi          = xd->mi[0];
-    const MbModeInfo       *mbmi        = &mi->mbmi;
+    const MbModeInfo       *mbmi        = xd->mi[0];
     const MbModeInfo *const above_mbmi  = xd->above_mbmi;
     const MbModeInfo *const left_mbmi   = xd->left_mbmi;
-    const TxSize            max_tx_size = max_txsize_rect_lookup[mbmi->block_mi.bsize];
+    const TxSize            max_tx_size = max_txsize_rect_lookup[mbmi->bsize];
     const int               max_tx_wide = tx_size_wide[max_tx_size];
     const int               max_tx_high = tx_size_high[max_tx_size];
     const int               has_above   = xd->up_available;
@@ -1843,11 +1736,11 @@ static INLINE int get_tx_size_context(const MacroBlockD *xd) {
 
     if (has_above)
         if (is_inter_block(&above_mbmi->block_mi))
-            above = block_size_wide[above_mbmi->block_mi.bsize] >= max_tx_wide;
+            above = block_size_wide[above_mbmi->bsize] >= max_tx_wide;
 
     if (has_left)
         if (is_inter_block(&left_mbmi->block_mi))
-            left = block_size_high[left_mbmi->block_mi.bsize] >= max_tx_high;
+            left = block_size_high[left_mbmi->bsize] >= max_tx_high;
 
     if (has_above && has_left)
         return (above + left);
@@ -1860,9 +1753,8 @@ static INLINE int get_tx_size_context(const MacroBlockD *xd) {
 }
 static uint64_t cost_selected_tx_size(const MacroBlockD *xd, MdRateEstimationContext *md_rate_est_ctx, TxSize tx_size,
                                       FRAME_CONTEXT *ec_ctx, uint8_t allow_update_cdf) {
-    const ModeInfo *const   mi    = xd->mi[0];
-    const MbModeInfo *const mbmi  = &mi->mbmi;
-    const BlockSize         bsize = mbmi->block_mi.bsize;
+    const MbModeInfo *const mbmi  = xd->mi[0];
+    const BlockSize         bsize = mbmi->bsize;
     uint64_t                bits  = 0;
 
     if (block_signals_txsize(bsize)) {
@@ -1926,7 +1818,7 @@ uint64_t svt_aom_get_tx_size_bits(ModeDecisionCandidateBuffer *candidateBuffer, 
     TxMode       tx_mode = pcs->ppcs->frm_hdr.tx_mode;
     MacroBlockD *xd      = ctx->blk_ptr->av1xd;
     BlockSize    bsize   = ctx->blk_geom->bsize;
-    MbModeInfo  *mbmi    = &xd->mi[0]->mbmi;
+    MbModeInfo  *mbmi    = xd->mi[0];
 
     svt_memcpy(ctx->above_txfm_context,
                &(txfm_context_array->top_array[txfm_context_above_index]),
@@ -1937,9 +1829,9 @@ uint64_t svt_aom_get_tx_size_bits(ModeDecisionCandidateBuffer *candidateBuffer, 
 
     xd->above_txfm_context      = ctx->above_txfm_context;
     xd->left_txfm_context       = ctx->left_txfm_context;
-    mbmi->block_mi.bsize        = ctx->blk_geom->bsize;
-    mbmi->block_mi.use_intrabc  = candidateBuffer->cand->use_intrabc;
-    mbmi->block_mi.ref_frame[0] = candidateBuffer->cand->ref_frame_type;
+    mbmi->bsize                 = ctx->blk_geom->bsize;
+    mbmi->block_mi.use_intrabc  = candidateBuffer->cand->block_mi.use_intrabc;
+    mbmi->block_mi.ref_frame[0] = candidateBuffer->cand->block_mi.ref_frame[0];
     mbmi->block_mi.tx_depth     = tx_depth;
 
     const uint64_t bits = svt_aom_tx_size_bits(pcs,

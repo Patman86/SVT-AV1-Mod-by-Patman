@@ -44,11 +44,9 @@ extern uint64_t svt_aom_partition_rate_cost(PictureParentControlSet *pcs, ModeDe
 uint64_t        svt_aom_get_intra_uv_fast_rate(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
                                                ModeDecisionCandidateBuffer *cand_bf, bool use_accurate_cfl);
 uint64_t        svt_aom_intra_fast_cost(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
-                                        ModeDecisionCandidateBuffer *cand_bf, uint64_t lambda, uint64_t luma_distortion,
-                                        uint64_t chroma_distortion);
+                                        ModeDecisionCandidateBuffer *cand_bf, uint64_t lambda, uint64_t luma_distortion);
 uint64_t        svt_aom_inter_fast_cost(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
-                                        ModeDecisionCandidateBuffer *cand_bf, uint64_t lambda, uint64_t luma_distortion,
-                                        uint64_t chroma_distortion);
+                                        ModeDecisionCandidateBuffer *cand_bf, uint64_t lambda, uint64_t luma_distortion);
 EbErrorType     svt_aom_full_cost_light_pd0(ModeDecisionContext *ctx, struct ModeDecisionCandidateBuffer *cand_bf,
                                             uint64_t *y_distortion, uint64_t lambda, uint64_t *y_coeff_bits);
 void svt_aom_full_cost(PictureControlSet *pcs, ModeDecisionContext *ctx, struct ModeDecisionCandidateBuffer *cand_bf,
@@ -63,9 +61,24 @@ uint64_t svt_aom_tx_size_bits(PictureControlSet *pcs, uint8_t segment_id, MdRate
 uint64_t svt_aom_get_tx_size_bits(ModeDecisionCandidateBuffer *candidateBuffer, ModeDecisionContext *ctx,
                                   PictureControlSet *pcs, uint8_t tx_depth, bool block_has_coeff);
 
-MvJointType svt_av1_get_mv_joint(const MV *mv);
-int32_t svt_av1_mv_bit_cost(const MV *mv, const MV *ref, const int32_t *mvjcost, int32_t *mvcost[2], int32_t weight);
-int32_t svt_av1_mv_bit_cost_light(const MV *mv, const MV *ref);
+MvJointType svt_av1_get_mv_joint(const Mv *mv);
+int32_t svt_av1_mv_bit_cost(const Mv *mv, const Mv *ref, const int32_t *mvjcost, int32_t *mvcost[2], int32_t weight);
+int32_t svt_av1_mv_bit_cost_light(const Mv *mv, const Mv *ref);
+int32_t svt_aom_get_switchable_rate(BlockModeInfo *block_mi, const FrameHeader *const frm_hdr, ModeDecisionContext *ctx,
+                                    const bool enable_dual_filter);
+
+// The MD version of this function omits the skip_mode check. If IFS is selected, skip_mode will be disabled.
+static INLINE int32_t av1_is_interp_needed_md(BlockModeInfo *block_mi, PictureControlSet *pcs, BlockSize bsize) {
+    /*Disable check on skip_mode_allowed (i.e. skip_mode).  If IFS is selected, skip_mode will be
+     * disabled.*/
+    if (block_mi->motion_mode == WARPED_CAUSAL)
+        return 0;
+
+    if (svt_aom_is_nontrans_global_motion(block_mi, bsize, pcs->ppcs))
+        return 0;
+
+    return 1;
+}
 static INLINE uint8_t av1_drl_ctx(const CandidateMv *ref_mv_stack, int32_t ref_idx) {
     return ref_mv_stack[ref_idx].weight >= REF_CAT_LEVEL   ? ref_mv_stack[ref_idx + 1].weight >= REF_CAT_LEVEL ? 0 : 1
         : ref_mv_stack[ref_idx + 1].weight < REF_CAT_LEVEL ? 2

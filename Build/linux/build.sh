@@ -64,6 +64,7 @@ Usage: $0 [OPTION] ... -- [OPTIONS FOR CMAKE]
 --enable-*/--disable-* options shown are not the default
 For each enable-*, there is a disable-* option, and vice versa.
 
+    --no-configure      Just build
 -a, --all, all          Builds release and debug
     --asm, asm=*        Set assembly compiler [$ASM]
 -b, --bindir, bindir=*  Directory to install binaries
@@ -108,8 +109,10 @@ For each enable-*, there is a disable-* option, and vice versa.
 -v, --verbose, verbose  Print out commands
     --minimal-build,    Enable minimal build
     minimal-build
-    --external-cpuinfo,
-    external-cpuinfo    Use external cpuinfo library
+    --rtc-build,        Do RTC build, ie reduced feature set
+    rtc-build
+    --log-quiet,        Do not log anything from the core encoder
+    log-quiet
 
 Example usage:
     build.sh -xi debug test
@@ -227,6 +230,7 @@ fi
 build_release=false
 build_debug=false
 build_install=false
+configure=true
 
 PGO_COMPILE_STAGE=none
 
@@ -235,6 +239,7 @@ parse_options() {
         [ -z "$1" ] && break
         case $(printf %s "$1" | tr '[:upper:]' '[:lower:]') in
         help) echo_help && ${IN_SCRIPT:-false} && exit ;;
+        no-configure) configure=false && shift ;;
         all) build_debug=true build_release=true && shift ;;
         asm=*)
             check_executable "${1#*=}" &&
@@ -345,7 +350,8 @@ parse_options() {
             ;;
         verbose) CMAKE_EXTRA_FLAGS="$CMAKE_EXTRA_FLAGS -DCMAKE_VERBOSE_MAKEFILE=1" && shift ;;
         minimal-build) CMAKE_EXTRA_FLAGS="$CMAKE_EXTRA_FLAGS -DMINIMAL_BUILD=ON" && shift ;;
-        external-cpuinfo) CMAKE_EXTRA_FLAGS="$CMAKE_EXTRA_FLAGS -DUSE_EXTERNAL_CPUINFO=ON" && shift ;;
+        rtc-build) CMAKE_EXTRA_FLAGS="$CMAKE_EXTRA_FLAGS -DRTC_BUILD=ON" && shift ;;
+        log-quiet) CMAKE_EXTRA_FLAGS="$CMAKE_EXTRA_FLAGS -DLOG_QUIET=ON" && shift ;;
         *) print_message "Unknown option: $1" && shift ;;
         esac
     done
@@ -371,6 +377,7 @@ else
             # Stop on "--", pass the rest to cmake
             "") shift && break ;;
             help) parse_options help && shift ;;
+            no-configure) parse_options no-configure && shift ;;
             all) parse_options debug release && shift ;;
             c-only) parse_options c-only && shift ;;
             clean) parse_options clean && shift ;;
@@ -388,7 +395,8 @@ else
             test) parse_options tests && shift ;;
             verbose) parse_options verbose && shift ;;
             minimal-build) parse_options minimal-build && shift ;;
-            external-cpuinfo) parse_options external-cpuinfo && shift ;;
+            rtc-build) parse_options rtc-build && shift ;;
+            log-quiet) parse_options log-quiet && shift ;;
             asm | bindir | cc | cxx | gen | jobs | pgo-dir | pgo-videos | prefix | sanitizer | target_system | android-ndk)
                 parse_equal_option "$1" "$2"
                 case $1 in
@@ -482,6 +490,7 @@ else
             match=$(printf %s "$1" | tr '[:upper:]' '[:lower:]')
             case $match in
             all) parse_options release debug && shift ;;
+            no-configure) parse_options no-configure && shift ;;
             asm=*) parse_options asm="${1#*=}" && shift ;;
             bindir=*) parse_options bindir="${1#*=}" && shift ;;
             cc=*) parse_options cc="${1#*=}" && shift ;;
@@ -511,7 +520,8 @@ else
             toolchain=*) parse_options toolchain="${1#*=}" && shift ;;
             verbose) parse_options verbose && shift ;;
             minimal-build) parse_options minimal-build && shift ;;
-            external-cpuinfo) parse_options external-cpuinfo && shift ;;
+            rtc-build) parse_options rtc-build && shift ;;
+            log-quiet) parse_options log-quiet && shift ;;
             end) ${IN_SCRIPT:-false} && exit ;;
             *) die "Error, unknown option: $1" ;;
             esac
@@ -535,12 +545,12 @@ use) compile_args=no_clean build_args='--target PGOCompileUse' ;;
 esac
 
 $build_debug && {
-    configure debug $compile_args "$@"
+    $configure && configure debug $compile_args "$@"
     build debug $build_args
 }
 if $build_release || ! $build_debug; then
     build_release=true
-    configure release $compile_args "$@"
+    $configure && configure release $compile_args "$@"
     build release $build_args
 fi
 

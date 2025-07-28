@@ -11,6 +11,8 @@
 #ifndef EbLog_h
 #define EbLog_h
 
+#include "EbConfigMacros.h"
+
 #ifndef LOG_TAG
 #define LOG_TAG "Svt"
 #endif
@@ -24,9 +26,7 @@ typedef enum {
     SVT_LOG_DEBUG = 4,
 } SvtLogLevel;
 
-//define this to turn off all library log
-//#define SVT_LOG_QUIET
-#ifndef SVT_LOG_QUIET
+#if !CONFIG_LOG_QUIET
 
 //SVT_LOG will not output the prefix. you can contorl the output style.
 #define SVT_LOG(format, ...) svt_log(SVT_LOG_ALL, NULL, format, ##__VA_ARGS__)
@@ -37,30 +37,64 @@ typedef enum {
 #define SVT_ERROR(format, ...) svt_log(SVT_LOG_ERROR, LOG_TAG, format, ##__VA_ARGS__)
 #define SVT_FATAL(format, ...) svt_log(SVT_LOG_FATAL, LOG_TAG, format, ##__VA_ARGS__)
 
-#else
-
-#define SVT_LOG(format, ...) \
-    do {                     \
-    } while (0)
-#define SVT_DEBUG(format, ...) \
-    do {                       \
-    } while (0)
-#define SVT_INFO(format, ...) \
-    do {                      \
-    } while (0)
-#define SVT_WARN(format, ...) \
-    do {                      \
-    } while (0)
-#define SVT_ERROR(format, ...) \
-    do {                       \
-    } while (0)
-#define SVT_FATAL(format, ...) \
-    do {                       \
-    } while (0)
-
-#endif //SVT_LOG_QUIET
-
 void svt_log_init();
 void svt_log(SvtLogLevel level, const char* tag, const char* format, ...);
+
+#else
+
+// set of macros to silence unused arguments in below logging macros
+// currently handle 0 to 7 arguments
+#define CALL_MACRO_0()
+#define CALL_MACRO_1(arg1) ((void)(arg1))
+#define CALL_MACRO_2(arg1, arg2) \
+    CALL_MACRO_1(arg1);          \
+    CALL_MACRO_1(arg2)
+#define CALL_MACRO_3(arg1, arg2, arg3) \
+    CALL_MACRO_2(arg1, arg2);          \
+    CALL_MACRO_1(arg3)
+#define CALL_MACRO_4(arg1, arg2, arg3, arg4) \
+    CALL_MACRO_3(arg1, arg2, arg3);          \
+    CALL_MACRO_1(arg4)
+#define CALL_MACRO_5(arg1, arg2, arg3, arg4, arg5) \
+    CALL_MACRO_4(arg1, arg2, arg3, arg4);          \
+    CALL_MACRO_1(arg4)
+#define CALL_MACRO_6(arg1, arg2, arg3, arg4, arg5, arg6) \
+    CALL_MACRO_5(arg1, arg2, arg3, arg4, arg5);          \
+    CALL_MACRO_1(arg4)
+#define CALL_MACRO_7(arg1, arg2, arg3, arg4, arg5, arg6, arg7) \
+    CALL_MACRO_6(arg1, arg2, arg3, arg4, arg5, arg6);          \
+    CALL_MACRO_1(arg4)
+// ... add more if needed, and adjust below macros
+
+//trick: to support zero param constructor
+#define LOG_VA_ARGS(...) , ##__VA_ARGS__
+
+#define GET_MACRO_NAME(_0, _1, _2, _3, _4, _5, _6, _7, NAME, ...) NAME
+#define GET_MACRO_NAME2(...) GET_MACRO_NAME(__VA_ARGS__)
+#define MAYBE_UNUSED_ARGS(...)                  \
+    GET_MACRO_NAME2(x LOG_VA_ARGS(__VA_ARGS__), \
+                    CALL_MACRO_7,               \
+                    CALL_MACRO_6,               \
+                    CALL_MACRO_5,               \
+                    CALL_MACRO_4,               \
+                    CALL_MACRO_3,               \
+                    CALL_MACRO_2,               \
+                    CALL_MACRO_1,               \
+                    CALL_MACRO_0)(__VA_ARGS__)
+
+#define SVT_LOG(format, ...) \
+    do { MAYBE_UNUSED_ARGS(__VA_ARGS__); } while (0)
+#define SVT_DEBUG(format, ...) \
+    do { MAYBE_UNUSED_ARGS(__VA_ARGS__); } while (0)
+#define SVT_INFO(format, ...) \
+    do { MAYBE_UNUSED_ARGS(__VA_ARGS__); } while (0)
+#define SVT_WARN(format, ...) \
+    do { MAYBE_UNUSED_ARGS(__VA_ARGS__); } while (0)
+#define SVT_ERROR(format, ...) \
+    do { MAYBE_UNUSED_ARGS(__VA_ARGS__); } while (0)
+#define SVT_FATAL(format, ...) \
+    do { MAYBE_UNUSED_ARGS(__VA_ARGS__); } while (0)
+
+#endif //CONFIG_LOG_QUIET
 
 #endif //EbLog_h
