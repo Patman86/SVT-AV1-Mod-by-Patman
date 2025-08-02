@@ -3974,7 +3974,11 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         else
             scs->super_block_size = 64;
     // When switch frame is on, all renditions must have same super block size. See spec 5.5.1, 5.9.15.
+#if FTR_SFRAME_POSI
+    if (scs->static_config.sframe_dist != 0 || scs->static_config.sframe_posi.sframe_posis)
+#else
     if (scs->static_config.sframe_dist != 0)
+#endif // FTR_SFRAME_POSI
         scs->super_block_size = 64;
     // Set config info related to SB size
     if (scs->super_block_size == 128) {
@@ -4562,6 +4566,13 @@ static void copy_api_from_app(
         memcpy(scs->static_config.frame_scale_evts.resize_denoms, config_struct->frame_scale_evts.resize_denoms, sizeof(int32_t) * config_struct->frame_scale_evts.evt_num);
     }
     scs->static_config.frame_scale_evts.evt_num = config_struct->frame_scale_evts.evt_num;
+#if FTR_SFRAME_POSI
+    if (config_struct->sframe_posi.sframe_posis) {
+        EB_NO_THROW_MALLOC(scs->static_config.sframe_posi.sframe_posis, sizeof(uint64_t) * config_struct->sframe_posi.sframe_num);
+        memcpy(scs->static_config.sframe_posi.sframe_posis, config_struct->sframe_posi.sframe_posis, sizeof(uint64_t) * config_struct->sframe_posi.sframe_num);
+    }
+    scs->static_config.sframe_posi.sframe_num = config_struct->sframe_posi.sframe_num;
+#endif // FTR_SFRAME_POSI
 
     // Color description
     scs->static_config.color_primaries = config_struct->color_primaries;
@@ -4575,10 +4586,17 @@ static void copy_api_from_app(
     // switch frame
     scs->static_config.sframe_dist = config_struct->sframe_dist;
     scs->static_config.sframe_mode = config_struct->sframe_mode;
+#if FTR_SFRAME_POSI
+    scs->seq_header.max_frame_width = config_struct->forced_max_frame_width > 0 ? config_struct->forced_max_frame_width
+        : scs->static_config.sframe_dist > 0 || scs->static_config.sframe_posi.sframe_posis ? 16384 : scs->max_input_luma_width;
+    scs->seq_header.max_frame_height = config_struct->forced_max_frame_height > 0 ? config_struct->forced_max_frame_height
+        : scs->static_config.sframe_dist > 0 || scs->static_config.sframe_posi.sframe_posis ? 8704 : scs->max_input_luma_height;
+#else
     scs->seq_header.max_frame_width = config_struct->forced_max_frame_width > 0 ? config_struct->forced_max_frame_width
         : scs->static_config.sframe_dist > 0 ? 16384 : scs->max_input_luma_width;
     scs->seq_header.max_frame_height = config_struct->forced_max_frame_height > 0 ? config_struct->forced_max_frame_height
         : scs->static_config.sframe_dist > 0 ? 8704 : scs->max_input_luma_height;
+#endif // FTR_SFRAME_POSI
     scs->static_config.force_key_frames = config_struct->force_key_frames;
 
     // QM
@@ -4669,6 +4687,12 @@ EB_API EbErrorType svt_av1_enc_set_parameter(
     if (config_struct->frame_scale_evts.resize_kf_denoms) EB_FREE(config_struct->frame_scale_evts.resize_kf_denoms);
     if (config_struct->frame_scale_evts.start_frame_nums) EB_FREE(config_struct->frame_scale_evts.start_frame_nums);
     memset(&config_struct->frame_scale_evts, 0, sizeof(SvtAv1FrameScaleEvts));
+
+    // free sframe position list
+#if FTR_SFRAME_POSI
+    if (config_struct->sframe_posi.sframe_posis) EB_FREE(config_struct->sframe_posi.sframe_posis);
+    memset(&config_struct->sframe_posi, 0, sizeof(SvtAv1SFramePositions));
+#endif // FTR_SFRAME_POSI
 
     return return_error;
 }
@@ -5379,11 +5403,13 @@ static EbErrorType validate_on_the_fly_settings(EbBufferHeaderType *input_ptr, S
         }
         else if (node->node_type == RATE_CHANGE_EVENT) {
             SvtAv1RateInfo  *node_data = (SvtAv1RateInfo *)node->data;
+#if !OPT_RATE_ON_THE_FLY_NO_KF
             if (input_ptr->pic_type != EB_AV1_KEY_PICTURE) {
                 input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("QP/TBR change on the fly not supported for non key frames\n");
                 return EB_ErrorBadParameter;
             }
+#endif
             if ((scs->static_config.target_bit_rate != node_data->target_bit_rate) &&
                 !((scs->static_config.pred_structure == LOW_DELAY) && (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR))) {
                 input_ptr->flags = EB_BUFFERFLAG_EOS;
@@ -5403,6 +5429,21 @@ static EbErrorType validate_on_the_fly_settings(EbBufferHeaderType *input_ptr, S
                 return EB_ErrorBadParameter;
             }
         }
+#if FTR_FRAME_RATE_ON_THE_FLY
+        else if (node->node_type == FRAME_RATE_CHANGE_EVENT) {
+            SvtAv1FrameRateInfo* node_data = (SvtAv1FrameRateInfo*)node->data;
+            if (!((scs->static_config.pred_structure == LOW_DELAY) && (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR))) {
+                input_ptr->flags = EB_BUFFERFLAG_EOS;
+                SVT_ERROR("Frame rate change on the fly not supported for any mode other than Low-Delay CBR\n");
+                return EB_ErrorBadParameter;
+            }
+            if (node_data->frame_rate_numerator == 0 || node_data->frame_rate_denominator == 0) {
+                input_ptr->flags = EB_BUFFERFLAG_EOS;
+                SVT_ERROR("Frame rate change on the fly requires that he frame_rate_numerator and frame_rate_denominator must be greater than 0\n");
+                return EB_ErrorBadParameter;
+            }
+        }
+#endif
         node = node->next;
     }
     return EB_ErrorNone;
