@@ -40,7 +40,7 @@ extern "C" {
 #if FTR_SFRAME_FLEX
 #define FTR_SFRAME_POSI             1 // Add parameter to allow user insert S-Frames by picture number
 #endif // FTR_SFRAME_FLEX
-
+#define FIX_TUNE_SSIM               1 // Fix SSIM mode
 //FOR DEBUGGING - Do not remove
 #define OPT_LD_LATENCY2         1 // Latency optimization for low delay - to keep the Macro for backwards testing until 3.0
 #define LOG_ENC_DONE            0 // log encoder job one
@@ -77,6 +77,9 @@ extern "C" {
 #define DEBUG_VAR_BOOST         0
 #define DEBUG_VAR_BOOST_QP      0
 #define DEBUG_VAR_BOOST_STATS   0
+
+// QP scaling debugging code
+#define DEBUG_QP_SCALING        0
 
 // Quantization matrices
 #define DEBUG_QM_LEVEL          0

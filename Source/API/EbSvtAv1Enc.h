@@ -34,7 +34,7 @@ extern "C" {
  * has been modified, and reset anytime the major API version has
  * been changed. Used to keep track if a field has been added or not.
  */
-#define SVT_AV1_ENC_ABI_VERSION 0
+#define SVT_AV1_ENC_ABI_VERSION 1
 #define HIERARCHICAL_LEVELS_AUTO ((uint32_t)(~0))
 #define MAX_HIERARCHICAL_LEVEL 6
 #define REF_LIST_MAX_DEPTH 4
@@ -564,9 +564,12 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     /**
      * @brief Deblocking loop filter control
      *
-     * Default is true.
+     * 0: disabled
+     * 1: enabled
+     * 2: more accurate (slower)
      */
-    bool enable_dlf_flag;
+    uint8_t enable_dlf_flag;
+
     /* Film grain denoising the input picture
     * Flag to enable the denoising
     *
@@ -901,7 +904,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      *  1: 1st octile
      *  4: 4th octile
      *  8: 8th octile
-     *  Default is 6 */
+     *  Default is 5 */
     uint8_t variance_octile;
 
     /* @brief Bias towards decreased/increased sharpness in the deblocking loop filter & during rate distortion
@@ -959,6 +962,14 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      */
     bool rtc;
 
+    /* @brief compresses the QP hierarchical layer scale to improve temporal video consistency
+    * 0: no compression, original SVT-AV1 scaling
+    * 1-3: enable compression, the higher the number the stronger the compression
+    *      (different frame quality fluctuation/mean quality tradeoffs)
+    * Default is 1
+    */
+    uint8_t qp_scale_compress_strength;
+
 #if FTR_SFRAME_POSI
     /* @brief Indicates where to insert an S-Frame, only available when sframe_mode is SFRAME_FLEXIBLE_ARF */
     SvtAv1SFramePositions sframe_posi;
@@ -966,7 +977,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
 
     // clang-format off
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128 - (sizeof(uint8_t) * 2)
+    uint8_t padding[128 - (sizeof(uint8_t) * 3)
         - sizeof(bool)
 #if FTR_SFRAME_POSI
         - sizeof(SvtAv1SFramePositions)
