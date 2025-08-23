@@ -39,14 +39,36 @@ if "%shared%"=="ON" (
     echo Building static
 )
 
+if "%dir%"=="MSVC" (
+    if exist MSVC (
+        cd MSVC
+    ) else (
+        mkdir MSVC && cd MSVC
+    )
+) else if "%dir%"=="GNU" (
+    if exist GNU (
+        cd GNU
+    ) else (
+        mkdir GNU && cd GNU
+    )
+) else if "%dir%"=="Clang" (
+    if exist Clang (
+        cd Clang
+    ) else (
+        mkdir Clang && cd Clang
+    )
+)
+
+set batdir=%~dp0
+
 if "%unittest%"=="ON" echo Building unit tests
 
 if "%vs%"=="2019" (
-    cmake ../.. %GENERATOR% -A x64 -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% %cmake_eflags% || exit /b 1
+    cmake --fresh ../../.. %GENERATOR% -A x64 %tool% -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% %cmake_eflags% || exit /b 1
 ) else if "%vs%"=="2022" (
-    cmake ../.. %GENERATOR% -A x64 -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% %cmake_eflags% || exit /b 1
+    cmake --fresh ../../.. %GENERATOR% -A x64 %tool% -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% %cmake_eflags% || exit /b 1
 ) else (
-    cmake ../.. %GENERATOR% -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% %cmake_eflags% || exit /b 1
+    cmake --fresh ../../.. %GENERATOR% %tool% -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% %cmake_eflags% || exit /b 1
 )
 
 if "%build%"=="y" cmake --build . --config %buildtype%
@@ -71,55 +93,45 @@ if -%1-==-- (
     echo Generating Visual Studio 2022 solution
     set "GENERATOR=Visual Studio 17 2022"
     set vs=2022
+    set dir=MSVC
+    set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG"
     shift
 ) else if /I "%1"=="2019" (
     echo Generating Visual Studio 2019 solution
     set "GENERATOR=Visual Studio 16 2019"
     set vs=2019
+    set dir=MSVC
+    set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG"
     shift
 ) else if /I "%1"=="2017" (
     echo Generating Visual Studio 2017 solution
     set "GENERATOR=Visual Studio 15 2017 Win64"
     set vs=2017
+    set dir=MSVC
+    set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG"
     shift
 ) else if /I "%1"=="2015" (
     echo Generating Visual Studio 2015 solution
     set "GENERATOR=Visual Studio 14 2015 Win64"
     set vs=2015
+    set dir=MSVC
+    set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG"
     shift
-) else if /I "%1"=="2013" (
-    echo Generating Visual Studio 2013 solution
-    echo This is currently not officially supported
-    set "GENERATOR=Visual Studio 12 2013 Win64"
-    set vs=2013
-    shift
-) else if /I "%1"=="2012" (
-    echo Generating Visual Studio 2012 solution
-    echo This is currently not officially supported
-    set "GENERATOR=Visual Studio 11 2012 Win64"
-    set vs=2012
-    shift
-) else if /I "%1"=="2010" (
-    echo Generating Visual Studio 2010 solution
-    echo This is currently not officially supported
-    set "GENERATOR=Visual Studio 10 2010 Win64"
-    set vs=2010
-    shift
-) else if /I "%1"=="2008" (
-    echo Generating Visual Studio 2008 solution
-    echo This is currently not officially supported
-    set "GENERATOR=Visual Studio 9 2008 Win64"
-    set vs=2008
+) else if /I "%1"=="Clang" (
+    set dir=Clang
+    set "tool="-T LLVM_V143""
+    set "flags=/MD /MT /O2 /Ot /Gw /GA /DNDEBUG"
     shift
 ) else if /I "%1"=="ninja" (
     echo Generating Ninja files
-    echo This is currently not officially supported
     set "GENERATOR=Ninja"
+    set dir=GNU
     shift
 ) else if /I "%1"=="msys" (
     echo Generating MSYS Makefiles
-    echo This is currently not officially supported
     set "GENERATOR=MSYS Makefiles"
+    set dir=GNU
+    set "flags=-lws2_32 -luserenv -lntdll -s -O3 -DNDEBUG"
     shift
 ) else if /I "%1"=="mingw" (
     echo Generating MinGW Makefiles
