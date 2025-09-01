@@ -138,6 +138,8 @@ static void av1_make_masked_scaled_inter_predictor(
                                    use_intrabc,
                                    bitdepth);
     } else
+#else
+    UNUSED(src_ptr_2b);
 #endif
     {
         svt_inter_predictor(src_ptr,
@@ -521,7 +523,7 @@ static void pick_interinter_seg(PictureControlSet *pcs, ModeDecisionContext *ctx
     uint32_t          full_lambda = hbd_md ? ctx->full_lambda_md[EB_10_BIT_MD] : ctx->full_lambda_md[EB_8_BIT_MD];
     const int         bw          = block_size_wide[bsize];
     const int         bh          = block_size_high[bsize];
-    const int         N           = 1 << num_pels_log2_lookup[bsize];
+    const int         N           = 1 << eb_num_pels_log2_lookup[bsize];
     int               rate;
     int64_t           dist;
     DIFFWTD_MASK_TYPE cur_mask_type;
@@ -687,6 +689,8 @@ struct build_prediction_ctxt {
     uint16_t             dst_origin_y;
     uint16_t             component_mask;
 };
+
+#if CONFIG_ENABLE_OBMC
 // input: log2 of length, 0(4), 1(8), ...
 static const int max_neighbor_obmc[6] = {0, 1, 2, 3, 4, 4};
 
@@ -1315,6 +1319,7 @@ static INLINE void build_prediction_by_left_pred(uint8_t is16bit, MacroBlockD *x
                                                   ctxt->ss_y);
     }
 }
+
 static void build_prediction_by_above_preds(uint32_t component_mask, BlockSize bsize, PictureControlSet *pcs,
                                             MacroBlockD *xd, int mi_row, int mi_col, uint8_t *tmp_buf[MAX_MB_PLANE],
                                             int tmp_stride[MAX_MB_PLANE], uint8_t is16bit) {
@@ -1559,6 +1564,7 @@ static void av1_build_obmc_inter_prediction(uint8_t *final_dst_ptr_y, uint16_t f
                                  build_obmc_inter_pred_left,
                                  &ctxt_left);
 }
+#endif
 void svt_av1_calc_target_weighted_pred_above_c(uint8_t is16bit, MacroBlockD *xd, int rel_mi_col, uint8_t nb_mi_width,
                                                MbModeInfo *nb_mi, void *fun_ctxt) {
     (void)nb_mi;
@@ -1933,7 +1939,7 @@ void model_rd_from_sse(BlockSize bsize, int16_t quantizer, uint8_t bit_depth, ui
 
     // Fast approximate the modelling function.
     if (simple_model_rd_from_var) {
-        int64_t square_error = (uint64_t)sse;
+        int64_t square_error = sse;
         quantizer            = quantizer >> dequant_shift;
 
         if (quantizer < 120)
@@ -1943,7 +1949,7 @@ void model_rd_from_sse(BlockSize bsize, int16_t quantizer, uint8_t bit_depth, ui
         *dist = (uint64_t)(square_error * quantizer) >> 8;
     } else {
         svt_av1_model_rd_from_var_lapndz(
-            (uint64_t)sse, num_pels_log2_lookup[bsize], quantizer >> dequant_shift, (int32_t *)rate, (int64_t *)dist);
+            sse, eb_num_pels_log2_lookup[bsize], quantizer >> dequant_shift, (int32_t *)rate, (int64_t *)dist);
     }
 
     *dist <<= 4;
@@ -2359,6 +2365,8 @@ static void inter_intra_prediction(PictureControlSet *pcs, ModeDecisionContext *
                 use_precomputed_intra && !plane ? blk_geom->bwidth : intra_stride, // Intra pred stride
                 bit_depth);
         } else
+#else
+        UNUSED(bit_depth);
 #endif
         {
             if (!use_precomputed_intra || plane) {
@@ -3554,6 +3562,8 @@ EbErrorType svt_aom_inter_prediction(SequenceControlSet *scs, PictureControlSet 
                                   bit_depth,
                                   is_16bit_pipeline);
     }
+#else
+    UNUSED(use_precomputed_obmc);
 #endif
 
     return EB_ErrorNone;
@@ -3889,9 +3899,9 @@ EbErrorType svt_aom_inter_pu_prediction_av1_obmc(uint8_t hbd_md, ModeDecisionCon
                                                  ModeDecisionCandidateBuffer *cand_bf) {
     EbErrorType return_error = EB_ErrorNone;
 
+#if CONFIG_ENABLE_OBMC
     uint32_t component_mask = ctx->mds_do_chroma ? PICTURE_BUFFER_DESC_FULL_MASK : PICTURE_BUFFER_DESC_LUMA_MASK;
 
-#if CONFIG_ENABLE_OBMC
     av1_inter_prediction_obmc(
         pcs,
         ctx->blk_ptr,
@@ -3906,6 +3916,11 @@ EbErrorType svt_aom_inter_pu_prediction_av1_obmc(uint8_t hbd_md, ModeDecisionCon
         component_mask,
         hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
         0); // is_16bit_pipeline
+#else
+    UNUSED(hbd_md);
+    UNUSED(ctx);
+    UNUSED(pcs);
+    UNUSED(cand_bf);
 #endif
 
     return return_error;

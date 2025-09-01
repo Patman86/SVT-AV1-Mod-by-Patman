@@ -351,7 +351,7 @@ static void inter_intra_search(PictureControlSet *pcs, ModeDecisionContext *ctx,
         //   continue;
         InterIntraMode interintra_mode = (InterIntraMode)j;
         // rmode = interintra_mode_cost[mbmi->interintra_mode];
-        const int bsize_group = size_group_lookup[ctx->blk_geom->bsize];
+        const int bsize_group = eb_size_group_lookup[ctx->blk_geom->bsize];
         const int rmode       = ctx->md_rate_est_ctx->inter_intra_mode_fac_bits[bsize_group][interintra_mode];
         // av1_combine_interintra(xd, bsize, 0, tmp_buf, bw, intrapred, bw);
         if (ctx->hbd_md)
@@ -906,6 +906,9 @@ static void inj_non_simple_modes(PictureControlSet *pcs, struct ModeDecisionCont
         if (motion_mode_valid)
             INC_MD_CAND_CNT(cand_count, pcs->ppcs->max_can_count);
     }
+#else
+    UNUSED(enable_wm);
+    UNUSED(enable_obmc);
 #endif // CONFIG_ENABLE_OBMC
 
     *total_cand_count = cand_count;
@@ -2832,8 +2835,7 @@ static void intra_bc_search(PictureControlSet *pcs, ModeDecisionContext *ctx, co
     uint32_t        full_lambda = ctx->hbd_md ? ctx->full_lambda_md[EB_10_BIT_MD] : ctx->full_lambda_md[EB_8_BIT_MD];
     //fill x with what needed.
     x->is_exhaustive_allowed = ctx->blk_geom->bwidth == 4 || ctx->blk_geom->bheight == 4 ? 1 : 0;
-    svt_memcpy(&x->crc_calculator1, &pcs->crc_calculator1, sizeof(pcs->crc_calculator1));
-    svt_memcpy(&x->crc_calculator2, &pcs->crc_calculator2, sizeof(pcs->crc_calculator2));
+    svt_memcpy(&x->crc_calculator, &pcs->crc_calculator, sizeof(pcs->crc_calculator));
     x->approx_inter_rate = ctx->approx_inter_rate;
     x->xd                = blk_ptr->av1xd;
     x->nmv_vec_cost      = ctx->md_rate_est_ctx->nmv_vec_cost;
@@ -2866,9 +2868,8 @@ static void intra_bc_search(PictureControlSet *pcs, ModeDecisionContext *ctx, co
     x->errorperbit = full_lambda >> RD_EPB_SHIFT;
     x->errorperbit += (x->errorperbit == 0);
     //temp buffer for hash me
-    for (int xi = 0; xi < 2; xi++)
-        for (int yj = 0; yj < 2; yj++)
-            x->hash_value_buffer[xi][yj] = (uint32_t *)malloc(AOM_BUFFER_SIZE_FOR_BLOCK_HASH * sizeof(uint32_t));
+    for (int i = 0; i < 2; i++)
+        x->hash_value_buffer[i] = (uint32_t *)malloc(AOM_BUFFER_SIZE_FOR_BLOCK_HASH * sizeof(uint32_t));
 
     Mv nearestmv, nearmv;
     svt_av1_find_best_ref_mvs_from_stack(0, ctx->ref_mv_stack /*mbmi_ext*/, xd, ref_frame, &nearestmv, &nearmv, 0);
@@ -2976,8 +2977,7 @@ static void intra_bc_search(PictureControlSet *pcs, ModeDecisionContext *ctx, co
         (*num_dv_cand)++;
     }
 
-    for (int i = 0; i < 2; i++)
-        for (int j = 0; j < 2; j++) free(x->hash_value_buffer[i][j]);
+    for (int i = 0; i < 2; i++) free(x->hash_value_buffer[i]);
 }
 static void inject_intra_bc_candidates(PictureControlSet *pcs, ModeDecisionContext *ctx, const SequenceControlSet *scs,
                                        BlkStruct *blk_ptr, uint32_t *cand_cnt) {

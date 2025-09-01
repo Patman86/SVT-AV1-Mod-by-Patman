@@ -325,8 +325,7 @@ typedef struct PictureControlSet {
     SpeedFeatures    sf;
     SearchSiteConfig ss_cfg; // CHKN this might be a seq based
     HashTable        hash_table;
-    CRC_CALCULATOR   crc_calculator1;
-    CRC_CALCULATOR   crc_calculator2;
+    CRC32C           crc_calculator;
 
     FRAME_CONTEXT                  *ec_ctx_array;
     FRAME_CONTEXT                   md_frame_context;
@@ -1115,6 +1114,9 @@ typedef struct PictureParentControlSet {
     uint32_t ahd_error;
 
     bool sframe_ref_pruned;
+#if FTR_SFRAME_QP
+    int8_t sframe_qp_offset;
+#endif // FTR_SFRAME_QP
 } PictureParentControlSet;
 
 typedef struct TplDispResults {

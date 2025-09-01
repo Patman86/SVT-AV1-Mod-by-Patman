@@ -39,8 +39,13 @@ extern "C" {
 #define FTR_SFRAME_FLEX             1 // Add S-Frame Flexible ARF Mode
 #if FTR_SFRAME_FLEX
 #define FTR_SFRAME_POSI             1 // Add parameter to allow user insert S-Frames by picture number
+#if FTR_SFRAME_POSI
+#define FTR_SFRAME_QP               1 // Add parameter to allow user set QP of S-Frame
+#endif // FTR_SFRAME_POSI
 #endif // FTR_SFRAME_FLEX
 #define FIX_TUNE_SSIM               1 // Fix SSIM mode
+#define RFCTR_PARSE_LIST            1 // Refactor parameter parsing list and support the range of int8 and uint8
+
 //FOR DEBUGGING - Do not remove
 #define OPT_LD_LATENCY2         1 // Latency optimization for low delay - to keep the Macro for backwards testing until 3.0
 #define LOG_ENC_DONE            0 // log encoder job one

@@ -126,7 +126,7 @@ class QuantizeBTest : public ::testing::TestWithParam<QuantizeParam> {
      */
     virtual void setup_func_ptrs() {
         if (bd_ == EB_EIGHT_BIT) {
-            quant_ref_ = svt_aom_quantize_b_c_ii;
+            quant_ref_ = svt_aom_quantize_b_c;
             quant_test_ = TEST_GET_PARAM(2);
         } else {
             quant_ref_ = svt_aom_highbd_quantize_b_c;
@@ -146,7 +146,7 @@ class QuantizeBTest : public ::testing::TestWithParam<QuantizeParam> {
      * quant/dequant/eob are exactly same between C output and avx2 outptu
      */
     virtual void run_quantize(int q) {
-        const ScanOrder *const sc = &av1_scan_orders[tx_size_][DCT_DCT];
+        const ScanOrder *const sc = get_scan_order(tx_size_, DCT_DCT);
         const int16_t *zbin = qtab_quants_.y_zbin[q];
         const int16_t *round = qtab_quants_.y_round[q];
         const int16_t *quant = qtab_quants_.y_quant[q];
@@ -368,7 +368,7 @@ class QuantizeBQmTest : public QuantizeBTest {
     virtual ~QuantizeBQmTest() = default;
 
     void run_quantize(int q) override {
-        const ScanOrder *const sc = &av1_scan_orders[tx_size_][DCT_DCT];
+        const ScanOrder *const sc = get_scan_order(tx_size_, DCT_DCT);
         const int16_t *zbin = qtab_quants_.y_zbin[q];
         const int16_t *round = qtab_quants_.y_round[q];
         const int16_t *quant = qtab_quants_.y_quant[q];

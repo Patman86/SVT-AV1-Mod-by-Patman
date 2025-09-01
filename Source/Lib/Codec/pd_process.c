@@ -1162,6 +1162,52 @@ static int32_t get_dist_to_s(SvtAv1SFramePositions const *sframe_posi, uint64_t 
     return -1; // all s-frame spots are expired
 }
 #endif // FTR_SFRAME_POSI
+#if FTR_SFRAME_QP
+static uint8_t get_sframe_qp(SvtAv1SFramePositions const *sframe_posi, uint64_t picture_num) {
+    if (sframe_posi->sframe_qps == NULL)
+        return 0;
+    if (sframe_posi->sframe_posis == NULL) {
+        // always return first QP if not use flexible S-Frame position list
+        return sframe_posi->sframe_qps[0];
+    }
+    for (uint32_t i = 0; i < sframe_posi->sframe_num; i++) {
+        if (sframe_posi->sframe_posis[i] == picture_num) {
+            return sframe_posi->sframe_qps[i];
+        }
+    }
+    return 0; // not find the picture
+}
+
+static int8_t get_sframe_qp_offset(SvtAv1SFramePositions const *sframe_posi, uint64_t picture_num) {
+    if (sframe_posi->sframe_qp_offsets == NULL)
+        return 0;
+    if (sframe_posi->sframe_posis == NULL) {
+        // always return first QP offset if not use flexible S-Frame position list
+        return sframe_posi->sframe_qp_offsets[0];
+    }
+    for (uint32_t i = 0; i < sframe_posi->sframe_num; i++) {
+        if (sframe_posi->sframe_posis[i] == picture_num) {
+            return sframe_posi->sframe_qp_offsets[i];
+        }
+    }
+    return 0; // not find the picture
+}
+
+static void setup_sframe_qp(PictureParentControlSet *ppcs) {
+    SequenceControlSet *scs = ppcs->scs;
+    uint8_t sframe_qp = scs->static_config.sframe_qp > 0 ? scs->static_config.sframe_qp : get_sframe_qp(&scs->static_config.sframe_posi, ppcs->picture_number);
+    if (sframe_qp > 0) {
+        ppcs->picture_qp = (uint8_t)CLIP3((int8_t)scs->static_config.min_qp_allowed,
+                                          (int8_t)scs->static_config.max_qp_allowed,
+                                          (int8_t)sframe_qp);
+        ppcs->qp_on_the_fly = true;
+    }
+    int8_t sframe_qp_offset = scs->static_config.sframe_qp_offset != 0 ? scs->static_config.sframe_qp_offset : get_sframe_qp_offset(&scs->static_config.sframe_posi, ppcs->picture_number);
+    if (sframe_qp_offset != 0) {
+        ppcs->sframe_qp_offset = sframe_qp_offset;
+    }
+}
+#endif // FTR_SFRAME_QP
 
 // Decide whether to make an inter frame into an S-Frame
 static void set_sframe_type(PictureParentControlSet *ppcs, EncodeContext *enc_ctx, PictureDecisionContext *pd_ctx)
@@ -1218,6 +1264,7 @@ static void set_sframe_type(PictureParentControlSet *ppcs, EncodeContext *enc_ct
                 int32_t dist_to_s = get_dist_to_s(&ppcs->scs->static_config.sframe_posi, ppcs->picture_number, &dist_to_next_s);
                 if (dist_to_s == 0) {
                     frm_hdr->frame_type = S_FRAME;
+
                     // After inserting a new S-Frame, reset sframe_hier_lvls and use it for the next mini-GOP evaluation.
                     pd_ctx->sframe_hier_lvls = ppcs->scs->static_config.hierarchical_levels;
                     next_mg_size = 1 << pd_ctx->sframe_hier_lvls;
@@ -1263,6 +1310,12 @@ static void set_sframe_type(PictureParentControlSet *ppcs, EncodeContext *enc_ct
         }
     }
 #endif // FTR_SFRAME_FLEX
+
+#if FTR_SFRAME_QP
+    if (frm_hdr->frame_type == S_FRAME) {
+        setup_sframe_qp(ppcs);
+    }
+#endif // FTR_SFRAME_QP
 
     ppcs->sframe_ref_pruned = false;
 #if DEBUG_SFRAME
@@ -3321,8 +3374,6 @@ static EbErrorType derive_tf_window_params(
 
     PictureParentControlSet * centre_pcs = pcs;
     EbPictureBufferDesc * central_picture_ptr = centre_pcs->enhanced_pic;
-    uint32_t encoder_bit_depth = centre_pcs->scs->static_config.encoder_bit_depth;
-    bool is_highbd = (encoder_bit_depth == 8) ? (uint8_t)false : (uint8_t)true;
 
     // chroma subsampling
     uint32_t ss_x = centre_pcs->scs->subsampling_x;
@@ -3336,6 +3387,8 @@ static EbErrorType derive_tf_window_params(
         do_noise_est = 1;
     // allocate 16 bit buffer
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
+    uint32_t encoder_bit_depth = centre_pcs->scs->static_config.encoder_bit_depth;
+    bool is_highbd = (encoder_bit_depth == 8) ? (uint8_t)false : (uint8_t)true;
     if (is_highbd) {
         EB_MALLOC_ARRAY(centre_pcs->altref_buffer_highbd[C_Y],
             central_picture_ptr->luma_size);

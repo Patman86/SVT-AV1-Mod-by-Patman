@@ -213,6 +213,9 @@ typedef struct SvtAv1FrameScaleEvts {
 typedef struct SvtAv1SFramePositions {
     uint32_t  sframe_num;
     uint64_t *sframe_posis;
+    uint32_t  sframe_qp_num;
+    uint8_t  *sframe_qps;
+    int8_t   *sframe_qp_offsets;
 } SvtAv1SFramePositions;
 
 // Will contain the EbEncApi which will live in the EncHandle class
@@ -975,6 +978,13 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     SvtAv1SFramePositions sframe_posi;
 #endif // FTR_SFRAME_POSI
 
+#if FTR_SFRAME_QP
+    /* @brief Indicates QP of S-Frame(s) */
+    uint8_t sframe_qp;
+    /* @brief Indicates QP offset of S-Frame(s) */
+    int8_t sframe_qp_offset;
+#endif // FTR_SFRAME_QP
+
     // clang-format off
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
     uint8_t padding[128 - (sizeof(uint8_t) * 3)
@@ -982,6 +992,10 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
 #if FTR_SFRAME_POSI
         - sizeof(SvtAv1SFramePositions)
 #endif // FTR_SFRAME_POSI
+#if FTR_SFRAME_QP
+        - sizeof(uint8_t)
+        - sizeof(int8_t)
+#endif // FTR_SFRAME_QP
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;

@@ -718,6 +718,18 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 #endif // FTR_SFRAME_POSI
+#if FTR_SFRAME_QP
+    if (config->sframe_posi.sframe_qp_num && config->rate_control_mode != SVT_AV1_RC_MODE_CQP_OR_CRF) {
+        SVT_ERROR("Instance %u: S-Frame QP feature only supports CRF/CQP rate control mode\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+    if ((config->sframe_posi.sframe_qps && config->sframe_posi.sframe_qp_offsets) ||
+        (config->sframe_qp > 0 && config->sframe_qp_offset != 0)) {
+        SVT_ERROR("Instance %u: S-Frame QP feature cannot support QP value and QP offset at same time\n",
+                  channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+#endif // FTR_SFRAME_QP
 
     /* Warnings about the use of features that are incomplete */
     if (config->enable_adaptive_quantization == 1) {
@@ -1057,6 +1069,13 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->sframe_posi.sframe_num   = 0;
     config_ptr->sframe_posi.sframe_posis = NULL;
 #endif // FTR_SFRAME_POSI
+#if FTR_SFRAME_QP
+    config_ptr->sframe_posi.sframe_qp_num     = 0;
+    config_ptr->sframe_posi.sframe_qps        = NULL;
+    config_ptr->sframe_posi.sframe_qp_offsets = NULL;
+    config_ptr->sframe_qp                     = 0;
+    config_ptr->sframe_qp_offset              = 0;
+#endif // FTR_SFRAME_QP
     return return_error;
 }
 
@@ -1296,8 +1315,88 @@ static EbErrorType str_to_uint(const char *nptr, uint32_t *out, char **nextptr) 
     return EB_ErrorNone;
 }
 
+#if RFCTR_PARSE_LIST
+static EbErrorType str_to_int8(const char *nptr, int8_t *out, char **nextptr) {
+    char   *endptr;
+    int32_t val;
+
+    val = strtol(nptr, &endptr, 0);
+
+    if (endptr == nptr || (!nextptr && *endptr))
+        return EB_ErrorBadParameter;
+
+    // check for the range
+    if (val < INT8_MIN || val > INT8_MAX)
+        return EB_ErrorBadParameter;
+
+    *out = (int8_t)val;
+    if (nextptr)
+        *nextptr = endptr;
+    return EB_ErrorNone;
+}
+
+static EbErrorType str_to_uint8(const char *nptr, uint8_t *out, char **nextptr) {
+    char    *endptr;
+    uint32_t val;
+
+    if (strtol(nptr, NULL, 0) < 0) {
+        return EB_ErrorBadParameter;
+    }
+
+    val = strtoul(nptr, &endptr, 0);
+
+    if (endptr == nptr || (!nextptr && *endptr))
+        return EB_ErrorBadParameter;
+
+    // check for the range
+    if (val > UINT8_MAX)
+        return EB_ErrorBadParameter;
+
+    *out = (uint8_t)val;
+    if (nextptr)
+        *nextptr = endptr;
+    return EB_ErrorNone;
+}
+
+#define str_to_int32 str_to_int
+#define str_to_uint32 str_to_uint
+
 //assume the input list of values are in the format of "[v1,v2,v3,...]"
-static EbErrorType parse_list_s32(const char *nptr, int32_t *list, size_t n) {
+#define PARSE_LIST(list_type)                                                                    \
+    static EbErrorType parse_list_##list_type(const char *nptr, list_type##_t *list, size_t n) { \
+        const char *ptr = nptr;                                                                  \
+        char       *endptr;                                                                      \
+        size_t      i = 0;                                                                       \
+        memset(list, 0, n * sizeof(*list));                                                      \
+        while (*ptr) {                                                                           \
+            if (*ptr == '[' || *ptr == ']') {                                                    \
+                ptr++;                                                                           \
+                continue;                                                                        \
+            }                                                                                    \
+            list_type##_t rawval;                                                                \
+            EbErrorType   err = str_to_##list_type(ptr, &rawval, &endptr);                       \
+            if (err != EB_ErrorNone)                                                             \
+                return err;                                                                      \
+            if (i >= n) {                                                                        \
+                return EB_ErrorBadParameter;                                                     \
+            } else if (*endptr == ',' || *endptr == ']') {                                       \
+                endptr++;                                                                        \
+            } else if (*endptr) {                                                                \
+                return EB_ErrorBadParameter;                                                     \
+            }                                                                                    \
+            list[i++] = rawval;                                                                  \
+            ptr       = endptr;                                                                  \
+        }                                                                                        \
+        return EB_ErrorNone;                                                                     \
+    }
+PARSE_LIST(int8)
+PARSE_LIST(uint8)
+PARSE_LIST(int32)
+PARSE_LIST(uint32)
+PARSE_LIST(uint64)
+#else
+//assume the input list of values are in the format of "[v1,v2,v3,...]"
+static EbErrorType parse_list_int32(const char *nptr, int32_t *list, size_t n) {
     const char *ptr = nptr;
     char       *endptr;
     size_t      i = 0;
@@ -1325,7 +1424,7 @@ static EbErrorType parse_list_s32(const char *nptr, int32_t *list, size_t n) {
     return EB_ErrorNone;
 }
 
-static EbErrorType parse_list_u32(const char *nptr, uint32_t *list, size_t n) {
+static EbErrorType parse_list_uint32(const char *nptr, uint32_t *list, size_t n) {
     const char *ptr = nptr;
     char       *endptr;
     size_t      i = 0;
@@ -1353,7 +1452,7 @@ static EbErrorType parse_list_u32(const char *nptr, uint32_t *list, size_t n) {
     return EB_ErrorNone;
 }
 
-static EbErrorType parse_list_u64(const char *nptr, uint64_t *list, size_t n) {
+static EbErrorType parse_list_uint64(const char *nptr, uint64_t *list, size_t n) {
     const char *ptr = nptr;
     char       *endptr;
     size_t      i = 0;
@@ -1380,6 +1479,7 @@ static EbErrorType parse_list_u64(const char *nptr, uint64_t *list, size_t n) {
     }
     return EB_ErrorNone;
 }
+#endif // RFCTR_PARSE_LIST
 
 static uint32_t count_params(const char *nptr) {
     const char *ptr = nptr;
@@ -1834,7 +1934,7 @@ static EbErrorType str_to_frm_resz_evts(const char *nptr, SvtAv1FrameScaleEvts *
         EB_FREE(evts->start_frame_nums);
     EB_MALLOC(evts->start_frame_nums, param_count * sizeof(uint64_t));
     evts->evt_num = param_count;
-    return parse_list_u64(nptr, evts->start_frame_nums, param_count);
+    return parse_list_uint64(nptr, evts->start_frame_nums, param_count);
 }
 
 static EbErrorType str_to_resz_kf_denoms(const char *nptr, SvtAv1FrameScaleEvts *evts) {
@@ -1847,7 +1947,7 @@ static EbErrorType str_to_resz_kf_denoms(const char *nptr, SvtAv1FrameScaleEvts 
         EB_FREE(evts->resize_kf_denoms);
     EB_MALLOC(evts->resize_kf_denoms, param_count * sizeof(uint32_t));
     evts->evt_num = param_count;
-    return parse_list_u32(nptr, evts->resize_kf_denoms, param_count);
+    return parse_list_uint32(nptr, evts->resize_kf_denoms, param_count);
 }
 
 static EbErrorType str_to_resz_denoms(const char *nptr, SvtAv1FrameScaleEvts *evts) {
@@ -1860,7 +1960,7 @@ static EbErrorType str_to_resz_denoms(const char *nptr, SvtAv1FrameScaleEvts *ev
         EB_FREE(evts->resize_denoms);
     EB_MALLOC(evts->resize_denoms, param_count * sizeof(uint32_t));
     evts->evt_num = param_count;
-    return parse_list_u32(nptr, evts->resize_denoms, param_count);
+    return parse_list_uint32(nptr, evts->resize_denoms, param_count);
 }
 
 #if FTR_SFRAME_POSI
@@ -1874,9 +1974,65 @@ static EbErrorType str_to_sframe_posi(const char *nptr, SvtAv1SFramePositions *p
         EB_FREE(posis->sframe_posis);
     EB_MALLOC(posis->sframe_posis, param_count * sizeof(uint64_t));
     posis->sframe_num = param_count;
-    return parse_list_u64(nptr, posis->sframe_posis, param_count);
+    return parse_list_uint64(nptr, posis->sframe_posis, param_count);
 }
 #endif // FTR_SFRAME_POSI
+
+#if FTR_SFRAME_QP
+static EbErrorType str_to_sframe_qp(const char *nptr, SvtAv1SFramePositions *posis, uint8_t *qp) {
+    const uint32_t param_count = count_params(nptr);
+    if ((posis->sframe_num != 0 && posis->sframe_num != param_count && param_count != 1) || param_count == 0) {
+        SVT_ERROR("Error: Size for the list passed to %s doesn't match %u\n", "sframe-qp", posis->sframe_num);
+        return EB_ErrorBadParameter;
+    }
+    if (posis->sframe_qps)
+        EB_FREE(posis->sframe_qps);
+    EB_MALLOC(posis->sframe_qps, param_count * sizeof(uint8_t));
+    posis->sframe_qp_num = param_count;
+    EbErrorType err      = parse_list_uint8(nptr, posis->sframe_qps, param_count);
+    // check if the QP values are valid
+    for (uint32_t i = 0; i < posis->sframe_qp_num; ++i) {
+        if (posis->sframe_qps[i] < 1 || posis->sframe_qps[i] > 63) {
+            SVT_ERROR("Error: Invalid S-Frame QP value. QPs must be [1 - 63]\n");
+            EB_FREE(posis->sframe_qps);
+            posis->sframe_qp_num = 0;
+            err                  = EB_ErrorBadParameter;
+        }
+    }
+    // If sframe-qp parameter contains only one value, apply it to all S-frames
+    if (err == EB_ErrorNone && param_count == 1) {
+        *qp = posis->sframe_qps[0];
+    }
+    return err;
+}
+
+static EbErrorType str_to_sframe_qp_offset(const char *nptr, SvtAv1SFramePositions *posis, int8_t *qp_offset) {
+    const uint32_t param_count = count_params(nptr);
+    if ((posis->sframe_num != 0 && posis->sframe_num != param_count && param_count != 1) || param_count == 0) {
+        SVT_ERROR("Error: Size for the list passed to %s doesn't match %u\n", "sframe-qp-offset", posis->sframe_num);
+        return EB_ErrorBadParameter;
+    }
+    if (posis->sframe_qp_offsets)
+        EB_FREE(posis->sframe_qp_offsets);
+    EB_MALLOC(posis->sframe_qp_offsets, param_count * sizeof(int8_t));
+    posis->sframe_qp_num = param_count;
+    EbErrorType err      = parse_list_int8(nptr, posis->sframe_qp_offsets, param_count);
+    // check if the QP offset values are valid
+    for (uint32_t i = 0; i < posis->sframe_qp_num; ++i) {
+        if (posis->sframe_qp_offsets[i] < -63 || posis->sframe_qp_offsets[i] > 63) {
+            SVT_ERROR("Error: Invalid S-Frame QP offset value. QP offsets must be [-63 - 63]\n");
+            EB_FREE(posis->sframe_qp_offsets);
+            posis->sframe_qp_num = 0;
+            err                  = EB_ErrorBadParameter;
+        }
+    }
+    // If sframe-qp-offset parameter contains only one value, apply it to all S-frames
+    if (err == EB_ErrorNone && param_count == 1) {
+        *qp_offset = posis->sframe_qp_offsets[0];
+    }
+    return err;
+}
+#endif // FTR_SFRAME_QP
 
 #define COLOR_OPT(par, opt)                                          \
     do {                                                             \
@@ -1957,13 +2113,13 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
 
     // arrays
     if (!strcmp(name, "qindex-offsets"))
-        return parse_list_s32(value, config_struct->qindex_offsets, EB_MAX_TEMPORAL_LAYERS);
+        return parse_list_int32(value, config_struct->qindex_offsets, EB_MAX_TEMPORAL_LAYERS);
 
     if (!strcmp(name, "chroma-qindex-offsets"))
-        return parse_list_s32(value, config_struct->chroma_qindex_offsets, EB_MAX_TEMPORAL_LAYERS);
+        return parse_list_int32(value, config_struct->chroma_qindex_offsets, EB_MAX_TEMPORAL_LAYERS);
 
     if (!strcmp(name, "lambda-scale-factors"))
-        return parse_list_s32(value, config_struct->lambda_scale_factors, SVT_AV1_FRAME_UPDATE_TYPES);
+        return parse_list_int32(value, config_struct->lambda_scale_factors, SVT_AV1_FRAME_UPDATE_TYPES);
 
     if (!strcmp(name, "frame-resz-events"))
         return str_to_frm_resz_evts(value, &config_struct->frame_scale_evts);
@@ -1978,6 +2134,14 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
     if (!strcmp(name, "sframe-posi"))
         return str_to_sframe_posi(value, &config_struct->sframe_posi);
 #endif // FTR_SFRAME_POSI
+
+#if FTR_SFRAME_QP
+    if (!strcmp(name, "sframe-qp"))
+        return str_to_sframe_qp(value, &config_struct->sframe_posi, &config_struct->sframe_qp);
+
+    if (!strcmp(name, "sframe-qp-offset"))
+        return str_to_sframe_qp_offset(value, &config_struct->sframe_posi, &config_struct->sframe_qp_offset);
+#endif // FTR_SFRAME_QP
 
     // uint32_t fields
     const struct {
