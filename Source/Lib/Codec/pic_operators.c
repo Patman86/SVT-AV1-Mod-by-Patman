@@ -14,86 +14,11 @@
  * Includes
  *********************************/
 
-#include "pic_operators.h"
 #include "pack_unpack_c.h"
-#include "common_dsp_rtcd.h"
 #include "utility.h"
 #include "intra_prediction.h"
 #include "aom_dsp_rtcd.h"
-
-/*********************************
- * Picture Copy
- *********************************/
-
-void svt_aom_pic_copy_kernel_8bit(EbByte src, uint32_t src_stride, EbByte dst, uint32_t dst_stride, uint32_t area_width,
-                                  uint32_t area_height) {
-    for (uint32_t j = 0; j < area_height; j++) svt_memcpy(dst + j * dst_stride, src + j * src_stride, area_width);
-}
-void svt_aom_pic_copy_kernel_16bit(uint16_t *src, uint32_t src_stride, uint16_t *dst, uint32_t dst_stride,
-                                   uint32_t width, uint32_t height) {
-    for (uint32_t j = 0; j < height; j++)
-        svt_memcpy(dst + j * dst_stride, src + j * src_stride, sizeof(uint16_t) * width);
-}
-
-EbErrorType svt_av1_picture_copy(EbPictureBufferDesc *src, uint32_t src_luma_origin_index,
-                                 uint32_t src_chroma_origin_index, EbPictureBufferDesc *dst,
-                                 uint32_t dst_luma_origin_index, uint32_t dst_chroma_origin_index, uint32_t area_width,
-                                 uint32_t area_height, uint32_t chroma_area_width, uint32_t chroma_area_height,
-                                 uint32_t component_mask, bool hbd) {
-    EbErrorType return_error = EB_ErrorNone;
-
-    if (hbd) {
-        if (component_mask & PICTURE_BUFFER_DESC_Y_FLAG)
-            svt_aom_pic_copy_kernel_16bit(((uint16_t *)src->buffer_y) + src_luma_origin_index,
-                                          src->stride_y,
-                                          ((uint16_t *)dst->buffer_y) + dst_luma_origin_index,
-                                          dst->stride_y,
-                                          area_width,
-                                          area_height);
-
-        if (component_mask & PICTURE_BUFFER_DESC_Cb_FLAG)
-            svt_aom_pic_copy_kernel_16bit(((uint16_t *)src->buffer_cb) + src_chroma_origin_index,
-                                          src->stride_cb,
-                                          ((uint16_t *)dst->buffer_cb) + dst_chroma_origin_index,
-                                          dst->stride_cb,
-                                          chroma_area_width,
-                                          chroma_area_height);
-
-        if (component_mask & PICTURE_BUFFER_DESC_Cr_FLAG)
-            svt_aom_pic_copy_kernel_16bit(((uint16_t *)src->buffer_cr) + src_chroma_origin_index,
-                                          src->stride_cr,
-                                          ((uint16_t *)dst->buffer_cr) + dst_chroma_origin_index,
-                                          dst->stride_cr,
-                                          chroma_area_width,
-                                          chroma_area_height);
-    } else {
-        if (component_mask & PICTURE_BUFFER_DESC_Y_FLAG)
-            svt_aom_pic_copy_kernel_8bit(&(src->buffer_y[src_luma_origin_index]),
-                                         src->stride_y,
-                                         &(dst->buffer_y[dst_luma_origin_index]),
-                                         dst->stride_y,
-                                         area_width,
-                                         area_height);
-
-        if (component_mask & PICTURE_BUFFER_DESC_Cb_FLAG)
-            svt_aom_pic_copy_kernel_8bit(&(src->buffer_cb[src_chroma_origin_index]),
-                                         src->stride_cb,
-                                         &(dst->buffer_cb[dst_chroma_origin_index]),
-                                         dst->stride_cb,
-                                         chroma_area_width,
-                                         chroma_area_height);
-
-        if (component_mask & PICTURE_BUFFER_DESC_Cr_FLAG)
-            svt_aom_pic_copy_kernel_8bit(&(src->buffer_cr[src_chroma_origin_index]),
-                                         src->stride_cr,
-                                         &(dst->buffer_cr[dst_chroma_origin_index]),
-                                         dst->stride_cr,
-                                         chroma_area_width,
-                                         chroma_area_height);
-    }
-
-    return return_error;
-}
+#include "pic_operators.h"
 
 /*******************************************
 * Residual Kernel 16bit
@@ -358,8 +283,8 @@ void svt_aom_generate_padding(
     temp_src_pic0 = src_pic + padding_width + padding_height * src_stride;
     while (vertical_idx) {
         // horizontal padding
-        EB_MEMSET(temp_src_pic0 - padding_width, *temp_src_pic0, padding_width);
-        EB_MEMSET(temp_src_pic0 + original_src_width, *(temp_src_pic0 + original_src_width - 1), padding_width);
+        svt_memset(temp_src_pic0 - padding_width, *temp_src_pic0, padding_width);
+        svt_memset(temp_src_pic0 + original_src_width, *(temp_src_pic0 + original_src_width - 1), padding_width);
 
         temp_src_pic0 += src_stride;
         --vertical_idx;
@@ -511,7 +436,7 @@ void pad_input_picture(
         temp_src_pic0 = src_pic;
 
         while (vertical_idx) {
-            EB_MEMSET(temp_src_pic0 + original_src_width, *(temp_src_pic0 + original_src_width - 1), pad_right);
+            svt_memset(temp_src_pic0 + original_src_width, *(temp_src_pic0 + original_src_width - 1), pad_right);
             temp_src_pic0 += src_stride;
             --vertical_idx;
         }
