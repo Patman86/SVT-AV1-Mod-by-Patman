@@ -419,7 +419,7 @@ static EbErrorType set_cfg_fgs_table_path(EbConfig *cfg, const char *token, cons
         return ret;
     fclose(file);
 
-    cfg->fgs_table_path = strdup(value);
+    cfg->fgs_table_path = _strdup(value);
 
     return EB_ErrorNone;
 }
@@ -2181,7 +2181,7 @@ static EbErrorType read_fgs_table(EbConfig *cfg) {
     film_grain = (AomFilmGrain *)calloc(1, sizeof(AomFilmGrain));
 
     while (!feof(file)) {
-        int num_read = fscanf(file,
+        int num_read = fscanf_s(file,
                               "E %*d %*d %d %hu %d\n",
                               &film_grain->apply_grain,
                               &film_grain->random_seed,
@@ -2197,7 +2197,7 @@ static EbErrorType read_fgs_table(EbConfig *cfg) {
         }
 
         if (film_grain->update_parameters) {
-            num_read = fscanf(file,
+            num_read = fscanf_s(file,
                               "p %d %d %d %d %d %d %d %d %d %d %d %d\n",
                               &film_grain->ar_coeff_lag,
                               &film_grain->ar_coeff_shift,
@@ -2215,72 +2215,72 @@ static EbErrorType read_fgs_table(EbConfig *cfg) {
                 fprintf(stderr, "Unable to read entry header. Read %d != 12\n", num_read);
                 goto fail;
             }
-            if (!fscanf(file, "\tsY %d ", &film_grain->num_y_points)) {
+            if (!fscanf_s(file, "\tsY %d ", &film_grain->num_y_points)) {
                 fprintf(stderr, "Unable to read num y points\n");
                 goto fail;
             }
             for (int i = 0; i < film_grain->num_y_points; ++i) {
                 if (2 !=
-                    fscanf(file, "%d %d", &film_grain->scaling_points_y[i][0], &film_grain->scaling_points_y[i][1])) {
+                    fscanf_s(file, "%d %d", &film_grain->scaling_points_y[i][0], &film_grain->scaling_points_y[i][1])) {
                     fprintf(stderr, "Unable to read y scaling points\n");
                     goto fail;
                 }
             }
-            if (!fscanf(file, "\n\tsCb %d", &film_grain->num_cb_points)) {
+            if (!fscanf_s(file, "\n\tsCb %d", &film_grain->num_cb_points)) {
                 fprintf(stderr, "Unable to read num cb points\n");
                 goto fail;
             }
             for (int i = 0; i < film_grain->num_cb_points; ++i) {
                 if (2 !=
-                    fscanf(file, "%d %d", &film_grain->scaling_points_cb[i][0], &film_grain->scaling_points_cb[i][1])) {
+                    fscanf_s(file, "%d %d", &film_grain->scaling_points_cb[i][0], &film_grain->scaling_points_cb[i][1])) {
                     fprintf(stderr, "Unable to read cb scaling points\n");
                     goto fail;
                 }
             }
-            if (!fscanf(file, "\n\tsCr %d", &film_grain->num_cr_points)) {
+            if (!fscanf_s(file, "\n\tsCr %d", &film_grain->num_cr_points)) {
                 fprintf(stderr, "Unable to read num cr points\n");
                 goto fail;
             }
             for (int i = 0; i < film_grain->num_cr_points; ++i) {
                 if (2 !=
-                    fscanf(file, "%d %d", &film_grain->scaling_points_cr[i][0], &film_grain->scaling_points_cr[i][1])) {
+                    fscanf_s(file, "%d %d", &film_grain->scaling_points_cr[i][0], &film_grain->scaling_points_cr[i][1])) {
                     fprintf(stderr, "Unable to read cr scaling points\n");
                     goto fail;
                 }
             }
 
-            if (fscanf(file, "\n\tcY")) {
+            if (fscanf_s(file, "\n\tcY")) {
                 fprintf(stderr, "Unable to read Y coeffs header (cY)\n");
                 goto fail;
             }
             const int n = 2 * film_grain->ar_coeff_lag * (film_grain->ar_coeff_lag + 1);
             for (int i = 0; i < n; ++i) {
-                if (1 != fscanf(file, "%d", &film_grain->ar_coeffs_y[i])) {
+                if (1 != fscanf_s(file, "%d", &film_grain->ar_coeffs_y[i])) {
                     fprintf(stderr, "Unable to read Y coeffs\n");
                     goto fail;
                 }
             }
-            if (fscanf(file, "\n\tcCb")) {
+            if (fscanf_s(file, "\n\tcCb")) {
                 fprintf(stderr, "Unable to read Cb coeffs header (cCb)\n");
                 goto fail;
             }
             for (int i = 0; i <= n; ++i) {
-                if (1 != fscanf(file, "%d", &film_grain->ar_coeffs_cb[i])) {
+                if (1 != fscanf_s(file, "%d", &film_grain->ar_coeffs_cb[i])) {
                     fprintf(stderr, "Unable to read Cb coeffs\n");
                     goto fail;
                 }
             }
-            if (fscanf(file, "\n\tcCr")) {
+            if (fscanf_s(file, "\n\tcCr")) {
                 fprintf(stderr, "Unable read to Cr coeffs header (cCr)\n");
                 goto fail;
             }
             for (int i = 0; i <= n; ++i) {
-                if (1 != fscanf(file, "%d", &film_grain->ar_coeffs_cr[i])) {
+                if (1 != fscanf_s(file, "%d", &film_grain->ar_coeffs_cr[i])) {
                     fprintf(stderr, "Unable to read Cr coeffs\n");
                     goto fail;
                 }
             }
-            if (fscanf(file, "\n")) {
+            if (fscanf_s(file, "\n")) {
                 // optional newline at end of file,
             }
         }
