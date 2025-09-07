@@ -995,7 +995,6 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      */
     bool adaptive_film_grain;
 
-    // clang-format on
 } EbSvtAv1EncConfiguration;
 
 /**
