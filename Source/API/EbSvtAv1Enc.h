@@ -995,18 +995,6 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      */
     bool adaptive_film_grain;
 
-    // clang-format off
-    /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128 - (sizeof(uint8_t) * 3)
-        - (sizeof(bool) * 2)
-#if FTR_SFRAME_POSI
-        - sizeof(SvtAv1SFramePositions)
-#endif // FTR_SFRAME_POSI
-#if FTR_SFRAME_QP
-        - sizeof(uint8_t)
-        - sizeof(int8_t)
-#endif // FTR_SFRAME_QP
-    ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
 
