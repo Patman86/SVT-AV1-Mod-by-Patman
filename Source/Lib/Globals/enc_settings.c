@@ -836,7 +836,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             "SVT-AV1 has an integrated mode decision mechanism to handle scene changes and will "
             "not insert a key frame at scene changes\n");
     }
-    if ((config->tile_columns > 0 && config->fast_decode < 1 || config->tile_rows > 0 && config->fast_decode < 1)) {
+    if (config->fast_decode < 1 && (config->tile_columns > 0 || config->tile_rows > 0)) {
         SVT_WARN(
             "If you are using tiles with the intent of increasing the decoder speed, please also "
             "consider using --fast-decode 1 or 2, especially if the intended decoder is running with "
@@ -1100,7 +1100,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
 
     SVT_INFO("-------------------------------------------\n");
     if (config->pass == ENC_FIRST_PASS)
-        SVT_INFO("SVT [config]: preset \t\t\t\t\t\t: Pass 1\n");
+        SVT_INFO("SVT [config]: First Pass Encode\n");
     else
     {
         SVT_INFO("SVT [config]: profile / tier / level \t\t\t\t: %s / %s / %s\n",
