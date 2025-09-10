@@ -419,7 +419,10 @@ static EbErrorType set_cfg_fgs_table_path(EbConfig *cfg, const char *token, cons
         return ret;
     fclose(file);
 
-    cfg->fgs_table_path = _strdup(value);
+    cfg->fgs_table_path = malloc(strlen(value) + 1);
+    if (cfg->fgs_table_path != NULL) {
+        memcpy(cfg->fgs_table_path, value, strlen(value) + 1);
+    }
 
     return EB_ErrorNone;
 }
