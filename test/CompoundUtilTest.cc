@@ -579,6 +579,7 @@ INSTANTIATE_TEST_SUITE_P(
                                     svt_aom_highbd_blend_a64_d16_mask_neon)}));
 #endif  // ARCH_AARCH64
 
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
 using HbdBlendA64HMaskFunc = void (*)(uint16_t *, uint32_t, const uint16_t *,
                                       uint32_t, const uint16_t *, uint32_t,
                                       const uint8_t *, int, int, int);
@@ -731,6 +732,8 @@ INSTANTIATE_TEST_SUITE_P(NEON, HbdCompBlendVMaskTest,
                              svt_aom_highbd_blend_a64_vmask_16bit_neon)}));
 #endif  // ARCH_AARCH64
 
+#endif  // CONFIG_ENABLE_HIGH_BIT_DEPTH
+
 typedef void (*BuildCompDiffwtdMaskedFunc)(uint8_t *mask,
                                            DIFFWTD_MASK_TYPE mask_type,
                                            const uint8_t *src0, int src0_stride,
@@ -742,7 +745,7 @@ typedef ::testing::tuple<BlockSize, BuildCompDiffwtdMaskedFunc>
 class BuildCompDiffwtdMaskTest
     : public ::testing::TestWithParam<BuildCompDiffwtdMaskParam> {
   public:
-    BuildCompDiffwtdMaskTest() : rnd_(0, 255){};
+    BuildCompDiffwtdMaskTest() : rnd_(0, 255) {};
     virtual ~BuildCompDiffwtdMaskTest() {
     }
 
@@ -820,7 +823,7 @@ typedef ::testing::tuple<BlockSize, BuildCompDiffwtdMaskedHighbdFunc>
 class BuildCompDiffwtdMaskHighbdTest
     : public ::testing::TestWithParam<BuildCompDiffwtdMaskHighbdParam> {
   public:
-    BuildCompDiffwtdMaskHighbdTest() : rnd_(0, 255){};
+    BuildCompDiffwtdMaskHighbdTest() : rnd_(0, 255) {};
     virtual ~BuildCompDiffwtdMaskHighbdTest() {
     }
 
@@ -1024,7 +1027,7 @@ typedef ::testing::tuple<BlockSize, AomSseFunc> AomSseParam;
 
 class AomSseTest : public ::testing::TestWithParam<AomSseParam> {
   public:
-    AomSseTest() : rnd_(0, 255){};
+    AomSseTest() : rnd_(0, 255) {};
     virtual ~AomSseTest() {
     }
 
@@ -1084,9 +1087,11 @@ INSTANTIATE_TEST_SUITE_P(
 #endif  // HAVE_NEON_DOTPROD
 #endif  // ARCH_AARCH64
 
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
+
 class AomSseHighbdTest : public ::testing::TestWithParam<AomSseParam> {
   public:
-    AomSseHighbdTest() : rnd_(0, 255){};
+    AomSseHighbdTest() : rnd_(0, 255) {};
     virtual ~AomSseHighbdTest() {
     }
 
@@ -1168,6 +1173,7 @@ INSTANTIATE_TEST_SUITE_P(
                        ::testing::Values(svt_aom_highbd_sse_sve)));
 #endif  // HAVE_SVE
 #endif  // ARCH_AARCH64
+#endif  // CONFIG_ENABLE_HIGH_BIT_DEPTH
 
 typedef void (*AomSubtractBlockFunc)(int, int, int16_t *, ptrdiff_t,
                                      const uint8_t *, ptrdiff_t,
@@ -1177,7 +1183,7 @@ typedef ::testing::tuple<BlockSize, AomSubtractBlockFunc> AomSubtractBlockParam;
 class AomSubtractBlockTest
     : public ::testing::TestWithParam<AomSubtractBlockParam> {
   public:
-    AomSubtractBlockTest() : rnd_(0, 255){};
+    AomSubtractBlockTest() : rnd_(0, 255) {};
     virtual ~AomSubtractBlockTest() {
     }
 
@@ -1240,6 +1246,8 @@ INSTANTIATE_TEST_SUITE_P(
                        ::testing::Values(svt_aom_subtract_block_neon)));
 #endif  // ARCH_AARCH64
 
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
+
 typedef void (*AomHighbdSubtractBlockFunc)(int, int, int16_t *, ptrdiff_t,
                                            const uint8_t *, ptrdiff_t,
                                            const uint8_t *, ptrdiff_t, int);
@@ -1249,7 +1257,7 @@ typedef ::testing::tuple<BlockSize, AomHighbdSubtractBlockFunc>
 class AomHighbdSubtractBlockTest
     : public ::testing::TestWithParam<AomHighbdSubtractBlockParam> {
   public:
-    AomHighbdSubtractBlockTest() : rnd_(0, 255){};
+    AomHighbdSubtractBlockTest() : rnd_(0, 255) {};
     virtual ~AomHighbdSubtractBlockTest() {
     }
 
@@ -1320,5 +1328,7 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
                        ::testing::Values(svt_aom_highbd_subtract_block_neon)));
 #endif  // ARCH_AARCH64
+
+#endif
 
 }  // namespace

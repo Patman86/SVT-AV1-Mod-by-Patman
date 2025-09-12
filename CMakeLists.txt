@@ -9,7 +9,7 @@
 # PATENTS file, you can obtain it at https://www.aomedia.org/license/patent-license.
 #
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.16...4.1)
 
 if("${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_BINARY_DIR}")
     message(WARNING "Building in-source is highly not recommended\n"
@@ -20,19 +20,6 @@ project(svt-av1 VERSION 3.1.2
     LANGUAGES C CXX)
 
 set(VERSION_TAG "")
-
-if(POLICY CMP0063)
-  cmake_policy(SET CMP0063 NEW)
-endif()
-if(POLICY CMP0069)
-    cmake_policy(SET CMP0069 NEW)
-endif()
-if(POLICY CMP0077)
-    cmake_policy(SET CMP0077 NEW)
-endif()
-if(POLICY CMP0174)
-    cmake_policy(SET CMP0174 NEW)
-endif()
 
 set(CMAKE_C_VISIBILITY_PRESET hidden)
 # Default build type to release if the generator does not has its own set of build types
@@ -103,6 +90,7 @@ if(NOT COMPILE_C_ONLY AND HAVE_X86_PLATFORM)
     enable_language(ASM_NASM)
     add_definitions(-DARCH_X86_64=1)
 elseif(NOT COMPILE_C_ONLY AND HAVE_ARM_PLATFORM)
+    enable_language(ASM) # needed for .S files
     set(ARM64_FLAVORS "NEON;ARM_CRC32;NEON_DOTPROD;NEON_I8MM;SVE;SVE2")
     set(ARM_CRC32_DEFAULT_FLAG "-march=armv8-a+crc")
     set(NEON_DOTPROD_DEFAULT_FLAG "-march=armv8.2-a+dotprod")
@@ -191,21 +179,25 @@ include(GNUInstallDirs)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(CMAKE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/Bin/GNU/${CMAKE_BUILD_TYPE}/" CACHE PATH "Location to write the resulting binaries to")
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    set(CMAKE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/Bin/MSVC/${CMAKE_BUILD_TYPE}/" CACHE PATH "Location to write the resulting binaries to")
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    set(CMAKE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/Bin/Clang/${CMAKE_BUILD_TYPE}/" CACHE PATH "Location to write the resulting binaries to")
-else()
-    set(CMAKE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/Bin/${CMAKE_BUILD_TYPE}/" CACHE PATH "Location to write the resulting binaries to")
+# if(PROJECT_IS_TOP_LEVEL) requires CMake 3.21
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(CMAKE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/Bin/GNU/${CMAKE_BUILD_TYPE}/" CACHE PATH "Location to write the resulting binaries to")
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        set(CMAKE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/Bin/MSVC/${CMAKE_BUILD_TYPE}/" CACHE PATH "Location to write the resulting binaries to")
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        set(CMAKE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/Bin/Clang/${CMAKE_BUILD_TYPE}/" CACHE PATH "Location to write the resulting binaries to")
+    else()
+        set(CMAKE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/Bin/${CMAKE_BUILD_TYPE}/" CACHE PATH "Location to write the resulting binaries to")
+    endif()
+
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
 endif()
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
-
-set(REQUIRES_PRIVATE "")
+set(PC_LIBS_PRIVATE)
+set(PC_REQUIRES_PRIVATE)
 
 #Clang support, required to build static with LTO
 if(CMAKE_C_COMPILER_ID MATCHES "Clang" AND UNIX AND NOT APPLE)
@@ -593,7 +585,6 @@ endif()
 include_directories(.)
 
 # Find out if we have threading available
-set(CMAKE_THREAD_PREFER_PTHREADS ON)
 find_package(Threads)
 
 check_symbol_exists(elf_aux_info "sys/auxv.h" HAVE_ELF_AUX_INFO)
@@ -643,6 +634,11 @@ if(NOT IS_ABSOLUTE "${SVT_AV1_INCLUDEDIR}")
 endif()
 if(NOT IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
     string(PREPEND SVT_AV1_LIBDIR "\${exec_prefix}/")
+endif()
+
+if(UNIX AND NOT APPLE)
+    list(APPEND PLATFORM_LIBS Threads::Threads m)
+    list(APPEND PC_LIBS_PRIVATE ${CMAKE_THREAD_LIBS_INIT} -lm)
 endif()
 
 # Add Subdirectories
@@ -732,4 +728,4 @@ endif()
 
 add_subdirectory(third_party/fastfeat)
 
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/Source/API/ DESTINATION "${CMAKE_INSTALL_FULL_INCLUDEDIR}/svt-av1" FILES_MATCHING PATTERN "*.h")
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/Source/API/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/svt-av1" FILES_MATCHING PATTERN "*.h")
