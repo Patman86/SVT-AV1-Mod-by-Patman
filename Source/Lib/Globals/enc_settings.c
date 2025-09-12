@@ -1206,34 +1206,34 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                     config->film_grain_denoise_strength);
             }
         }
-        SVT_INFO("SVT [config]: sharpness / luminance-based QP bias \t\t\t\t: %d / %d\n",
+        SVT_INFO("SVT [config]: sharpness / luminance-based QP bias \t\t\t: %d / %d\n",
                  config->sharpness,
                  config->luminance_qp_bias);
 
         switch (config->enable_tf) {
         case 1:
             if (config->tf_strength != 3)
-                SVT_INFO("SVT [config]: temporal filtering strength \t\t\t\t\t: %d\n", config->tf_strength);
+                SVT_INFO("SVT [config]: temporal filtering strength \t\t\t\t: %d\n", config->tf_strength);
             break;
-        case 2: SVT_INFO("SVT [config]: temporal filtering strength \t\t\t\t\t: auto\n"); break;
+        case 2: SVT_INFO("SVT [config]: temporal filtering strength \t\t\t\t: auto\n"); break;
         default: break;
         }
 
-        SVT_INFO("SVT [config]: QP scale compress strength \t\t\t\t\t: %d\n", config->qp_scale_compress_strength);
+        SVT_INFO("SVT [config]: QP scale compress strength \t\t\t\t: %d\n", config->qp_scale_compress_strength);
     }
 #ifdef DEBUG_BUFFERS
-    SVT_INFO("SVT [config]: INPUT / OUTPUT \t\t\t\t\t\t: %d / %d\n",
+    SVT_INFO("SVT [config]: INPUT / OUTPUT \t\t\t\t\t: %d / %d\n",
              scs->input_buffer_fifo_init_count,
              scs->output_stream_buffer_fifo_init_count);
-    SVT_INFO("SVT [config]: CPCS / PAREF / REF / ME \t\t\t\t\t: %d / %d / %d / %d\n",
+    SVT_INFO("SVT [config]: CPCS / PAREF / REF / ME \t\t\t\t: %d / %d / %d / %d\n",
              scs->picture_control_set_pool_init_count_child,
              scs->pa_reference_picture_buffer_init_count,
              scs->reference_picture_buffer_init_count,
              scs->me_pool_init_count);
-    SVT_INFO("SVT [config]: ME_SEG_W / ME_SEG_H \t\t: %d / %d / %d / %d\n",
+    SVT_INFO("SVT [config]: ME_SEG_W / ME_SEG_H \t\t\t\t\t: %d / %d / %d / %d\n",
              scs->me_segment_col_count_array,
              scs->me_segment_row_count_array);
-    SVT_INFO("SVT [config]: ENC_DEC_SEG_W / ENC_DEC_SEG_H \t\t: %d / %d / %d / %d\n",
+    SVT_INFO("SVT [config]: ENC_DEC_SEG_W / ENC_DEC_SEG_H \t\t\t\t: %d / %d / %d / %d\n",
              scs->enc_dec_segment_col_count_array,
              scs->enc_dec_segment_row_count_array);
     SVT_INFO(
@@ -1245,7 +1245,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
         scs->mode_decision_configuration_process_init_count,
         scs->enc_dec_process_init_count,
         scs->entropy_coding_process_init_count);
-    SVT_INFO("SVT [config]: DLF_P / CDEF_P / REST_P \t\t\t\t\t: %d / %d / %d\n",
+    SVT_INFO("SVT [config]: DLF_P / CDEF_P / REST_P \t\t\t\t: %d / %d / %d\n",
              scs->dlf_process_init_count,
              scs->cdef_process_init_count,
              scs->rest_process_init_count);
