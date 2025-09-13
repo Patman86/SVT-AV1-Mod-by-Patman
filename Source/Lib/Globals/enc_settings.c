@@ -1102,7 +1102,8 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
         SVT_INFO("SVT [config]: First Pass Encode\n");
     else
     {
-        SVT_INFO("SVT [config]: profile / tier / level \t\t\t\t: %s / %s / %s\n",
+        SVT_INFO("SVT [config]: %-53s : %s / %s / %s\n",
+                 "profile / tier / level",
                  config->profile == MAIN_PROFILE               ? "main"
                      : config->profile == HIGH_PROFILE         ? "high"
                      : config->profile == PROFESSIONAL_PROFILE ? "professional"
@@ -1110,15 +1111,15 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                  tier_to_str(config->tier),
                  level_to_str(config->level));
         SVT_INFO(
-            "SVT [config]: width / height / fps numerator / fps denominator \t: %d / %d / %d / "
-            "%d\n",
+            "SVT [config]: %-53s : %d / %d / %d / %d\n",
+            "width / height / fps numerator / fps denominator",
             config->source_width,
             config->source_height,
             config->frame_rate_numerator,
             config->frame_rate_denominator);
         SVT_INFO(
-            "SVT [config]: bit-depth / color format \t\t\t\t: %d / "
-            "%s\n",
+            "SVT [config]: %-53s : %d / %s\n",
+            "bit-depth / color format",
             config->encoder_bit_depth,
             config->encoder_color_format == EB_YUV400       ? "YUV400"
                 : config->encoder_color_format == EB_YUV420 ? "YUV420"
@@ -1126,7 +1127,8 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                 : config->encoder_color_format == EB_YUV444 ? "YUV444"
                                                             : "Unknown color format");
 
-        SVT_INFO("SVT [config]: preset / tune / pred struct \t\t\t\t: %d / %s / %s\n",
+        SVT_INFO("SVT [config]: %-53s : %d / %s / %s\n",
+                 "preset / tune / pred struct",
                  config->enc_mode,
                  config->tune == 0       ? "VQ"
                      : config->tune == 1 ? "PSNR"
@@ -1136,52 +1138,56 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                      : config->pred_structure == RANDOM_ACCESS ? "random access"
                                                                : "Unknown pred structure");
         SVT_INFO(
-            "SVT [config]: gop size / mini-gop size / key-frame type \t\t: "
-            "%d / %d / %s\n",
+            "SVT [config]: %-53s : %d / %d / %s\n",
+            "gop size / mini-gop size / key-frame type",
             config->intra_period_length + 1,
             (1 << config->hierarchical_levels),
             config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH    ? "FWD key frame"
                 : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "key frame"
                                                                    : "Unknown key frame type");
         if (config->lossless) {
-            SVT_INFO("SVT [config]: BRC mode \t\t\t\t\t\t: Lossless Coding \n");
+            SVT_INFO("SVT [config]: %-53s : Lossless Coding \n", "BRC mode");
         } else {
             switch (config->rate_control_mode) {
             case SVT_AV1_RC_MODE_CQP_OR_CRF:
                 if (config->max_bit_rate) {
                     SVT_INFO(
-                        "SVT [config]: BRC mode / %s / max bitrate (kbps) \t\t: %s / %d / "
-                        "%d\n",
+                        "SVT [config]: %-53s : %s / %s / %d / %d\n",
+                        "BRC mode / mode / factor / max bitrate (kbps)",
                         scs->tpl || scs->static_config.enable_variance_boost ? "rate factor" : "CQP Assignment",
                         scs->tpl || scs->static_config.enable_variance_boost ? "capped CRF" : "CQP",
                         scs->static_config.qp,
                         (int)config->max_bit_rate / 1000);
                 } else {
-                    SVT_INFO("SVT [config]: BRC mode / %s \t\t\t\t: %s / %d \n",
+                    SVT_INFO("SVT [config]: %-53s : %s / %s / %d \n",
+                             "BRC mode / mode / factor",
                              scs->tpl || scs->static_config.enable_variance_boost ? "rate factor" : "CQP Assignment",
                              scs->tpl || scs->static_config.enable_variance_boost ? "CRF" : "CQP",
                              scs->static_config.qp);
                 }
                 break;
             case SVT_AV1_RC_MODE_VBR:
-                SVT_INFO("SVT [config]: BRC mode / target bitrate (kbps) \t\t\t: VBR / %d \n",
+                SVT_INFO("SVT [config]: %-53s : VBR / %d \n",
+                         "BRC mode / target bitrate (kbps)",
                          (int)config->target_bit_rate / 1000);
                 break;
             case SVT_AV1_RC_MODE_CBR:
                 SVT_INFO(
-                "SVT [config]: BRC mode / target bitrate (kbps) \t\t\t: CBR "
-                "/ %d\n",
+                "SVT [config]: %-53s : CBR / %d\n",
+                "BRC mode / target bitrate (kbps)",
                 (int)config->target_bit_rate / 1000);
             break;
             }
         }
         if (config->rate_control_mode != SVT_AV1_RC_MODE_CBR) {
             if (!config->enable_variance_boost) {
-                SVT_INFO("SVT [config]: AQ mode / variance boost \t\t\t\t: %d / %d\n",
+                SVT_INFO("SVT [config]: %-53s : %d / %d\n",
+                         "AQ mode / variance boost",
                          config->enable_adaptive_quantization,
                          config->enable_variance_boost);
             } else {
-                SVT_INFO("SVT [config]: AQ mode / variance boost strength / octile / curve \t: %d / %d / %d / %d\n",
+                SVT_INFO("SVT [config]: %-53s : %d / %d / %d / %d\n",
+                         "AQ mode / variance boost strength / octile / curve",
                          config->enable_adaptive_quantization,
                          config->variance_boost_strength,
                          config->variance_octile,
@@ -1193,59 +1199,66 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
 
             if (config->adaptive_film_grain) {
                 SVT_INFO(
-                    "SVT [config]: film grain synth / denoie / level / adapt. blocksize \t: %d / %d / %d / True\n",
+                    "SVT [config]: %-53s : %d / %d / %d / True\n",
+                    "film grain synth / denoise / level / adapt. blocksize",
                     1,
                     config->film_grain_denoise_apply,
                     config->film_grain_denoise_strength);
             } else {
                 SVT_INFO(
-                    "SVT [config]: film grain synth / denoise / level / adapt. blocksize \t: %d / %d / %d / "
-                    "False\n",
+                    "SVT [config]: %-53s : %d / %d / %d / False\n",
+                    "film grain synth / denoise / level / adapt. blocksize",
                     1,
                     config->film_grain_denoise_apply,
                     config->film_grain_denoise_strength);
             }
         }
-        SVT_INFO("SVT [config]: sharpness / luminance-based QP bias \t\t\t: %d / %d\n",
+        SVT_INFO("SVT [config]: %-53s : %d / %d\n",
+                 "sharpness / luminance-based QP bias",
                  config->sharpness,
                  config->luminance_qp_bias);
 
         switch (config->enable_tf) {
         case 1:
             if (config->tf_strength != 3)
-                SVT_INFO("SVT [config]: temporal filtering strength \t\t\t\t: %d\n", config->tf_strength);
+                SVT_INFO("SVT [config]: %-53s : %d\n", "temporal filtering strength", config->tf_strength);
             break;
-        case 2: SVT_INFO("SVT [config]: temporal filtering strength \t\t\t\t: auto\n"); break;
+        case 2: SVT_INFO("SVT [config]: %-53s : auto\n", "temporal filtering strength"); break;
         default: break;
         }
 
-        SVT_INFO("SVT [config]: QP scale compress strength \t\t\t\t: %d\n", config->qp_scale_compress_strength);
+        SVT_INFO("SVT [config]: %-53s : %d\n", "QP scale compress strength", config->qp_scale_compress_strength);
     }
 #ifdef DEBUG_BUFFERS
-    SVT_INFO("SVT [config]: INPUT / OUTPUT \t\t\t\t\t: %d / %d\n",
+    SVT_INFO("SVT [config]: %-53s : %d / %d\n",
+             "INPUT / OUTPUT",
              scs->input_buffer_fifo_init_count,
              scs->output_stream_buffer_fifo_init_count);
-    SVT_INFO("SVT [config]: CPCS / PAREF / REF / ME \t\t\t\t: %d / %d / %d / %d\n",
+    SVT_INFO("SVT [config]: %-53s : %d / %d / %d / %d\n",
+             "CPCS / PAREF / REF / ME",
              scs->picture_control_set_pool_init_count_child,
              scs->pa_reference_picture_buffer_init_count,
              scs->reference_picture_buffer_init_count,
              scs->me_pool_init_count);
-    SVT_INFO("SVT [config]: ME_SEG_W / ME_SEG_H \t\t\t\t\t: %d / %d / %d / %d\n",
+    SVT_INFO("SVT [config]: %-53s : %d / %d\n",
+             "ME_SEG_W / ME_SEG_H",
              scs->me_segment_col_count_array,
              scs->me_segment_row_count_array);
-    SVT_INFO("SVT [config]: ENC_DEC_SEG_W / ENC_DEC_SEG_H \t\t\t\t: %d / %d / %d / %d\n",
+    SVT_INFO("SVT [config]: %-53s : %d / %d\n",
+             "ENC_DEC_SEG_W / ENC_DEC_SEG_H",
              scs->enc_dec_segment_col_count_array,
              scs->enc_dec_segment_row_count_array);
     SVT_INFO(
-        "SVT [config]: PA_P / ME_P / SBO_P / MDC_P / ED_P / EC_P \t\t: %d / %d / %d / %d / %d / "
-        "%d\n",
+        "SVT [config]: %-53s : %d / %d / %d / %d / %d / %d\n",
+        "PA_P / ME_P / SBO_P / MDC_P / ED_P / EC_P",
         scs->picture_analysis_process_init_count,
         scs->motion_estimation_process_init_count,
         scs->source_based_operations_process_init_count,
         scs->mode_decision_configuration_process_init_count,
         scs->enc_dec_process_init_count,
         scs->entropy_coding_process_init_count);
-    SVT_INFO("SVT [config]: DLF_P / CDEF_P / REST_P \t\t\t\t: %d / %d / %d\n",
+    SVT_INFO("SVT [config]: %-53s : %d / %d / %d\n",
+             "DLF_P / CDEF_P / REST_P",
              scs->dlf_process_init_count,
              scs->cdef_process_init_count,
              scs->rest_process_init_count);
