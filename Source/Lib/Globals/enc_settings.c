@@ -1198,12 +1198,8 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                  config->luminance_qp_bias);
 
         switch (config->enable_tf) {
-        case 1:
-            if (config->tf_strength != 3)
-                PRINT_CONFIG("temporal filtering strength", "%d", config->tf_strength);
-            break;
-        case 2: PRINT_CONFIG("temporal filtering strength", "auto");
-            break;
+        case 1: PRINT_CONFIG("temporal filtering strength", "%d", config->tf_strength); break;
+        case 2: PRINT_CONFIG("temporal filtering strength", "auto"); break;
         default: break;
         }
 
