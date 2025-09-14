@@ -35,7 +35,7 @@
 #include <unistd.h>
 #endif
 
-#define PRINT_CONFIG(label, fmt, ...) SVT_INFO("SVT [config]: %-50s : " fmt "\n", label, __VA_ARGS__)
+#define PRINT_CONFIG(label, fmt, ...) SVT_INFO("SVT [config]: %-50s : " fmt "\n", label, ##__VA_ARGS__)
 
 /******************************************
 * Verify Settings
