@@ -1182,7 +1182,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
             switch (config->rate_control_mode) {
             case SVT_AV1_RC_MODE_CQP_OR_CRF:
                 if (config->max_bit_rate) {
-                    PRINT_CONFIG("BRC mode / mode / factor / max bitrate (kbps)", "%s / %s / %d / %.2f",
+                    PRINT_CONFIG("BRC mode / mode / factor / max bitrate (kbps)", "%s / %s / %.2f / %d",
                         scs->tpl || scs->static_config.enable_variance_boost ? "rate factor" : "CQP Assignment",
                         scs->tpl || scs->static_config.enable_variance_boost ? "capped CRF" : "CQP",
                         get_extended_crf(config),
@@ -1195,7 +1195,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                 }
                 break;
             case SVT_AV1_RC_MODE_VBR:
-                PRINT_CONFIG("BRC mode / target bitrate (kbps)", "VBR / %d \n",
+                PRINT_CONFIG("BRC mode / target bitrate (kbps)", "VBR / %d",
                          (int)config->target_bit_rate / 1000);
                 break;
             case SVT_AV1_RC_MODE_CBR:
@@ -1220,11 +1220,11 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
 
         if (config->film_grain_denoise_strength != 0) {
             if (config->adaptive_film_grain) {
-                PRINT_CONFIG("film grain / denoise / level / adapt. blocksize", "True / %d / %d / True\n",
+                PRINT_CONFIG("film grain / denoise / level / adapt. blocksize", "True / %d / %d / True",
                          config->film_grain_denoise_apply,
                          config->film_grain_denoise_strength);
             } else {
-                PRINT_CONFIG("film grain / denoise / level / adapt. blocksize", "True / %d / %d / False\n",
+                PRINT_CONFIG("film grain / denoise / level / adapt. blocksize", "True / %d / %d / False",
                          config->film_grain_denoise_apply,
                          config->film_grain_denoise_strength);
             }
@@ -1234,15 +1234,12 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                  config->luminance_qp_bias);
 
         switch (config->enable_tf) {
-        case 1:
-            if (config->tf_strength != 3)
-                PRINT_CONFIG("temporal filtering strength", "%d", config->tf_strength);
-            break;
+        case 1: PRINT_CONFIG("temporal filtering strength", "%d", config->tf_strength); break;
         case 2: PRINT_CONFIG("temporal filtering strength", "auto"); break;
         default: break;
         }
 
-        PRINT_CONFIG("QP scale compress strength", ".2f",
+        PRINT_CONFIG("QP scale compress strength", "%.2f",
                  config->qp_scale_compress_strength);
 
         if (config->noise_norm_strength >= 0) {
