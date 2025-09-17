@@ -378,30 +378,21 @@ typedef struct PictureControlSet {
 // To optimize based on the max input size
 // To study speed-memory trade-offs
 typedef struct B64Geom {
-    uint8_t  horizontal_index;
-    uint8_t  vertical_index;
     uint16_t org_x;
     uint16_t org_y;
     uint8_t  width;
     uint8_t  height;
     uint8_t  is_complete_b64;
     bool     raster_scan_blk_validity[CU_MAX_COUNT];
-    uint8_t  is_edge_sb;
-    uint32_t tile_start_x;
-    uint32_t tile_start_y;
-    uint32_t tile_end_x;
-    uint32_t tile_end_y;
 } B64Geom;
 
 typedef struct SbGeom {
-    uint16_t horizontal_index;
-    uint16_t vertical_index;
     uint16_t org_x;
     uint16_t org_y;
     uint8_t  width;
     uint8_t  height;
     uint8_t  is_complete_sb;
-    bool     block_is_allowed[BLOCK_MAX_COUNT_SB_128];
+    bool    *block_is_allowed;
 } SbGeom;
 
 typedef struct TileGroupInfo {
@@ -1193,6 +1184,7 @@ typedef struct PictureControlSetInitData {
     bool    allintra;
     uint8_t qp_scale_compress_strength;
     bool    adaptive_film_grain;
+    uint8_t max_tx_size;
 } PictureControlSetInitData;
 
 /**************************************
@@ -1212,6 +1204,13 @@ EbErrorType me_update_param(MotionEstimationData *me_data, struct SequenceContro
 EbErrorType recon_coef_update_param(EncDecSet *recon_coef, struct SequenceControlSet *scs);
 extern bool svt_aom_is_pic_skipped(PictureParentControlSet *pcs);
 void svt_aom_get_gm_needed_resolutions(uint8_t ds_lvl, bool *gm_need_full, bool *gm_need_quart, bool *gm_need_sixteen);
+
+EbErrorType b64_geom_init(struct SequenceControlSet *scs, uint16_t width, uint16_t height, B64Geom **b64_geoms);
+EbErrorType sb_geom_init(struct SequenceControlSet *scs, uint16_t width, uint16_t height, SbGeom **sb_geoms);
+EbErrorType alloc_sb_geoms(SbGeom **geom, int width, int height, int num_blocks);
+void        free_sb_geoms(SbGeom *geom);
+void        copy_sb_geoms(SbGeom *dst_geom, SbGeom *src_geom, uint16_t width, uint16_t height, int num_blocks);
+
 #ifdef __cplusplus
 }
 #endif

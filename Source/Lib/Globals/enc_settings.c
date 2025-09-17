@@ -534,14 +534,14 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             config->fast_decode);
         return_error = EB_ErrorBadParameter;
     }
-    if (config->tune > 3) {
+    if (config->tune > TUNE_IQ) {
         SVT_ERROR(
             "Instance %u: Invalid tune flag [0 - 3, 0 for VQ, 1 for PSNR, 2 for SSIM and 3 for IQ], your input: %d\n",
             channel_number + 1,
             config->tune);
         return_error = EB_ErrorBadParameter;
     }
-    if (config->tune == 2) {
+    if (config->tune == TUNE_SSIM) {
         if (config->rate_control_mode != 0 || config->pred_structure != RANDOM_ACCESS) {
             SVT_ERROR("Instance %u: tune SSIM only supports CRF rate control mode currently\n",
                       channel_number + 1,
@@ -814,10 +814,10 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     }
 
     if (config->pred_structure == LOW_DELAY) {
-        if (config->tune == 0) {
+        if (config->tune == TUNE_VQ) {
             SVT_WARN("Instance %u: Tune 0 is not applicable for low-delay, tune will be forced to 1.\n",
                      channel_number + 1);
-            config->tune = 1;
+            config->tune = TUNE_PSNR;
         }
 
         if (config->superres_mode != 0) {
@@ -843,7 +843,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             "consider using --fast-decode 1 or 2, especially if the intended decoder is running with "
             "limited multi-threading capabilities.\n");
     }
-    if (config->tune == 0 && config->fast_decode > 0) {
+    if (config->tune == TUNE_VQ && config->fast_decode > 0) {
         SVT_WARN(
             "--fast - decode has been developed and optimized with --tune 1. "
             "Please use it with caution when encoding with --tune 0. You can also consider using "
@@ -910,6 +910,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
 
     if (config->qp_scale_compress_strength > 3) {
         SVT_ERROR("Instance %u: QP scale compress strength must be between 0 and 3\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+
+    if (config->max_tx_size != 32 && config->max_tx_size != 64) {
+        SVT_ERROR("Instance %u: Supported Max TX size values are 32 and 64\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -1078,6 +1083,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->sframe_qp_offset              = 0;
 #endif // FTR_SFRAME_QP
     config_ptr->adaptive_film_grain = true;
+    config_ptr->max_tx_size         = 64;
     return return_error;
 }
 
@@ -1126,10 +1132,10 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
 
         PRINT_CONFIG("preset / tune / pred struct", "%d / %s / %s",
                  config->enc_mode,
-                 config->tune == 0       ? "VQ"
-                     : config->tune == 1 ? "PSNR"
-                     : config->tune == 2 ? "SSIM"
-                                         : "IQ",
+                 config->tune == TUNE_VQ         ? "VQ"
+                     : config->tune == TUNE_PSNR ? "PSNR"
+                     : config->tune == TUNE_SSIM ? "SSIM"
+                                                 : "IQ",
                  config->pred_structure == LOW_DELAY           ? "low delay"
                      : config->pred_structure == RANDOM_ACCESS ? "random access"
                                                                : "Unknown pred structure");
@@ -2213,6 +2219,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"luminance-qp-bias", &config_struct->luminance_qp_bias},
         {"enable-tf", &config_struct->enable_tf},
         {"tf-strength", &config_struct->tf_strength},
+        {"max-tx-size", &config_struct->max_tx_size},
     };
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);
 

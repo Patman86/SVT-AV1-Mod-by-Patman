@@ -598,9 +598,10 @@ static EbErrorType realloc_sb_param(SequenceControlSet *scs, PictureParentContro
     EB_FREE_ARRAY(pcs->b64_geom);
     EB_MALLOC_ARRAY(pcs->b64_geom, scs->b64_total_count);
     memcpy(pcs->b64_geom, scs->b64_geom, sizeof(B64Geom) * scs->b64_total_count);
-    EB_FREE_ARRAY(pcs->sb_geom);
-    EB_MALLOC_ARRAY(pcs->sb_geom, scs->sb_total_count);
-    memcpy(pcs->sb_geom, scs->sb_geom, sizeof(SbGeom) * scs->sb_total_count);
+    free_sb_geoms(pcs->sb_geom);
+    // allocate buffers and copy data preserving dst pointers
+    alloc_sb_geoms(&pcs->sb_geom, scs->picture_width_in_sb, scs->picture_height_in_sb, scs->max_block_cnt);
+    copy_sb_geoms(pcs->sb_geom, scs->sb_geom, scs->picture_width_in_sb, scs->picture_height_in_sb, scs->max_block_cnt);
     pcs->is_pcs_sb_params = true;
     return EB_ErrorNone;
 }
@@ -951,8 +952,16 @@ void *svt_aom_resource_coordination_kernel(void *input_ptr) {
             const uint32_t input_size = scs->max_input_luma_width * scs->max_input_luma_height;
             svt_aom_derive_input_resolution(&scs->input_resolution, input_size);
 
-            svt_aom_b64_geom_init(scs);
-            svt_aom_sb_geom_init(scs);
+            scs->pic_width_in_b64  = DIVIDE_AND_CEIL(scs->max_input_luma_width, scs->b64_size);
+            scs->pic_height_in_b64 = DIVIDE_AND_CEIL(scs->max_input_luma_height, scs->b64_size);
+            scs->b64_total_count   = scs->pic_width_in_b64 * scs->pic_height_in_b64;
+
+            scs->picture_width_in_sb  = DIVIDE_AND_CEIL(scs->max_input_luma_width, scs->sb_size);
+            scs->picture_height_in_sb = DIVIDE_AND_CEIL(scs->max_input_luma_height, scs->sb_size);
+            scs->sb_total_count       = scs->picture_width_in_sb * scs->picture_height_in_sb;
+
+            b64_geom_init(scs, scs->max_input_luma_width, scs->max_input_luma_height, &scs->b64_geom);
+            sb_geom_init(scs, scs->max_input_luma_width, scs->max_input_luma_height, &scs->sb_geom);
 
             // sf_identity
             svt_av1_setup_scale_factors_for_frame(&scs->sf_identity,

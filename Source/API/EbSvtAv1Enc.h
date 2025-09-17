@@ -995,6 +995,13 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      */
     bool adaptive_film_grain;
 
+    /* @brief Limit transform sizes to the specified size
+     * 32: use transform sizes up to 64x64 pixels
+     * 64: use transform sizes up to 32x32 pixels
+     * Default is 64
+     */
+    uint8_t max_tx_size;
+
 } EbSvtAv1EncConfiguration;
 
 /**

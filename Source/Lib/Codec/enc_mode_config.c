@@ -6023,6 +6023,11 @@ void svt_aom_sig_deriv_enc_dec_common(SequenceControlSet *scs, PictureControlSet
     else
         ctx->pd1_lvl_refinement = 2;
     svt_aom_set_nsq_geom_ctrls(ctx, pcs->nsq_geom_level, NULL, NULL, NULL);
+
+    if (scs->static_config.max_tx_size == 32) {
+        // Ensure we allow at least 32x32 transforms
+        ctx->depth_removal_ctrls.disallow_below_64x64 = false;
+    }
 }
 static void set_depth_early_exit_ctrls(ModeDecisionContext *ctx, uint8_t early_exit_level) {
     DepthEarlyExitCtrls *ctrls = &ctx->depth_early_exit_ctrls;
@@ -7871,7 +7876,7 @@ set lpd0_level
 
     pcs->lambda_weight = 0;
 
-    if (pcs->scs->static_config.tune == 3) {
+    if (pcs->scs->static_config.tune == TUNE_IQ) {
         // Adjust lambda weight towards more favorable still-picture performance (from 128 to 200),
         // with gradual ramp-down for the lowest and highest QPs
         // Lower QP cutoff: QP 18 = (QP) * 4

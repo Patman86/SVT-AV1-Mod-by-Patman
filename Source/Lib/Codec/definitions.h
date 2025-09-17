@@ -39,9 +39,9 @@
 #endif
 
 #if EXCLUDE_HASH
-#define EB_LINE_NUM __LINE__
-#else
 #define EB_LINE_NUM 0
+#else
+#define EB_LINE_NUM __LINE__
 #endif
 
 #ifdef __cplusplus
@@ -1880,7 +1880,10 @@ static const WarpedMotionParams default_warp_params = {
 #define INPUT_SIZE_1080p_TH                 0x535200     // 5.46 Million
 #define INPUT_SIZE_4K_TH                    0x140A000    // 21 Million
 #define INPUT_SIZE_8K_TH                    0X5028000    // 84 Million
-#define EB_OUTPUTSTREAMBUFFERSIZE_MACRO(ResolutionSize)                ((ResolutionSize) < (INPUT_SIZE_720p_TH) ? 0x1E8480 : 0x2DC6C0)
+
+// There must absolutely be no reason to use more than 2x of original bytes, assuming 4:2:0
+#define BITSTREAM_BUFFER_SIZE(pixels)       ((pixels) * 3 / 2 * 2)
+
 /** Redefine ASSERT() to avoid warnings
 */
 #if defined _DEBUG || _DEBUG_
@@ -1957,6 +1960,14 @@ typedef enum PredStructure {
     PRED_TOTAL_COUNT = 3,
     PRED_INVALID = 0xFF
 } PredStructure;
+
+typedef enum Tune {
+    TUNE_VQ   = 0, // Visual Quality (video)
+    TUNE_PSNR = 1, // Average of (PSNR, SSIM, VMAF)
+    TUNE_SSIM = 2, // SSIM-optimized
+    TUNE_IQ   = 3 // Image Quality
+} Tune;
+
 /*
  * The SliceType type is used to describe the slice prediction type.
  */
@@ -2112,10 +2123,7 @@ void(*error_handler)(
 
 //***Encoding Parameters***
 
-#define BLOCK_SIZE_64                                64u
-#define LOG2F_MAX_SB_SIZE                          6u
-#define LOG2_64_SIZE                                6 // log2(BLOCK_SIZE_64)
-#define MAX_LEVEL_COUNT                             5 // log2(BLOCK_SIZE_64) - log2(MIN_BLOCK_SIZE)
+#define BLOCK_SIZE_64                               64u
 #define LOG_MIN_BLOCK_SIZE                          3
 #define MIN_BLOCK_SIZE                              (1 << LOG_MIN_BLOCK_SIZE)
 #define MAX_NUM_OF_REF_PIC_LIST                     2
@@ -2137,26 +2145,14 @@ void(*error_handler)(
 
 #define MAX_INTRA_REFERENCE_SAMPLES                 (BLOCK_SIZE_64 << 2) + 1
 
-#define _MVXT(mv) ( (int16_t)((mv) &  0xFFFF) )
-#define _MVYT(mv) ( (int16_t)((mv) >> 16    ) )
+#define _MVXT(mv)                                   ( (int16_t)((mv) &  0xFFFF) )
+#define _MVYT(mv)                                   ( (int16_t)((mv) >> 16    ) )
 
-#define MIN_QP_VALUE                     0
-#define MAX_QP_VALUE                    63
-// Noise detection
-#define  NOISE_VARIANCE_TH                390
-// Picture split into regions for analysis (SCD, Dynamic GOP)
-#define CLASS_SUB_0_REGION_SPLIT_PER_WIDTH    1
-#define CLASS_SUB_0_REGION_SPLIT_PER_HEIGHT    1
+#define MIN_QP_VALUE                                0
+#define MAX_QP_VALUE                                63
 
-#define CLASS_1_REGION_SPLIT_PER_WIDTH        2
-#define CLASS_1_REGION_SPLIT_PER_HEIGHT        2
-
-#define HIGHER_THAN_CLASS_1_REGION_SPLIT_PER_WIDTH        4
-#define HIGHER_THAN_CLASS_1_REGION_SPLIT_PER_HEIGHT        4
-#define EbScdMode uint8_t
-#define SCD_MODE_0  0     // SCD OFF
-#define SCD_MODE_1   1     // Light SCD (histograms generation on the 1/16 decimated input)
-#define SCD_MODE_2   2     // Full SCD
+#define HIGHER_THAN_CLASS_1_REGION_SPLIT_PER_WIDTH  4
+#define HIGHER_THAN_CLASS_1_REGION_SPLIT_PER_HEIGHT 4
 
 #define EbBlockMeanPrec uint8_t
 #define BLOCK_MEAN_PREC_FULL 0
