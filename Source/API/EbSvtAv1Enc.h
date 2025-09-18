@@ -1002,6 +1002,13 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      */
     uint8_t max_tx_size;
 
+    /* @brief qindex offset for extended CRF support
+     * Value is internally determined by CRF parameter value, each quarter-step increment to the CRF adds 1 to the
+     * offset, with a maximum of 3 (i.e. three quarter-step increments)
+     * Default is 0 if CRF is an integer
+     */
+    uint8_t extended_crf_qindex_offset;
+
 } EbSvtAv1EncConfiguration;
 
 /**
