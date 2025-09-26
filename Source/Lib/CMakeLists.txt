@@ -116,10 +116,26 @@ if(common_lib_source)
     target_sources(SvtAv1Enc PRIVATE ${common_lib_source})
 endif()
 
+if(BUILD_SHARED_LIBS)
+    set(SVT_AV1_TARGET SVT-AV1-shared)
+else()
+    set(SVT_AV1_TARGET SVT-AV1-static)
+endif()
+
 set_target_properties(SvtAv1Enc PROPERTIES VERSION ${ENC_VERSION})
 set_target_properties(SvtAv1Enc PROPERTIES SOVERSION ${ENC_VERSION_MAJOR})
 set_target_properties(SvtAv1Enc PROPERTIES C_VISIBILITY_PRESET hidden)
-target_link_libraries(SvtAv1Enc PUBLIC ${PLATFORM_LIBS})
+set_target_properties(SvtAv1Enc PROPERTIES EXPORT_NAME ${SVT_AV1_TARGET})
+
+target_link_libraries(SvtAv1Enc PUBLIC  $<BUILD_INTERFACE:${PLATFORM_LIBS}>
+                                PRIVATE $<INSTALL_INTERFACE:${PLATFORM_LIBS}>)
+
+file(GLOB API_HEADERS ${PROJECT_SOURCE_DIR}/Source/API/*.h)
+set_target_properties(SvtAv1Enc PROPERTIES PUBLIC_HEADER "${API_HEADERS}")
+
+# Alias for the exported library target for use in subproject
+add_library(SVT-AV1::SVT-AV1 ALIAS SvtAv1Enc)
+add_library(SVT-AV1::${SVT_AV1_TARGET} ALIAS SvtAv1Enc)
 
 set(ENC_PKG_CONFIG_EXTRA_CFLAGS "")
 if (BUILD_SHARED_LIBS)
@@ -129,12 +145,45 @@ if (BUILD_SHARED_LIBS)
     set(ENC_PKG_CONFIG_EXTRA_CFLAGS " -DEB_DLL")
 endif()
 install(TARGETS SvtAv1Enc
+        EXPORT ${SVT_AV1_TARGET}Targets
         ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+                COMPONENT Development
         LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+                COMPONENT Runtime
+                NAMELINK_COMPONENT Development
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+                COMPONENT Runtime
+        PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/svt-av1"
+                COMPONENT Development
+)
 
 # pkg-config .pc file
 list(JOIN PC_LIBS_PRIVATE " " LIBS_PRIVATE)
 list(JOIN PC_REQUIRES_PRIVATE " " REQUIRES_PRIVATE)
 configure_file(pkg-config.pc.in ${CMAKE_BINARY_DIR}/SvtAv1Enc.pc @ONLY)
-install(FILES ${CMAKE_BINARY_DIR}/SvtAv1Enc.pc DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
+install(FILES ${CMAKE_BINARY_DIR}/SvtAv1Enc.pc COMPONENT Development DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
+
+# CMake config file
+include(CMakePackageConfigHelpers)
+
+target_include_directories(SvtAv1Enc INTERFACE
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/API>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/svt-av1>)
+
+configure_package_config_file(config.cmake.in SVT-AV1Config.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SVT-AV1
+    PATH_VARS CMAKE_INSTALL_LIBDIR CMAKE_INSTALL_INCLUDEDIR)
+
+write_basic_package_version_file(SVT-AV1ConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion)
+
+install(EXPORT ${SVT_AV1_TARGET}Targets
+        NAMESPACE SVT-AV1::
+        COMPONENT Development
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SVT-AV1)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/SVT-AV1Config.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/SVT-AV1ConfigVersion.cmake
+        COMPONENT Development
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SVT-AV1)

@@ -897,7 +897,7 @@ void process_output_stream_buffer(EncChannel *channel, EncApp *enc_app, int32_t 
             return;
         } else if (stream_status != EB_NoErrorEmptyQueue) {
             uint32_t flags = header_ptr->flags;
-#if OPT_LD_LATENCY2
+
             if (flags & EB_BUFFERFLAG_EOS) {
                 // Update Output Port Activity State
                 *port_state  = APP_PortInactive;
@@ -964,109 +964,6 @@ void process_output_stream_buffer(EncChannel *channel, EncApp *enc_app, int32_t 
 
                 ++*frame_count;
             }
-            const double fps        = (double)*frame_count / app_cfg->performance_context.total_encode_time;
-            const double frame_rate = (double)app_cfg->config.frame_rate_numerator / (double)app_cfg->config.frame_rate_denominator;
-            const double ete = app_cfg->performance_context.total_encode_time;
-            int ete_r = round(ete);
-            int ete_hh = ete_r / 3600;
-            int ete_mm = (ete_r - (ete_hh * 3600)) / 60;
-            int ete_ss = ete_r - (ete_hh * 3600) - (ete_mm * 60);
-            const double eta = (app_cfg->performance_context.total_encode_time / app_cfg->frames_encoded) * (app_cfg->frames_to_be_encoded - app_cfg->frames_encoded);
-            int eta_r  = round(eta);
-            int eta_hh = eta_r / 3600;
-            int eta_mm = (eta_r - (eta_hh * 3600)) / 60;
-            int eta_ss = eta_r - (eta_hh * 3600) - (eta_mm * 60);
-            double size = ((double)app_cfg->performance_context.byte_count / 1000000);
-            double estsz  = ((double)app_cfg->performance_context.byte_count * app_cfg->frames_to_be_encoded / (app_cfg->frames_encoded * 1000) / 1000);
-            switch (app_cfg->progress) {
-            case 0: break;
-            case 1:
-                if (!(flags & EB_BUFFERFLAG_IS_ALT_REF))
-                    fprintf(stderr, "\b\b\b\b\b\b\b\b\b%9d", *frame_count);
-                break;
-            case 2:
-                fprintf(stderr,
-                        "\rEncoding: %4d/%4d Frames @ %.2f fp%c | %.2f kbps | Time: %d:%02d:%02d [-%d:%02d:%02d] | Size: %.2f MB [%.2f MB]",
-                        *frame_count,
-                        app_cfg->frames_to_be_encoded,
-                        fps >= 1.0 ? fps : fps * 60,
-                        fps >= 1.0 ? 's' : 'm',
-                        ((double)(app_cfg->performance_context.byte_count << 3) * frame_rate / (app_cfg->frames_encoded * 1000)),
-                        ete_hh, ete_mm, ete_ss, eta_hh, eta_mm, eta_ss, size, estsz);
-            default: break;
-            }
-            fflush(stderr);
-
-            app_cfg->performance_context.average_speed = (double)app_cfg->performance_context.frame_count /
-                app_cfg->performance_context.total_encode_time;
-            app_cfg->performance_context.average_latency = (double)app_cfg->performance_context.total_latency /
-                app_cfg->performance_context.frame_count;
-
-            if (app_cfg->progress == 1 && !(*frame_count % SPEED_MEASUREMENT_INTERVAL))
-                fprintf(stderr,
-                        "\nAverage System Encoding Speed:        %.2f\n",
-                        (double)*frame_count / app_cfg->performance_context.total_encode_time);
-#else
-            is_alt_ref = (flags & EB_BUFFERFLAG_IS_ALT_REF);
-            if (!(flags & EB_BUFFERFLAG_IS_ALT_REF))
-                ++(app_cfg->performance_context.frame_count);
-            *total_latency += (uint64_t)header_ptr->n_tick_count;
-            *max_latency = (header_ptr->n_tick_count > *max_latency) ? header_ptr->n_tick_count : *max_latency;
-            app_svt_av1_get_time(&finish_s_time, &finish_u_time);
-
-            // total execution time, inc init time
-            app_cfg->performance_context.total_execution_time = app_svt_av1_compute_overall_elapsed_time(
-                app_cfg->performance_context.lib_start_time[0],
-                app_cfg->performance_context.lib_start_time[1],
-                finish_s_time,
-                finish_u_time);
-
-            // total encode time
-            app_cfg->performance_context.total_encode_time = app_svt_av1_compute_overall_elapsed_time(
-                app_cfg->performance_context.encode_start_time[0],
-                app_cfg->performance_context.encode_start_time[1],
-                finish_s_time,
-                finish_u_time);
-
-            // Write Stream Data to file
-            if (stream_file) {
-                if (app_cfg->performance_context.frame_count == 1 && !(flags & EB_BUFFERFLAG_IS_ALT_REF)) {
-                    write_ivf_stream_header(
-                        app_cfg, app_cfg->frames_to_be_encoded == -1 ? 0 : (int32_t)app_cfg->frames_to_be_encoded);
-                }
-                write_ivf_frame_header(app_cfg, header_ptr->n_filled_len);
-                fwrite(header_ptr->p_buffer, 1, header_ptr->n_filled_len, stream_file);
-            }
-
-            app_cfg->performance_context.byte_count += header_ptr->n_filled_len;
-
-            if (app_cfg->config.stat_report && !(flags & EB_BUFFERFLAG_IS_ALT_REF))
-                process_output_statistics_buffer(header_ptr, app_cfg);
-
-            // Update Output Port Activity State
-            *port_state  = (flags & EB_BUFFERFLAG_EOS) ? APP_PortInactive : *port_state;
-            return_value = (flags & EB_BUFFERFLAG_EOS) ? APP_ExitConditionFinished : APP_ExitConditionNone;
-            // Release the output buffer
-            svt_av1_enc_release_out_buffer(&header_ptr);
-
-            if (flags & EB_BUFFERFLAG_EOS) {
-                if (app_cfg->config.pass == ENC_FIRST_PASS) {
-                    SvtAv1FixedBuf first_pass_stat;
-                    EbErrorType    ret = svt_av1_enc_get_stream_info(
-                        component_handle, SVT_AV1_STREAM_INFO_FIRST_PASS_STATS_OUT, &first_pass_stat);
-                    if (ret == EB_ErrorNone) {
-                        if (app_cfg->output_stat_file) {
-                            fwrite(first_pass_stat.buf, 1, first_pass_stat.sz, app_cfg->output_stat_file);
-                        }
-                        enc_app->rc_twopasses_stats.buf = realloc(enc_app->rc_twopasses_stats.buf, first_pass_stat.sz);
-                        if (enc_app->rc_twopasses_stats.buf) {
-                            memcpy(enc_app->rc_twopasses_stats.buf, first_pass_stat.buf, first_pass_stat.sz);
-                            enc_app->rc_twopasses_stats.sz = first_pass_stat.sz;
-                        }
-                    }
-                }
-            }
-            ++*frame_count;
 
             const double fps        = (double)*frame_count / app_cfg->performance_context.total_encode_time;
             const double frame_rate = (double)app_cfg->config.frame_rate_numerator / (double)app_cfg->config.frame_rate_denominator;
@@ -1099,8 +996,8 @@ void process_output_stream_buffer(EncChannel *channel, EncApp *enc_app, int32_t 
                         ete_hh, ete_mm, ete_ss, eta_hh, eta_mm, eta_ss, size, estsz);
             default: break;
             }
-            fflush(stderr);
 
+            fflush(stderr);
             app_cfg->performance_context.average_speed = (double)app_cfg->performance_context.frame_count /
                 app_cfg->performance_context.total_encode_time;
             app_cfg->performance_context.average_latency = (double)app_cfg->performance_context.total_latency /
@@ -1110,7 +1007,6 @@ void process_output_stream_buffer(EncChannel *channel, EncApp *enc_app, int32_t 
                 fprintf(stderr,
                         "\nAverage System Encoding Speed:        %.2f\n",
                         (double)*frame_count / app_cfg->performance_context.total_encode_time);
-#endif
         }
     }
     channel->exit_cond_output = return_value;
