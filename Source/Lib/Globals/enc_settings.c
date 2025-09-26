@@ -1222,7 +1222,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
 
         PRINT_CONFIG("QP scale compress strength", "%d", config->qp_scale_compress_strength);
     }
-#ifdef DEBUG_BUFFERS
+#if DEBUG_BUFFERS
     PRINT_CONFIG("INPUT / OUTPUT", "%d / %d",
              scs->input_buffer_fifo_init_count,
              scs->output_stream_buffer_fifo_init_count);
