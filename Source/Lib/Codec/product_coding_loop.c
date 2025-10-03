@@ -5564,11 +5564,11 @@ static uint8_t do_md_recon(PictureParentControlSet *pcs, ModeDecisionContext *ct
     uint8_t need_md_rec_for_cdef_search = pcs->cdef_search_ctrls.enabled &&
         !pcs->cdef_search_ctrls.use_reference_cdef_fs; // CDEF search levels needing the recon samples
     uint8_t need_md_rec_for_restoration_search = pcs->enable_restoration; // any resoration search level
-    uint8_t need_md_rec_for_stat_report        = pcs->scs->static_config.stat_report &&
+    uint8_t need_md_rec_for_quality            = (pcs->compute_psnr || pcs->compute_ssim) &&
         (ctxt->pd_pass == PD_PASS_1); // stat report needs recon samples for metrics
     uint8_t do_recon;
     if (need_md_rec_for_intra_pred || need_md_rec_for_ref || need_md_rec_for_dlf_search ||
-        need_md_rec_for_cdef_search || need_md_rec_for_restoration_search || need_md_rec_for_stat_report)
+        need_md_rec_for_cdef_search || need_md_rec_for_restoration_search || need_md_rec_for_quality)
         do_recon = 1;
     else
         do_recon = 0;
@@ -6720,10 +6720,6 @@ static void check_redundant_block(const BlockGeom *blk_geom, ModeDecisionContext
     }
 }
 
-static INLINE void rtime_alloc_uv_cand_buff_indices(uint32_t **uv_cand_buff_indices, uint32_t max_nics_uv) {
-    (*uv_cand_buff_indices) = (uint32_t *)malloc(max_nics_uv * sizeof(*uv_cand_buff_indices));
-}
-
 /*
 Perform search for the best chroma mode (intra modes only). The search is performed only on the intra luma
 modes that will be tested in MDS3 (plus DC is always tested). The search involves the following main parts:
@@ -7069,7 +7065,7 @@ static void search_best_independent_uv_mode(PictureControlSet *pcs, EbPictureBuf
 
     // Sort uv_mode candidates (in terms of distortion only)
     uint32_t *uv_cand_buff_indices;
-    rtime_alloc_uv_cand_buff_indices(&uv_cand_buff_indices, ctx->max_nics_uv);
+    EB_MALLOC_ARRAY_NO_CHECK(uv_cand_buff_indices, ctx->max_nics_uv);
     memset(uv_cand_buff_indices, 0xFF, ctx->max_nics_uv * sizeof(*uv_cand_buff_indices));
 
     sort_fast_cost_based_candidates(
@@ -7205,7 +7201,7 @@ static void search_best_independent_uv_mode(PictureControlSet *pcs, EbPictureBuf
             }
         }
     }
-    free(uv_cand_buff_indices);
+    EB_FREE_ARRAY(uv_cand_buff_indices);
     ctx->ind_uv_avail = 1;
 }
 

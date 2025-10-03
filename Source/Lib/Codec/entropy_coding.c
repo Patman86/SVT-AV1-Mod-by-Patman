@@ -1335,7 +1335,7 @@ EbErrorType svt_aom_entropy_coder_ctor(EntropyCoder *ec, uint32_t buffer_size) {
 
     ec->dctor = entropy_coder_dctor;
 
-    EB_MALLOC(ec->fc, sizeof(FRAME_CONTEXT));
+    EB_MALLOC_OBJECT(ec->fc);
 
     EB_NEW(output_bitstream_ptr, svt_aom_output_bitstream_unit_ctor, buffer_size);
     ec->ec_output_bitstream_ptr = output_bitstream_ptr;
@@ -2258,7 +2258,7 @@ static void encode_loopfilter(PictureParentControlSet *pcs, struct AomWriteBitBu
     if (frm_hdr->allow_intrabc)
         return;
 
-    struct LoopFilter *lf = &frm_hdr->loop_filter_params;
+    LoopFilter *lf = &frm_hdr->loop_filter_params;
 
     // Encode the loop filter level and type
     svt_aom_wb_write_literal(wb, lf->filter_level[0], 6);
