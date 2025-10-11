@@ -662,7 +662,7 @@ ConfigDescription config_entry_options[] = {
 
     {PRESET_TOKEN,
      "Encoder preset, presets < 0 are for debugging. Higher presets means faster encodes, but with "
-     "a quality tradeoff, default is 10 [-1-13]"},
+     "a quality tradeoff, default is 8 [-1-13]"},
 
     {SVTAV1_PARAMS, "colon separated list of key=value pairs of parameters with keys based on config file options"},
 
@@ -736,8 +736,9 @@ ConfigDescription config_entry_rc[] = {
     {QP_TOKEN, "Initial QP level value, default is 35 [1-63]"},
     {QP_LONG_TOKEN, "Initial QP level value, default is 35 [1-63]"},
     {CRF_LONG_TOKEN,
-     "Constant Rate Factor value, setting this value is equal to `--rc 0 --aq-mode 2 --qp "
-     "x`, default is 35 [1-63]"},
+     "Constant Rate Factor value, setting this value is similar to `--rc 0 --aq-mode 2 --qp "
+     "x`.  Compared to `--qp`, `--crf` can take a value up to 70, and can be set in 0.25 increments, default is 35 "
+     "[1-70]"},
 
     {TARGET_BIT_RATE_TOKEN,
      "Target Bitrate (kbps), only applicable for VBR and CBR encoding, default is 7000 [1-100000]"},
