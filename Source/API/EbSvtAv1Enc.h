@@ -168,6 +168,10 @@ typedef enum EbSFrameMode {
     SFRAME_FLEXIBLE_BASE =
         3, /**< If the considered frame is not an altref frame, modify the miniGOP layers to make the considered frame as an altref frame, then it will be made into an S-Frame */
 #endif // FTR_SFRAME_FLEX
+#if FTR_SFRAME_DEC_POSI
+    SFRAME_DEC_POSI_BASE =
+        4, /**< If the considered frame in decode order is not an altref frame, modify the mini-GOP structure to promote its previous frame to an altref frame, and set the next altref to an S-Frame */
+#endif // FTR_SFRAME_DEC_POSI
 } EbSFrameMode;
 
 #if !SVT_AV1_CHECK_VERSION(4, 0, 0) // to be deprecated in v4.0
@@ -694,6 +698,9 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
 #if FTR_SFRAME_FLEX
     * SFRAME_FLEXIBLE_ARF: if the considered frame is not an altref frame, modify the mini-GOP structure to promote it to an altref frame
 #endif // FTR_SFRAME_FLEX
+#if FTR_SFRAME_DEC_POSI
+    * SFRAME_DEC_POSI: if the considered frame in decode order is not an altref frame, modify the mini-GOP structure to promote its previous frame to an altref frame, and set the next altref to an S-Frame
+#endif // FTR_SFRAME_DEC_POSI
     */
     EbSFrameMode sframe_mode;
 
