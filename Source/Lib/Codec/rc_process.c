@@ -1531,10 +1531,10 @@ static int av1_get_deltaq_sb_variance_boost(uint8_t base_q_idx, uint64_t mean, d
     // boost q_index based on empirical visual testing, strength 2
     // variance     qstep_ratio boost (@ base_q_idx 255)
     // 256          1
-    // 64           1.378
-    // 16           1.900
-    // 4            2.620
-    // 1            3.612
+    // 64           1.330
+    // 16           1.769
+    // 4            2.354
+    // 1            3.132
 
     // copy sb 8x8 variance values to an array for ordering
     double ordered_variances[64];
@@ -1598,7 +1598,7 @@ static int av1_get_deltaq_sb_variance_boost(uint8_t base_q_idx, uint64_t mean, d
     // high and medium variance sbs essentially get no boost, while increasingly lower variance sbs get stronger boosts
     assert(strength >= 1 && strength <= 4);
     double       qstep_ratio = 0;
-    const double strengths[] = {0, 0.5, 0.9, 1.4, 2.0};
+    const double strengths[] = {0, 0.4, 0.8, 1.2, 1.8};
 
     switch (curve) {
     case 1: /* 1: low-medium contrast boosting curve */
