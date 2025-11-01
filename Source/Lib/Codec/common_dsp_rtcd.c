@@ -107,6 +107,12 @@ EbCpuFlags svt_aom_get_cpu_flags_to_use() {
 
 #if defined(__linux__) || HAVE_ELF_AUX_INFO
 
+static inline uint64_t read_midr_el1(void) {
+    uint64_t v;
+    __asm__ volatile ("mrs %0, midr_el1" : "=r"(v));
+    return v;
+}
+
 // Define hwcap values ourselves: building with an old auxv header where these
 // hwcap values are not defined should not prevent features from being enabled.
 #define AOM_AARCH64_HWCAP_NEON (1 << 1)
@@ -162,6 +168,15 @@ EbCpuFlags svt_aom_get_cpu_flags(void) {
     if (hwcap2 & AOM_AARCH64_HWCAP2_SVE2)
         flags |= EB_CPU_FLAGS_SVE2;
 #endif // HAVE_SVE2
+
+    const uint64_t midr = read_midr_el1();
+    const unsigned implementer = (midr >> 24) & 0xFF;   // [31:24]
+    const unsigned partnum     = (midr >> 4)  & 0xFFF;  // [15:4]
+
+    if (implementer == 0x41 && partnum == 0xD4F) {
+      flags |= EB_CPU_FLAGS_NEOVERSE_V2;
+    }
+
     return flags;
 }
 
@@ -1016,6 +1031,11 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     SET_AVX2(svt_aom_hadamard_32x32, svt_aom_hadamard_32x32_c, svt_aom_hadamard_32x32_avx2);
     SET_AVX2(svt_aom_hadamard_16x16, svt_aom_hadamard_16x16_c, svt_aom_hadamard_16x16_avx2);
     SET_SSE2(svt_aom_hadamard_8x8, svt_aom_hadamard_8x8_c, svt_aom_hadamard_8x8_sse2);
+    SET_SSE2(svt_aom_hadamard_4x4, svt_aom_hadamard_4x4_c, svt_aom_hadamard_4x4_sse2);
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
+    SET_AVX2(svt_aom_highbd_hadamard_8x8, svt_aom_highbd_hadamard_8x8_c, svt_aom_highbd_hadamard_8x8_avx2);
+#endif
+
 #elif defined ARCH_AARCH64
     SET_NEON(svt_aom_blend_a64_mask, svt_aom_blend_a64_mask_c, svt_aom_blend_a64_mask_neon);
     SET_NEON(svt_aom_blend_a64_hmask, svt_aom_blend_a64_hmask_c, svt_aom_blend_a64_hmask_neon);
@@ -1029,7 +1049,7 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
 #endif
     SET_NEON(svt_cfl_predict_lbd, svt_cfl_predict_lbd_c, svt_aom_cfl_predict_lbd_neon);
     SET_NEON(svt_cfl_predict_hbd, svt_cfl_predict_hbd_c, svt_cfl_predict_hbd_neon);
-    SET_NEON(svt_av1_filter_intra_predictor, svt_av1_filter_intra_predictor_c, svt_av1_filter_intra_predictor_neon);
+    SET_NEON_NEON_I8MM(svt_av1_filter_intra_predictor, svt_av1_filter_intra_predictor_c, svt_av1_filter_intra_predictor_neon, svt_av1_filter_intra_predictor_neon_i8mm);
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
     SET_NEON(svt_av1_filter_intra_edge_high, svt_av1_filter_intra_edge_high_c, svt_av1_filter_intra_edge_high_neon);
 #endif
@@ -1568,6 +1588,10 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     SET_NEON(svt_aom_hadamard_32x32, svt_aom_hadamard_32x32_c, svt_aom_hadamard_32x32_neon);
     SET_NEON(svt_aom_hadamard_16x16, svt_aom_hadamard_16x16_c, svt_aom_hadamard_16x16_neon);
     SET_NEON(svt_aom_hadamard_8x8, svt_aom_hadamard_8x8_c, svt_aom_hadamard_8x8_neon);
+    SET_NEON(svt_aom_hadamard_4x4, svt_aom_hadamard_4x4_c, svt_aom_hadamard_4x4_neon);
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
+    SET_NEON(svt_aom_highbd_hadamard_8x8, svt_aom_highbd_hadamard_8x8_c, svt_aom_highbd_hadamard_8x8_neon);
+#endif
 #else
     SET_ONLY_C(svt_aom_blend_a64_mask, svt_aom_blend_a64_mask_c);
     SET_ONLY_C(svt_aom_blend_a64_hmask, svt_aom_blend_a64_hmask_c);
@@ -2115,6 +2139,10 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     SET_ONLY_C(svt_aom_hadamard_32x32, svt_aom_hadamard_32x32_c);
     SET_ONLY_C(svt_aom_hadamard_16x16, svt_aom_hadamard_16x16_c);
     SET_ONLY_C(svt_aom_hadamard_8x8, svt_aom_hadamard_8x8_c);
+    SET_ONLY_C(svt_aom_hadamard_4x4, svt_aom_hadamard_4x4_c);
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
+    SET_ONLY_C(svt_aom_highbd_hadamard_8x8, svt_aom_highbd_hadamard_8x8_c);
+#endif
 
 #endif
 

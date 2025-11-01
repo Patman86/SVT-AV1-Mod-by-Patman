@@ -1017,6 +1017,14 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      */
     uint8_t extended_crf_qindex_offset;
 
+    /**
+     * @brief Strength of the internal RD metric to bias toward high-frequency error (helps with texture preservation and film grain retention)
+     * 0.00: disable AC bias
+     * 1.00: enable AC bias with a strength of 1.00
+     * Default is 0.00.
+     */
+     double ac_bias;
+
 } EbSvtAv1EncConfiguration;
 
 /**

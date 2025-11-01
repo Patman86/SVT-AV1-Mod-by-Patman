@@ -940,6 +940,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
+    if (config->ac_bias > 8.0 || config->ac_bias < 0.0) {
+        SVT_ERROR("Instance %u: AC bias strength must be between 0.0 and 8.0\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+
     return return_error;
 }
 
@@ -1020,7 +1025,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->tier    = 0;
     config_ptr->level   = 0;
 
-    // Latency
+    // Film grain denoising
     config_ptr->film_grain_denoise_strength = 0;
     config_ptr->film_grain_denoise_apply    = 0;
 
@@ -1107,6 +1112,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->adaptive_film_grain        = true;
     config_ptr->max_tx_size                = 64;
     config_ptr->extended_crf_qindex_offset = 0;
+    config_ptr->ac_bias                    = 0.0;
     return return_error;
 }
 
@@ -1237,6 +1243,10 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
         }
 
         PRINT_CONFIG("QP scale compress strength", "%d", config->qp_scale_compress_strength);
+
+        if (config->ac_bias) {
+            PRINT_CONFIG("AC Bias Strength", "%.2f", config->ac_bias);
+        }
     }
 #if DEBUG_BUFFERS
     PRINT_CONFIG("INPUT / OUTPUT", "%d / %d",
@@ -2304,6 +2314,21 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
     for (size_t i = 0; i < int64_opts_size; i++) {
         if (!strcmp(name, int64_opts[i].name)) {
             return str_to_int64(value, int64_opts[i].out, NULL);
+        }
+    }
+
+    // double fields
+    const struct {
+        const char *name;
+        double     *out;
+    } double_opts[] = {
+        {"ac-bias", &config_struct->ac_bias},
+    };
+    const size_t double_opts_size = sizeof(double_opts) / sizeof(double_opts[0]);
+
+    for (size_t i = 0; i < double_opts_size; i++) {
+        if (!strcmp(name, double_opts[i].name)) {
+            return str_to_double(value, double_opts[i].out, NULL);
         }
     }
 
