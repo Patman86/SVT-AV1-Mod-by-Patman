@@ -1010,7 +1010,7 @@ void process_output_stream_buffer(EncChannel *channel, EncApp *enc_app, int32_t 
             int eta_mm = (eta_r - (eta_hh * 3600)) / 60;
             int eta_ss = eta_r - (eta_hh * 3600) - (eta_mm * 60);
             double size = ((double)app_cfg->performance_context.byte_count / 1000000);
-            double estsz  = size * app_cfg->frames_to_be_encoded / *frame_count);
+            double estsz  = size * (app_cfg->frames_to_be_encoded / *frame_count);
             switch (app_cfg->progress) {
             case 0: break;
             case 1:
