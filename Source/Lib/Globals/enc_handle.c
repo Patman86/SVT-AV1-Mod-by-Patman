@@ -2446,7 +2446,11 @@ static int32_t compute_default_intra_period(
     SequenceControlSet       *scs){
     int32_t intra_period               = 0;
     EbSvtAv1EncConfiguration   *config = &scs->static_config;
+#if FIX_FPS_CALC
+    double fps                          = scs->frame_rate;
+#else
     int32_t fps                        = scs->frame_rate >> 16;
+#endif
     int32_t mini_gop_size              = (1 << (config->hierarchical_levels));
 
     intra_period                       = ((int)((fps + mini_gop_size) / mini_gop_size)*(mini_gop_size));
@@ -3843,7 +3847,11 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         }
         const uint8_t tbr_bands[5] = { 1,2,4,6,8};
         const uint64_t src_samples = (uint64_t)(scs->seq_header.max_frame_width*scs->seq_header.max_frame_height);
+#if FIX_FPS_CALC
+        const uint64_t target_bit_rate = (uint64_t)((double)scs->static_config.target_bit_rate * 60.0 / (scs->frame_rate * (double)src_samples));
+#else
         const uint64_t target_bit_rate = scs->static_config.target_bit_rate * 60 / (scs->static_config.frame_rate_numerator / scs->static_config.frame_rate_denominator) / src_samples;
+#endif
         if (target_bit_rate < tbr_bands[0])
             scs->static_config.qp = 55;
         else if (target_bit_rate < tbr_bands[1])
@@ -4039,7 +4047,12 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     for (uint8_t is_islice = 0; is_islice <= 1; is_islice++)
         for (uint8_t is_base = 0; is_base <= 1; is_base++)
             disallow_4x4 = MIN(disallow_4x4, svt_aom_get_disallow_4x4(scs->static_config.enc_mode, is_base));
-    bool disallow_8x8 = svt_aom_get_disallow_8x8(scs->static_config.enc_mode, scs->static_config.rtc, scs->static_config.screen_content_mode);
+    bool disallow_8x8 = svt_aom_get_disallow_8x8(scs->static_config.enc_mode,
+        scs->static_config.rtc,
+        scs->static_config.screen_content_mode,
+        scs->super_block_size,
+        scs->max_input_luma_width,
+        scs->max_input_luma_height);
         if (scs->super_block_size == 128) {
     if(!allow_HVA_HVB && disallow_4x4) {
         scs->svt_aom_geom_idx = GEOM_10;
@@ -4241,7 +4254,7 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
     scs->static_config.rtc = config_struct->rtc;
     if (scs->static_config.rtc && scs->static_config.pred_structure != LOW_DELAY) {
         scs->static_config.pred_structure = LOW_DELAY;
-        SVT_WARN("Instance %u: Force low delay pred strucutre to be used for rtc.\n");
+        SVT_WARN("Instance %u: Force low delay pred structure to be used for rtc.\n");
     }
     // Tpl is disabled in low delay applications
     if (scs->static_config.avif || scs->allintra || scs->static_config.pred_structure == LOW_DELAY) {
@@ -4517,7 +4530,11 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
     }
     // Extract frame rate from Numerator and Denominator if not 0
     if (scs->static_config.frame_rate_numerator != 0 && scs->static_config.frame_rate_denominator != 0)
+#if FIX_FPS_CALC
+        scs->frame_rate = (double)scs->static_config.frame_rate_numerator / (double)scs->static_config.frame_rate_denominator;
+#else
         scs->frame_rate = ((scs->static_config.frame_rate_numerator << 8) / (scs->static_config.frame_rate_denominator)) << 8;
+#endif
     // Get Default Intra Period if not specified
     if (scs->static_config.intra_period_length == -2) {
         scs->static_config.intra_period_length = compute_default_intra_period(scs);
@@ -4634,7 +4651,7 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
     scs->static_config.startup_qp_offset = config_struct->startup_qp_offset;
     scs->static_config.enable_roi_map = config_struct->enable_roi_map;
 
-    // Variance boost
+    // Variance Boost
     scs->static_config.enable_variance_boost = config_struct->enable_variance_boost;
     scs->static_config.variance_boost_strength = config_struct->variance_boost_strength;
     scs->static_config.variance_octile = config_struct->variance_octile;

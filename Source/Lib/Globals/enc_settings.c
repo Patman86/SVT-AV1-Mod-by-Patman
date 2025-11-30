@@ -299,12 +299,20 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     }
 
     // Check if the current input video is conformant with the Level constraint
+#if FIX_FPS_CALC
+    if (scs->frame_rate > 240) {
+#else
     if (scs->frame_rate > (240 << 16)) {
+#endif
         SVT_ERROR("Instance %u: The maximum allowed frame rate is 240 fps\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
     // Check that the frame_rate is non-zero
+#if FIX_FPS_CALC
     if (!scs->frame_rate) {
+#else
+    if (!scs->frame_rate) {
+#endif
         SVT_ERROR("Instance %u: The frame rate should be greater than 0 fps \n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
@@ -315,7 +323,12 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
-
+#if !FIX_FPS_CALC
+    if (scs->static_config.frame_rate_numerator < scs->static_config.frame_rate_denominator) {
+        SVT_ERROR("Instance %u: Invalid frame rate. The minimum supported frame rate is 1 fps.\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+#endif
     if (config->recode_loop > 4) {
         SVT_ERROR("Instance %u: The recode_loop must be [0 - 4] \n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
@@ -851,6 +864,10 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             SVT_ERROR("Instance %u: Overlay is not supported for low-delay.\n", channel_number + 1);
             return_error = EB_ErrorBadParameter;
         }
+    }
+
+    if (!config->rtc && config->enc_mode >= ENC_M10) {
+        SVT_WARN("Non-RTC M10+ are meant for automation tooling usage. Visual artifacts may occur otherwise.\n");
     }
 
     if (scs->static_config.scene_change_detection) {

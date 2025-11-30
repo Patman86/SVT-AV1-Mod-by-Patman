@@ -792,8 +792,13 @@ static void update_frame_rate_info(ResourceCoordinationContext *ctx, EbBufferHea
             SvtAv1FrameRateInfo *input_pic_def        = (SvtAv1FrameRateInfo *)node->data;
             scs->static_config.frame_rate_numerator   = input_pic_def->frame_rate_numerator;
             scs->static_config.frame_rate_denominator = input_pic_def->frame_rate_denominator;
+#if FIX_FPS_CALC
+            scs->frame_rate = (double)scs->static_config.frame_rate_numerator /
+                (double)scs->static_config.frame_rate_denominator;
+#else
             scs->frame_rate =
                 ((scs->static_config.frame_rate_numerator << 8) / (scs->static_config.frame_rate_denominator)) << 8;
+#endif
             ctx->seq_param_change = true;
         }
         node = node->next;
@@ -855,6 +860,19 @@ static void set_eos_terminating_signals(PictureParentControlSet *pcs) {
         tmp_out_str->n_filled_len = 0;
 
         svt_post_full_object(tmp_out_str_wrp);
+
+        // if applicable, also need to signal recon EOS
+        if (scs->static_config.recon_enabled) {
+            EbObjectWrapper *tmp_out_recon_wrp;
+            svt_get_empty_object(scs->enc_ctx->recon_output_fifo_ptr, &tmp_out_recon_wrp);
+            EbBufferHeaderType *tmp_out_recon = (EbBufferHeaderType *)tmp_out_recon_wrp->object_ptr;
+
+            tmp_out_recon->flags        = EB_BUFFERFLAG_EOS;
+            tmp_out_recon->n_filled_len = 0;
+
+            svt_post_full_object(tmp_out_recon_wrp);
+        }
+
         release_references_eos(scs);
     }
 
@@ -1199,9 +1217,13 @@ void *svt_aom_resource_coordination_kernel(void *input_ptr) {
 #endif //FTR_SFRAME_QP
 
             // Initialize variables for calculating the average QP
-            pcs->tot_qindex               = 0;
-            pcs->valid_qindex_area        = 0;
-            pcs->ts_duration              = (double)10000000 * (1 << 16) / scs->frame_rate;
+            pcs->tot_qindex        = 0;
+            pcs->valid_qindex_area = 0;
+#if FIX_FPS_CALC
+            pcs->ts_duration = (double)10000000 / scs->frame_rate;
+#else
+            pcs->ts_duration = (double)10000000 * (1 << 16) / scs->frame_rate;
+#endif
             scs->enc_ctx->initial_picture = false;
             pcs->sframe_ref_pruned        = false;
 

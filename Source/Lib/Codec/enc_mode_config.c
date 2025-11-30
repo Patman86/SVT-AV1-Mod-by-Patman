@@ -343,12 +343,18 @@ static void set_me_search_params(SequenceControlSet *scs, PictureParentControlSe
     }
 
     // Scale up the MIN ME area if low frame rate
+#if FIX_FPS_CALC
+    if (scs->frame_rate <= 240) {
+        me_ctx->me_sa.sa_min.width  = (me_ctx->me_sa.sa_min.width * 3) >> 1;
+        me_ctx->me_sa.sa_min.height = (me_ctx->me_sa.sa_min.height * 3) >> 1;
+    }
+#else
     bool low_frame_rate_flag = (scs->frame_rate >> 16);
     if (low_frame_rate_flag) {
         me_ctx->me_sa.sa_min.width  = (me_ctx->me_sa.sa_min.width * 3) >> 1;
         me_ctx->me_sa.sa_min.height = (me_ctx->me_sa.sa_min.height * 3) >> 1;
     }
-
+#endif
     uint32_t q_weight, q_weight_denom;
     svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.me_qp_based_th_scaling,
                                             &q_weight,
@@ -5981,7 +5987,16 @@ void svt_aom_sig_deriv_enc_dec_common(SequenceControlSet *scs, PictureControlSet
         ctx->depth_removal_ctrls.disallow_below_32x32 = false;
     if (b64_geom->width % 8 != 0 || b64_geom->height % 8 != 0)
         ctx->depth_removal_ctrls.disallow_below_16x16 = false;
-    ctx->disallow_8x8 = pcs->pic_disallow_8x8;
+    // Must check disallow_8x8 on an SB level. If a preset wants 8x8 off, it may still be required at the
+    // picture edge if the SB width/height is <=8 (to ensure that there is a conformant block to encode
+    // for those dimensions). Use the SB width/height so that 8x8 can still be skipped for all complete
+    // SBs and used only for the incomplete blocks that require 8x8 for conformance.
+    ctx->disallow_8x8 = svt_aom_get_disallow_8x8(enc_mode,
+                                                 rtc_tune,
+                                                 scs->static_config.screen_content_mode,
+                                                 scs->super_block_size,
+                                                 b64_geom->width,
+                                                 b64_geom->height);
     ctx->disallow_4x4 = pcs->pic_disallow_4x4;
     if (rtc_tune && !pcs->ppcs->sc_class1) {
         // RTC assumes SB 64x64 is used
@@ -6331,12 +6346,12 @@ void svt_aom_sig_deriv_enc_dec_light_pd1(PictureControlSet *pcs, ModeDecisionCon
             ctx->lpd1_tx_ctrls.chroma_detector_level = 0;
     }
 
-    /* In modes below M11, only skip non-NEAREST_NEAREST TX b/c skipping all inter TX will cause blocking artifacts
+    /* In modes below M10, only skip non-NEAREST_NEAREST TX b/c skipping all inter TX will cause blocking artifacts
     in certain clips.  This signal is separated from the general lpd1_tx_ctrls (above) to avoid
     accidentally turning this on for modes below M13.
 
-    Do not test this signal in M10 and below during preset tuning.  This signal should be kept as an enc_mode check
-    instead of and LPD1_LEVEL check to ensure that M10 and below do not use it.
+    Do not test this signal in M9 and below during preset tuning.  This signal should be kept as an enc_mode check
+    instead of and LPD1_LEVEL check to ensure that M9 and below do not use it.
     */
     if (rtc_tune) {
         if (pcs->enc_mode <= ENC_M7)
@@ -6696,8 +6711,17 @@ bool svt_aom_get_disallow_4x4(EncMode enc_mode, uint8_t is_base) {
 /*
 * return the 8x8 level
 Used by svt_aom_sig_deriv_enc_dec and memory allocation
+
+The aligned width/height can be either the picture width/height or the SB width/height. For memory
+allocation, we should use the picture width/height.
 */
-bool svt_aom_get_disallow_8x8(EncMode enc_mode, bool rtc_tune, uint32_t screen_content_mode) {
+bool svt_aom_get_disallow_8x8(EncMode enc_mode, bool rtc_tune, uint32_t screen_content_mode, const uint16_t sb_size,
+                              const uint16_t aligned_width, const uint16_t aligned_height) {
+    // If aligned picture dimensions result in an SB with width/height of 8, the picture will
+    // require 8x8 blocks for conformance. When the width/height is <=8 larger block sizes will
+    // be invalid.
+    if (((aligned_width % sb_size) == 8) || ((aligned_height % sb_size) == 8))
+        return false;
     if (rtc_tune) {
         if (screen_content_mode == 1) {
             if (enc_mode <= ENC_M10)
@@ -7595,16 +7619,12 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet *scs, PictureCont
             pcs->mds0_level = is_islice ? 0 : 2;
     }
     /*
-disallow_4x4
-*/
+    disallow_4x4
+    */
     pcs->pic_disallow_4x4 = svt_aom_get_disallow_4x4(enc_mode, is_base);
     /*
-    * pic_disallow_8x8
+    Bypassing EncDec
     */
-    pcs->pic_disallow_8x8 = svt_aom_get_disallow_8x8(enc_mode, rtc_tune, scs->static_config.screen_content_mode);
-    /*
-Bypassing EncDec
-*/
     // This signal can only be modified per picture right now, not per SB.  Per SB requires
     // neighbour array updates at EncDec for all SBs, that are currently skipped if EncDec is bypassed.
     if (!ppcs->frm_hdr.segmentation_params.segmentation_enabled) {
@@ -7613,8 +7633,8 @@ Bypassing EncDec
         pcs->pic_bypass_encdec = 0;
 
     /*
-set lpd0_level
-*/
+    set lpd0_level
+    */
     // for the low delay enhance base layer frames, lower the enc_mode to improve the quality
     set_pic_lpd0_lvl(pcs, enc_mode);
     // Depth-removal not supported for I_SLICE
@@ -7884,7 +7904,11 @@ set lpd0_level
         pcs->lambda_weight = CLIP3(0, 72, MIN(pcs->picture_qp * 4, (63 - pcs->picture_qp) * 3)) + 128;
     } else { // Tune 0 to 2
         if (!rtc_tune && !(enc_mode <= ENC_MR)) {
+#if FIX_INTRA_BLUR_QP62
+            if (!is_islice && pcs->picture_qp >= 62) {
+#else
             if (pcs->picture_qp >= 62) {
+#endif
                 pcs->lambda_weight = 300;
             } else if (pcs->picture_qp >= 56) {
                 pcs->lambda_weight = 175;

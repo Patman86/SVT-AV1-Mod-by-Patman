@@ -48,6 +48,8 @@ extern "C" {
 #define FIX_TUNE_SSIM               1 // Fix SSIM mode
 #define RFCTR_PARSE_LIST            1 // Refactor parameter parsing list and support the range of int8 and uint8
 #define FIX_QUEUE_DEADLOCK          1 // Use min-heap instead of queue to manage out-of-order decode orders
+#define FIX_INTRA_BLUR_QP62         1 // Intra lambda-weight tuning for INTRA frames at high QPs (>=62) to reduce blurriness
+#define FIX_FPS_CALC                1 // Fix frame-rate derivation to handle < 1 fps
 
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one
@@ -83,7 +85,7 @@ extern "C" {
 // Switch frame debugging code
 #define DEBUG_SFRAME            0
 
-// Variance boost debugging code
+// Variance Boost debugging code
 #define DEBUG_VAR_BOOST         0
 #define DEBUG_VAR_BOOST_QP      0
 #define DEBUG_VAR_BOOST_STATS   0

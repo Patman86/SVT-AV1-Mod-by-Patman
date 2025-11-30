@@ -77,8 +77,9 @@
 
 // scale factors for lambda value for different frame types
 #define LAMBDA_SCALE_FACTORS_TOKEN "--lambda-scale-factors"
-
+#if !FIX_FPS_CALC
 #define FRAME_RATE_TOKEN "--fps"
+#endif
 #define FRAME_RATE_NUMERATOR_TOKEN "--fps-num"
 #define FRAME_RATE_DENOMINATOR_TOKEN "--fps-denom"
 #define ENCODER_COLOR_FORMAT "--color-format"
@@ -516,13 +517,14 @@ static EbErrorType set_progress(EbConfig *cfg, const char *token, const char *va
     }
     return EB_ErrorNone;
 }
+#if !FIX_FPS_CALC
 static EbErrorType set_frame_rate(EbConfig *cfg, const char *token, const char *value) {
     (void)token;
     cfg->config.frame_rate_numerator   = strtoul(value, NULL, 0);
     cfg->config.frame_rate_denominator = 1;
     return EB_ErrorNone;
 }
-
+#endif
 /**
  * @brief split colon separated string into key=value pairs
  *
@@ -700,7 +702,9 @@ ConfigDescription config_entry_global_options[] = {
     {LEVEL_TOKEN,
      "Bitstream level, defined in A.3 of the av1 spec, default is 0 [0: autodetect from input, "
      "2.0-7.3]"},
+#if !FIX_FPS_CALC
     {FRAME_RATE_TOKEN, "Input video frame rate, integer values only, inferred if y4m, default is 60 [1-240]"},
+#endif
     {FRAME_RATE_NUMERATOR_TOKEN, "Input video frame rate numerator, default is 60000 [0-2^32-1]"},
     {FRAME_RATE_DENOMINATOR_TOKEN, "Input video frame rate denominator, default is 1000 [0-2^32-1]"},
     {INPUT_DEPTH_TOKEN, "Input video file and output bitstream bit-depth, default is 8 [8, 10]"},
@@ -973,12 +977,12 @@ ConfigDescription config_entry_color_description[] = {
     // Termination
     {NULL, NULL}};
 
-ConfigDescription config_entry_variance_boost[] = {
-    // Variance boost
-    {ENABLE_VARIANCE_BOOST_TOKEN, "Enable variance boost, default is 0 [0-1]"},
-    {VARIANCE_BOOST_STRENGTH_TOKEN, "Variance boost strength, default is 2 [1-4]"},
-    {VARIANCE_OCTILE_TOKEN, "Octile for variance boost, default is 5 [1-8]"},
-    {VARIANCE_BOOST_CURVE_TOKEN, "Curve for variance boost, default is 0 [0-2]"},
+ConfigDescription config_entry_psychovisual[] = {
+    // Variance Boost
+    {ENABLE_VARIANCE_BOOST_TOKEN, "Enable Variance Boost, default is 0 [0-1]"},
+    {VARIANCE_BOOST_STRENGTH_TOKEN, "Variance Boost strength, default is 2 [1-4]"},
+    {VARIANCE_OCTILE_TOKEN, "Octile for Variance Boost, default is 5 [1-8]"},
+    {VARIANCE_BOOST_CURVE_TOKEN, "Curve for Variance Boost, default is 0 [0-2]"},
     // QP scale compress
     {QP_SCALE_COMPRESS_STRENGTH_TOKEN, "QP scale compress strength, default is 0 [0-3]"},
     // Adaptive film grain
@@ -1026,8 +1030,10 @@ ConfigEntry config_entry[] = {
     {ENCODER_COLOR_FORMAT, "EncoderColorFormat", set_cfg_generic_token},
     {PROFILE_TOKEN, "Profile", set_cfg_generic_token},
     {LEVEL_TOKEN, "Level", set_level},
-    //   Frame Rate tokens
+//   Frame Rate tokens
+#if !FIX_FPS_CALC
     {FRAME_RATE_TOKEN, "FrameRate", set_frame_rate},
+#endif
     {FRAME_RATE_NUMERATOR_TOKEN, "FrameRateNumerator", set_cfg_generic_token},
     {FRAME_RATE_DENOMINATOR_TOKEN, "FrameRateDenominator", set_cfg_generic_token},
 
@@ -1175,7 +1181,7 @@ ConfigEntry config_entry[] = {
     // Sharpness
     {SHARPNESS_TOKEN, "Sharpness", set_cfg_generic_token},
 
-    // Variance boost
+    // Variance Boost
     {ENABLE_VARIANCE_BOOST_TOKEN, "EnableVarianceBoost", set_cfg_generic_token},
     {VARIANCE_BOOST_STRENGTH_TOKEN, "VarianceBoostStrength", set_cfg_generic_token},
     {VARIANCE_OCTILE_TOKEN, "VarianceOctile", set_cfg_generic_token},
@@ -1758,7 +1764,7 @@ uint32_t get_help(int32_t argc, char *const argv[]) {
     print_options("GOP size and type Options", config_entry_intra_refresh);
     print_options("AV1 Specific Options", config_entry_specific);
     print_options("Color Description Options", config_entry_color_description);
-    print_options("Variance Boost Options", config_entry_variance_boost);
+    print_options("Psychovisual Options", config_entry_psychovisual);
 
     return 1;
 }
