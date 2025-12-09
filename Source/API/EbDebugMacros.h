@@ -51,6 +51,27 @@ extern "C" {
 #define FIX_INTRA_BLUR_QP62         1 // Intra lambda-weight tuning for INTRA frames at high QPs (>=62) to reduce blurriness
 #define FIX_FPS_CALC                1 // Fix frame-rate derivation to handle < 1 fps
 
+#define CLN_MDC_FUNCS               1 // Clean-up unused MDC functions and variables
+#define CLN_RECON_FUNC              1 // Clean-up MD recon function
+#define CLN_REMOVE_OIS_FLAG         1 // Clean-up OIS functions and variables
+#define FIX_EOB_COEF_CTX            1 // Fix the number of contexts used for signaling the EOB
+#define FIX_IND_UV_SEARCH_TX        1 // Set MD stage to 0 for independent chroma search to prevent using uninit'd data to skip TX
+#define FIX_CHROMA_SKIP             1 // Properly update chroma settings when chroma is skipped
+#define CLN_MOVE_CHROMA_CHECK       1 // Move chroma complexity check inside MD stage check for PD1
+#define CLN_MDS0_DIST_PD1           1 // Fix fast-cost derivation
+#define FTR_STILL_IMAGE_UP_TO_M12   1 // Still-image up to M12
+#define FTR_DEPTH_REMOVAL_INTRA     1 // Add support for variance-based depth removal for INTRA frames to speed up still-image processing
+#define TUNE_STILL_IMAGE_0          1 // Perform a first round of tuning for still-image
+#define OPT_MD_SIGNALS              1 // Clean up INTRA-level derivation, fix PD0/PD1 interactions, and adaptively set the intra-edge-filter flag
+#define FIX_TUNE_SSIM_LAMBDA        1 // Fix SSIM mode lambda: fix per-SB lambda for balanced inter-depth decisions, and use default factors when deriving the lambda scaling factors
+#define TUNE_STILL_IMAGE_1          1 // Perform a second round of tuning for still-image
+#define OPT_DEFAULT_LAMBDA_MULT     1 // Use default lambda at RDOQ
+#define FTR_USE_HADAMARD_MDS0       1 // Use Hadamard at mds0
+#define TUNE_STILL_IMAGE_2          1 // Perform a third round of tuning for still-image
+#define OPT_SSIM_METRIC             1 // Remove SSIM distortion calculations for INTRA frames
+#define OPT_RECON_OPERATIONS        1 // Remove unnecessary reconstruction operations
+#define OPT_FD2_FD1_STILL_IMAGE     1 // Add fast-decode for still-image
+
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one
 #define DEBUG_TPL               0 // Prints to debug TPL

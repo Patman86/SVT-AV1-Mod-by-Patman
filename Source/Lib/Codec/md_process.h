@@ -739,6 +739,9 @@ typedef struct CflCtrls {
     bool enabled;
     // Early exit to reduce the number of iterations to compute CFL parameters
     uint8_t itr_th;
+#if TUNE_STILL_IMAGE_2
+    uint8_t cplx_th;
+#endif
 } CflCtrls;
 typedef struct MdRateEstCtrls {
     // If true, update skip context and dc_sign context (updates are done in the same func, so
@@ -961,12 +964,16 @@ typedef struct ModeDecisionContext {
     uint8_t           unipred3x3_injection;
     Bipred3x3Controls bipred3x3_ctrls;
     uint8_t           redundant_blk;
-    uint8_t           nic_level;
-    uint8_t          *cfl_temp_luma_recon;
-    uint16_t         *cfl_temp_luma_recon16bit;
-    bool              blk_skip_decision;
-    int8_t            rdoq_level;
-    Mv                sb_me_mv[MAX_NUM_OF_REF_PIC_LIST][MAX_REF_IDX];
+#if !OPT_MD_SIGNALS
+    uint8_t nic_level;
+#endif
+    uint8_t  *cfl_temp_luma_recon;
+    uint16_t *cfl_temp_luma_recon16bit;
+    bool      blk_skip_decision;
+#if !OPT_MD_SIGNALS
+    int8_t rdoq_level;
+#endif
+    Mv sb_me_mv[MAX_NUM_OF_REF_PIC_LIST][MAX_REF_IDX];
     // Store ME MV of the square to use with NSQ shapes; 4x4 will also use the 8x8 ME MVs
     Mv       sq_sb_me_mv[MAX_NUM_OF_REF_PIC_LIST][MAX_REF_IDX];
     Mv       fp_me_mv[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH];
@@ -1101,6 +1108,9 @@ typedef struct ModeDecisionContext {
     NicCtrls        nic_ctrls;
     Mv              ref_mv;
     uint16_t        sb_index;
+#if FTR_USE_HADAMARD_MDS0
+    bool mds0_use_hadamard;
+#endif
     uint64_t        mds0_best_cost_per_class[CAND_CLASS_TOTAL];
     uint64_t        mds0_best_cost;
     uint8_t         mds0_best_class;
@@ -1167,6 +1177,9 @@ typedef struct ModeDecisionContext {
     // Indicates which chroma components (if any) are complex, relative to luma. Chroma TX shortcuts
     // based on luma should not be used when chroma is complex.
     uint8_t chroma_complexity;
+#if TUNE_STILL_IMAGE_2
+    uint8_t cfl_complexity;
+#endif
     // Signal to skip INTER TX in LPD1; should only be used by M13 as this causes blocking
     // artifacts. 0: OFF, 1: Skip INTER TX if neighs have 0 coeffs, 2: skip all INTER TX
     uint8_t lpd1_skip_inter_tx_level;

@@ -342,10 +342,11 @@ static void result_model_store(PictureParentControlSet *pcs, TplStats *tpl_stats
 double svt_av1_convert_qindex_to_q(int32_t qindex, EbBitDepth bit_depth);
 
 int32_t svt_av1_compute_qdelta(double qstart, double qtarget, EbBitDepth bit_depth);
-
+#if !CLN_REMOVE_OIS_FLAG
 extern void filter_intra_edge(OisMbResults *ois_mb_results_ptr, uint8_t mode, uint16_t max_frame_width,
                               uint16_t max_frame_height, int32_t p_angle, int32_t cu_origin_x, int32_t cu_origin_y,
                               uint8_t *above_row, uint8_t *left_col);
+#endif
 
 /*
     TPL Dispenser SB based (sz 64x64)
@@ -611,6 +612,7 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext *enc_ctx, SequenceCon
             int64_t best_inter_cost = INT64_MAX;
             int64_t best_intra_cost = INT64_MAX;
             if (!disable_intra_pred) {
+#if !CLN_REMOVE_OIS_FLAG
                 if (scs->in_loop_ois == 0) {
                     uint32_t      picture_width_in_mb = (pcs->enhanced_pic->width + size - 1) / size;
                     OisMbResults *ois_mb_results_ptr =
@@ -620,6 +622,7 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext *enc_ctx, SequenceCon
                     best_intra_mode = ois_mb_results_ptr->intra_mode;
                     best_intra_cost = ois_mb_results_ptr->intra_cost;
                 } else {
+#endif
                     // ois always process as block16x16 even bsize or tx_size is 8x8
                     // fast (DC only + sad ) path
                     if (intra_dc_sad_path) {
@@ -700,15 +703,26 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext *enc_ctx, SequenceCon
                                     above_data, above0_data, sizeof(uint8_t) * (MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2));
                                 above_row = above_data + MAX_TPL_SIZE;
                                 left_col  = left_data + MAX_TPL_SIZE;
-                                filter_intra_edge(NULL,
-                                                  ois_intra_mode,
-                                                  scs->max_input_luma_width,
-                                                  scs->max_input_luma_height,
-                                                  p_angle,
-                                                  (int32_t)mb_origin_x,
-                                                  (int32_t)mb_origin_y,
-                                                  above_row,
-                                                  left_col);
+#if CLN_REMOVE_OIS_FLAG
+                                svt_aom_filter_intra_edge(ois_intra_mode,
+                                                          scs->max_input_luma_width,
+                                                          scs->max_input_luma_height,
+                                                          p_angle,
+                                                          (int32_t)mb_origin_x,
+                                                          (int32_t)mb_origin_y,
+                                                          above_row,
+                                                          left_col);
+#else
+                            filter_intra_edge(NULL,
+                                              ois_intra_mode,
+                                              scs->max_input_luma_width,
+                                              scs->max_input_luma_height,
+                                              p_angle,
+                                              (int32_t)mb_origin_x,
+                                              (int32_t)mb_origin_y,
+                                              above_row,
+                                              left_col);
+#endif
                             } else {
                                 above_row = above0_row;
                                 left_col  = left0_col;
@@ -755,7 +769,9 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext *enc_ctx, SequenceCon
                             }
                         }
                     }
+#if !CLN_REMOVE_OIS_FLAG
                 }
+#endif
             }
 
             //Inter Src path
@@ -1111,6 +1127,16 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext *enc_ctx, SequenceCon
                            : 0;
                 // Edge filter
                 if (av1_is_directional_mode((PredictionMode)ois_intra_mode)) {
+#if CLN_REMOVE_OIS_FLAG
+                    svt_aom_filter_intra_edge(ois_intra_mode,
+                                              scs->max_input_luma_width,
+                                              scs->max_input_luma_height,
+                                              p_angle,
+                                              mb_origin_x,
+                                              mb_origin_y,
+                                              above_row,
+                                              left_col);
+#else
                     filter_intra_edge(NULL,
                                       ois_intra_mode,
                                       scs->max_input_luma_width,
@@ -1120,6 +1146,7 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext *enc_ctx, SequenceCon
                                       mb_origin_y,
                                       above_row,
                                       left_col);
+#endif
                 }
                 // PRED
                 svt_aom_intra_prediction_open_loop_mb(
@@ -2124,8 +2151,10 @@ unsigned int svt_aom_get_perpixel_variance(const uint8_t *buf, uint32_t stride, 
     return ROUND_POWER_OF_TWO(var, eb_num_pels_log2_lookup[block_size]);
 }
 static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
+#if !FIX_TUNE_SSIM_LAMBDA
     if (!pcs->scs->static_config.enable_tpl_la) // tuning rdmult with SSIM requires TPL ME data
         return;
+#endif
     Av1Common *cm       = pcs->av1_cm;
     const int  y_stride = pcs->enhanced_pic->stride_y;
     uint8_t   *y_buffer = pcs->enhanced_pic->buffer_y + pcs->enhanced_pic->org_x + pcs->enhanced_pic->org_y * y_stride;
@@ -2138,13 +2167,17 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
     double    log_sum  = 0.0;
 
     const double factor_a = 67.035434;
+#if FIX_TUNE_SSIM_LAMBDA
+    const double factor_b = -0.0021489;
+    const double factor_c = 17.492222;
+#else
     const double factor_b = pcs->scs->input_resolution < INPUT_SIZE_720p_RANGE ? -0.0004489
         : pcs->scs->input_resolution < INPUT_SIZE_1080p_RANGE                  ? -0.0011489
                                                                                : -0.0022489;
     const double factor_c = pcs->scs->input_resolution < INPUT_SIZE_720p_RANGE ? 17.492222
         : pcs->scs->input_resolution < INPUT_SIZE_1080p_RANGE                  ? 37.492222
                                                                                : 35.492222;
-
+#endif
     const bool do_print = false;
     if (do_print) {
         fprintf(stdout, "16x16 block variance");
@@ -2172,8 +2205,16 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
 
             // Curve fitting with an exponential model on all 16x16 blocks from the
             // midres dataset.
-            double var_backup                                   = var;
-            var                                                 = factor_a * (1 - exp(factor_b * var)) + factor_c;
+            double var_backup = var;
+            var               = factor_a * (1 - exp(factor_b * var)) + factor_c;
+#if FIX_TUNE_SSIM_LAMBDA
+            // As per the above computation, var will be in the range of
+            // [17.492222, 84.527656], assuming the data type is of infinite
+            // precision. The following assert conservatively checks if var is in
+            // the range of [17.0, 85.0] to avoid any issues due to the precision of
+            // the relevant data type.
+            assert(var > 17.0 && var < 85.0);
+#endif
             pcs->pa_me_data->ssim_rdmult_scaling_factors[index] = var;
             log_sum += log(var);
             if (do_print) {
@@ -2192,18 +2233,22 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
     if (do_print) {
         fprintf(stdout, "16x16 block rdmult scaling factors");
     }
+#if !FIX_TUNE_SSIM_LAMBDA
     double min = 0xfffffff;
     double max = 0;
+#endif
     for (int row = 0; row < num_rows; ++row) {
         for (int col = 0; col < num_cols; ++col) {
             const int index = row * num_cols + col;
             pcs->pa_me_data->ssim_rdmult_scaling_factors[index] /= log_sum;
+#if !FIX_TUNE_SSIM_LAMBDA
             if (pcs->pa_me_data->ssim_rdmult_scaling_factors[index] < min) {
                 min = pcs->pa_me_data->ssim_rdmult_scaling_factors[index];
             }
             if (pcs->pa_me_data->ssim_rdmult_scaling_factors[index] > max) {
                 max = pcs->pa_me_data->ssim_rdmult_scaling_factors[index];
             }
+#endif
             if (do_print) {
                 if (col == 0) {
                     fprintf(stdout, "\n");

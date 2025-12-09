@@ -591,7 +591,7 @@ void svt_av1_highbd_quantize_fp_qm_c(const TranLow *coeff_ptr, intptr_t count, c
                                 iqm_ptr,
                                 log_scale);
 }
-
+#if !FIX_EOB_COEF_CTX
 // Hsan: code clean up; from static to extern as now used @ more than 1 file
 
 static const int8_t eob_to_pos_small[33] = {
@@ -655,6 +655,7 @@ static int get_eob_cost(int eob, const LvMapEobCost *txb_eob_costs, const LvMapC
     }
     return eob_cost;
 }
+#endif
 static INLINE int get_lower_levels_ctx_general(int is_last, int scan_idx, int bwl, int height, const uint8_t *levels,
                                                int coeff_idx, TxSize tx_size, TxClass tx_class) {
     if (is_last) {
@@ -1020,6 +1021,24 @@ enum {
 } UENUM1BYTE(DELTAQ_MODE);
 
 // These numbers are empirically obtained.
+#if OPT_DEFAULT_LAMBDA_MULT
+#if TUNE_CHROMA_SSIM
+static const int plane_rd_mult[2][REF_TYPES][PLANE_TYPES] = {{
+                                                                 {17, 13},
+                                                                 {16, 10},
+                                                             },
+                                                             {
+                                                                 {17, 13},
+                                                                 {16, 10},
+                                                             }};
+#else
+static const int plane_rd_mult[2][REF_TYPES][PLANE_TYPES] = {{{17, 20}, {16, 20}},
+                                                             {
+                                                                 {17, 13},
+                                                                 {16, 10},
+                                                             }};
+#endif
+#else
 static const int plane_rd_mult[REF_TYPES][PLANE_TYPES] = {
 #if TUNE_CHROMA_SSIM
     {17, 13},
@@ -1029,6 +1048,7 @@ static const int plane_rd_mult[REF_TYPES][PLANE_TYPES] = {
     {16, 20},
 #endif
 };
+#endif
 
 /*
  * Reduce the number of non-zero quantized coefficients before getting to the main/complex RDOQ stage
@@ -1075,6 +1095,10 @@ static void svt_av1_optimize_b(PictureControlSet *pcs, ModeDecisionContext *ctx,
                                TranLow *qcoeff_ptr, TranLow *dqcoeff_ptr, uint16_t *eob, const QuantParam *qparam,
                                TxSize tx_size, TxType tx_type, bool is_inter, uint8_t use_sharpness,
                                uint8_t delta_q_present, uint8_t picture_qp, uint32_t lambda, int plane) {
+#if OPT_DEFAULT_LAMBDA_MULT
+    SequenceControlSet *scs      = pcs->scs;
+    bool                allintra = scs->allintra;
+#endif
     int                    sharpness  = 0; // No Sharpness
     int                    fast_mode  = (ctx->rdoq_ctrls.eob_fast_y_inter && is_inter && !plane) ||
             (ctx->rdoq_ctrls.eob_fast_y_intra && !is_inter && !plane) ||
@@ -1122,7 +1146,13 @@ static void svt_av1_optimize_b(PictureControlSet *pcs, ModeDecisionContext *ctx,
             rweight   = 0;
         }
     }
-    const int64_t  rdmult = (((((int64_t)lambda * plane_rd_mult[is_inter][plane_type]) * rweight) / 100) + 2) >> rshift;
+#if OPT_DEFAULT_LAMBDA_MULT
+    const int64_t rdmult = (((((int64_t)lambda * plane_rd_mult[allintra][is_inter][plane_type]) * rweight) / 100) +
+                            2) >>
+        rshift;
+#else
+    const int64_t rdmult = (((((int64_t)lambda * plane_rd_mult[is_inter][plane_type]) * rweight) / 100) + 2) >> rshift;
+#endif
     uint8_t        levels_buf[TX_PAD_2D];
     uint8_t *const levels = set_levels(levels_buf, width);
 
@@ -1516,7 +1546,11 @@ uint8_t svt_aom_quantize_inv_quantize(PictureControlSet *pcs, ModeDecisionContex
 
     // If rdoq_level is specified in the command line instruction, set perform_rdoq accordingly.
     perform_rdoq = !svt_av1_is_lossless_segment(pcs, ctx->blk_ptr->segment_id) &&
+#if OPT_MD_SIGNALS
+        ((ctx->mds_do_rdoq || is_encode_pass) && ctx->rdoq_ctrls.enabled);
+#else
         ((ctx->mds_do_rdoq || is_encode_pass) && ctx->rdoq_level);
+#endif
     const int dequant_shift = ctx->hbd_md ? pcs->ppcs->enhanced_pic->bit_depth - 5 : 3;
     const int qstep         = candidate_plane.dequant_qtx[1] /*[AC]*/ >> dequant_shift;
     if (!is_encode_pass) {

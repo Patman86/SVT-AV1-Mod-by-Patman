@@ -566,12 +566,16 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
                       channel_number + 1,
                       config->tune);
             return_error = EB_ErrorBadParameter;
+#if FIX_TUNE_SSIM_LAMBDA
+        }
+#else
         } else {
             SVT_WARN(
                 "Instance %u: tune ssim (2) is supported for testing and debugging purposes."
                 "This configuration should not be used for any benchmarking analysis at this stage\n",
                 channel_number + 1);
         }
+#endif
     }
 
     if (config->superres_mode > SUPERRES_AUTO) {
@@ -669,9 +673,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
-    // Block the use of M4 or lower for resolutions higher than 4K, unless still-image coding is used (due to memory constraints)
-    if (!scs->static_config.avif &&
-        (uint64_t)(scs->max_input_luma_width * scs->max_input_luma_height) > INPUT_SIZE_4K_TH &&
+    // Block the use of M4 or lower for resolutions higher than 4K, unless allintra coding is used (due to memory constraints)
+    if (!scs->allintra && (uint64_t)(scs->max_input_luma_width * scs->max_input_luma_height) > INPUT_SIZE_4K_TH &&
         config->enc_mode <= ENC_M4) {
         SVT_ERROR("Instance %u: 8k+ resolution support is limited to M5 and faster presets.\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
