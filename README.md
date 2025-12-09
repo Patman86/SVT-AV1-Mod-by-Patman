@@ -5,11 +5,17 @@
 
 SVT-AV1-HDR is the Scalable Video Technology for AV1 (SVT-AV1 Encoder) with perceptual enhancements for psychovisually optimal SDR and HDR AV1 encoding. The goal is to create the best encoding implementation for perceptual quality with AV1, with additional optimizations for HDR encoding and content with film grain.
 
-### Downloads
+## Downloads
 
-Currently, there are [HandBrake](https://github.com/Uranite/HandBrake-SVT-AV1-HDR/releases) and [ffmpeg](https://github.com/QuickFatHedgehog/FFmpeg-Builds-SVT-AV1-HDR/releases) **community builds** with SVT-AV1-HDR available.
+Currently, there are [HandBrake](https://github.com/Uranite/HandBrake-SVT-AV1-HDR?tab=readme-ov-file#downloads-and-build-status) and [ffmpeg](https://github.com/QuickFatHedgehog/FFmpeg-Builds-SVT-AV1-HDR/releases) **community builds** with SVT-AV1-HDR available.
 
-### SVT-AV1-HDR Feature Additions
+## Documentation
+
+For additional docs (build instructions, documentation, usage, etc.), see the [SVT-AV1 README](README_mainline.md).
+
+## Feature Additions
+
+### SVT-AV1-HDR
 
 - `PQ-optimized Variance Boost curve`
 
@@ -19,9 +25,9 @@ A custom curve specifically designed for HDR video and images with a Perceptual 
 
 An opinionated tune optimized for film grain retention and temporal consistency. The recommended CRF range to use tune 4 is 20 to 40.
 
-Tune 3 is equivalent to setting these parameters: `--tune 0 --enable-tf 0 --enable-restoration 0 --enable-cdef 0 --complex-hvs 1 --tx-bias 1 --ac-bias 4.00`.
+Tune 4 is equivalent to setting these parameters: `--tune 0 --enable-tf 0 --enable-restoration 0 --enable-cdef 0 --complex-hvs 1 --tx-bias 1 --ac-bias 4.00`.
 
-### Feature Additions from SVT-AV1-PSY
+### From SVT-AV1-PSY
 
 - `--variance-boost-strength` *1 to 4* (**[Merged to Mainline](https://gitlab.com/AOMediaCodec/SVT-AV1/-/merge_requests/2195)**)
 
@@ -166,7 +172,3 @@ under the BSD-3-clause clear license and the Alliance for Open Media Patent
 License 1.0. See [LICENSE](LICENSE.md) and [PATENTS](PATENTS.md) for details.
 
 *SVT-AV1-HDR does not feature license modifications from mainline SVT-AV1.*
-
-## Documentation
-
-For additional docs, see the [SVT-AV1](README_mainline.md) page.

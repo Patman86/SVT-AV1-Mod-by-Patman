@@ -996,7 +996,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     int8_t sframe_qp_offset;
 #endif // FTR_SFRAME_QP
 
-    /**
+     /**
      * @brief Toggle default film grain blocksize behavior
      * 0: use default blocksize behavior (32x32)
      * 1: use adaptive blocksize based on resolution
@@ -1004,7 +1004,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      *  - 16x16 for 4k
      * Default is 1
      */
-    bool adaptive_film_grain;
+     bool adaptive_film_grain;
 
     /* @brief Limit transform sizes to the specified size
      * 32: use transform sizes up to 64x64 pixels
@@ -1056,7 +1056,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
 
      /**
      * @brief Use alternative lambda factors
-     * false = use regular lambda factors
+     * false = use regular lambda factors (SVT-AV1 3.1.0 and newer)
      * true = use alternative lambda factors (from SVT-AV1 3.0.2)
      * Default is true in SVT-AV1-HDR. */
      bool alt_lambda_factors;
@@ -1097,23 +1097,6 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * Default is 0
      */
      uint8_t complex_hvs;
-
-     /**
-     * @brief Use alternative lambda factors
-     * false = use regular lambda factors (SVT-AV1 3.1.0 and newer)
-     * true = use alternative lambda factors (from SVT-AV1 3.0.2)
-     * Default is true in SVT-AV1-HDR. */
-     bool alt_lambda_factors;
-
-     /**
-     * @brief Toggle default film grain blocksize behavior
-     * 0: use default blocksize behavior (32x32)
-     * 1: use adaptive blocksize based on resolution
-     *  - 8x8 for <4k
-     *  - 16x16 for 4k
-     * Default is 1
-     */
-     bool adaptive_film_grain;
 
 } EbSvtAv1EncConfiguration;
 
