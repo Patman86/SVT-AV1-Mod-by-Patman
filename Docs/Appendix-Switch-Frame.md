@@ -12,7 +12,7 @@ shorten the latency, a possible solution is to insert more key frames into
 renditions as to shorten the length of a segment. However, this will inevitably
 increase the bits as key frames call for more to encode. Or, an obvious drop of
 video quality will happen when the original bitrates is managed to be kept.
-![switch-at-key-frames-only](./img/switch-at-key-frames-only.webp)
+![switch-at-key-frames-only](./img/switch-at-key-frames-only.png)
 
 
 To solve this issue, a new type of frame is introduced as Switch Frame(s-frame)
@@ -21,7 +21,7 @@ affordable to be inserted into the segments. It can act like a key frame to
 further divide the segments to smaller pieces at a low cost. The spread of
 s-frames will shorten the latency to around 1 second or even 0.25 second (when
 set the mini GOP size of a 30fps video source to 8).
-![switch-at-switch-frames-or-key-frames](./img/switch-at-switch-frames-or-key-frames.webp)
+![switch-at-switch-frames-or-key-frames](./img/switch-at-switch-frames-or-key-frames.png)
 
 ## 2. Implementation
 According to the AV1 spec, the following requirements must be satisfied and so
@@ -41,7 +41,7 @@ Super block size is fixed to 64 when s-frame feature is on.
   - Decide which frames to be made into s-frames.<br>
 This is done in the Picture Decision process. For every sframe-dist frames
 (controlled by command line option --sframe-dist), the encoder will decide
-whether to make the frame into an s-frame. There are two modes to make the
+whether to make the frame into an s-frame. There are four modes to make the
 decision (controlled by command line option --sframe-mode):
     * Mode 1. Strict mode<br>
 The considered frame will be made into an s-frame only if it is a base layer
@@ -52,6 +52,11 @@ interval to 30, while mini GOP size is set to 16.
 The considered frame will be made into an s-frame if it is a base layer inter
 frame. If it’s not, the next base layer inter frame will be made into an
 s-frame. This is the default mode.
+    * Mode 3. Flexible mode<br>
+The considered frame will be made into an s-frame if it is a base layer inter frame. If it is not, the mini GOP size will be adjusted to ensure a base layer frame is placed at the specified position, which will then be converted into an s-frame. The following diagram illustrates the difference compared to the Nearest mode:<br>
+![](img/image29.svg)
+    * Mode 4. Flexible mode in decode order<br>
+This mode is for the requirement to specify the target S-Frame position in decode order purpose. By applying the flexible migigop adjustment at the prevoius frame before considered frame, an ARF inserted at the target position and made into an S-Frame.
 
   - Set s-frame’s refresh_frame_flags to ‘allFrames’. All frames after an s-frame don’t use any reference frame before the s-frame.<br>
 This is done in the Picture Decision process. After a frame is decided to be

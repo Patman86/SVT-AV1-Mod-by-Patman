@@ -12,7 +12,6 @@
 # ASM_SVE Directory CMakeLists.txt
 
 # Include Encoder Subdirectories
-enable_language(ASM) # needed for .S files
 add_library(ASM_SVE OBJECT)
 
 check_both_flags_add(-march=armv8.2-a+dotprod+i8mm+sve)
@@ -20,9 +19,11 @@ check_both_flags_add(-march=armv8.2-a+dotprod+i8mm+sve)
 target_sources(
   ASM_SVE
   PUBLIC aom_sum_squares_sve.c
+  PUBLIC av1_quantize_sve.c
   PUBLIC block_error_sve.c
   PUBLIC cdef_sve.c
   PUBLIC compute_sad_sve.c
+  PUBLIC compute_sad_neoverse_v2.c
   PUBLIC corner_match_sve.c
   PUBLIC highbd_convolve_sve.c
   PUBLIC highbd_jnt_convolve_sve.c
@@ -32,6 +33,7 @@ target_sources(
   PUBLIC highbd_warp_plane_sve.c
   PUBLIC pickrst_sve.c
   PUBLIC sad_sve.c
+  PUBLIC temporal_filtering_sve.c
   PUBLIC warp_plane_sve.c
   PUBLIC wedge_utils_sve.c)
 

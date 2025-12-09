@@ -57,7 +57,6 @@ bool svt_av1_is_lossless_segment(PictureControlSet *pcs, int8_t segment_id) {
         return pcs->lossless[0];
 }
 
-
 static bool check_mv_validity(int16_t x_mv, int16_t y_mv, uint8_t need_shift) {
     Mv mv;
     //go to 1/8th if input is 1/4pel
@@ -266,11 +265,14 @@ static int64_t pick_interintra_wedge(PictureControlSet *pcs, ModeDecisionContext
     const int bh = block_size_high[bsize];
     DECLARE_ALIGNED(32, int16_t, residual1[MAX_INTERINTRA_SB_SQUARE]); // src - pred1
     DECLARE_ALIGNED(32, int16_t, diff10[MAX_INTERINTRA_SB_SQUARE]); // pred1 - pred0
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
     if (ctx->hbd_md) {
         svt_aom_highbd_subtract_block(bh, bw, residual1, bw, src_buf, src_stride, p1, bw, EB_TEN_BIT);
         svt_aom_highbd_subtract_block(bh, bw, diff10, bw, p1, bw, p0, bw, EB_TEN_BIT);
 
-    } else {
+    } else
+#endif
+    {
         svt_aom_subtract_block(bh, bw, residual1, bw, src_buf, src_stride, p1, bw);
         svt_aom_subtract_block(bh, bw, diff10, bw, p1, bw, p0, bw);
     }
@@ -355,7 +357,7 @@ static void inter_intra_search(PictureControlSet *pcs, ModeDecisionContext *ctx,
         //   continue;
         InterIntraMode interintra_mode = (InterIntraMode)j;
         // rmode = interintra_mode_cost[mbmi->interintra_mode];
-        const int bsize_group = size_group_lookup[ctx->blk_geom->bsize];
+        const int bsize_group = eb_size_group_lookup[ctx->blk_geom->bsize];
         const int rmode       = ctx->md_rate_est_ctx->inter_intra_mode_fac_bits[bsize_group][interintra_mode];
         // av1_combine_interintra(xd, bsize, 0, tmp_buf, bw, intrapred, bw);
         if (ctx->hbd_md)
@@ -623,7 +625,7 @@ EbErrorType svt_aom_mode_decision_cand_bf_ctor(ModeDecisionCandidateBuffer *buff
     thirty_two_width_picture_buffer_desc_init_data.is_16bit_pipeline  = true;
 
     // Candidate Ptr
-    buffer_ptr->cand = (ModeDecisionCandidate *)NULL;
+    buffer_ptr->cand = NULL;
 
     // Video Buffers
     EB_NEW(buffer_ptr->pred, svt_picture_buffer_desc_ctor, (EbPtr)&picture_buffer_desc_init_data);
@@ -684,7 +686,7 @@ EbErrorType svt_aom_mode_decision_scratch_cand_bf_ctor(ModeDecisionCandidateBuff
     thirty_two_width_picture_buffer_desc_init_data.is_16bit_pipeline  = true;
 
     // Candidate Ptr
-    buffer_ptr->cand = (ModeDecisionCandidate *)NULL;
+    buffer_ptr->cand = NULL;
 
     // Video Buffers
     EB_NEW(buffer_ptr->pred, svt_picture_buffer_desc_ctor, (EbPtr)&picture_buffer_desc_init_data);
@@ -910,6 +912,9 @@ static void inj_non_simple_modes(PictureControlSet *pcs, struct ModeDecisionCont
         if (motion_mode_valid)
             INC_MD_CAND_CNT(cand_count, pcs->ppcs->max_can_count);
     }
+#else
+    UNUSED(enable_wm);
+    UNUSED(enable_obmc);
 #endif // CONFIG_ENABLE_OBMC
 
     *total_cand_count = cand_count;
@@ -1846,8 +1851,7 @@ uint8_t svt_aom_wm_motion_refinement(PictureControlSet *pcs, ModeDecisionContext
                 continue;
             assert(cand->block_mi.ref_frame[1] == NONE_FRAME);
             EbPictureBufferDesc *ref_pic_0 = svt_aom_get_ref_pic_buffer(pcs, cand->block_mi.ref_frame[0]);
-            EbPictureBufferDesc *ref_pic_1 = (EbPictureBufferDesc *)
-                NULL; // will stay NULL b/c this is unipred candidate
+            EbPictureBufferDesc *ref_pic_1 = NULL; // will stay NULL b/c this is unipred candidate
 
             // update MV to be testing MV before calling prediction function
             cand->block_mi.mv[0].as_int = test_mv.as_int;
@@ -1969,14 +1973,6 @@ void svt_av1_init_me_luts(void) {
 }
 
 #if CONFIG_ENABLE_OBMC
-int svt_av1_find_best_obmc_sub_pixel_tree_up(ModeDecisionContext *ctx, IntraBcContext *x, const AV1_COMMON *const cm,
-                                             int mi_row, int mi_col, Mv *bestmv, const Mv *ref_mv, int allow_hp,
-                                             int error_per_bit, const AomVarianceFnPtr *vfp, int forced_stop,
-                                             int iters_per_step, int *mvjcost, int *mvcost[2], int *distortion,
-                                             unsigned int *sse1, int is_second, int use_accurate_subpel_search);
-int svt_av1_obmc_full_pixel_search(ModeDecisionContext *ctx, IntraBcContext *x, Mv *mvp_full, int sadpb,
-                                   const AomVarianceFnPtr *fn_ptr, const Mv *ref_mv, Mv *dst_mv, int is_second);
-
 static void single_motion_search(PictureControlSet *pcs, ModeDecisionContext *ctx, ModeDecisionCandidate *cand,
                                  Mv best_pred_mv, IntraBcContext *x, BlockSize bsize, Mv *ref_mv, int *rate_mv,
                                  int refine_level) {
@@ -2097,16 +2093,15 @@ uint8_t svt_aom_obmc_motion_refinement(PictureControlSet *pcs, struct ModeDecisi
         int mi_row = ctx->blk_org_y >> 2;
         int mi_col = ctx->blk_org_x >> 2;
 
-        DECLARE_ALIGNED(16, uint8_t, junk_2b[6 * MAX_MB_PLANE * MAX_SB_SQUARE]);
+        DECLARE_ALIGNED(16, uint8_t, dst_buf1_8b[4 * MAX_MB_PLANE * MAX_SB_SQUARE]);
 
-        uint8_t *dst_buf1_8b = junk_2b + 2 * MAX_MB_PLANE * MAX_SB_SQUARE,
-                *dst_buf2_8b = junk_2b + 4 * MAX_MB_PLANE * MAX_SB_SQUARE;
+        uint8_t *dst_buf2_8b = dst_buf1_8b + 2 * MAX_MB_PLANE * MAX_SB_SQUARE;
         if (ctx->obmc_is_luma_neigh_10bit) {
             svt_aom_un_pack2d((uint16_t *)ctx->obmc_buff_0,
                               ctx->blk_geom->bwidth,
                               dst_buf1_8b,
                               ctx->blk_geom->bwidth,
-                              junk_2b,
+                              NULL,
                               ctx->blk_geom->bwidth,
                               ctx->blk_geom->bwidth,
                               ctx->blk_geom->bheight);
@@ -2115,7 +2110,7 @@ uint8_t svt_aom_obmc_motion_refinement(PictureControlSet *pcs, struct ModeDecisi
                               ctx->blk_geom->bwidth,
                               dst_buf2_8b,
                               ctx->blk_geom->bwidth,
-                              junk_2b,
+                              NULL,
                               ctx->blk_geom->bwidth,
                               ctx->blk_geom->bwidth,
                               ctx->blk_geom->bheight);
@@ -2836,8 +2831,7 @@ static void intra_bc_search(PictureControlSet *pcs, ModeDecisionContext *ctx, co
     uint32_t        full_lambda = ctx->hbd_md ? ctx->full_lambda_md[EB_10_BIT_MD] : ctx->full_lambda_md[EB_8_BIT_MD];
     //fill x with what needed.
     x->is_exhaustive_allowed = ctx->blk_geom->bwidth == 4 || ctx->blk_geom->bheight == 4 ? 1 : 0;
-    svt_memcpy(&x->crc_calculator1, &pcs->crc_calculator1, sizeof(pcs->crc_calculator1));
-    svt_memcpy(&x->crc_calculator2, &pcs->crc_calculator2, sizeof(pcs->crc_calculator2));
+    svt_memcpy(&x->crc_calculator, &pcs->crc_calculator, sizeof(pcs->crc_calculator));
     x->approx_inter_rate = ctx->approx_inter_rate;
     x->xd                = blk_ptr->av1xd;
     x->nmv_vec_cost      = ctx->md_rate_est_ctx->nmv_vec_cost;
@@ -2870,9 +2864,7 @@ static void intra_bc_search(PictureControlSet *pcs, ModeDecisionContext *ctx, co
     x->errorperbit = full_lambda >> RD_EPB_SHIFT;
     x->errorperbit += (x->errorperbit == 0);
     //temp buffer for hash me
-    for (int xi = 0; xi < 2; xi++)
-        for (int yj = 0; yj < 2; yj++)
-            x->hash_value_buffer[xi][yj] = (uint32_t *)malloc(AOM_BUFFER_SIZE_FOR_BLOCK_HASH * sizeof(uint32_t));
+    for (int i = 0; i < 2; i++) EB_MALLOC_ARRAY_NO_CHECK(x->hash_value_buffer[i], AOM_BUFFER_SIZE_FOR_BLOCK_HASH);
 
     Mv nearestmv, nearmv;
     svt_av1_find_best_ref_mvs_from_stack(0, ctx->ref_mv_stack /*mbmi_ext*/, xd, ref_frame, &nearestmv, &nearmv, 0);
@@ -2980,8 +2972,7 @@ static void intra_bc_search(PictureControlSet *pcs, ModeDecisionContext *ctx, co
         (*num_dv_cand)++;
     }
 
-    for (int i = 0; i < 2; i++)
-        for (int j = 0; j < 2; j++) free(x->hash_value_buffer[i][j]);
+    for (int i = 0; i < 2; i++) EB_FREE_ARRAY(x->hash_value_buffer[i]);
 }
 static void inject_intra_bc_candidates(PictureControlSet *pcs, ModeDecisionContext *ctx, const SequenceControlSet *scs,
                                        BlkStruct *blk_ptr, uint32_t *cand_cnt) {
@@ -3754,11 +3745,6 @@ uint32_t svt_aom_product_full_mode_decision(
             for (uint32_t i = 0; i < candidate_total_count; ++i) {
                 uint32_t cand_index = best_candidate_index_array[i];
                 uint64_t cost = *(buffer_ptr_array[cand_index]->full_cost);
-                if (scs->vq_ctrls.sharpness_ctrls.unipred_bias &&
-                    (is_inter_singleref_mode(buffer_ptr_array[cand_index]->cand->block_mi.mode) || pcs->ppcs->slice_type == B_SLICE)) {
-                    cost = (cost * uni_psy_bias[pcs->picture_qp]) / 100;
-                }
-
                 if (cost < ssd_lowest_cost) {
                     lowest_cost_index = cand_index;
                     ssd_lowest_cost = cost;
@@ -3774,10 +3760,6 @@ uint32_t svt_aom_product_full_mode_decision(
 
                 uint64_t ssim_cost = *(buffer_ptr_array[cand_index]->full_cost_ssim);
                 uint64_t ssd_cost = *(buffer_ptr_array[cand_index]->full_cost);
-                if (scs->vq_ctrls.sharpness_ctrls.unipred_bias &&
-                    (is_inter_singleref_mode(buffer_ptr_array[cand_index]->cand->block_mi.mode) || pcs->ppcs->slice_type == B_SLICE)) {
-                    ssim_cost = (ssim_cost * uni_psy_bias[pcs->picture_qp]) / 100; // Adjust only the ssim_cost here
-                }
                 if (ssim_cost < ssim_lowest_cost) {
                     if (ssd_cost <= ssd_cost_threshold) {
                         lowest_cost_index = cand_index;
@@ -3799,12 +3781,11 @@ uint32_t svt_aom_product_full_mode_decision(
                 uint32_t cand_index = best_candidate_index_array[i];
 
                 uint64_t cost = *(buffer_ptr_array[cand_index]->full_cost);
-                if ((scs->vq_ctrls.sharpness_ctrls.unipred_bias && pcs->ppcs->is_noise_level &&
-                    is_inter_singleref_mode(buffer_ptr_array[cand_index]->cand->block_mi.mode)) ||
-                    (scs->vq_ctrls.sharpness_ctrls.unipred_bias &&
-                    (is_inter_singleref_mode(buffer_ptr_array[cand_index]->cand->block_mi.mode) || pcs->ppcs->slice_type == B_SLICE))) {
+                if (scs->vq_ctrls.sharpness_ctrls.unipred_bias && pcs->ppcs->is_noise_level &&
+                    is_inter_singleref_mode(buffer_ptr_array[cand_index]->cand->block_mi.mode)) {
                     cost = (cost * uni_psy_bias[pcs->picture_qp]) / 100;
                 }
+
                 if (cost < lowest_cost) {
                     lowest_cost_index = cand_index;
                     lowest_cost = cost;
@@ -4102,7 +4083,7 @@ void  svt_aom_set_tuned_blk_lambda(struct ModeDecisionContext *ctx, PictureContr
     ctx->fast_lambda_md[EB_8_BIT_MD] = (uint32_t)((double)ctx->ed_ctx->pic_fast_lambda[EB_8_BIT_MD] * geom_mean_of_scale + 0.5);
     ctx->fast_lambda_md[EB_10_BIT_MD] = (uint32_t)((double)ctx->ed_ctx->pic_fast_lambda[EB_10_BIT_MD] * geom_mean_of_scale + 0.5);
 
-    if (ppcs->scs->static_config.tune == 2 || ppcs->scs->static_config.tune == 4) {
+    if (ppcs->scs->static_config.tune == TUNE_SSIM) {
         aom_av1_set_ssim_rdmult(ctx, pcs, mi_row, mi_col);
     }
 }
@@ -4325,7 +4306,7 @@ uint64_t svt_spatial_full_distortion_ssim_kernel(uint8_t* input, uint32_t input_
         ssim_score = ssim(input + input_offset, input_stride,
             recon + recon_offset, recon_stride,
             area_width, area_height);
-        if (ac_bias > 0.0) {
+        if (ac_bias) {
             uint64_t ac_distortion = svt_psy_distortion(input + input_offset, input_stride,
                 recon + recon_offset, recon_stride,
                 area_width, area_height);
@@ -4336,12 +4317,14 @@ uint64_t svt_spatial_full_distortion_ssim_kernel(uint8_t* input, uint32_t input_
         ssim_score = ssim_hbd((uint16_t *)input + input_offset, input_stride,
             (uint16_t *)recon + recon_offset, recon_stride,
             area_width, area_height);
-        if (ac_bias > 0.0) {
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
+        if (ac_bias) {
             uint64_t ac_distortion = svt_psy_distortion_hbd((uint16_t *)input + input_offset,
                 input_stride, (uint16_t *)recon + recon_offset, recon_stride,
                 area_width, area_height);
             psy_distortion = (uint64_t)(ac_distortion * ac_bias);
         }
+#endif
     }
 
     spatial_distortion = (uint64_t)((1 - ssim_score) * count * 100 * 7 * m);

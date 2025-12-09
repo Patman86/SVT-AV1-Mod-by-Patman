@@ -27,6 +27,7 @@
  * @author Cidana-Ryan, Cidana-Wenyao, Cidana-Ivy
  *
  ******************************************************************************/
+#include <array>
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -330,7 +331,10 @@ class SADTestBase : public ::testing::Test {
     uint8_t *ref2_aligned_;
     uint16_t sad16x16_16b[16][8];
     uint32_t sad8x8[64][8];
-    uint32_t sad16x16_32b[16][8];
+    // std::array is used here to silence GCC's stringop-overflow warning
+    // since it gets confused by the function signature of
+    // svt_ext_eight_sad_calculation_32x32_64x64_c
+    std::array<uint32_t[8], 16> sad16x16_32b;
     uint32_t sad32x32[4][8];
 };
 
@@ -680,7 +684,6 @@ INSTANTIATE_TEST_SUITE_P(
                        ::testing::ValuesIn(TEST_LOOP_AREAS),
                        ::testing::Values(0, 1),
                        ::testing::Values(svt_sad_loop_kernel_neon)));
-
 #if HAVE_NEON_DOTPROD
 INSTANTIATE_TEST_SUITE_P(
     NEON_DOTPROD, sad_LoopTest,
@@ -697,6 +700,13 @@ INSTANTIATE_TEST_SUITE_P(
                        ::testing::ValuesIn(TEST_LOOP_AREAS),
                        ::testing::Values(0, 1),
                        ::testing::Values(svt_sad_loop_kernel_sve)));
+
+INSTANTIATE_TEST_SUITE_P(
+    NEOVERSE_V2, sad_LoopTest,
+    ::testing::Combine(::testing::ValuesIn(TEST_PATTERNS),
+                       ::testing::ValuesIn(TEST_LOOP_AREAS),
+                       ::testing::Values(0, 1),
+                       ::testing::Values(svt_sad_loop_kernel_neoverse_v2)));
 #endif  // HAVE_SVE
 #endif  // ARCH_AARCH64
 
@@ -920,7 +930,7 @@ class Allsad32x32_CalculationTest
 
             prepare_sad_data_32b();
 
-            svt_ext_eight_sad_calculation_32x32_64x64_c(sad16x16_32b,
+            svt_ext_eight_sad_calculation_32x32_64x64_c(sad16x16_32b.data(),
                                                         best_sad32x32[0],
                                                         &best_sad64x64[0],
                                                         best_mv32x32[0],
@@ -928,7 +938,7 @@ class Allsad32x32_CalculationTest
                                                         mv,
                                                         sad_32x32[0]);
 
-            test_func_(sad16x16_32b,
+            test_func_(sad16x16_32b.data(),
                        best_sad32x32[1],
                        &best_sad64x64[1],
                        best_mv32x32[1],
@@ -1196,7 +1206,7 @@ class Extsad32x32_CalculationTest
 
             prepare_sad_data_32b();
 
-            svt_ext_sad_calculation_32x32_64x64_c(*sad16x16_32b,
+            svt_ext_sad_calculation_32x32_64x64_c(*sad16x16_32b.data(),
                                                   best_sad32x32[0],
                                                   &best_sad64x64[0],
                                                   best_mv32x32[0],
@@ -1204,7 +1214,7 @@ class Extsad32x32_CalculationTest
                                                   mv,
                                                   sad_32x32[0]);
 
-            test_func_(*sad16x16_32b,
+            test_func_(*sad16x16_32b.data(),
                        best_sad32x32[1],
                        &best_sad64x64[1],
                        best_mv32x32[1],

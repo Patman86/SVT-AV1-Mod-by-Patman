@@ -517,8 +517,8 @@ void svt_av1_predict_intra_block(
         pd->subsampling_x = pd->subsampling_y = 0;
     else
         pd->subsampling_x = pd->subsampling_y = 1;
-    const int32_t txw = tx_size_wide_unit[tx_size];
-    const int32_t txh = tx_size_high_unit[tx_size];
+    const int32_t txw = eb_tx_size_wide_unit[tx_size];
+    const int32_t txh = eb_tx_size_high_unit[tx_size];
     const int32_t have_top = row_off || (pd->subsampling_y ? xd->chroma_up_available
                                                            : xd->up_available);
     const int32_t have_left =
@@ -665,8 +665,8 @@ void svt_av1_predict_intra_block_16bit(
         pd->subsampling_x = pd->subsampling_y = 0;
     else
         pd->subsampling_x = pd->subsampling_y = 1;
-    const int32_t txw = tx_size_wide_unit[tx_size];
-    const int32_t txh = tx_size_high_unit[tx_size];
+    const int32_t txw = eb_tx_size_wide_unit[tx_size];
+    const int32_t txh = eb_tx_size_high_unit[tx_size];
     const int32_t have_top = row_off || (pd->subsampling_y ? xd->chroma_up_available
                                                            : xd->up_available);
     const int32_t have_left =
@@ -1205,7 +1205,7 @@ EbErrorType svt_aom_update_neighbor_samples_array_open_loop_mb(
         if (update_top_neighbor){
         read_ptr = src_ptr - stride;
         count = ((src_origin_x + count) > width) ? count - ((src_origin_x + count) - width) : count;
-        EB_MEMCPY(above_ref, read_ptr, count);
+        svt_memcpy(above_ref, read_ptr, count);
         }
         // pading unknown top right pixels with value at(15, -1)
         if (use_top_righ_bottom_left)
@@ -1287,7 +1287,7 @@ EbErrorType svt_aom_update_neighbor_samples_array_open_loop_mb_recon(
         if (update_top_neighbor){
         read_ptr = src_ptr - stride;
         count = ((src_origin_x + count) > width) ? count - ((src_origin_x + count) - width) : count;
-        EB_MEMCPY(above_ref, read_ptr, count);
+        svt_memcpy(above_ref, read_ptr, count);
         }
         // pading unknown top right pixels with value at(15, -1)
         if (use_top_righ_bottom_left)

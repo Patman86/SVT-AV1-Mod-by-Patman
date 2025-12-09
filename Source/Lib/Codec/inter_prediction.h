@@ -297,12 +297,12 @@ static INLINE int is_any_masked_compound_used(BlockSize bsize) {
 }
 
 static INLINE int bsize_to_tx_size_cat(BlockSize bsize) {
-    TxSize tx_size = max_txsize_rect_lookup[bsize];
+    TxSize tx_size = eb_max_txsize_rect_lookup[bsize];
     assert(tx_size != TX_4X4);
     int depth = 0;
     while (tx_size != TX_4X4) {
         depth++;
-        tx_size = sub_tx_size_map[tx_size];
+        tx_size = eb_sub_tx_size_map[tx_size];
         assert(depth < 10);
     }
     assert(depth <= MAX_TX_CATS);
@@ -310,11 +310,11 @@ static INLINE int bsize_to_tx_size_cat(BlockSize bsize) {
 }
 
 static INLINE int bsize_to_max_depth(BlockSize bsize) {
-    TxSize tx_size = max_txsize_rect_lookup[bsize];
+    TxSize tx_size = eb_max_txsize_rect_lookup[bsize];
     int    depth   = 0;
     while (depth < MAX_TX_DEPTH && tx_size != TX_4X4) {
         depth++;
-        tx_size = sub_tx_size_map[tx_size];
+        tx_size = eb_sub_tx_size_map[tx_size];
     }
     return depth;
 }
@@ -509,9 +509,11 @@ static uint8_t        ref_type_to_list_idx[REFS_PER_FRAME + 1] = {0, 0, 0, 0, 0,
 static INLINE uint8_t get_list_idx(uint8_t ref_type) { return ref_type_to_list_idx[ref_type]; }
 static uint8_t        ref_type_to_ref_idx[REFS_PER_FRAME + 1] = {0, 0, 1, 2, 3, 0, 1, 2};
 static INLINE uint8_t get_ref_frame_idx(uint8_t ref_type) { return ref_type_to_ref_idx[ref_type]; };
-int                   svt_av1_skip_u4x4_pred_in_obmc(BlockSize bsize, int dir, int subsampling_x, int subsampling_y);
-int                   svt_aom_get_relative_dist_enc(SeqHeader *seq_header, int ref_hint, int order_hint);
-int16_t               svt_aom_mode_context_analyzer(int16_t mode_context, const MvReferenceFrame *const rf);
+#if CONFIG_ENABLE_OBMC
+int svt_av1_skip_u4x4_pred_in_obmc(BlockSize bsize, int dir, int subsampling_x, int subsampling_y);
+#endif
+int     svt_aom_get_relative_dist_enc(SeqHeader *seq_header, int ref_hint, int order_hint);
+int16_t svt_aom_mode_context_analyzer(int16_t mode_context, const MvReferenceFrame *const rf);
 
 #ifdef __cplusplus
 }

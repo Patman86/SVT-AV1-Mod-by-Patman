@@ -20,6 +20,21 @@
 #include "transpose_neon.h"
 #include "utility.h"
 
+DECLARE_ALIGNED(16, const uint8_t, kDotProdPermuteTbl[48]) = {
+    0, 1, 2, 3, 1, 2, 3, 4,  2, 3, 4,  5,  3, 4,  5,  6,  4,  5,  6,  7,  5,  6,  7,  8,
+    6, 7, 8, 9, 7, 8, 9, 10, 8, 9, 10, 11, 9, 10, 11, 12, 10, 11, 12, 13, 11, 12, 13, 14};
+
+// clang-format off
+DECLARE_ALIGNED(16, const uint8_t, kDotProdMergeBlockTbl[48]) = {
+  // Shift left and insert new last column in transposed 4x4 block.
+  1, 2, 3, 16, 5, 6, 7, 20, 9, 10, 11, 24, 13, 14, 15, 28,
+  // Shift left and insert two new columns in transposed 4x4 block.
+  2, 3, 16, 17, 6, 7, 20, 21, 10, 11, 24, 25, 14, 15, 28, 29,
+  // Shift left and insert three new columns in transposed 4x4 block.
+  3, 16, 17, 18, 7, 20, 21, 22, 11, 24, 25, 26, 15, 28, 29, 30
+};
+// clang-format on
+
 static inline uint8x8_t convolve4_8_x(const int16x8_t s0, const int16x8_t s1, const int16x8_t s2, const int16x8_t s3,
                                       const int16x4_t filter, int16x8_t horiz_const) {
     int16x8_t sum = horiz_const;
@@ -125,8 +140,9 @@ static inline uint8x8_t convolve8_8_x(const int16x8_t s0, const int16x8_t s1, co
 }
 
 void svt_av1_convolve_x_sr_neon(const uint8_t *src, int32_t src_stride, uint8_t *dst, int32_t dst_stride, int32_t w,
-                                int32_t h, InterpFilterParams *filter_params_x, InterpFilterParams *filter_params_y,
-                                const int32_t subpel_x_qn, const int32_t subpel_y_qn, ConvolveParams *conv_params) {
+                                int32_t h, const InterpFilterParams *filter_params_x,
+                                const InterpFilterParams *filter_params_y, const int32_t subpel_x_qn,
+                                const int32_t subpel_y_qn, ConvolveParams *conv_params) {
     if (w == 2 || h == 2) {
         svt_av1_convolve_x_sr_c(src,
                                 src_stride,
@@ -678,8 +694,9 @@ static inline void convolve_y_sr_8tap_neon(const uint8_t *src_ptr, int src_strid
 }
 
 void svt_av1_convolve_y_sr_neon(const uint8_t *src, int32_t src_stride, uint8_t *dst, int32_t dst_stride, int32_t w,
-                                int32_t h, InterpFilterParams *filter_params_x, InterpFilterParams *filter_params_y,
-                                const int32_t subpel_x_qn, const int32_t subpel_y_qn, ConvolveParams *conv_params) {
+                                int32_t h, const InterpFilterParams *filter_params_x,
+                                const InterpFilterParams *filter_params_y, const int32_t subpel_x_qn,
+                                const int32_t subpel_y_qn, ConvolveParams *conv_params) {
     if (w == 2 || h == 2) {
         svt_av1_convolve_y_sr_c(src,
                                 src_stride,
@@ -967,8 +984,9 @@ static inline void convolve_2d_sr_horiz_8tap_neon(const uint8_t *src, int src_st
 }
 
 void svt_av1_convolve_2d_sr_neon(const uint8_t *src, int32_t src_stride, uint8_t *dst, int32_t dst_stride, int32_t w,
-                                 int32_t h, InterpFilterParams *filter_params_x, InterpFilterParams *filter_params_y,
-                                 const int32_t subpel_x_qn, const int32_t subpel_y_qn, ConvolveParams *conv_params) {
+                                 int32_t h, const InterpFilterParams *filter_params_x,
+                                 const InterpFilterParams *filter_params_y, const int32_t subpel_x_qn,
+                                 const int32_t subpel_y_qn, ConvolveParams *conv_params) {
     if (w == 2 || h == 2) {
         svt_av1_convolve_2d_sr_c(src,
                                  src_stride,
@@ -1021,8 +1039,8 @@ void svt_av1_convolve_2d_sr_neon(const uint8_t *src, int32_t src_stride, uint8_t
 }
 
 void svt_av1_convolve_2d_copy_sr_neon(const uint8_t *src, int32_t src_stride, uint8_t *dst, int32_t dst_stride,
-                                      int32_t w, int32_t h, InterpFilterParams *filter_params_x,
-                                      InterpFilterParams *filter_params_y, const int32_t subpel_x_q4,
+                                      int32_t w, int32_t h, const InterpFilterParams *filter_params_x,
+                                      const InterpFilterParams *filter_params_y, const int32_t subpel_x_q4,
                                       const int32_t subpel_y_q4, ConvolveParams *conv_params) {
     (void)filter_params_x;
     (void)filter_params_y;

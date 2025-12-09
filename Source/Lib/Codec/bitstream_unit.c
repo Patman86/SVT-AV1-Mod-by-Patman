@@ -130,13 +130,12 @@ static void svt_od_ec_enc_normalize(OdEcEnc* enc, OdEcWindow low, unsigned rng) 
         uint32_t       storage = enc->storage;
         uint32_t       offs    = enc->offs;
         if (offs + 8 > storage) {
-            storage            = 2 * storage + 8;
-            unsigned char* tmp = (unsigned char*)realloc(out, sizeof(*out) * storage);
-            if (tmp == NULL) {
+            storage = 2 * storage + 8;
+            EB_REALLOC_ARRAY_NO_CHECK(out, storage);
+            if (out == NULL) {
                 enc->error = -1;
                 return;
             }
-            out          = tmp;
             enc->buf     = out;
             enc->storage = storage;
         }
@@ -176,7 +175,7 @@ static void svt_od_ec_enc_normalize(OdEcEnc* enc, OdEcWindow low, unsigned rng) 
   size: The initial size of the buffer, in bytes.*/
 void svt_od_ec_enc_init(OdEcEnc* enc, uint32_t size) {
     svt_od_ec_enc_reset(enc);
-    enc->buf     = (unsigned char*)malloc(sizeof(*enc->buf) * size);
+    EB_MALLOC_ARRAY_NO_CHECK(enc->buf, size);
     enc->storage = size;
     if (size > 0 && enc->buf == NULL) {
         enc->storage = 0;
@@ -200,7 +199,7 @@ void svt_od_ec_enc_reset(OdEcEnc* enc) {
 }
 
 /*Frees the buffers used by the encoder.*/
-void svt_od_ec_enc_clear(OdEcEnc* enc) { free(enc->buf); }
+void svt_od_ec_enc_clear(OdEcEnc* enc) { EB_FREE_ARRAY(enc->buf); }
 
 /*Encodes a symbol given its frequency in Q15.
   fl: CDF_PROB_TOP minus the cumulative frequency of all symbols that come
@@ -317,13 +316,12 @@ unsigned char* svt_od_ec_enc_done(OdEcEnc* enc, uint32_t* nbytes) {
     const int s_bits = (s + 7) >> 3;
     int       b      = MAX(s_bits, 0);
     if (offs + b > storage) {
-        storage            = offs + b;
-        unsigned char* tmp = (unsigned char*)realloc(out, sizeof(*out) * storage);
-        if (tmp == NULL) {
+        storage = offs + b;
+        EB_REALLOC_ARRAY_NO_CHECK(out, storage);
+        if (out == NULL) {
             enc->error = -1;
             return NULL;
         }
-        out          = tmp;
         enc->buf     = out;
         enc->storage = storage;
     }

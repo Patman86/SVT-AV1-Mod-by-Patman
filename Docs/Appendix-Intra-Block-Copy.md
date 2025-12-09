@@ -25,7 +25,7 @@ frame consists of already reconstructed blocks that are 256 pixels away
 (in a raster scan order) from the current block. Figure 1 below
 illustrates the allowed search area.
 
-![intra_block_copy_fig1](./img/intra_block_copy_fig1.webp)
+![intra_block_copy_fig1](./img/intra_block_copy_fig1.png)
 
 ##### Figure 1. Diagram showing blocks not allowed in the search area.
 
@@ -40,7 +40,7 @@ A diagram of the main function calls associated with the IBC algorithm
 is shown in Figure 2 below. The functions are shown according to the
 depth of the function call.
 
-![intra_block_copy_fig2](./img/intra_block_copy_fig2.webp)
+![intra_block_copy_fig2](./img/intra_block_copy_fig2.png)
 
 ##### Figure 2. Main function calls associated with the IBC algorithm.
 
@@ -124,7 +124,7 @@ The control tokens and flags associated with the IBC feature are listed in Table
 
 | **Flag**      | **Level(Sequence/Picture)** | **Description**                                                                                                         |
 | ---           | ---                         | ---                                                                                                                     |
-| -scm          | Sequence                    | Command line token. 0: No IBC, 1: IBC ON 2:Auto mode (detector based)                                                   |
+| --scm         | Sequence                    | Command line token. 0: None, 1: Block Copy + Palette, 2: Auto mode (detector based), 3: Auto mode (anti-alias aware)    |
 | -intrabc-mode | Configuration               | Command line token to specify IBC mode. 0: OFF, 1-3: IBC ON with intrabc levels mentioned below.,  -1: Default behavior |
 | intrabc_level | Picture                     | Controls the complexity-quality trade-offs of the feature. 0: OFF, 1-6 ON                                               |
 | allow_intrabc | Picture                     | For intra pictures, set to 1 when IBC is allowed, else set to 0.                                                        |

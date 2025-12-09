@@ -16,6 +16,22 @@
 #include "lambda_rate_tables.h"
 #include "rc_process.h"
 #include "enc_mode_config.h"
+
+const uint8_t quantizer_to_qindex[64] = {
+    0,   4,   8,   12,  16,  20,  24,  28,  32,  36,  40,  44,  48,  52,  56,  60,  64,  68,  72,  76,  80,  84,
+    88,  92,  96,  100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 148, 152, 156, 160, 164, 168, 172,
+    176, 180, 184, 188, 192, 196, 200, 204, 208, 212, 216, 220, 224, 228, 232, 236, 240, 244, 249, 255};
+
+const int percents[2][FIXED_QP_OFFSET_COUNT] = {
+    {75, 70, 60, 20, 15, 0}, {76, 60, 30, 15, 8, 4} // libaom offsets
+};
+
+const uint8_t uni_psy_bias[64] = {
+    85, 85, 85, 85, 85,  85,  85,  85,  85,  85,  85,  85,  85,  85,  85,  85,  95,  95,  95,  95,  95, 95,
+    95, 95, 95, 95, 95,  95,  95,  95,  95,  95,  95,  95,  95,  95,  95,  95,  95,  95,  95,  95,  95, 95,
+    95, 95, 95, 95, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+};
+
 static void mode_decision_context_dctor(EbPtr p) {
     ModeDecisionContext *obj = (ModeDecisionContext *)p;
 
@@ -526,7 +542,7 @@ void svt_aom_reset_mode_decision_neighbor_arrays(PictureControlSet *pcs, uint16_
     return;
 }
 // If the ref intra percentage is below the TH, applying modulation to the MD lambda
-#define LAMBDA_MOD_INTRA_TH 65
+#define LAMBDA_MOD_INTRA_TH 50
 #define LAMBDA_MOD_INTRA_SCALING_FACTOR 138
 // Set the lambda for each sb.
 // When lambda tuning is on (blk_lambda_tuning), lambda of each block is set separately (full_lambda_md/fast_lambda_md)
@@ -555,7 +571,6 @@ static void av1_lambda_assign_md(PictureControlSet *pcs, ModeDecisionContext *ct
         ctx->full_lambda_md[1] = (uint32_t)((ctx->full_lambda_md[1] * (uint64_t)pcs->lambda_weight) >> 7);
         ctx->fast_lambda_md[1] = (uint32_t)((ctx->fast_lambda_md[1] * (uint64_t)pcs->lambda_weight) >> 7);
     }
-
     ctx->full_lambda_md[1] *= 16;
     ctx->fast_lambda_md[1] *= 4;
 

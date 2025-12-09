@@ -35,7 +35,7 @@ extern "C" {
  * has been modified, and reset anytime the major API version has
  * been changed. Used to keep track if a field has been added or not.
  */
-#define SVT_AV1_ENC_ABI_VERSION 0
+#define SVT_AV1_ENC_ABI_VERSION 1
 #define HIERARCHICAL_LEVELS_AUTO ((uint32_t)(~0))
 #define MAX_HIERARCHICAL_LEVEL 6
 #define REF_LIST_MAX_DEPTH 4
@@ -109,17 +109,6 @@ struct EbSvtAv1MasteringDisplayInfo {
     uint32_t                    min_luma;
 };
 
-/************************************************
- * Prediction Structure Config Entry
- *   Contains the basic reference lists and
- *   configurations for each Prediction Structure
- *   Config Entry.
- ************************************************/
-typedef struct PredictionStructureConfigEntry {
-    uint32_t temporal_layer_index;
-    uint32_t decode_order;
-} PredictionStructureConfigEntry;
-
 // super-res modes
 typedef enum {
     SUPERRES_NONE, // No frame superres allowed.
@@ -178,6 +167,14 @@ typedef enum EbSFrameMode {
         1, /**< The considered frame will be made into an S-Frame only if it is a base layer inter frame */
     SFRAME_NEAREST_BASE =
         2, /**< If the considered frame is not an altref frame, the next base layer inter frame will be made into an S-Frame */
+#if FTR_SFRAME_FLEX
+    SFRAME_FLEXIBLE_BASE =
+        3, /**< If the considered frame is not an altref frame, modify the miniGOP layers to make the considered frame as an altref frame, then it will be made into an S-Frame */
+#endif // FTR_SFRAME_FLEX
+#if FTR_SFRAME_DEC_POSI
+    SFRAME_DEC_POSI_BASE =
+        4, /**< If the considered frame in decode order is not an altref frame, modify the mini-GOP structure to promote its previous frame to an altref frame, and set the next altref to an S-Frame */
+#endif // FTR_SFRAME_DEC_POSI
 } EbSFrameMode;
 
 #if !SVT_AV1_CHECK_VERSION(4, 0, 0) // to be deprecated in v4.0
@@ -220,19 +217,26 @@ typedef struct SvtAv1FrameScaleEvts {
     uint32_t *resize_denoms;
 } SvtAv1FrameScaleEvts;
 
+typedef struct SvtAv1SFramePositions {
+    uint32_t  sframe_num;
+    uint64_t *sframe_posis;
+    uint32_t  sframe_qp_num;
+    uint8_t  *sframe_qps;
+    int8_t   *sframe_qp_offsets;
+} SvtAv1SFramePositions;
+
 // Will contain the EbEncApi which will live in the EncHandle class
 // Only modifiable during config-time.
 typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     /**
      * @brief Encoder preset used.
-     * Negative presets (-1, -2 and -3) exist for research purposes only, and often are
-     * too slow for practical purposes.
+     * -2 and -1 are for debug purposes and should not be used.
      * 0 is the highest quality mode but is the slowest,
      * 13 is the fastest mode but is not as high quality.
      *
-     * Min value is -3.
+     * Min value is -2.
      * Max value is 13.
-     * Default is 8.
+     * Default is 12.
      */
     int8_t enc_mode;
 
@@ -666,7 +670,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
 
     bool enable_overlays;
     /**
-     * @brief Tune for a particular metric; 0: VQ, 1: PSNR, 2: SSIM, 3: Film Grain.
+     * @brief Tune for a particular metric; 0: VQ, 1: PSNR, 2: SSIM, 3: IQ, 4: Film Grain.
      *
      * Default is 1.
      */
@@ -694,6 +698,12 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     * values are from EbSFrameMode
     * SFRAME_STRICT_ARF: the considered frame will be made into an S-Frame only if it is an altref frame
     * SFRAME_NEAREST_ARF: if the considered frame is not an altref frame, the next altref frame will be made into an S-Frame
+#if FTR_SFRAME_FLEX
+    * SFRAME_FLEXIBLE_ARF: if the considered frame is not an altref frame, modify the mini-GOP structure to promote it to an altref frame
+#endif // FTR_SFRAME_FLEX
+#if FTR_SFRAME_DEC_POSI
+    * SFRAME_DEC_POSI: if the considered frame in decode order is not an altref frame, modify the mini-GOP structure to promote its previous frame to an altref frame, and set the next altref to an S-Frame
+#endif // FTR_SFRAME_DEC_POSI
     */
     EbSFrameMode sframe_mode;
 
@@ -881,7 +891,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
 
     /* Manually adjust temporal filtering strength
      * 10 + (4 - 0) = 14 (8x weaker)
-     * 10 + (4 - 1) = 13 (4x weaker, HDR default)
+     * 10 + (4 - 1) = 13 (4x weaker, SVT-AV1-HDR default)
      * 10 + (4 - 2) = 12 (2x weaker)
      * 10 + (4 - 3) = 11 (mainline default)
      * 10 + (4 - 4) = 10 (2x stronger) */
@@ -893,9 +903,9 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     /* New parameters can go in under this line. Also deduct the size of the parameter */
     /* from the padding array */
 
-    /* Variance boost
-     * false = disable variance boost
-     * true = enable variance boost
+    /* Variance Boost
+     * false = disable Variance Boost
+     * true = enable Variance Boost
      * Default is true in SVT-AV1-HDR. */
     bool enable_variance_boost;
     /* @brief Selects the curve strength to boost low variance regions according to a fast-growing formula
@@ -913,7 +923,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     /* @brief Bias towards decreased/increased sharpness in the deblocking loop filter & during rate distortion
      * Minimum value is -7 (less sharp).
      * Maximum value is 7 (more sharp).
-     * Default is 1 in SVT-AV1-HDR (medium sharpness). */
+     * Default is 1 in SVT-AV1-HDR, mainline default is 0. */
     int8_t sharpness;
 
     /* @brief Enable the user to configure which curve variance boost uses.
@@ -966,26 +976,50 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      */
     bool rtc;
 
-    /* @brief Q index for extended CRF support
-     * Value is internally determined by CRF parameter value
+    /* @brief compresses the QP hierarchical layer scale to improve temporal video consistency
+    * 0.0: no compression, original SVT-AV1 scaling
+    * 0.0-8.0: enable compression, the higher the number the stronger the compression
+    *         (different frame quality fluctuation/mean quality tradeoffs)
+    * Default is 1.0 in SVT-AV1-HDR, mainline default is 0.0
+    */
+    double qp_scale_compress_strength;
+
+#if FTR_SFRAME_POSI
+    /* @brief Indicates where to insert an S-Frame, only available when sframe_mode is SFRAME_FLEXIBLE_ARF */
+    SvtAv1SFramePositions sframe_posi;
+#endif // FTR_SFRAME_POSI
+
+#if FTR_SFRAME_QP
+    /* @brief Indicates QP of S-Frame(s) */
+    uint8_t sframe_qp;
+    /* @brief Indicates QP offset of S-Frame(s) */
+    int8_t sframe_qp_offset;
+#endif // FTR_SFRAME_QP
+
+    /**
+     * @brief Toggle default film grain blocksize behavior
+     * 0: use default blocksize behavior (32x32)
+     * 1: use adaptive blocksize based on resolution
+     *  - 8x8 for <4k
+     *  - 16x16 for 4k
+     * Default is 1
+     */
+    bool adaptive_film_grain;
+
+    /* @brief Limit transform sizes to the specified size
+     * 32: use transform sizes up to 64x64 pixels
+     * 64: use transform sizes up to 32x32 pixels
+     * Default is 64
+     */
+    uint8_t max_tx_size;
+
+    /* @brief qindex offset for extended CRF support
+     * Value is internally determined by CRF parameter value, each quarter-step increment to the CRF adds 1 to the
+     * offset, with a maximum of 3 (i.e. three quarter-step increments) for fractional CRFs below 63, and up to
+     * 28 for the extended CRF range (63.25 to 70)
      * Default is 0 if CRF is an integer
      */
     uint8_t extended_crf_qindex_offset;
-
-    /* @brief compresses the QP hierarchical layer scale to improve temporal video consistency
-     * 0.0: no compression, original SVT-AV1 scaling
-     * 0.0-8.0: enable compression, the higher the number the stronger the compression
-     *         (different frame quality fluctuation/mean quality tradeoffs)
-     * Default is 1.0
-     */
-    double qp_scale_compress_strength;
-
-    /* @brief Limit transform sizes to a maximum of 32x32 pixels
-     * 0: disabled, use transform sizes up to 64x64 pixels
-     * 1: enabled, use transform sizes up to 32x32 pixels
-     * Default is 0
-     */
-    bool max_32_tx_size;
 
     /* @brief Alternative SSIM tuning, enables VQ enhancements and different rdmult calculations
      * 0: disabled, use stock SSIM tuning
@@ -1004,6 +1038,14 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     uint8_t noise_norm_strength;
 
     // clang-format off
+    /**
+     * @brief Strength of the internal RD metric to bias toward high-frequency error (helps with texture preservation and film grain retention)
+     * 0.00: disable AC bias
+     * 1.00: enable AC bias with a strength of 1.00
+     * Default is 1.00 in SVT-AV1-HDR, mainline default is 0.00
+     */
+     double ac_bias;
+
     /* Manually adjust TF strength on keyframes
      * 0: disable alt-ref TF on keyframes
      * 1: 10 + (4 - 1) = 13 (4x weaker, HDR default)
@@ -1012,23 +1054,12 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * 4: 10 + (4 - 4) = 10 (2x stronger) */
      uint8_t kf_tf_strength;
 
-    /**
-     * @brief Enable psychovisual rate distortion
-     * 0.00: disable AC bias
-     * 4.00: enable AC bias with a strength of 4.00
-     * Default is 1.00.
-     */
-     double ac_bias;
-
-    /**
-     * @brief Enable spy-rd, an alternate RD metric that biases towards sharpness/detail retention,
-     * at the possible expense of increased blocking and banding
-     * 0: disabled
-     * 1: full
-     * 2: partial (interpolation filter tweaks only)
-     * Default is 0
-     */
-    uint8_t spy_rd;
+     /**
+     * @brief Use alternative lambda factors
+     * false = use regular lambda factors
+     * true = use alternative lambda factors (from SVT-AV1 3.0.2)
+     * Default is true in SVT-AV1-HDR. */
+     bool alt_lambda_factors;
 
     /**
      * @brief Enable sharp-tx, a toggle that enables much sharper transforms decisions for higher fidelity ouput,
@@ -1041,13 +1072,22 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
 
      /**
      * @brief High Bit-Depth Mode Decision, used to control the bit-depth of the mode decision path.
-     * 0: default behavior
+     * 0: preset-determined
      * 1: full 10-bit MD
      * 2: hybrid 8/10-bit MD
-     * 3: full 8-bit MD
      * Default is 0
      */
      uint8_t hbd_mds;
+
+    /**
+     * @brief Transform size/type bias type
+     * 0: disabled
+     * 1: full
+     * 2: transform size only
+     * 3: interpolation filter tweaks only
+     * Default is 0
+     */
+    uint8_t tx_bias;
 
      /**
      * @brief Enable complex-hvs, a feature that enables the highest complexity and highest fidelity

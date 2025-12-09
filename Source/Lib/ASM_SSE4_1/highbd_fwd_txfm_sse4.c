@@ -19,12 +19,6 @@
 #include "transforms.h"
 #include "av1_txfm1d_sse4.h"
 
-static const int8_t *fwd_txfm_shift_ls[TX_SIZES_ALL] = {
-    fwd_shift_4x4,  fwd_shift_8x8,  fwd_shift_16x16, fwd_shift_32x32, fwd_shift_64x64, fwd_shift_4x8,   fwd_shift_8x4,
-    fwd_shift_8x16, fwd_shift_16x8, fwd_shift_16x32, fwd_shift_32x16, fwd_shift_32x64, fwd_shift_64x32, fwd_shift_4x16,
-    fwd_shift_16x4, fwd_shift_8x32, fwd_shift_32x8,  fwd_shift_16x64, fwd_shift_64x16,
-};
-
 static INLINE void load_buffer_4x4(const int16_t *input, __m128i *in, int32_t stride, int32_t flipud, int32_t fliplr,
                                    int32_t shift) {
     if (!flipud) {
@@ -10067,7 +10061,7 @@ void svt_av1_fwd_txfm2d_4x16_N2_sse4_1(int16_t *input, int32_t *output, uint32_t
 void svt_av1_fwd_txfm2d_16x4_N2_sse4_1(int16_t *input, int32_t *output, uint32_t stride, TxType tx_type, uint8_t bd) {
     __m128i       in[16];
     __m128i      *outcoeff128 = (__m128i *)output;
-    const int8_t *shift       = fwd_shift_16x4;
+    const int8_t *shift       = fwd_txfm_shift_ls[TX_16X4];
     const int32_t txw_idx     = get_txw_idx(TX_16X4);
     const int32_t txh_idx     = get_txh_idx(TX_16X4);
     int32_t       bitcol      = fwd_cos_bit_col[txw_idx][txh_idx];
@@ -14472,7 +14466,7 @@ void svt_av1_fwd_txfm2d_4x16_N4_sse4_1(int16_t *input, int32_t *output, uint32_t
 void svt_av1_fwd_txfm2d_16x4_N4_sse4_1(int16_t *input, int32_t *output, uint32_t stride, TxType tx_type, uint8_t bd) {
     __m128i       in[16];
     __m128i      *outcoeff = (__m128i *)output;
-    const int8_t *shift    = fwd_shift_16x4;
+    const int8_t *shift    = fwd_txfm_shift_ls[TX_16X4];
     const int32_t txw_idx  = get_txw_idx(TX_16X4);
     const int32_t txh_idx  = get_txh_idx(TX_16X4);
     int32_t       bitcol   = fwd_cos_bit_col[txw_idx][txh_idx];

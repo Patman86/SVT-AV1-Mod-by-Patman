@@ -102,11 +102,9 @@ static uint32_t count_frames_in_next_tu(const EncodeContext *enc_ctx, uint32_t *
         //we have a td when we got a displable frame
         if (queue_entry_ptr->show_frame)
             break;
-#if OPT_LD_LATENCY2
         if (output_stream_ptr->flags & EB_BUFFERFLAG_EOS)
             break;
 
-#endif
     } while (i < enc_ctx->packetization_reorder_queue_size);
     return i;
 }
@@ -297,9 +295,9 @@ static EbErrorType encode_tu(EncodeContext *enc_ctx, int frames, uint32_t total_
             SVT_ERROR("failed to allocate more memory in encode_tu");
             return EB_ErrorInsufficientResources;
         }
-        EB_MEMCPY(pbuff,
-                  output_stream_ptr->p_buffer,
-                  output_stream_ptr->n_alloc_len > total_bytes ? total_bytes : output_stream_ptr->n_alloc_len);
+        svt_memcpy(pbuff,
+                   output_stream_ptr->p_buffer,
+                   output_stream_ptr->n_alloc_len > total_bytes ? total_bytes : output_stream_ptr->n_alloc_len);
         EB_FREE(output_stream_ptr->p_buffer);
         output_stream_ptr->p_buffer    = pbuff;
         output_stream_ptr->n_alloc_len = total_bytes;
@@ -369,7 +367,6 @@ static void release_frames(EncodeContext *enc_ctx, int frames) {
     }
     enc_ctx->packetization_reorder_queue_head_index = get_reorder_queue_pos(enc_ctx, frames);
 }
-#if OPT_LD_LATENCY2
 // Release the pd_dpb and ref_pic_list at the end of the sequence
 void release_references_eos(SequenceControlSet *scs) {
     EncodeContext *enc_ctx = scs->enc_ctx;
@@ -415,7 +412,6 @@ void release_references_eos(SequenceControlSet *scs) {
     }
     svt_release_mutex(enc_ctx->ref_pic_list_mutex);
 }
-#endif
 
 inline static void clear_eos_flag(EbBufferHeaderType *output_stream_ptr) {
     output_stream_ptr->flags &= ~EB_BUFFERFLAG_EOS;
@@ -615,7 +611,7 @@ void *svt_aom_packetization_kernel(void *input_ptr) {
 
             // Delayed call from Rest process
             {
-                if (scs->static_config.stat_report) {
+                if (pcs->ppcs->compute_ssim) {
                     // memory is freed in the svt_aom_ssim_calculations call
                     svt_aom_ssim_calculations(pcs, scs, true);
                 } else {
@@ -660,7 +656,7 @@ void *svt_aom_packetization_kernel(void *input_ptr) {
                 if (pcs->tile_tok[0][0])
                     EB_FREE_ARRAY(pcs->tile_tok[0][0]);
             }
-        } else if (!scs->static_config.stat_report)
+        } else if (!(pcs->ppcs->compute_psnr || pcs->ppcs->compute_ssim))
             free_temporal_filtering_buffer(pcs, scs);
         //****************************************************
         // Input Entropy Results into Reordering Queue
@@ -688,12 +684,7 @@ void *svt_aom_packetization_kernel(void *input_ptr) {
                                  sizeof(scs->static_config.content_light_level));
         }
 
-        output_stream_ptr->flags = 0;
-#if !OPT_LD_LATENCY2
-        if (pcs->ppcs->end_of_sequence_flag) {
-            output_stream_ptr->flags |= EB_BUFFERFLAG_EOS;
-        }
-#endif
+        output_stream_ptr->flags        = 0;
         output_stream_ptr->n_filled_len = 0;
         output_stream_ptr->pts          = pcs->ppcs->input_ptr->pts;
         // we output one temporal unit a time, so dts alwasy equals to pts.
@@ -710,17 +701,20 @@ void *svt_aom_packetization_kernel(void *input_ptr) {
         output_stream_ptr->temporal_layer_index = pcs->ppcs->temporal_layer_index;
         output_stream_ptr->qp                   = pcs->ppcs->picture_qp;
         output_stream_ptr->avg_qp               = pcs->ppcs->avg_qp;
-        if (scs->static_config.stat_report) {
-            output_stream_ptr->luma_sse  = pcs->ppcs->luma_sse;
-            output_stream_ptr->cr_sse    = pcs->ppcs->cr_sse;
-            output_stream_ptr->cb_sse    = pcs->ppcs->cb_sse;
+        if (pcs->ppcs->compute_psnr) {
+            output_stream_ptr->luma_sse = pcs->ppcs->luma_sse;
+            output_stream_ptr->cr_sse   = pcs->ppcs->cr_sse;
+            output_stream_ptr->cb_sse   = pcs->ppcs->cb_sse;
+        } else {
+            output_stream_ptr->luma_sse = 0;
+            output_stream_ptr->cr_sse   = 0;
+            output_stream_ptr->cb_sse   = 0;
+        }
+        if (pcs->ppcs->compute_ssim) {
             output_stream_ptr->luma_ssim = pcs->ppcs->luma_ssim;
             output_stream_ptr->cr_ssim   = pcs->ppcs->cr_ssim;
             output_stream_ptr->cb_ssim   = pcs->ppcs->cb_ssim;
         } else {
-            output_stream_ptr->luma_sse  = 0;
-            output_stream_ptr->cr_sse    = 0;
-            output_stream_ptr->cb_sse    = 0;
             output_stream_ptr->luma_ssim = 0;
             output_stream_ptr->cr_ssim   = 0;
             output_stream_ptr->cb_ssim   = 0;
@@ -883,10 +877,8 @@ void *svt_aom_packetization_kernel(void *input_ptr) {
         //****************************************************
         // Look at head of queue and see if we got a td
         uint32_t frames, total_bytes;
-#if OPT_LD_LATENCY2
         svt_block_on_mutex(enc_ctx->total_number_of_shown_frames_mutex);
         bool eos = false;
-#endif
         while ((frames = count_frames_in_next_tu(enc_ctx, &total_bytes))) {
             collect_frames_info(context_ptr, enc_ctx, frames);
             // last frame in a termporal unit is a displable frame. only the last frame has pts.
@@ -894,12 +886,7 @@ void *svt_aom_packetization_kernel(void *input_ptr) {
             queue_entry_ptr           = get_reorder_queue_entry(enc_ctx, frames - 1);
             output_stream_wrapper_ptr = queue_entry_ptr->output_stream_wrapper_ptr;
             output_stream_ptr         = (EbBufferHeaderType *)output_stream_wrapper_ptr->object_ptr;
-#if OPT_LD_LATENCY2
-            eos = output_stream_ptr->flags & EB_BUFFERFLAG_EOS;
-#else
-            bool eos = output_stream_ptr->flags & EB_BUFFERFLAG_EOS;
-#endif
-#if OPT_LD_LATENCY2
+            eos                       = output_stream_ptr->flags & EB_BUFFERFLAG_EOS;
             encode_tu(enc_ctx, frames, total_bytes, output_stream_ptr);
 
             if (eos && queue_entry_ptr->has_show_existing)
@@ -923,28 +910,7 @@ void *svt_aom_packetization_kernel(void *input_ptr) {
                 enc_ctx->total_number_of_shown_frames++;
             eos = (enc_ctx->total_number_of_shown_frames == enc_ctx->terminating_picture_number + 1) ? 1 : 0;
             release_frames(enc_ctx, frames);
-
-#else
-            encode_tu(enc_ctx, frames, total_bytes, output_stream_ptr);
-
-            if (eos && queue_entry_ptr->has_show_existing)
-                clear_eos_flag(output_stream_ptr);
-
-            svt_post_full_object(output_stream_wrapper_ptr);
-            if (queue_entry_ptr->has_show_existing) {
-                EbObjectWrapper *existed = pop_undisplayed_frame(enc_ctx);
-                if (existed) {
-                    EbBufferHeaderType *existed_output_stream_ptr = (EbBufferHeaderType *)existed->object_ptr;
-                    encode_show_existing(enc_ctx, queue_entry_ptr, existed_output_stream_ptr);
-                    if (eos)
-                        set_eos_flag(existed_output_stream_ptr);
-                    svt_post_full_object(existed);
-                }
-            }
-            release_frames(enc_ctx, frames);
-#endif
         }
-#if OPT_LD_LATENCY2
         if (eos) {
             EbObjectWrapper *tmp_out_str_wrp;
             svt_get_empty_object(scs->enc_ctx->stream_output_fifo_ptr, &tmp_out_str_wrp);
@@ -964,7 +930,6 @@ void *svt_aom_packetization_kernel(void *input_ptr) {
             }
         }
         svt_release_mutex(enc_ctx->total_number_of_shown_frames_mutex);
-#endif
     }
     return NULL;
 }

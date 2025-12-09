@@ -311,7 +311,6 @@ typedef struct PictureControlSet {
     uint8_t md_pme_level;
     uint8_t mds0_level;
     uint8_t pic_disallow_4x4; // disallow 4x4 at pic level
-    uint8_t pic_disallow_8x8; // disallow 8x8 at pic level
     // depth_removal_level signal at the picture level
     uint8_t pic_depth_removal_level;
     uint8_t pic_depth_removal_level_rtc;
@@ -325,8 +324,7 @@ typedef struct PictureControlSet {
     SpeedFeatures    sf;
     SearchSiteConfig ss_cfg; // CHKN this might be a seq based
     HashTable        hash_table;
-    CRC_CALCULATOR   crc_calculator1;
-    CRC_CALCULATOR   crc_calculator2;
+    CRC32C           crc_calculator;
 
     FRAME_CONTEXT                  *ec_ctx_array;
     FRAME_CONTEXT                   md_frame_context;
@@ -379,30 +377,21 @@ typedef struct PictureControlSet {
 // To optimize based on the max input size
 // To study speed-memory trade-offs
 typedef struct B64Geom {
-    uint8_t  horizontal_index;
-    uint8_t  vertical_index;
     uint16_t org_x;
     uint16_t org_y;
     uint8_t  width;
     uint8_t  height;
     uint8_t  is_complete_b64;
     bool     raster_scan_blk_validity[CU_MAX_COUNT];
-    uint8_t  is_edge_sb;
-    uint32_t tile_start_x;
-    uint32_t tile_start_y;
-    uint32_t tile_end_x;
-    uint32_t tile_end_y;
 } B64Geom;
 
 typedef struct SbGeom {
-    uint16_t horizontal_index;
-    uint16_t vertical_index;
     uint16_t org_x;
     uint16_t org_y;
     uint8_t  width;
     uint8_t  height;
     uint8_t  is_complete_sb;
-    bool     block_is_allowed[BLOCK_MAX_COUNT_SB_128];
+    bool    *block_is_allowed;
 } SbGeom;
 
 typedef struct TileGroupInfo {
@@ -770,6 +759,8 @@ typedef struct PictureParentControlSet {
     uint64_t                                last_idr_picture;
     uint64_t                                start_time_seconds;
     uint64_t                                start_time_u_seconds;
+    bool                                    compute_psnr;
+    bool                                    compute_ssim;
     uint64_t                                luma_sse;
     uint64_t                                cr_sse;
     uint64_t                                cb_sse;
@@ -786,7 +777,7 @@ typedef struct PictureParentControlSet {
     EbObjectWrapper *ref_pa_pic_ptr_array[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH];
     uint64_t         ref_pic_poc_array[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH];
     double         **variance;
-    uint64_t         *mean;
+    uint64_t        *mean;
     uint32_t         pre_assignment_buffer_count;
     uint16_t         pic_avg_variance;
 
@@ -1116,6 +1107,9 @@ typedef struct PictureParentControlSet {
     uint32_t ahd_error;
 
     bool sframe_ref_pruned;
+#if FTR_SFRAME_QP
+    int8_t sframe_qp_offset;
+#endif // FTR_SFRAME_QP
 } PictureParentControlSet;
 
 typedef struct TplDispResults {
@@ -1152,7 +1146,6 @@ typedef struct PictureControlSetInitData {
     EbSvtAv1EncConfiguration static_config;
     uint8_t                  speed_control;
     int8_t                   hbd_md;
-    uint8_t                  cdf_mode;
     uint8_t                  over_boundary_block_mode;
     uint8_t                  mfmv;
     // init value for child pcs
@@ -1192,17 +1185,17 @@ typedef struct PictureControlSetInitData {
     uint8_t tf_strength;
     bool    allintra;
     double  qp_scale_compress_strength;
-    bool    max_32_tx_size;
     bool    adaptive_film_grain;
+    uint8_t max_tx_size;
+    double  ac_bias;
     uint8_t noise_norm_strength;
     uint8_t kf_tf_strength;
-    double  ac_bias;
-    uint8_t spy_rd;
-    uint8_t sharp_tx;
-    uint8_t hbd_mds;
-    uint8_t complex_hvs;
     uint8_t alt_lambda_factors;
+    uint8_t sharp_tx;
     bool    alt_ssim_tuning;
+    uint8_t hbd_mds;
+    uint8_t tx_bias;
+    uint8_t complex_hvs;
 } PictureControlSetInitData;
 
 /**************************************
@@ -1222,6 +1215,13 @@ EbErrorType me_update_param(MotionEstimationData *me_data, struct SequenceContro
 EbErrorType recon_coef_update_param(EncDecSet *recon_coef, struct SequenceControlSet *scs);
 extern bool svt_aom_is_pic_skipped(PictureParentControlSet *pcs);
 void svt_aom_get_gm_needed_resolutions(uint8_t ds_lvl, bool *gm_need_full, bool *gm_need_quart, bool *gm_need_sixteen);
+
+EbErrorType b64_geom_init(struct SequenceControlSet *scs, uint16_t width, uint16_t height, B64Geom **b64_geoms);
+EbErrorType sb_geom_init(struct SequenceControlSet *scs, uint16_t width, uint16_t height, SbGeom **sb_geoms);
+EbErrorType alloc_sb_geoms(SbGeom **geom, int width, int height, int num_blocks);
+void        free_sb_geoms(SbGeom *geom);
+void        copy_sb_geoms(SbGeom *dst_geom, SbGeom *src_geom, uint16_t width, uint16_t height, int num_blocks);
+
 #ifdef __cplusplus
 }
 #endif

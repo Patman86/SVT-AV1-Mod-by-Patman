@@ -120,7 +120,7 @@ static INLINE TxSize av1_get_max_uv_txsize(BlockSize bsize, int32_t subsampling_
     const BlockSize plane_bsize = get_plane_block_size(bsize, subsampling_x, subsampling_y);
     TxSize          uv_tx       = TX_INVALID;
     if (plane_bsize < BlockSizeS_ALL)
-        uv_tx = max_txsize_rect_lookup[plane_bsize];
+        uv_tx = eb_max_txsize_rect_lookup[plane_bsize];
     return av1_get_adjusted_tx_size(uv_tx);
 }
 
@@ -212,6 +212,7 @@ extern const CodedBlockStats* svt_aom_get_coded_blk_stats(const uint32_t cu_idx)
 // MACROS
 //**************************************************
 #define DIVIDE_AND_ROUND(x, y) (((x) + ((y) >> 1)) / (y))
+#define DIVIDE_AND_CEIL(x, y) (((x) + ((y) - 1)) / (y))
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MEDIAN(a, b, c)                   ((a)>(b)?(a)>?(b)>?(b)::(a):(b)>?(a)>?(a)::(b))

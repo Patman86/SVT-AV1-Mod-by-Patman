@@ -301,7 +301,12 @@ static int64_t get_pixel_proj_error(const uint8_t *src8, int32_t width, int32_t 
                                     const SgrParamsType *params) {
     int32_t xq[2];
     svt_decode_xq(xqd, xq, params);
-    if (!use_highbitdepth) {
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
+    if (!use_highbitdepth)
+#else
+    UNUSED(use_highbitdepth);
+#endif
+    {
         return svt_av1_lowbd_pixel_proj_error(
             src8, width, height, src_stride, dat8, dat_stride, flt0, flt0_stride, flt1, flt1_stride, xq, params);
     }
@@ -1279,11 +1284,10 @@ static void search_wiener_seg(const RestorationTileLimits *limits, const Av1Pixe
     RestUnitSearchInfo        *rusi     = &rsc->rusi[rest_unit_idx];
     const Av1Common *const     cm       = rsc->cm;
     const WnFilterCtrls *const wn_ctrls = &cm->wn_filter_ctrls;
-    int32_t                    wn_luma  = wn_ctrls->filter_tap_lvl == 1 ? WIENER_WIN
-                            : wn_ctrls->filter_tap_lvl == 2             ? WIENER_WIN_CHROMA
-                                                                        : WIENER_WIN_3TAP;
+    assert(wn_ctrls->filter_tap_lvl == 1 || wn_ctrls->filter_tap_lvl == 2);
+    const int32_t wn_luma = wn_ctrls->filter_tap_lvl == 1 ? WIENER_WIN : WIENER_WIN_CHROMA;
 
-    const int32_t wiener_win = (rsc->plane == AOM_PLANE_Y) ? wn_luma : MIN(wn_luma, WIENER_WIN_CHROMA);
+    const int32_t wiener_win = rsc->plane == AOM_PLANE_Y ? wn_luma : WIENER_WIN_CHROMA;
 
     RestorationUnitInfo rui;
     memset(&rui, 0, sizeof(rui));
@@ -1361,16 +1365,15 @@ static void search_wiener_finish(const RestorationTileLimits *limits, const Av1P
                                  int32_t rest_unit_idx, void *priv) {
     (void)limits;
     (void)tile_rect;
-    RestSearchCtxt            *rsc        = (RestSearchCtxt *)priv;
-    RestUnitSearchInfo        *rusi       = &rsc->rusi[rest_unit_idx];
-    const Av1Common *const     cm         = rsc->cm;
-    const WnFilterCtrls *const wn_ctrls   = &cm->wn_filter_ctrls;
-    int32_t                    wn_luma    = wn_ctrls->filter_tap_lvl == 1 ? WIENER_WIN
-                              : wn_ctrls->filter_tap_lvl == 2             ? WIENER_WIN_CHROMA
-                                                                          : WIENER_WIN_3TAP;
-    const int32_t              wiener_win = (rsc->plane == AOM_PLANE_Y) ? wn_luma : MIN(wn_luma, WIENER_WIN_CHROMA);
-    const Macroblock *const    x          = rsc->x;
-    const int64_t              bits_none  = x->wiener_restore_cost[0];
+    RestSearchCtxt            *rsc      = (RestSearchCtxt *)priv;
+    RestUnitSearchInfo        *rusi     = &rsc->rusi[rest_unit_idx];
+    const Av1Common *const     cm       = rsc->cm;
+    const WnFilterCtrls *const wn_ctrls = &cm->wn_filter_ctrls;
+    assert(wn_ctrls->filter_tap_lvl == 1 || wn_ctrls->filter_tap_lvl == 2);
+    const int32_t           wn_luma    = wn_ctrls->filter_tap_lvl == 1 ? WIENER_WIN : WIENER_WIN_CHROMA;
+    const int32_t           wiener_win = rsc->plane == AOM_PLANE_Y ? wn_luma : WIENER_WIN_CHROMA;
+    const Macroblock *const x          = rsc->x;
+    const int64_t           bits_none  = x->wiener_restore_cost[0];
 
     RestorationUnitInfo rui;
     memset(&rui, 0, sizeof(rui));

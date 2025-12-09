@@ -25,9 +25,10 @@
 #define SAD_CLIP_COEFF 5
 // 88 + 3*16*8
 #define SLICE_HEADER_BITS_NUM 104
+#if !FIX_FPS_CALC
 #define RC_PRECISION 16
 #define RC_PRECISION_OFFSET (1 << (RC_PRECISION - 1))
-
+#endif
 #define RC_PRINTS 0
 #define ADAPTIVE_PERCENTAGE 1
 
@@ -227,6 +228,7 @@ typedef struct PicMgrPorts {
 int32_t svt_av1_convert_qindex_to_q_fp8(int32_t qindex, EbBitDepth bit_depth);
 double  svt_av1_convert_qindex_to_q(int32_t qindex, EbBitDepth bit_depth);
 double  svt_av1_get_gfu_boost_projection_factor(double min_factor, double max_factor, int frame_count);
+void    svt_av1_normalize_sb_delta_q(struct PictureControlSet *pcs);
 
 EbErrorType svt_aom_rate_control_context_ctor(EbThreadContext *thread_ctx, const EbEncHandle *enc_handle_ptr,
                                               int me_port_index);

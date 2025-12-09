@@ -77,8 +77,9 @@
 
 // scale factors for lambda value for different frame types
 #define LAMBDA_SCALE_FACTORS_TOKEN "--lambda-scale-factors"
-
+#if !FIX_FPS_CALC
 #define FRAME_RATE_TOKEN "--fps"
+#endif
 #define FRAME_RATE_NUMERATOR_TOKEN "--fps-num"
 #define FRAME_RATE_DENOMINATOR_TOKEN "--fps-denom"
 #define ENCODER_COLOR_FORMAT "--color-format"
@@ -186,6 +187,13 @@
 
 #define SFRAME_DIST_TOKEN "--sframe-dist"
 #define SFRAME_MODE_TOKEN "--sframe-mode"
+#if FTR_SFRAME_POSI
+#define SFRAME_POSI_TOKEN "--sframe-posi"
+#endif // FTR_SFRAME_POSI
+#if FTR_SFRAME_QP
+#define SFRAME_QP_TOKEN "--sframe-qp"
+#define SFRAME_QP_OFFSET_TOKEN "--sframe-qp-offset"
+#endif // FTR_SFRAME_QP
 
 #define ENABLE_QM_TOKEN "--enable-qm"
 #define MIN_QM_LEVEL_TOKEN "--qm-min"
@@ -208,22 +216,17 @@
 #define AVIF_TOKEN "--avif"
 #define RTC_TOKEN "--rtc"
 #define QP_SCALE_COMPRESS_STRENGTH_TOKEN "--qp-scale-compress-strength"
-
-#define MAX_32_TX_SIZE_TOKEN "--max-32-tx-size"
-
 #define ADAPTIVE_FILM_GRAIN_TOKEN "--adaptive-film-grain"
-
-
+#define MAX_TX_SIZE_TOKEN "--max-tx-size"
+#define AC_BIAS_TOKEN "--ac-bias"
 #define NOISE_NORM_STRENGTH_TOKEN "--noise-norm-strength"
 #define KF_TF_STRENGTH_FILTER_TOKEN "--kf-tf-strength"
-
-#define AC_BIAS_TOKEN "--ac-bias"
-#define SPY_RD_TOKEN "--spy-rd"
-#define SHARP_TX_TOKEN "--sharp-tx"
-#define HBD_MDS_TOKEN "--hbd-mds"
-#define COMPLEX_HVS_TOKEN "--complex-hvs"
 #define ALT_LAMBDA_FACTORS_TOKEN "--alt-lambda-factors"
+#define SHARP_TX_TOKEN "--sharp-tx"
 #define ALT_SSIM_TUNING_TOKEN "--alt-ssim-tuning"
+#define HBD_MDS_TOKEN "--hbd-mds"
+#define TX_BIAS_TOKEN "--tx-bias"
+#define COMPLEX_HVS_TOKEN "--complex-hvs"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -460,7 +463,7 @@ static EbErrorType set_cfg_dovi_rpu(EbConfig *cfg, const char *token, const char
 static EbErrorType set_cfg_hdr10plus_json(EbConfig *cfg, const char *token, const char *value) {
     printf("Svt[info]: Parsing HDR10+ JSON file...\n");
     Hdr10PlusRsJsonOpaque *hdr10plus_json = hdr10plus_rs_parse_json(value);
-    const char *error = hdr10plus_rs_json_get_error(hdr10plus_json);
+    const char            *error          = hdr10plus_rs_json_get_error(hdr10plus_json);
     if (error) {
         fprintf(stderr, "%s\n", error);
         hdr10plus_rs_json_free(hdr10plus_json);
@@ -554,19 +557,19 @@ static EbErrorType set_progress(EbConfig *cfg, const char *token, const char *va
     (void)token;
     switch (value ? *value : '1') {
     case '0': cfg->progress = 0; break; // no progress printed
-    case '2': cfg->progress = 2; break; // aomenc style progress
-    case '3': cfg->progress = 3; break; // Patman's style progress
+    case '2': cfg->progress = 2; break; // Patman's style progress
     default: cfg->progress = 1; break; // default progress
     }
     return EB_ErrorNone;
 }
+#if !FIX_FPS_CALC
 static EbErrorType set_frame_rate(EbConfig *cfg, const char *token, const char *value) {
     (void)token;
     cfg->config.frame_rate_numerator   = strtoul(value, NULL, 0);
     cfg->config.frame_rate_denominator = 1;
     return EB_ErrorNone;
 }
-
+#endif
 /**
  * @brief split colon separated string into key=value pairs
  *
@@ -702,7 +705,7 @@ ConfigDescription config_entry_options[] = {
 
     {STAT_FILE_TOKEN, "PSNR / SSIM per picture stat output file path, requires `--enable-stat-report 1`"},
 
-    {PROGRESS_TOKEN, "Verbosity of the output, default is 1 [0: no progress is printed, 2: aomenc style output, 3: Patman's progress]"},
+    {PROGRESS_TOKEN, "Verbosity of the output, default is 1 [0: no progress is printed, 2: Patman's progress]"},
     {NO_PROGRESS_TOKEN,
      "Do not print out progress, default is 0 [1: `" PROGRESS_TOKEN " 0`, 0: `" PROGRESS_TOKEN " 1`]"},
 
@@ -745,7 +748,9 @@ ConfigDescription config_entry_global_options[] = {
     {LEVEL_TOKEN,
      "Bitstream level, defined in A.3 of the av1 spec, default is 0 [0: autodetect from input, "
      "2.0-7.3]"},
+#if !FIX_FPS_CALC
     {FRAME_RATE_TOKEN, "Input video frame rate, integer values only, inferred if y4m, default is 60 [1-240]"},
+#endif
     {FRAME_RATE_NUMERATOR_TOKEN, "Input video frame rate numerator, default is 60000 [0-2^32-1]"},
     {FRAME_RATE_DENOMINATOR_TOKEN, "Input video frame rate denominator, default is 1000 [0-2^32-1]"},
     {INPUT_DEPTH_TOKEN, "Input video file and output bitstream bit-depth, default is 10 [8, 10]"},
@@ -782,8 +787,9 @@ ConfigDescription config_entry_rc[] = {
     {QP_TOKEN, "Initial QP level value, default is 35 [1-63]"},
     {QP_LONG_TOKEN, "Initial QP level value, default is 35 [1-63]"},
     {CRF_LONG_TOKEN,
-     "Constant Rate Factor value, setting this value is equal to `--rc 0 --aq-mode 2 --qp "
-     "x`, default is 35 [1-70]"},
+     "Constant Rate Factor value, setting this value is similar to `--rc 0 --aq-mode 2 --qp "
+     "x`.  Compared to `--qp`, `--crf` can take a value up to 70, and can be set in 0.25 increments, default is 35 "
+     "[1-70]"},
 
     {TARGET_BIT_RATE_TOKEN,
      "Target Bitrate (kbps), only applicable for VBR and CBR encoding, default is 7000 [1-100000]"},
@@ -850,11 +856,11 @@ ConfigDescription config_entry_rc[] = {
 #endif
     {ROI_MAP_FILE_TOKEN, "Enable Region Of Interest and specify a picture based QP Offset map file, default is off"},
     // TF Strength
-    {TF_STRENGTH_FILTER_TOKEN, "[PSY] Adjust alt-ref temporal filtering strength, default is 1 (4x weaker than mainline) [0-4]"},
+    {TF_STRENGTH_FILTER_TOKEN, "[PSY] Adjust temporal filtering strength, default is 1 [0-4]"},
     // Frame-level luminance-based QP bias
     {LUMINANCE_QP_BIAS_TOKEN, "Adjusts a frame's QP based on its average luma value, default is 0 [0-100]"},
     // Sharpness
-    {SHARPNESS_TOKEN, "Bias towards decreased/increased sharpness, default is 1 [0 to 7]"},
+    {SHARPNESS_TOKEN, "Bias towards decreased/increased sharpness, default is 1 [-7 to 7]"},
     // Termination
     {NULL, NULL}};
 
@@ -902,7 +908,7 @@ ConfigDescription config_entry_specific[] = {
      "Number of tile columns to use, `TileCol == log2(x)`, default changes per resolution but is 1 [0-4]"},
 
     // DLF
-    {LOOP_FILTER_ENABLE, "Deblocking loop filter control, default is 1 [0-2]"},
+    {LOOP_FILTER_ENABLE, "Deblocking loop filter control, default is 1 [0-1]"},
     // CDEF
     {CDEF_ENABLE_TOKEN, "Enable Constrained Directional Enhancement Filter, default is 1 [0-1]"},
     // RESTORATION
@@ -921,8 +927,8 @@ ConfigDescription config_entry_specific[] = {
      "frame for the base layer picture, default is 0 [0-1]"},
     // --- end: ALTREF_FILTERING_SUPPORT
     {TUNE_TOKEN,
-     "Optimize the encoding process for different desired outcomes [0 = VQ, 1 = PSNR, 2 = SSIM, 3 = Film Grain, 4 = Still Picture], "
-     "default is 1 [0-4]"},
+     "Optimize the encoding process for different desired outcomes [0 = VQ, 1 = PSNR, 2 = SSIM, 3 = IQ (Image "
+     "Quality), 4 = Film Grain], default is 1 [0-4]"},
     // MD Parameters
     {SCREEN_CONTENT_TOKEN, "Set screen content detection level, default is 2 [0: off, 1: on, 2: content adaptive]"},
 #if CONFIG_ENABLE_FILM_GRAIN
@@ -953,8 +959,29 @@ ConfigDescription config_entry_specific[] = {
     // --- start: SWITCH_FRAME SUPPORT
     {SFRAME_DIST_TOKEN, "S-Frame interval (frames) (0: OFF[default], > 0: ON)"},
     {SFRAME_MODE_TOKEN,
+#if FTR_SFRAME_FLEX
+     "S-Frame insertion mode ([1-3], 1: the considered frame will be made into an S-Frame only if "
+     "it is an altref frame, 2: the next altref frame will be made into an S-Frame[default], "
+#if FTR_SFRAME_DEC_POSI
+     "3: adjust minigop size to make an S-Frame at specific position, 4: adjust minigop size to make "
+     "an S-Frame inserting at specific position in decode order)"},
+#else
+     "3: adjust minigop size to make an S-Frame at specific position)"},
+#endif // FTR_SFRAME_DEC_POSI
+#else
      "S-Frame insertion mode ([1-2], 1: the considered frame will be made into an S-Frame only if "
      "it is an altref frame, 2: the next altref frame will be made into an S-Frame[default])"},
+#endif // FTR_SFRAME_FLEX
+#if FTR_SFRAME_POSI
+    {SFRAME_POSI_TOKEN,
+     "S-Frame insertion positions, a list separated by ',', S-Frame process inserts by "
+     "the specified frame numbers (0 based), only applicable for mode 3"},
+#endif // FTR_SFRAME_POSI
+#if FTR_SFRAME_QP
+    {SFRAME_QP_TOKEN, "S-Frame setup qp, a list separated by ',', QP value(s) set with S-Frame insertion"},
+    {SFRAME_QP_OFFSET_TOKEN,
+     "S-Frame setup qp offset, a list separated by ',', QP offset value(s) set with S-Frame insertion"},
+#endif // FTR_SFRAME_QP
     // --- end: SWITCH_FRAME SUPPORT
     // --- start: REFERENCE SCALING SUPPORT
     {RESIZE_MODE_INPUT,
@@ -992,46 +1019,48 @@ ConfigDescription config_entry_color_description[] = {
 
     {CONTENT_LIGHT_LEVEL_TOKEN,
      "Set content light level in the format of \"max_cll,max_fall\", refer to the user guide Appendix A.2"},
-    // Dolby Vision RPU
+// Dolby Vision RPU
 #ifdef LIBDOVI_FOUND
-    {DOLBY_VISION_RPU_TOKEN, "[PSY] Set the Dolby Vision RPU path"},
+    {DOLBY_VISION_RPU_TOKEN, "Set the Dolby Vision RPU path"},
 #endif
 #ifdef LIBHDR10PLUS_RS_FOUND
-    {HDR10PLUS_JSON_TOKEN, "[PSY] Set the HDR10+ JSON file path"},
+    {HDR10PLUS_JSON_TOKEN, "Set the HDR10+ JSON file path"},
 #endif
     // Termination
     {NULL, NULL}};
 
-ConfigDescription config_entry_variance_boost[] = {
-    // Variance boost
-    {ENABLE_VARIANCE_BOOST_TOKEN, "Enable variance boost, default is 1 [0-1]"},
-    {VARIANCE_BOOST_STRENGTH_TOKEN, "Variance boost strength, default is 2 [1-4]"},
-    {VARIANCE_OCTILE_TOKEN, "Octile for variance boost, default is 5 [1-8]"},
-    {VARIANCE_BOOST_CURVE_TOKEN, "Curve for variance boost, default is 0 [0-3]"},
+ConfigDescription config_entry_psychovisual[] = {
+    // Variance Boost
+    {ENABLE_VARIANCE_BOOST_TOKEN, "Enable Variance Boost, default is 1 [0-1]"},
+    {VARIANCE_BOOST_STRENGTH_TOKEN, "Variance Boost strength, default is 2 [1-4]"},
+    {VARIANCE_OCTILE_TOKEN, "Octile for Variance Boost, default is 5 [1-8]"},
+    {VARIANCE_BOOST_CURVE_TOKEN, "Curve for Variance Boost, default is 0 [0-3]"},
     // QP scale compress
-    {QP_SCALE_COMPRESS_STRENGTH_TOKEN, "[PSY] QP scale compress strength, default is 1.0 [0.0-8.0]"},
-    // Max 32 tx size
-    {MAX_32_TX_SIZE_TOKEN, "[PSY] Limits the allowed transform sizes to a maximum of 32x32, default is 0 [0-1]"},
-    // Noise normalization strength
-    {NOISE_NORM_STRENGTH_TOKEN, "[PSY] Noise normalization strength, default is 1; recommended value for tune 3 is 3 [0-4]"},
+    {QP_SCALE_COMPRESS_STRENGTH_TOKEN, "QP scale compress strength, default is 1.0 [0.0-8.0]"},
     // Adaptive film grain
-    {ADAPTIVE_FILM_GRAIN_TOKEN, "[PSY] Adapts film grain blocksize based on video resolution, default is 1 [0-1]"},
-    //Alt-ref temporal filtering strength on keyframes
-    {KF_TF_STRENGTH_FILTER_TOKEN, "[PSY] Adjust alt-ref TF strength on keyframes, default is 1 (4x weaker than mainline) [0-4]"},
+    {ADAPTIVE_FILM_GRAIN_TOKEN, "Adapts film grain blocksize based on video resolution, default is 1 [0-1]"},
+    // Max TX size
+    {MAX_TX_SIZE_TOKEN, "Limits the allowed transform sizes to the specified, default is 64 [32,64]"},
     //AC-Bias
-    {AC_BIAS_TOKEN, "[PSY] Strength of AC bias in rate distortion, default is 1.0 [0.0-8.0]"},
-    //Spy-rd
-    {SPY_RD_TOKEN, "[PSY] Alternative psychovisual rate distortion pathways, default is 0 [0-2]; 1 = full, 2 = partial"},
-    //Sharp-tx
-    {SHARP_TX_TOKEN, "[PSY] Sharp transform optimization, default is 1; best used in combination with ac-bias [0-1]"},
-    //HBD Mode Decisions
-    {HBD_MDS_TOKEN, "[PSY] High Bit-Depth Mode Decision, default is 0 [0: default preset behavior, 1 = 10-bit, 2 = hybrid 8/10-bit, 3 = 8-bit]"},
-    //Complex HVS
-    {COMPLEX_HVS_TOKEN, "[PSY] Enable highest complexity HVS model, default is 0 [0: default preset behavior, 1: complex HVS model based on PSNR-HVS]"},
+    {AC_BIAS_TOKEN, "Strength of AC bias in rate distortion, default is 1.0 [0.0-8.0]"},
+    // Noise normalization strength
+    {NOISE_NORM_STRENGTH_TOKEN, "Noise normalization strength, default is 1 [0-4]"},
+    // Keyframe temporal filtering strength
+    {KF_TF_STRENGTH_FILTER_TOKEN, "Adjust TF strength on keyframes, default is 1 (4x weaker than mainline) [0-4]"},
     // Alt lambda factors
-    {ALT_LAMBDA_FACTORS_TOKEN, "[PSY] Use alternative RDO lambda factors (from SVT-AV1 3.0.2), default is 1 [0-1]"},
+    {ALT_LAMBDA_FACTORS_TOKEN, "Use alternative RDO lambda factors (from SVT-AV1 3.0.2), default is 1 [0-1]"},
+    //Sharp-tx
+    {SHARP_TX_TOKEN, "Sharp transform optimization, default is 1 [0-1]"},
     // Alternative SSIM tuning
-    {ALT_SSIM_TUNING_TOKEN, "[PSY] Alternative SSIM tuning methods for tunes 2 & 4, default is 0 [0-1]"},
+    {ALT_SSIM_TUNING_TOKEN, "Alternative SSIM tuning methods for tune 2, default is 0 [0-1]"},
+    //HBD Mode Decisions
+    {HBD_MDS_TOKEN,
+     "High Bit-Depth Mode Decision, default is 0 [0: preset-determined, 1 = 10-bit, 2 = hybrid 8/10-bit]"},
+    // TX bias
+    {TX_BIAS_TOKEN,
+     "Transform size/type bias type, default is 0 [0-3]; 1 = full, 2, transform size only, 3 = interpolation only"},
+    //Complex HVS
+    {COMPLEX_HVS_TOKEN, "Enable highest complexity HVS model, default is 0 [0-1]"},
     // Termination
     {NULL, NULL}};
 
@@ -1071,8 +1100,10 @@ ConfigEntry config_entry[] = {
     {ENCODER_COLOR_FORMAT, "EncoderColorFormat", set_cfg_generic_token},
     {PROFILE_TOKEN, "Profile", set_cfg_generic_token},
     {LEVEL_TOKEN, "Level", set_level},
-    //   Frame Rate tokens
+//   Frame Rate tokens
+#if !FIX_FPS_CALC
     {FRAME_RATE_TOKEN, "FrameRate", set_frame_rate},
+#endif
     {FRAME_RATE_NUMERATOR_TOKEN, "FrameRateNumerator", set_cfg_generic_token},
     {FRAME_RATE_DENOMINATOR_TOKEN, "FrameRateDenominator", set_cfg_generic_token},
 
@@ -1184,6 +1215,14 @@ ConfigEntry config_entry[] = {
     // Switch frame support
     {SFRAME_DIST_TOKEN, "SframeInterval", set_cfg_generic_token},
     {SFRAME_MODE_TOKEN, "SframeMode", set_cfg_generic_token},
+#if FTR_SFRAME_POSI
+    {SFRAME_POSI_TOKEN, "SframePositions", set_cfg_generic_token},
+#endif //FTR_SFRAME_POSI
+#if FTR_SFRAME_QP
+    {SFRAME_QP_TOKEN, "SframeQPs", set_cfg_generic_token},
+    {SFRAME_QP_OFFSET_TOKEN, "SframeQPOffsets", set_cfg_generic_token},
+#endif //FTR_SFRAME_QP
+
     // Reference Scaling support
     {RESIZE_MODE_INPUT, "ResizeMode", set_cfg_generic_token},
     {RESIZE_DENOM, "ResizeDenom", set_cfg_generic_token},
@@ -1218,7 +1257,7 @@ ConfigEntry config_entry[] = {
     // Sharpness
     {SHARPNESS_TOKEN, "Sharpness", set_cfg_generic_token},
 
-    // Variance boost
+    // Variance Boost
     {ENABLE_VARIANCE_BOOST_TOKEN, "EnableVarianceBoost", set_cfg_generic_token},
     {VARIANCE_BOOST_STRENGTH_TOKEN, "VarianceBoostStrength", set_cfg_generic_token},
     {VARIANCE_OCTILE_TOKEN, "VarianceOctile", set_cfg_generic_token},
@@ -1235,41 +1274,42 @@ ConfigEntry config_entry[] = {
     {AVIF_TOKEN, "Avif", set_cfg_generic_token},
     // Real-time Coding
     {RTC_TOKEN, "RealTime", set_cfg_generic_token},
+
     // QP scale compression
     {QP_SCALE_COMPRESS_STRENGTH_TOKEN, "QpScaleCompressStrength", set_cfg_generic_token},
-
-    // Max 32 tx size
-    {MAX_32_TX_SIZE_TOKEN, "Max32TxSize", set_cfg_generic_token},
 
     // Adaptive film grain
     {ADAPTIVE_FILM_GRAIN_TOKEN, "AdaptiveFilmGrain", set_cfg_generic_token},
 
-    // Noise normalization strength
-    {NOISE_NORM_STRENGTH_TOKEN, "NoiseNormStrength", set_cfg_generic_token},
-
-    //Alt-ref temporal filtering strength on keyframes
-    {KF_TF_STRENGTH_FILTER_TOKEN, "KeyframeTemporalFilteringStrength", set_cfg_generic_token},
+    // Max TX size
+    {MAX_TX_SIZE_TOKEN, "MaxTxSize", set_cfg_generic_token},
 
     // Psy rd strength
     {AC_BIAS_TOKEN, "AcBias", set_cfg_generic_token},
 
-    // Spy rd
-    {SPY_RD_TOKEN, "SpyRd", set_cfg_generic_token},
+    // Noise normalization strength
+    {NOISE_NORM_STRENGTH_TOKEN, "NoiseNormStrength", set_cfg_generic_token},
 
-    // Sharp TX
-    {SHARP_TX_TOKEN, "SharpTX", set_cfg_generic_token},
-
-    // HBD MDS
-    {HBD_MDS_TOKEN, "HBDMDS", set_cfg_generic_token},
-
-    // Complex HVS
-    {COMPLEX_HVS_TOKEN, "ComplexHVS", set_cfg_generic_token},
+    //Keyframe temporal filtering strength
+    {KF_TF_STRENGTH_FILTER_TOKEN, "KeyframeTemporalFilteringStrength", set_cfg_generic_token},
 
     // Alt lambda factors
     {ALT_LAMBDA_FACTORS_TOKEN, "AltLambdaFactors", set_cfg_generic_token},
 
+    // Sharp TX
+    {SHARP_TX_TOKEN, "SharpTX", set_cfg_generic_token},
+
     // Alternative SSIM tuning
     {ALT_SSIM_TUNING_TOKEN, "AltSSIMTuning", set_cfg_generic_token},
+
+    // HBD MDS
+    {HBD_MDS_TOKEN, "HBDMDS", set_cfg_generic_token},
+
+    // TX bias
+    {TX_BIAS_TOKEN, "TxBias", set_cfg_generic_token},
+
+    // Complex HVS
+    {COMPLEX_HVS_TOKEN, "ComplexHVS", set_cfg_generic_token},
 
     // Termination
     {NULL, NULL, NULL}};
@@ -1287,13 +1327,13 @@ EbConfig *svt_config_ctor() {
     app_cfg->injector_frame_rate = 60;
     app_cfg->roi_map_file        = NULL;
 #ifdef LIBDOVI_FOUND
-    app_cfg->dovi_rpus           = NULL;
+    app_cfg->dovi_rpus = NULL;
 #endif
 #ifdef LIBHDR10PLUS_RS_FOUND
-    app_cfg->hdr10plus_json      = NULL;
+    app_cfg->hdr10plus_json = NULL;
 #endif
-    app_cfg->fgs_table_path      = NULL;
-    app_cfg->mmap.allow          = true;
+    app_cfg->fgs_table_path = NULL;
+    app_cfg->mmap.allow     = true;
 
     return app_cfg;
 }
@@ -1308,44 +1348,44 @@ void svt_config_dtor(EbConfig *app_cfg) {
     if (app_cfg->input_file) {
         if (!app_cfg->input_file_is_fifo)
             fclose(app_cfg->input_file);
-        app_cfg->input_file = (FILE *)NULL;
+        app_cfg->input_file = NULL;
     }
 
     if (app_cfg->bitstream_file) {
         if (!fseek(app_cfg->bitstream_file, 0, SEEK_SET))
             write_ivf_stream_header(app_cfg, app_cfg->frames_encoded);
         fclose(app_cfg->bitstream_file);
-        app_cfg->bitstream_file = (FILE *)NULL;
+        app_cfg->bitstream_file = NULL;
     }
 
     if (app_cfg->recon_file) {
         fclose(app_cfg->recon_file);
-        app_cfg->recon_file = (FILE *)NULL;
+        app_cfg->recon_file = NULL;
     }
 
     if (app_cfg->error_log_file && app_cfg->error_log_file != stderr) {
         fclose(app_cfg->error_log_file);
-        app_cfg->error_log_file = (FILE *)NULL;
+        app_cfg->error_log_file = NULL;
     }
 
     if (app_cfg->qp_file) {
         fclose(app_cfg->qp_file);
-        app_cfg->qp_file = (FILE *)NULL;
+        app_cfg->qp_file = NULL;
     }
 
     if (app_cfg->stat_file) {
         fclose(app_cfg->stat_file);
-        app_cfg->stat_file = (FILE *)NULL;
+        app_cfg->stat_file = NULL;
     }
 
     if (app_cfg->output_stat_file) {
         fclose(app_cfg->output_stat_file);
-        app_cfg->output_stat_file = (FILE *)NULL;
+        app_cfg->output_stat_file = NULL;
     }
 
     if (app_cfg->roi_map_file) {
         fclose(app_cfg->roi_map_file);
-        app_cfg->roi_map_file = (FILE *)NULL;
+        app_cfg->roi_map_file = NULL;
     }
 
 #ifdef LIBDOVI_FOUND
@@ -1644,7 +1684,7 @@ static EbErrorType app_verify_config(EbConfig *app_cfg, uint32_t channel_number)
     EbErrorType return_error = EB_ErrorNone;
 
     // Check Input File
-    if (app_cfg->input_file == (FILE *)NULL) {
+    if (app_cfg->input_file == NULL) {
         fprintf(app_cfg->error_log_file, "Error instance %u: Invalid Input File\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
@@ -1852,7 +1892,7 @@ uint32_t get_help(int32_t argc, char *const argv[]) {
     print_options("GOP size and type Options", config_entry_intra_refresh);
     print_options("AV1 Specific Options", config_entry_specific);
     print_options("Color Description Options", config_entry_color_description);
-    print_options("Psychovisual Options", config_entry_variance_boost);
+    print_options("Psychovisual Options", config_entry_psychovisual);
 
     return 1;
 }
@@ -2206,6 +2246,15 @@ static bool is_negative_number(const char *string) {
     return strtol(string, &end, 10) < 0 && *end == '\0';
 }
 
+#if FTR_SFRAME_QP
+// this function is to check if the parameter value is a list starting with
+// a negative number, for example: "--sframe-qp-offset -10,5,-15"
+static bool is_negative_number_in_list(const char *string) {
+    char *end;
+    return strtol(string, &end, 10) < 0 && *end == ',';
+}
+#endif // FTR_SFRAME_QP
+
 // Computes the number of frames in the input file
 int32_t compute_frames_to_be_encoded(EbConfig *app_cfg) {
     uint64_t file_size   = 0;
@@ -2431,7 +2480,11 @@ EbErrorType read_command_line(int32_t argc, char *const argv[], EncChannel *chan
 
     // Copy tokens into a temp token buffer hosting all tokens that are passed through the command line
     for (int32_t token_index = 0; token_index < argc; ++token_index) {
+#if FTR_SFRAME_QP
+        if (!is_negative_number(argv[token_index]) && !is_negative_number_in_list(argv[token_index])) {
+#else
         if (!is_negative_number(argv[token_index])) {
+#endif // FTR_SFRAME_QP
             if (argv[token_index][0] == '-' && argv[token_index][1] != '\0')
                 cmd_copy[token_index] = argv[token_index];
             else if (token_index)

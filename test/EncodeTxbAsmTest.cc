@@ -36,6 +36,11 @@
 #include "encode_txb_ref_c.h"
 
 using svt_av1_test_tool::SVTRandom;  // to generate the random
+
+/** setup_test_env and reset_test_env are implemented in test/TestEnv.c */
+extern "C" void setup_test_env();
+extern "C" void reset_test_env();
+
 namespace {
 
 static INLINE uint8_t *set_levels(uint8_t *const levels_buf,
@@ -80,7 +85,7 @@ class EncodeTxbTest : public ::testing::TestWithParam<GetNzMapContextParam> {
         const int height = get_txb_high((TxSize)tx_size);
         const int real_width = tx_size_wide[tx_size];
         const int real_height = tx_size_high[tx_size];
-        const int16_t *const scan = av1_scan_orders[tx_size][tx_type].scan;
+        const int16_t *const scan = get_scan_order(tx_size, tx_type)->scan;
 
         levels_ = set_levels(levels_buf_, width);
         for (int i = 0; i < num_tests; ++i) {
@@ -207,6 +212,10 @@ class EncodeTxbInitLevelTest
 
     virtual ~EncodeTxbInitLevelTest() {
         delete rnd_;
+    }
+
+    void SetUp() {
+        reset_test_env();
     }
 
     void run_test(const TxbInitLevelsFunc test_func, const int tx_size,

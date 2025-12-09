@@ -23,7 +23,6 @@
 #include "transpose_neon.h"
 #include "utility.h"
 
-#define WIN_3TAP ((WIENER_WIN_3TAP - 1) * 2)
 #define WIN_7 ((WIENER_WIN - 1) * 2)
 #define WIN_CHROMA ((WIENER_WIN_CHROMA - 1) * 2)
 
@@ -54,8 +53,8 @@ static inline void msub_neon(int32x4_t *sum, const int16x8_t src, const int16x8_
     *sum = vmlsl_s16(*sum, vget_high_s16(src), vget_high_s16(dgd));
 }
 
-static inline void compute_delta_step3(int32x4_t *sum, const int16x8_t src0, const int16x8_t src1, const int16x8_t dgd0,
-                                       const int16x8_t dgd1) {
+static inline void compute_delta_step3_win7(int32x4_t *sum, const int16x8_t src0, const int16x8_t src1,
+                                            const int16x8_t dgd0, const int16x8_t dgd1) {
     sum[0] = vmlsl_s16(sum[0], vget_low_s16(src0), vget_low_s16(dgd0));
     sum[0] = vmlal_s16(sum[0], vget_low_s16(src1), vget_low_s16(dgd1));
     sum[1] = vmlsl_s16(sum[1], vget_high_s16(src0), vget_high_s16(dgd0));
@@ -98,151 +97,6 @@ static inline void update_2_stats_neon(const int64_t *const src, const int64x2_t
     const int64x2_t s = vld1q_s64(src);
     const int64x2_t d = vaddq_s64(s, delta);
     vst1q_s64(dst, d);
-}
-
-static inline void step3_win3_neon(const int16_t **const d, const int32_t d_stride, const int32_t width,
-                                   const int32_t h4, int32x4_t dd[2], int32x4_t *deltas) {
-    // 16-bit idx: 0, 2, 4, 6, 1, 3, 5, 7, 0, 2, 4, 6, 1, 3, 5, 7
-    uint8_t          shf_values[] = {0, 1, 4, 5, 8, 9, 12, 13, 2, 3, 6, 7, 10, 11, 14, 15};
-    const uint8x16_t shf          = vld1q_u8(shf_values);
-    int32_t          y            = h4;
-    while (y) {
-        int16x8_t ds[WIENER_WIN_3TAP * 2];
-
-        // 00s 01s 10s 11s 20s 21s 30s 31s  00e 01e 10e 11e 20e 21e 30e 31e
-        dd[0] = vsetq_lane_s32(*(int32_t *)(*d + 2 * d_stride), dd[0], 2);
-        dd[0] = vsetq_lane_s32(*(int32_t *)(*d + 3 * d_stride), dd[0], 3);
-        dd[1] = vsetq_lane_s32(*(int32_t *)(*d + 2 * d_stride + width), dd[1], 2);
-        dd[1] = vsetq_lane_s32(*(int32_t *)(*d + 3 * d_stride + width), dd[1], 3);
-        // 00s 10s 20s 30s 01s 11s 21s 31s  00e 10e 20e 30e 01e 11e 21e 31e
-        ds[0] = vreinterpretq_s16_s8(vqtbl1q_s8(vreinterpretq_s8_s32(dd[0]), vandq_u8(shf, vdupq_n_u8(0x8F))));
-        ds[3] = vreinterpretq_s16_s8(vqtbl1q_s8(vreinterpretq_s8_s32(dd[1]), vandq_u8(shf, vdupq_n_u8(0x8F))));
-
-        // 10s 11s 20s 21s 30s 31s 40s 41s  10e 11e 20e 21e 30e 31e 40e 41e
-        load_more_32_neon(*d + 4 * d_stride, width, dd);
-        // 10s 20s 30s 40s 11s 21s 31s 41s  10e 20e 30e 40e 11e 21e 31e 41e
-        ds[1] = vreinterpretq_s16_s8(vqtbl1q_s8(vreinterpretq_s8_s32(dd[0]), vandq_u8(shf, vdupq_n_u8(0x8F))));
-        ds[4] = vreinterpretq_s16_s8(vqtbl1q_s8(vreinterpretq_s8_s32(dd[1]), vandq_u8(shf, vdupq_n_u8(0x8F))));
-
-        // 20s 21s 30s 31s 40s 41s 50s 51s  20e 21e 30e 31e 40e 41e 50e 51e
-        load_more_32_neon(*d + 5 * d_stride, width, dd);
-        // 20s 30s 40s 50s 21s 31s 41s 51s  20e 30e 40e 50e 21e 31e 41e 51e
-        ds[2] = vreinterpretq_s16_s8(vqtbl1q_s8(vreinterpretq_s8_s32(dd[0]), vandq_u8(shf, vdupq_n_u8(0x8F))));
-        ds[5] = vreinterpretq_s16_s8(vqtbl1q_s8(vreinterpretq_s8_s32(dd[1]), vandq_u8(shf, vdupq_n_u8(0x8F))));
-
-        madd_neon_pairwise(&deltas[0], ds[0], ds[0]);
-        madd_neon_pairwise(&deltas[1], ds[3], ds[3]);
-        madd_neon_pairwise(&deltas[2], ds[0], ds[1]);
-        madd_neon_pairwise(&deltas[3], ds[3], ds[4]);
-        madd_neon_pairwise(&deltas[4], ds[0], ds[2]);
-        madd_neon_pairwise(&deltas[5], ds[3], ds[5]);
-
-        dd[0] = vextq_s32(dd[0], vdupq_n_s32(0), 2);
-        dd[1] = vextq_s32(dd[1], vdupq_n_s32(0), 2);
-        *d += 4 * d_stride;
-        y -= 4;
-    }
-}
-
-static inline void stats_left_win3_neon(const int16x8_t src[2], const int16_t *d, const int32_t d_stride,
-                                        int32x4_t *sum) {
-    int16x8_t dgds[WIN_3TAP];
-
-    dgds[0] = vld1q_s16(d + 1 * d_stride + 0);
-    dgds[1] = vld1q_s16(d + 1 * d_stride + 8);
-    dgds[2] = vld1q_s16(d + 2 * d_stride + 0);
-    dgds[3] = vld1q_s16(d + 2 * d_stride + 8);
-
-    madd_neon(&sum[0], src[0], dgds[0]);
-    madd_neon(&sum[0], src[1], dgds[1]);
-    madd_neon(&sum[1], src[0], dgds[2]);
-    madd_neon(&sum[1], src[1], dgds[3]);
-}
-
-static inline void stats_top_win3_neon(const int16x8_t src[2], const int16x8_t dgd[2], const int16_t *const d,
-                                       const int32_t d_stride, int32x4_t *sum_m, int32x4_t *sum_h) {
-    int16x8_t dgds[WIENER_WIN_3TAP * 2];
-
-    load_s16_8x3(d + 0, d_stride, &dgds[0], &dgds[2], &dgds[4]);
-    load_s16_8x3(d + 8, d_stride, &dgds[1], &dgds[3], &dgds[5]);
-
-    madd_neon(&sum_m[0], src[0], dgds[0]);
-    madd_neon(&sum_m[0], src[1], dgds[1]);
-    madd_neon(&sum_m[1], src[0], dgds[2]);
-    madd_neon(&sum_m[1], src[1], dgds[3]);
-    madd_neon(&sum_m[2], src[0], dgds[4]);
-    madd_neon(&sum_m[2], src[1], dgds[5]);
-
-    madd_neon(&sum_h[0], dgd[0], dgds[0]);
-    madd_neon(&sum_h[0], dgd[1], dgds[1]);
-    madd_neon(&sum_h[1], dgd[0], dgds[2]);
-    madd_neon(&sum_h[1], dgd[1], dgds[3]);
-    madd_neon(&sum_h[2], dgd[0], dgds[4]);
-    madd_neon(&sum_h[2], dgd[1], dgds[5]);
-}
-
-static inline void derive_square_win3_neon(const int16x8_t *d_is, const int16x8_t *d_ie, const int16x8_t *d_js,
-                                           const int16x8_t *d_je, int32x4_t deltas[][WIN_3TAP]) {
-    msub_neon(&deltas[0][0], d_is[0], d_js[0]);
-    msub_neon(&deltas[0][1], d_is[1], d_js[1]);
-    msub_neon(&deltas[0][2], d_is[0], d_js[2]);
-    msub_neon(&deltas[0][3], d_is[1], d_js[3]);
-    msub_neon(&deltas[1][0], d_is[2], d_js[0]);
-    msub_neon(&deltas[1][1], d_is[3], d_js[1]);
-    msub_neon(&deltas[1][2], d_is[2], d_js[2]);
-    msub_neon(&deltas[1][3], d_is[3], d_js[3]);
-
-    madd_neon(&deltas[0][0], d_ie[0], d_je[0]);
-    madd_neon(&deltas[0][1], d_ie[1], d_je[1]);
-    madd_neon(&deltas[0][2], d_ie[0], d_je[2]);
-    madd_neon(&deltas[0][3], d_ie[1], d_je[3]);
-    madd_neon(&deltas[1][0], d_ie[2], d_je[0]);
-    madd_neon(&deltas[1][1], d_ie[3], d_je[1]);
-    madd_neon(&deltas[1][2], d_ie[2], d_je[2]);
-    madd_neon(&deltas[1][3], d_ie[3], d_je[3]);
-}
-
-static inline void load_square_win3_neon(const int16_t *const d_i, const int16_t *const d_j, const int32_t d_stride,
-                                         const int32_t height, int16x8_t *d_is, int16x8_t *d_ie, int16x8_t *d_js,
-                                         int16x8_t *d_je) {
-    load_s16_8x2(d_i + 0, d_stride, &d_is[0], &d_is[2]);
-    load_s16_8x2(d_i + 8, d_stride, &d_is[1], &d_is[3]);
-    load_s16_8x2(d_j + 0, d_stride, &d_js[0], &d_js[2]);
-    load_s16_8x2(d_j + 8, d_stride, &d_js[1], &d_js[3]);
-
-    load_s16_8x2(d_i + height * d_stride + 0, d_stride, &d_ie[0], &d_ie[2]);
-    load_s16_8x2(d_i + height * d_stride + 8, d_stride, &d_ie[1], &d_ie[3]);
-    load_s16_8x2(d_j + height * d_stride + 0, d_stride, &d_je[0], &d_je[2]);
-    load_s16_8x2(d_j + height * d_stride + 8, d_stride, &d_je[1], &d_je[3]);
-}
-
-static inline void load_triangle_win3_neon(const int16_t *const di, const int32_t d_stride, const int32_t height,
-                                           int16x8_t *d_is, int16x8_t *d_ie) {
-    d_is[0] = vld1q_s16(di + 0 * d_stride + 0);
-    d_is[1] = vld1q_s16(di + 0 * d_stride + 8);
-    d_is[2] = vld1q_s16(di + 1 * d_stride + 0);
-    d_is[3] = vld1q_s16(di + 1 * d_stride + 8);
-
-    d_ie[0] = vld1q_s16(di + (0 + height) * d_stride + 0);
-    d_ie[1] = vld1q_s16(di + (0 + height) * d_stride + 8);
-    d_ie[2] = vld1q_s16(di + (1 + height) * d_stride + 0);
-    d_ie[3] = vld1q_s16(di + (1 + height) * d_stride + 8);
-}
-
-static inline void derive_triangle_win3_neon(const int16x8_t *d_is, const int16x8_t *d_ie, int32x4_t *deltas) {
-    msub_neon(&deltas[0], d_is[0], d_is[0]);
-    msub_neon(&deltas[1], d_is[1], d_is[1]);
-    msub_neon(&deltas[2], d_is[0], d_is[2]);
-    msub_neon(&deltas[3], d_is[1], d_is[3]);
-    msub_neon(&deltas[4], d_is[2], d_is[2]);
-    msub_neon(&deltas[5], d_is[3], d_is[3]);
-
-    madd_neon(&deltas[0], d_ie[0], d_ie[0]);
-    madd_neon(&deltas[1], d_ie[1], d_ie[1]);
-    madd_neon(&deltas[2], d_ie[0], d_ie[2]);
-    madd_neon(&deltas[3], d_ie[1], d_ie[3]);
-    madd_neon(&deltas[4], d_ie[2], d_ie[2]);
-    madd_neon(&deltas[5], d_ie[3], d_ie[3]);
 }
 
 static inline void stats_top_win5_neon(const int16x8_t src[2], const int16x8_t dgd[2], const int16_t *const d,
@@ -397,7 +251,7 @@ static inline void update_5_stats_neon(const int64_t *const src, const int32x4_t
     dst[4] = src[4] + delta4;
 }
 
-static inline void compute_delta_step3_two_lines(int32x4_t *sum, const int16x8_t src, const int16x8_t dgd) {
+static inline void compute_delta_step3_win5(int32x4_t *sum, const int16x8_t src, const int16x8_t dgd) {
     *sum = vmlsl_s16(*sum, vget_low_s16(src), vget_low_s16(dgd));
     *sum = vmlal_s16(*sum, vget_high_s16(src), vget_high_s16(dgd));
 }
@@ -409,16 +263,17 @@ static inline void step3_win5_neon(const int16_t *d, const int32_t d_stride, con
         ds[4] = load_s16_4x2(d + 0 * d_stride, width);
         ds[5] = load_s16_4x2(d + 1 * d_stride, width);
 
-        compute_delta_step3_two_lines(&deltas[0], ds[0], ds[0]);
-        compute_delta_step3_two_lines(&deltas[1], ds[0], ds[1]);
-        compute_delta_step3_two_lines(&deltas[2], ds[0], ds[2]);
-        compute_delta_step3_two_lines(&deltas[3], ds[0], ds[3]);
-        compute_delta_step3_two_lines(&deltas[4], ds[0], ds[4]);
-        compute_delta_step3_two_lines(&deltas[0], ds[1], ds[1]);
-        compute_delta_step3_two_lines(&deltas[1], ds[1], ds[2]);
-        compute_delta_step3_two_lines(&deltas[2], ds[1], ds[3]);
-        compute_delta_step3_two_lines(&deltas[3], ds[1], ds[4]);
-        compute_delta_step3_two_lines(&deltas[4], ds[1], ds[5]);
+        compute_delta_step3_win5(&deltas[0], ds[0], ds[0]);
+        compute_delta_step3_win5(&deltas[1], ds[0], ds[1]);
+        compute_delta_step3_win5(&deltas[2], ds[0], ds[2]);
+        compute_delta_step3_win5(&deltas[3], ds[0], ds[3]);
+        compute_delta_step3_win5(&deltas[4], ds[0], ds[4]);
+
+        compute_delta_step3_win5(&deltas[0], ds[1], ds[1]);
+        compute_delta_step3_win5(&deltas[1], ds[1], ds[2]);
+        compute_delta_step3_win5(&deltas[2], ds[1], ds[3]);
+        compute_delta_step3_win5(&deltas[3], ds[1], ds[4]);
+        compute_delta_step3_win5(&deltas[4], ds[1], ds[5]);
 
         ds[0] = ds[2];
         ds[1] = ds[3];
@@ -427,33 +282,17 @@ static inline void step3_win5_neon(const int16_t *d, const int32_t d_stride, con
 
         d += 2 * d_stride;
         y -= 2;
-    } while (y);
-}
+    } while (y > 1);
 
-static inline void step3_win5_oneline_neon(const int16_t **const d, const int32_t d_stride, const int32_t width,
-                                           const int32_t height, int16x8_t *ds, int32x4_t *deltas) {
-    int32_t y = height;
-    do {
-        ds[8] = vld1q_s16(*d);
-        ds[9] = vld1q_s16(*d + width);
+    if (y) {
+        ds[4] = load_s16_4x2(d + 0 * d_stride, width);
 
-        compute_delta_step3(&deltas[0], ds[0], ds[1], ds[0], ds[1]);
-        compute_delta_step3(&deltas[2], ds[0], ds[1], ds[2], ds[3]);
-        compute_delta_step3(&deltas[4], ds[0], ds[1], ds[4], ds[5]);
-        compute_delta_step3(&deltas[6], ds[0], ds[1], ds[6], ds[7]);
-        compute_delta_step3(&deltas[8], ds[0], ds[1], ds[8], ds[9]);
-
-        ds[0] = ds[2];
-        ds[1] = ds[3];
-        ds[2] = ds[4];
-        ds[3] = ds[5];
-        ds[4] = ds[6];
-        ds[5] = ds[7];
-        ds[6] = ds[8];
-        ds[7] = ds[9];
-
-        *d += d_stride;
-    } while (--y);
+        compute_delta_step3_win5(&deltas[0], ds[0], ds[0]);
+        compute_delta_step3_win5(&deltas[1], ds[0], ds[1]);
+        compute_delta_step3_win5(&deltas[2], ds[0], ds[2]);
+        compute_delta_step3_win5(&deltas[3], ds[0], ds[3]);
+        compute_delta_step3_win5(&deltas[4], ds[0], ds[4]);
+    }
 }
 
 static inline void derive_triangle_win5_neon(const int16x8_t *d_is, const int16x8_t *d_ie, int32x4_t *deltas) {
@@ -817,13 +656,13 @@ static inline void step3_win7_neon(const int16_t *d, const int32_t d_stride, con
         ds[12] = vld1q_s16(d);
         ds[13] = vld1q_s16(d + width);
 
-        compute_delta_step3(&deltas[0], ds[0], ds[1], ds[0], ds[1]);
-        compute_delta_step3(&deltas[2], ds[0], ds[1], ds[2], ds[3]);
-        compute_delta_step3(&deltas[4], ds[0], ds[1], ds[4], ds[5]);
-        compute_delta_step3(&deltas[6], ds[0], ds[1], ds[6], ds[7]);
-        compute_delta_step3(&deltas[8], ds[0], ds[1], ds[8], ds[9]);
-        compute_delta_step3(&deltas[10], ds[0], ds[1], ds[10], ds[11]);
-        compute_delta_step3(&deltas[12], ds[0], ds[1], ds[12], ds[13]);
+        compute_delta_step3_win7(&deltas[0], ds[0], ds[1], ds[0], ds[1]);
+        compute_delta_step3_win7(&deltas[2], ds[0], ds[1], ds[2], ds[3]);
+        compute_delta_step3_win7(&deltas[4], ds[0], ds[1], ds[4], ds[5]);
+        compute_delta_step3_win7(&deltas[6], ds[0], ds[1], ds[6], ds[7]);
+        compute_delta_step3_win7(&deltas[8], ds[0], ds[1], ds[8], ds[9]);
+        compute_delta_step3_win7(&deltas[10], ds[0], ds[1], ds[10], ds[11]);
+        compute_delta_step3_win7(&deltas[12], ds[0], ds[1], ds[12], ds[13]);
 
         ds[0]  = ds[2];
         ds[1]  = ds[3];

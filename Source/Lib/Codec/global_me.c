@@ -135,11 +135,9 @@ void svt_aom_gm_pre_processor(PictureParentControlSet *pcs, PictureParentControl
 }
 void svt_aom_global_motion_estimation(PictureParentControlSet *pcs, EbPictureBufferDesc *input_pic) {
     // Get downsampled pictures with a downsampling factor of 2 in each dimension
-    EbPaReferenceObject *pa_reference_object = (EbPaReferenceObject *)pcs->pa_ref_pic_wrapper->object_ptr;
-    EbPictureBufferDesc *quarter_picture_ptr = (EbPictureBufferDesc *)
-                                                   pa_reference_object->quarter_downsampled_picture_ptr;
-    EbPictureBufferDesc *sixteenth_picture_ptr = (EbPictureBufferDesc *)
-                                                     pa_reference_object->sixteenth_downsampled_picture_ptr;
+    EbPaReferenceObject *pa_reference_object   = (EbPaReferenceObject *)pcs->pa_ref_pic_wrapper->object_ptr;
+    EbPictureBufferDesc *quarter_picture_ptr   = pa_reference_object->quarter_downsampled_picture_ptr;
+    EbPictureBufferDesc *sixteenth_picture_ptr = pa_reference_object->sixteenth_downsampled_picture_ptr;
     // Initilize global motion to be OFF for all references frames.
     memset(pcs->is_global_motion, false, MAX_NUM_OF_REF_PIC_LIST * REF_LIST_MAX_DEPTH);
     // Initilize wmtype to be IDENTITY for all references frames
@@ -349,7 +347,8 @@ static void compute_global_motion(PictureParentControlSet *pcs, int *frm_corners
         size_correspondence         = num_blocks_per_sb * pcs->b64_total_count;
     }
     int             num_correspondences = 0;
-    Correspondence *correspondences     = (Correspondence *)malloc(size_correspondence * sizeof(Correspondence));
+    Correspondence *correspondences;
+    EB_MALLOC_ARRAY_NO_CHECK(correspondences, size_correspondence);
     gm_compute_correspondence(pcs,
                               det_frm_buffer,
                               det_input_pic->width,
@@ -367,7 +366,7 @@ static void compute_global_motion(PictureParentControlSet *pcs, int *frm_corners
     MotionModel params_by_motion[RANSAC_NUM_MOTIONS];
     for (int m = 0; m < RANSAC_NUM_MOTIONS; m++) {
         memset(&params_by_motion[m], 0, sizeof(params_by_motion[m]));
-        params_by_motion[m].inliers = malloc(sizeof(*(params_by_motion[m].inliers)) * 2 * size_correspondence);
+        EB_MALLOC_ARRAY_NO_CHECK(params_by_motion[m].inliers, 2 * size_correspondence);
     }
 
     assert(pcs->gm_ctrls.search_start_model > IDENTITY);
@@ -439,6 +438,6 @@ static void compute_global_motion(PictureParentControlSet *pcs, int *frm_corners
 
     *best_wm = global_motion;
 
-    for (int m = 0; m < RANSAC_NUM_MOTIONS; m++) { free(params_by_motion[m].inliers); }
-    free(correspondences);
+    for (int m = 0; m < RANSAC_NUM_MOTIONS; m++) { EB_FREE(params_by_motion[m].inliers); }
+    EB_FREE(correspondences);
 }

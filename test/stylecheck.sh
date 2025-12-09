@@ -20,8 +20,8 @@ set -- \
     ':!test/vectors/video_src.cfg' \
     ':!*.png' \
     ':!*.PNG' \
-    ':!*.webp' \
-    ':!*.pdf'
+    ':!*.pdf' \
+    ':!*.avif'
 
 git config --global --add safe.directory "$REPO_DIR" || true
 
@@ -133,7 +133,7 @@ if [ -n "$diff_output" ]; then
 clang-format check failed!
 Please run inside a posix compatible shell with git and amend or commit the
 results or pipe the output of this script into `git apply -p0`
-git apply -p0 <<EOF
+git apply -p0 <<'EOF'
 FOE
     cat << FOE
 $diff_output

@@ -224,8 +224,8 @@ void generate_lambda_scaling_factor(PictureParentControlSet *pcs, int64_t mc_dep
 
 static AOM_INLINE void get_quantize_error(MacroblockPlane *p, const TranLow *coeff, TranLow *qcoeff, TranLow *dqcoeff,
                                           TxSize tx_size, uint16_t *eob, int64_t *recon_error, int64_t *sse) {
-    const ScanOrder *const scan_order = &av1_scan_orders[tx_size][DCT_DCT]; //&av1_default_scan_orders[tx_size]
-    int                    pix_num    = 1 << num_pels_log2_lookup[txsize_to_bsize[tx_size]];
+    const ScanOrder *const scan_order = get_scan_order(tx_size, DCT_DCT);
+    int                    pix_num    = 1 << eb_num_pels_log2_lookup[txsize_to_bsize[tx_size]];
     const int              shift      = tx_size == TX_32X32 ? 0 : 2;
 
     svt_av1_quantize_fp(coeff,
@@ -249,9 +249,9 @@ static AOM_INLINE void get_quantize_error(MacroblockPlane *p, const TranLow *coe
 }
 
 static int rate_estimator(TranLow *qcoeff, int eob, TxSize tx_size) {
-    const ScanOrder *const scan_order = &av1_scan_orders[tx_size][DCT_DCT]; //&av1_default_scan_orders[tx_size]
+    const ScanOrder *const scan_order = get_scan_order(tx_size, DCT_DCT);
 
-    assert((1 << num_pels_log2_lookup[txsize_to_bsize[tx_size]]) >= eob);
+    assert((1 << eb_num_pels_log2_lookup[txsize_to_bsize[tx_size]]) >= eob);
 
     int rate_cost = eob + 1;
 
@@ -448,7 +448,9 @@ static void tpl_subpel_search(SequenceControlSet *scs, PictureParentControlSet *
     svt_av1_set_subpel_mv_search_range(&ms_params->mv_limits, (FullMvLimits *)&mv_limits, &ref_mv);
 
     // Mvcost params
-    int32_t  qIndex = quantizer_to_qindex[(uint8_t)scs->static_config.qp];
+    int32_t qIndex = quantizer_to_qindex[(uint8_t)scs->static_config.qp] +
+        scs->static_config.extended_crf_qindex_offset;
+    qIndex          = AOMMIN(MAXQ, qIndex);
     uint32_t rdmult = svt_aom_compute_rd_mult_based_on_qindex((EbBitDepth)8, pcs->update_type, qIndex) /
         TPL_RDMULT_SCALING_FACTOR;
     svt_tpl_init_mv_cost_params(&ms_params->mv_cost_params, &ref_mv, qIndex, rdmult,
@@ -692,9 +694,9 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext *enc_ctx, SequenceCon
 
                             // Edge filter
                             if (av1_is_directional_mode((PredictionMode)ois_intra_mode)) {
-                                EB_MEMCPY(
+                                svt_memcpy(
                                     left_data, left0_data, sizeof(uint8_t) * (MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2));
-                                EB_MEMCPY(
+                                svt_memcpy(
                                     above_data, above0_data, sizeof(uint8_t) * (MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2));
                                 above_row = above_data + MAX_TPL_SIZE;
                                 left_col  = left_data + MAX_TPL_SIZE;
@@ -875,7 +877,7 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext *enc_ctx, SequenceCon
 
                 if (inter_cost < best_inter_cost) {
                     if (!pcs->tpl_ctrls.use_sad_in_src_search)
-                        EB_MEMCPY(best_coeff, coeff, sizeof(best_coeff));
+                        svt_memcpy(best_coeff, coeff, sizeof(best_coeff));
 
                     best_ref_poc    = pcs->tpl_data.tpl_ref_ds_ptr_array[list_index][ref_pic_index].picture_number;
                     best_rf_idx     = rf_idx;
@@ -1039,9 +1041,9 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext *enc_ctx, SequenceCon
                     NULL); // wm_params
             } else {
                 for (int i = 0; i < (int)size; ++i)
-                    EB_MEMCPY(dst_buffer + i * dst_buffer_stride,
-                              ref_pic_ptr->buffer_y + ref_origin_index + i * ref_pic_ptr->stride_y,
-                              sizeof(uint8_t) * (size));
+                    svt_memcpy(dst_buffer + i * dst_buffer_stride,
+                               ref_pic_ptr->buffer_y + ref_origin_index + i * ref_pic_ptr->stride_y,
+                               sizeof(uint8_t) * (size));
             }
         } else {
             // intra recon
@@ -1165,21 +1167,21 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext *enc_ctx, SequenceCon
                 // If subsampling is used for the TX, need to populate the missing rows in recon with a copy of the neighbouring rows
                 if (tpl_ctrls->subsample_tx == 2) {
                     for (int i = 0; i < (int)size; i += 4) {
-                        EB_MEMCPY(dst_buffer + (i + 1) * dst_buffer_stride,
-                                  dst_buffer + i * dst_buffer_stride,
-                                  sizeof(uint8_t) * (size));
-                        EB_MEMCPY(dst_buffer + (i + 2) * dst_buffer_stride,
-                                  dst_buffer + i * dst_buffer_stride,
-                                  sizeof(uint8_t) * (size));
-                        EB_MEMCPY(dst_buffer + (i + 3) * dst_buffer_stride,
-                                  dst_buffer + i * dst_buffer_stride,
-                                  sizeof(uint8_t) * (size));
+                        svt_memcpy(dst_buffer + (i + 1) * dst_buffer_stride,
+                                   dst_buffer + i * dst_buffer_stride,
+                                   sizeof(uint8_t) * (size));
+                        svt_memcpy(dst_buffer + (i + 2) * dst_buffer_stride,
+                                   dst_buffer + i * dst_buffer_stride,
+                                   sizeof(uint8_t) * (size));
+                        svt_memcpy(dst_buffer + (i + 3) * dst_buffer_stride,
+                                   dst_buffer + i * dst_buffer_stride,
+                                   sizeof(uint8_t) * (size));
                     }
                 } else if (tpl_ctrls->subsample_tx == 1) {
                     for (int i = 0; i < (int)size; i += 2) {
-                        EB_MEMCPY(dst_buffer + (i + 1) * dst_buffer_stride,
-                                  dst_buffer + i * dst_buffer_stride,
-                                  sizeof(uint8_t) * (size));
+                        svt_memcpy(dst_buffer + (i + 1) * dst_buffer_stride,
+                                   dst_buffer + i * dst_buffer_stride,
+                                   sizeof(uint8_t) * (size));
                     }
                 }
             }
@@ -1353,8 +1355,10 @@ static void tpl_mc_flow_dispenser(EncodeContext *enc_ctx, SequenceControlSet *sc
                                   PictureParentControlSet *pcs, int32_t frame_idx,
                                   SourceBasedOperationsContext *context_ptr) {
     EbPictureBufferDesc *recon_pic = enc_ctx->mc_flow_rec_picture_buffer[frame_idx];
+    int32_t              qIndex    = quantizer_to_qindex[(uint8_t)scs->static_config.qp] +
+        scs->static_config.extended_crf_qindex_offset;
+    qIndex = AOMMIN(MAXQ, qIndex);
 
-    int32_t qIndex = quantizer_to_qindex[(uint8_t)scs->static_config.qp];
     if (pcs->tpl_ctrls.enable_tpl_qps) {
         const double delta_rate_new[7][6] = {
             {1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, // 1L
@@ -2117,24 +2121,22 @@ unsigned int svt_aom_get_perpixel_variance(const uint8_t *buf, uint32_t stride, 
     unsigned int            var, sse;
     const AomVarianceFnPtr *fn_ptr = &svt_aom_mefn_ptr[block_size];
     var                            = fn_ptr->vf(buf, stride, AV1_VAR_OFFS, 0, &sse);
-    return ROUND_POWER_OF_TWO(var, num_pels_log2_lookup[block_size]);
+    return ROUND_POWER_OF_TWO(var, eb_num_pels_log2_lookup[block_size]);
 }
 void svt_aom_get_mean_and_perpixel_variance(const uint8_t *buf, uint32_t stride, const int block_size,
-                                          uint32_t *perpixel_var, uint32_t *mean) {
+                                            uint32_t *perpixel_var, uint32_t *mean) {
     const int block_w = block_size_wide[block_size];
     const int block_h = block_size_high[block_size];
-    
+
     uint64_t sum = 0;
     uint64_t sse = 0;
 
     // First pass: calculate sum
     for (int r = 0; r < block_h; ++r) {
-        const uint8_t* row = buf + r * stride;
-        for (int c = 0; c < block_w; ++c) {
-            sum += row[c];
-        }
+        const uint8_t *row = buf + r * stride;
+        for (int c = 0; c < block_w; ++c) { sum += row[c]; }
     }
-    *mean = (uint32_t)ROUND_POWER_OF_TWO(sum, num_pels_log2_lookup[block_size]);
+    *mean = (uint32_t)ROUND_POWER_OF_TWO(sum, eb_num_pels_log2_lookup[block_size]);
 
     // Second pass: calculate sum of squared errors
     for (int r = 0; r < block_h; ++r) {
@@ -2143,12 +2145,12 @@ void svt_aom_get_mean_and_perpixel_variance(const uint8_t *buf, uint32_t stride,
             sse += diff * diff;
         }
     }
-    
-    *perpixel_var = (uint32_t)ROUND_POWER_OF_TWO(sse, num_pels_log2_lookup[block_size]);
+
+    *perpixel_var = (uint32_t)ROUND_POWER_OF_TWO(sse, eb_num_pels_log2_lookup[block_size]);
 }
 unsigned int svt_aom_get_perceptual_perpixel_variance(const uint8_t *buf, uint32_t stride, const int block_size) {
     unsigned int var, mean;
-    
+
     // In a real implementation, you would use an optimized AVX2 function
     // that calculates mean and variance in one go. For this example, we use our helper.
     // The existing svt_aom_mefn_ptr->vf can't be used as it doesn't expose the mean.
@@ -2159,13 +2161,13 @@ unsigned int svt_aom_get_perceptual_perpixel_variance(const uint8_t *buf, uint32
     // A simple parabolic function centered at 128 is a good model.
     // weight = 1.0 - (|mean - 128| / 128)^2
     // We can use integer arithmetic for speed.
-    int centered_mean = (int)mean - 128;
+    int centered_mean    = (int)mean - 128;
     int weight_numerator = 128 * 128 - centered_mean * centered_mean; // (128 - |mean-128|) * (128 + |mean-128|)
-    
+
     // Scale the weight to avoid floating point math. e.g., 256 is 1.0x
     // The final weight will be in [0, 256].
     int weight = (weight_numerator * 256) / (128 * 128);
-    
+
     // Let's invert the weight's effect. We want to increase the variance
     // value for mid-tones, making the encoder think they are more complex and
     // deserving of bits. A simple way is to scale by a factor > 1.0.
@@ -2212,14 +2214,15 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
             const int index = row * num_cols + col;
 
             if (pcs->scs->static_config.alt_ssim_tuning) {
-                const int mi_row = row << 2;
-                const int mi_col = col << 2;
+                const int mi_row       = row << 2;
+                const int mi_col       = col << 2;
                 const int row_offset_y = row << 2;
                 const int col_offset_y = col << 2;
 
                 // Loop through each 4x4 block within the 16x16 block.
                 for (int mi_row_3 = mi_row; mi_row_3 < cm->mi_rows && mi_row_3 < (row + 1) * num_mi_h; mi_row_3 += 1) {
-                    for (int mi_col_3 = mi_col; mi_col_3 < cm->mi_cols && mi_col_3 < (col + 1) * num_mi_w; mi_col_3 += 1) {
+                    for (int mi_col_3 = mi_col; mi_col_3 < cm->mi_cols && mi_col_3 < (col + 1) * num_mi_w;
+                         mi_col_3 += 1) {
                         const int row_offset_y_3 = mi_row_3 << 2;
                         const int col_offset_y_3 = mi_col_3 << 2;
 
@@ -2231,15 +2234,17 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
                 }
                 // Loop through each 8x8 block within the 16x16 block.
                 for (int mi_row_2 = mi_row; mi_row_2 < cm->mi_rows && mi_row_2 < (row + 1) * num_mi_h; mi_row_2 += 2) {
-                    for (int mi_col_2 = mi_col; mi_col_2 < cm->mi_cols && mi_col_2 < (col + 1) * num_mi_w; mi_col_2 += 2) {
+                    for (int mi_col_2 = mi_col; mi_col_2 < cm->mi_cols && mi_col_2 < (col + 1) * num_mi_w;
+                         mi_col_2 += 2) {
                         const int row_offset_y_2 = mi_row_2 << 2;
                         const int col_offset_y_2 = mi_col_2 << 2;
 
                         const uint8_t *buf2 = y_buffer + row_offset_y_2 * y_stride + col_offset_y_2;
 
                         var += svt_aom_get_perceptual_perpixel_variance(buf2, y_stride, BLOCK_8X8);
-                        num_of_var += 0.125; // This weight (8x8 block) is 2x more important compared to other num_of_var additions
-                                             // (0.5 of total num_of_var)
+                        num_of_var +=
+                            0.125; // This weight (8x8 block) is 2x more important compared to other num_of_var additions
+                        // (0.5 of total num_of_var)
                     }
                 }
                 const uint8_t *buf = y_buffer + row_offset_y * y_stride + col_offset_y;
@@ -2249,7 +2254,8 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
             } else {
                 // Loop through each 8x8 block.
                 for (int mi_row = row * num_mi_h; mi_row < cm->mi_rows && mi_row < (row + 1) * num_mi_h; mi_row += 2) {
-                    for (int mi_col = col * num_mi_w; mi_col < cm->mi_cols && mi_col < (col + 1) * num_mi_w; mi_col += 2) {
+                    for (int mi_col = col * num_mi_w; mi_col < cm->mi_cols && mi_col < (col + 1) * num_mi_w;
+                         mi_col += 2) {
                         const int row_offset_y = mi_row << 2;
                         const int col_offset_y = mi_col << 2;
 
@@ -2260,8 +2266,7 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
                     }
                 }
             }
-
-            var = var / num_of_var; // num_of_var is essentially normalized from 3 passes to fit the curve
+            var = var / num_of_var;
 
             // Curve fitting with an exponential model on all 16x16 blocks from the
             // midres dataset.
@@ -2307,35 +2312,29 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
             }
         }
     } else { // Do superblock-based adjustment if we're using alternative SSIM tuning
-        const int sb_size = pcs->scs->seq_header.sb_size;
+        const int sb_size     = pcs->scs->seq_header.sb_size;
         const int num_mi_w_sb = mi_size_wide[sb_size];
         const int num_mi_h_sb = mi_size_high[sb_size];
-        const int num_cols_sb =
-            (cm->mi_cols + num_mi_w_sb - 1) / num_mi_w_sb;
-        const int num_rows_sb =
-            (cm->mi_rows + num_mi_h_sb - 1) / num_mi_h_sb;
-        const int num_blk_w = num_mi_w_sb / num_mi_w;
-        const int num_blk_h = num_mi_h_sb / num_mi_h;
+        const int num_cols_sb = (cm->mi_cols + num_mi_w_sb - 1) / num_mi_w_sb;
+        const int num_rows_sb = (cm->mi_rows + num_mi_h_sb - 1) / num_mi_h_sb;
+        const int num_blk_w   = num_mi_w_sb / num_mi_w;
+        const int num_blk_h   = num_mi_h_sb / num_mi_h;
         for (int row = 0; row < num_rows_sb; ++row) {
             for (int col = 0; col < num_cols_sb; ++col) {
                 double log_sum_sb = 0.0;
-                double blk_count = 0.0;
-                for (int blk_row = row * num_blk_h;
-                    blk_row < (row + 1) * num_blk_h && blk_row < num_rows; ++blk_row) {
-                    for (int blk_col = col * num_blk_w;
-                        blk_col < (col + 1) * num_blk_w && blk_col < num_cols;
-                        ++blk_col) {
+                double blk_count  = 0.0;
+                for (int blk_row = row * num_blk_h; blk_row < (row + 1) * num_blk_h && blk_row < num_rows; ++blk_row) {
+                    for (int blk_col = col * num_blk_w; blk_col < (col + 1) * num_blk_w && blk_col < num_cols;
+                         ++blk_col) {
                         const int index = blk_row * num_cols + blk_col;
                         log_sum_sb += log(pcs->pa_me_data->ssim_rdmult_scaling_factors[index]);
                         blk_count += 1.0;
                     }
                 }
                 log_sum_sb = exp(log_sum_sb / blk_count);
-                for (int blk_row = row * num_blk_h;
-                    blk_row < (row + 1) * num_blk_h && blk_row < num_rows; ++blk_row) {
-                    for (int blk_col = col * num_blk_w;
-                        blk_col < (col + 1) * num_blk_w && blk_col < num_cols;
-                        ++blk_col) {
+                for (int blk_row = row * num_blk_h; blk_row < (row + 1) * num_blk_h && blk_row < num_rows; ++blk_row) {
+                    for (int blk_col = col * num_blk_w; blk_col < (col + 1) * num_blk_w && blk_col < num_cols;
+                         ++blk_col) {
                         const int index = blk_row * num_cols + blk_col;
                         pcs->pa_me_data->ssim_rdmult_scaling_factors[index] /= log_sum_sb;
                     }
@@ -2385,7 +2384,7 @@ void *svt_aom_source_based_operations_kernel(void *input_ptr) {
             }
         }
         /*********************************************Picture-based operations**********************************************************/
-        if (scs->static_config.tune == 2 || scs->static_config.tune == 4) {
+        if (scs->static_config.tune == TUNE_SSIM) {
             aom_av1_set_mb_ssim_rdmult_scaling(pcs);
         }
         sbo_send_picture_out(context_ptr, pcs, false);

@@ -14,86 +14,11 @@
  * Includes
  *********************************/
 
-#include "pic_operators.h"
 #include "pack_unpack_c.h"
-#include "common_dsp_rtcd.h"
 #include "utility.h"
 #include "intra_prediction.h"
 #include "aom_dsp_rtcd.h"
-
-/*********************************
- * Picture Copy
- *********************************/
-
-void svt_aom_pic_copy_kernel_8bit(EbByte src, uint32_t src_stride, EbByte dst, uint32_t dst_stride, uint32_t area_width,
-                                  uint32_t area_height) {
-    for (uint32_t j = 0; j < area_height; j++) svt_memcpy(dst + j * dst_stride, src + j * src_stride, area_width);
-}
-void svt_aom_pic_copy_kernel_16bit(uint16_t *src, uint32_t src_stride, uint16_t *dst, uint32_t dst_stride,
-                                   uint32_t width, uint32_t height) {
-    for (uint32_t j = 0; j < height; j++)
-        svt_memcpy(dst + j * dst_stride, src + j * src_stride, sizeof(uint16_t) * width);
-}
-
-EbErrorType svt_av1_picture_copy(EbPictureBufferDesc *src, uint32_t src_luma_origin_index,
-                                 uint32_t src_chroma_origin_index, EbPictureBufferDesc *dst,
-                                 uint32_t dst_luma_origin_index, uint32_t dst_chroma_origin_index, uint32_t area_width,
-                                 uint32_t area_height, uint32_t chroma_area_width, uint32_t chroma_area_height,
-                                 uint32_t component_mask, bool hbd) {
-    EbErrorType return_error = EB_ErrorNone;
-
-    if (hbd) {
-        if (component_mask & PICTURE_BUFFER_DESC_Y_FLAG)
-            svt_aom_pic_copy_kernel_16bit(((uint16_t *)src->buffer_y) + src_luma_origin_index,
-                                          src->stride_y,
-                                          ((uint16_t *)dst->buffer_y) + dst_luma_origin_index,
-                                          dst->stride_y,
-                                          area_width,
-                                          area_height);
-
-        if (component_mask & PICTURE_BUFFER_DESC_Cb_FLAG)
-            svt_aom_pic_copy_kernel_16bit(((uint16_t *)src->buffer_cb) + src_chroma_origin_index,
-                                          src->stride_cb,
-                                          ((uint16_t *)dst->buffer_cb) + dst_chroma_origin_index,
-                                          dst->stride_cb,
-                                          chroma_area_width,
-                                          chroma_area_height);
-
-        if (component_mask & PICTURE_BUFFER_DESC_Cr_FLAG)
-            svt_aom_pic_copy_kernel_16bit(((uint16_t *)src->buffer_cr) + src_chroma_origin_index,
-                                          src->stride_cr,
-                                          ((uint16_t *)dst->buffer_cr) + dst_chroma_origin_index,
-                                          dst->stride_cr,
-                                          chroma_area_width,
-                                          chroma_area_height);
-    } else {
-        if (component_mask & PICTURE_BUFFER_DESC_Y_FLAG)
-            svt_aom_pic_copy_kernel_8bit(&(src->buffer_y[src_luma_origin_index]),
-                                         src->stride_y,
-                                         &(dst->buffer_y[dst_luma_origin_index]),
-                                         dst->stride_y,
-                                         area_width,
-                                         area_height);
-
-        if (component_mask & PICTURE_BUFFER_DESC_Cb_FLAG)
-            svt_aom_pic_copy_kernel_8bit(&(src->buffer_cb[src_chroma_origin_index]),
-                                         src->stride_cb,
-                                         &(dst->buffer_cb[dst_chroma_origin_index]),
-                                         dst->stride_cb,
-                                         chroma_area_width,
-                                         chroma_area_height);
-
-        if (component_mask & PICTURE_BUFFER_DESC_Cr_FLAG)
-            svt_aom_pic_copy_kernel_8bit(&(src->buffer_cr[src_chroma_origin_index]),
-                                         src->stride_cr,
-                                         &(dst->buffer_cr[dst_chroma_origin_index]),
-                                         dst->stride_cr,
-                                         chroma_area_width,
-                                         chroma_area_height);
-    }
-
-    return return_error;
-}
+#include "pic_operators.h"
 
 /*******************************************
 * Residual Kernel 16bit
@@ -234,62 +159,172 @@ void svt_aom_picture_full_distortion32_bits_single(int32_t *coeff, int32_t *reco
     }
 }
 
-// Facade that wraps the distortion metric formula with "spy-rd" adjustments
+// Facade that wraps the distortion metric formula with "TX bias" adjustments
 void svt_aom_picture_full_distortion32_bits_single_facade(int32_t *coeff, int32_t *recon_coeff, uint32_t stride,
                                                           uint32_t bwidth, uint32_t bheight, uint32_t area_width,
-                                                          uint32_t area_height, uint64_t *distortion, uint32_t cnt_nz_coeff,
-                                                          PredictionMode mode, CompoundType compound_type, uint8_t temporal_layer_index,
-                                                          double ac_bias, uint8_t spy_rd)
-{
-    svt_aom_picture_full_distortion32_bits_single(coeff, recon_coeff, stride,
-                                                    bwidth, bheight, distortion,
-                                                    cnt_nz_coeff);
-    //Only enable intra prediction tweaks when full spy-rd is active
-    if (spy_rd == 1) {
-        if (mode == DC_PRED || mode == SMOOTH_PRED || mode == SMOOTH_V_PRED || mode == SMOOTH_H_PRED) {
-            if (ac_bias == 0.0) {
-                // Medium bias against "visually blurry" intra prediction modes
-                distortion[DIST_CALC_RESIDUAL] = (distortion[DIST_CALC_RESIDUAL] * 5) / 4;
-                distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * 5) / 4;
-            }
-        } else if (mode == H_PRED || mode == V_PRED || mode == PAETH_PRED) {
-            // Mild bias against "visually neutral" intra prediction modes
-            distortion[DIST_CALC_RESIDUAL] = (distortion[DIST_CALC_RESIDUAL] * 9) / 8;
-            distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * 9) / 8;
-        } else if (mode >= COMP_INTER_MODE_START && mode < COMP_INTER_MODE_END) {
-            if (compound_type == COMPOUND_AVERAGE || compound_type == COMPOUND_DISTWTD) {
-                // Medium bias against "visually blurry" compound inter prediction modes
-                distortion[DIST_CALC_RESIDUAL] = (distortion[DIST_CALC_RESIDUAL] * 5) / 4;
-                distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * 5) / 4;
-            } else if (compound_type == COMPOUND_DIFFWTD) {
-                // Mild bias against difference-weighted inter prediction mode
-                distortion[DIST_CALC_RESIDUAL] = (distortion[DIST_CALC_RESIDUAL] * 9) / 8;
-                distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * 9) / 8;
-            }
-        }
+                                                          uint32_t area_height, uint64_t *distortion,
+                                                          uint32_t cnt_nz_coeff, BlockModeInfo *block_mi,
+                                                          bool is_chroma, uint8_t temporal_layer_index, double ac_bias,
+                                                          uint8_t tx_bias) {
+    PredictionMode   mode    = block_mi->mode;
+    UvPredictionMode uv_mode = block_mi->uv_mode;
 
-        if (mode >= INTRA_MODE_START && mode < INTRA_MODE_END) {
+    svt_aom_picture_full_distortion32_bits_single(
+        coeff, recon_coeff, stride, bwidth, bheight, distortion, cnt_nz_coeff);
+
+    // Only enable transform type prediction tweaks when full TX bias is active
+    if (tx_bias == 1) {
+        if (is_intra_mode(mode)) {
+            if (ac_bias == 0.0) {
+                if (!is_chroma) {
+                    if (mode == DC_PRED || mode == SMOOTH_PRED || mode == SMOOTH_V_PRED || mode == SMOOTH_H_PRED) {
+                        // Medium bias against "visually blurry" intra luma prediction modes
+                        distortion[DIST_CALC_RESIDUAL]   = (distortion[DIST_CALC_RESIDUAL] * 5) / 4;
+                        distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * 5) / 4;
+                    } else if (mode == H_PRED || mode == V_PRED || mode == PAETH_PRED) {
+                        // Mild bias against "visually neutral" intra luma prediction modes
+                        distortion[DIST_CALC_RESIDUAL]   = (distortion[DIST_CALC_RESIDUAL] * 9) / 8;
+                        distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * 9) / 8;
+                    }
+                } else {
+                    if (uv_mode == UV_DC_PRED || uv_mode == UV_SMOOTH_PRED || uv_mode == UV_SMOOTH_V_PRED ||
+                        uv_mode == UV_SMOOTH_H_PRED) {
+                        // Medium bias against "visually blurry" intra chroma prediction modes
+                        distortion[DIST_CALC_RESIDUAL]   = (distortion[DIST_CALC_RESIDUAL] * 5) / 4;
+                        distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * 5) / 4;
+                    } else if (uv_mode == UV_H_PRED || uv_mode == UV_V_PRED || uv_mode == UV_PAETH_PRED) {
+                        // Mild bias against "visually neutral" intra chroma prediction modes
+                        distortion[DIST_CALC_RESIDUAL]   = (distortion[DIST_CALC_RESIDUAL] * 9) / 8;
+                        distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * 9) / 8;
+                    }
+                }
+            }
+
             if (temporal_layer_index >= 2) {
                 // Increasingly bias against intra prediction modes the deeper the temporal layer
                 uint8_t weights[] = {8, 8, 9, 10, 11, 12};
 
-                distortion[DIST_CALC_RESIDUAL] = (distortion[DIST_CALC_RESIDUAL] * weights[temporal_layer_index]) / 8;
-                distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * weights[temporal_layer_index]) / 8;
+                distortion[DIST_CALC_RESIDUAL]   = (distortion[DIST_CALC_RESIDUAL] * weights[temporal_layer_index]) / 8;
+                distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * weights[temporal_layer_index]) /
+                    8;
             }
 
-            if (area_width == 64 && area_height == 64) {
-                // Strong bias against intra 64x64 blocks, as those often tend to be visually blurry
-                distortion[DIST_CALC_RESIDUAL] = (distortion[DIST_CALC_RESIDUAL] * 3) / 2;
-                distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * 3) / 2;
-            } else if (area_width * area_height <= 32 * 32) {
-                // Very mild large block intra bias to compensate for pred mode rebalancing picking
-                // smaller blocks slightly more often
-                distortion[DIST_CALC_RESIDUAL] = (distortion[DIST_CALC_RESIDUAL] * 17) / 16;
-                distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * 17) / 16;
+        } else if (is_inter_compound_mode(mode)) {
+            if (block_mi->is_interintra_used) {
+                // Medium bias against interintra modes
+                distortion[DIST_CALC_RESIDUAL]   = (distortion[DIST_CALC_RESIDUAL] * 5) / 4;
+                distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * 5) / 4;
+            } else {
+                CompoundType compound_type = block_mi->interinter_comp.type;
+
+                if (compound_type == COMPOUND_AVERAGE || compound_type == COMPOUND_DISTWTD) {
+                    // Medium bias against "visually blurry" compound inter prediction modes
+                    distortion[DIST_CALC_RESIDUAL]   = (distortion[DIST_CALC_RESIDUAL] * 5) / 4;
+                    distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * 5) / 4;
+                } else if (compound_type == COMPOUND_DIFFWTD) {
+                    // Mild bias against difference-weighted inter prediction mode
+                    distortion[DIST_CALC_RESIDUAL]   = (distortion[DIST_CALC_RESIDUAL] * 9) / 8;
+                    distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * 9) / 8;
+                }
             }
-            //printf("32bit: w %i, h %i\n", area_width, area_height);
+        }
+
+        // Transform size related tweaks
+        if (tx_bias == 1 || tx_bias == 2) {
+            if (is_intra_mode(mode)) {
+                if (area_width == 64 && area_height == 64) {
+                    // Strong bias against intra 64x64 blocks, as those often tend to be visually blurry
+                    distortion[DIST_CALC_RESIDUAL]   = (distortion[DIST_CALC_RESIDUAL] * 3) / 2;
+                    distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * 3) / 2;
+                } else if (tx_bias == 1 && (area_width * area_height) <= 32 * 32) {
+                    // Very mild large block intra bias to compensate for pred mode rebalancing picking
+                    // smaller blocks slightly more often
+                    distortion[DIST_CALC_RESIDUAL]   = (distortion[DIST_CALC_RESIDUAL] * 17) / 16;
+                    distortion[DIST_CALC_PREDICTION] = (distortion[DIST_CALC_PREDICTION] * 17) / 16;
+                }
+                //printf("32bit: w %i, h %i\n", area_width, area_height);
+            }
         }
     }
+}
+
+// Facade that wraps the distortion metric formula with "TX bias" adjustments
+uint64_t svt_spatial_full_distortion_kernel_facade(uint8_t *input, uint32_t input_offset, uint32_t input_stride,
+                                                   uint8_t *recon, int32_t recon_offset, uint32_t recon_stride,
+                                                   uint32_t area_width, uint32_t area_height, bool hbd_md,
+                                                   BlockModeInfo *block_mi, bool is_chroma,
+                                                   uint8_t temporal_layer_index, double ac_bias, uint8_t tx_bias) {
+    EbSpatialFullDistType spatial_full_dist_type_fun = hbd_md ? svt_full_distortion_kernel16_bits
+                                                              : svt_spatial_full_distortion_kernel;
+    PredictionMode        mode                       = block_mi->mode;
+    UvPredictionMode      uv_mode                    = block_mi->uv_mode;
+    int64_t               spatial_distortion         = spatial_full_dist_type_fun(
+        input, input_offset, input_stride, recon, recon_offset, recon_stride, area_width, area_height);
+
+    // Only enable transform type prediction tweaks when full TX bias is active
+    if (tx_bias == 1) {
+        if (is_intra_mode(mode)) {
+            if (ac_bias == 0.0) {
+                if (!is_chroma) {
+                    if (mode == DC_PRED || mode == SMOOTH_PRED || mode == SMOOTH_V_PRED || mode == SMOOTH_H_PRED) {
+                        // Medium bias against "visually blurry" intra luma prediction modes
+                        spatial_distortion = (spatial_distortion * 5) / 4;
+                    } else if (mode == H_PRED || mode == V_PRED || mode == PAETH_PRED) {
+                        // Mild bias against "visually neutral" intra luma prediction modes
+                        spatial_distortion = (spatial_distortion * 9) / 8;
+                    }
+                } else {
+                    if (uv_mode == UV_DC_PRED || uv_mode == UV_SMOOTH_PRED || uv_mode == UV_SMOOTH_V_PRED ||
+                        uv_mode == UV_SMOOTH_H_PRED) {
+                        // Medium bias against "visually blurry" intra chroma prediction modes
+                        spatial_distortion = (spatial_distortion * 5) / 4;
+                    } else if (uv_mode == UV_H_PRED || uv_mode == UV_V_PRED || uv_mode == UV_PAETH_PRED) {
+                        // Mild bias against "visually neutral" intra chroma prediction modes
+                        spatial_distortion = (spatial_distortion * 9) / 8;
+                    }
+                }
+            }
+
+            if (temporal_layer_index >= 2) {
+                // Increasingly bias against intra prediction modes the deeper the temporal layer
+                uint8_t weights[] = {8, 8, 9, 10, 11, 12};
+
+                spatial_distortion = (spatial_distortion * weights[temporal_layer_index]) / 8;
+            }
+        } else if (is_inter_compound_mode(mode)) {
+            if (block_mi->is_interintra_used) {
+                // Medium bias against interintra modes
+                spatial_distortion = (spatial_distortion * 5) / 4;
+            } else {
+                CompoundType compound_type = block_mi->interinter_comp.type;
+
+                if (compound_type == COMPOUND_AVERAGE || compound_type == COMPOUND_DISTWTD) {
+                    // Medium bias against "visually blurry" compound inter prediction modes
+                    spatial_distortion = (spatial_distortion * 5) / 4;
+                } else if (compound_type == COMPOUND_DIFFWTD) {
+                    // Mild bias against difference-weighted inter prediction mode
+                    spatial_distortion = (spatial_distortion * 9) / 8;
+                }
+            }
+        }
+    }
+
+    // Transform size related tweaks
+    if (tx_bias == 1 || tx_bias == 2) {
+        if (is_intra_mode(mode)) {
+            if (area_width == 64 && area_height == 64) {
+                // Strong bias against intra 64x64 blocks, as those often tend to be visually blurry
+                spatial_distortion = (spatial_distortion * 3) / 2;
+            } else if (tx_bias == 1 && (area_width * area_height) <= 32 * 32) {
+                // Very mild large block intra bias to compensate for pred mode rebalancing picking
+                // smaller blocks slightly more often
+                spatial_distortion = (spatial_distortion * 17) / 16;
+            }
+            //printf("Spatial: w %i, h %i\n", area_width, area_height);
+        }
+    }
+
+    return spatial_distortion;
 }
 
 void svt_aom_un_pack2d(uint16_t *in16_bit_buffer, uint32_t in_stride, uint8_t *out8_bit_buffer, uint32_t out8_stride,
@@ -417,8 +452,8 @@ void svt_aom_generate_padding(
     temp_src_pic0 = src_pic + padding_width + padding_height * src_stride;
     while (vertical_idx) {
         // horizontal padding
-        EB_MEMSET(temp_src_pic0 - padding_width, *temp_src_pic0, padding_width);
-        EB_MEMSET(temp_src_pic0 + original_src_width, *(temp_src_pic0 + original_src_width - 1), padding_width);
+        svt_memset(temp_src_pic0 - padding_width, *temp_src_pic0, padding_width);
+        svt_memset(temp_src_pic0 + original_src_width, *(temp_src_pic0 + original_src_width - 1), padding_width);
 
         temp_src_pic0 += src_stride;
         --vertical_idx;
@@ -570,7 +605,7 @@ void pad_input_picture(
         temp_src_pic0 = src_pic;
 
         while (vertical_idx) {
-            EB_MEMSET(temp_src_pic0 + original_src_width, *(temp_src_pic0 + original_src_width - 1), pad_right);
+            svt_memset(temp_src_pic0 + original_src_width, *(temp_src_pic0 + original_src_width - 1), pad_right);
             temp_src_pic0 += src_stride;
             --vertical_idx;
         }

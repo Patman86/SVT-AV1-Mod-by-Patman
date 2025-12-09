@@ -253,8 +253,8 @@ void find_segment_qps(SegmentationParams *segmentation_params,
 
     // get range of variance
     for (uint32_t sb_idx = 0; sb_idx < pcs->b64_total_count; ++sb_idx) {
-        double   *variance_ptr = pcs->ppcs->variance[sb_idx];
-        uint32_t  var_index, local_avg = 0;
+        double  *variance_ptr = pcs->ppcs->variance[sb_idx];
+        uint32_t var_index, local_avg = 0;
         // Loop over all 8x8s in a 64x64
         for (var_index = ME_TIER_ZERO_PU_8x8_0; var_index <= ME_TIER_ZERO_PU_8x8_63; var_index++) {
             max_var = MAX(max_var, variance_ptr[var_index]);

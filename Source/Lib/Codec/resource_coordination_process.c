@@ -308,6 +308,31 @@ static void assign_film_grain_random_seed(PictureParentControlSet *pcs) {
     if (!(*fgn_random_seed_ptr)) // Random seed should not be zero
         *fgn_random_seed_ptr += 7391;
 }
+
+static uint8_t get_delta_q_res(uint8_t qp, bool enable_variance_boost) {
+    uint8_t res = DEFAULT_DELTA_Q_RES;
+
+    if (enable_variance_boost) {
+        // use the (sequence) qp value to determine delta_q_res
+        uint8_t qindex = quantizer_to_qindex[qp];
+
+        // determine delta_q_res based on qindex
+        // delta q overhead becomes proportionally bigger the higher the qindex,
+        // and qstep jumps between qindexes become bigger the lower the qindex
+        // so dynamically increase delta_q_res granularity as qindex decreases
+        if (qindex >= 160)
+            res = 8;
+        else if (qindex >= 120)
+            res = 4;
+        else if (qindex >= 80)
+            res = 2;
+        else
+            res = DEFAULT_DELTA_Q_RES;
+    }
+
+    return res;
+}
+
 static EbErrorType reset_pcs_av1(PictureParentControlSet *pcs) {
     FrameHeader *frm_hdr     = &pcs->frm_hdr;
     Av1Common   *cm          = pcs->av1_cm;
@@ -361,7 +386,7 @@ static EbErrorType reset_pcs_av1(PictureParentControlSet *pcs) {
     frm_hdr->loop_filter_params.filter_level[1] = 0;
     frm_hdr->loop_filter_params.filter_level_u  = 0;
     frm_hdr->loop_filter_params.filter_level_v  = 0;
-    frm_hdr->loop_filter_params.sharpness_level = (pcs->scs->static_config.sharpness > 0 ? pcs->scs->static_config.sharpness : 0);
+    frm_hdr->loop_filter_params.sharpness_level = 0;
 
     frm_hdr->loop_filter_params.mode_ref_delta_enabled = 0;
     frm_hdr->loop_filter_params.mode_ref_delta_update  = 0;
@@ -407,7 +432,10 @@ static EbErrorType reset_pcs_av1(PictureParentControlSet *pcs) {
     frm_hdr->cdef_params.cdef_bits            = 0;
     frm_hdr->delta_q_params.delta_q_present   = 1;
     frm_hdr->delta_lf_params.delta_lf_present = 0;
-    frm_hdr->delta_q_params.delta_q_res       = DEFAULT_DELTA_Q_RES;
+
+    frm_hdr->delta_q_params.delta_q_res = get_delta_q_res((uint8_t)pcs->scs->static_config.qp,
+                                                          pcs->scs->static_config.enable_variance_boost);
+
     frm_hdr->delta_lf_params.delta_lf_present = 0;
     frm_hdr->delta_lf_params.delta_lf_res     = 0;
     frm_hdr->delta_lf_params.delta_lf_multi   = 0;
@@ -570,9 +598,10 @@ static EbErrorType realloc_sb_param(SequenceControlSet *scs, PictureParentContro
     EB_FREE_ARRAY(pcs->b64_geom);
     EB_MALLOC_ARRAY(pcs->b64_geom, scs->b64_total_count);
     memcpy(pcs->b64_geom, scs->b64_geom, sizeof(B64Geom) * scs->b64_total_count);
-    EB_FREE_ARRAY(pcs->sb_geom);
-    EB_MALLOC_ARRAY(pcs->sb_geom, scs->sb_total_count);
-    memcpy(pcs->sb_geom, scs->sb_geom, sizeof(SbGeom) * scs->sb_total_count);
+    free_sb_geoms(pcs->sb_geom);
+    // allocate buffers and copy data preserving dst pointers
+    alloc_sb_geoms(&pcs->sb_geom, scs->picture_width_in_sb, scs->picture_height_in_sb, scs->max_block_cnt);
+    copy_sb_geoms(pcs->sb_geom, scs->sb_geom, scs->picture_width_in_sb, scs->picture_height_in_sb, scs->max_block_cnt);
     pcs->is_pcs_sb_params = true;
     return EB_ErrorNone;
 }
@@ -676,6 +705,17 @@ static void update_new_param(SequenceControlSet *scs) {
     scs->chroma_height               = scs->max_input_luma_height >> subsampling_y;
     scs->static_config.source_width  = scs->max_input_luma_width;
     scs->static_config.source_height = scs->max_input_luma_height;
+#if FTR_SFRAME_POSI
+    scs->seq_header.max_frame_width  = scs->static_config.forced_max_frame_width > 0
+         ? scs->static_config.forced_max_frame_width
+         : scs->static_config.sframe_dist > 0 || scs->static_config.sframe_posi.sframe_posis ? 16384
+                                                                                             : scs->max_input_luma_width;
+    scs->seq_header.max_frame_height = scs->static_config.forced_max_frame_height > 0
+        ? scs->static_config.forced_max_frame_height
+        : scs->static_config.sframe_dist > 0 || scs->static_config.sframe_posi.sframe_posis
+        ? 8704
+        : scs->max_input_luma_height;
+#else
     scs->seq_header.max_frame_width  = scs->static_config.forced_max_frame_width > 0
          ? scs->static_config.forced_max_frame_width
          : scs->static_config.sframe_dist > 0 ? 16384
@@ -684,6 +724,7 @@ static void update_new_param(SequenceControlSet *scs) {
         ? scs->static_config.forced_max_frame_height
         : scs->static_config.sframe_dist > 0 ? 8704
                                              : scs->max_input_luma_height;
+#endif // FTR_SFRAME_POSI
 
     svt_aom_derive_input_resolution(&scs->input_resolution, scs->max_input_luma_width * scs->max_input_luma_height);
 
@@ -721,7 +762,9 @@ static void update_rate_info(ResourceCoordinationContext *ctx, EbBufferHeaderTyp
     EbPrivDataNode *node = (EbPrivDataNode *)input_ptr->p_app_private;
     while (node) {
         if (node->node_type == RATE_CHANGE_EVENT) {
+#if !OPT_RATE_ON_THE_FLY_NO_KF
             if (input_ptr->pic_type == EB_AV1_KEY_PICTURE) {
+#endif
                 svt_aom_assert_err(node->size == sizeof(SvtAv1RateInfo) && node->data,
                                    "invalide private data of type RATE_CHANGE_EVENT");
                 SvtAv1RateInfo *input_pic_def = (SvtAv1RateInfo *)node->data;
@@ -730,11 +773,38 @@ static void update_rate_info(ResourceCoordinationContext *ctx, EbBufferHeaderTyp
                 if (input_pic_def->target_bit_rate != 0)
                     scs->static_config.target_bit_rate = input_pic_def->target_bit_rate;
                 ctx->seq_param_change = true;
+#if !OPT_RATE_ON_THE_FLY_NO_KF
             }
+#endif
         }
         node = node->next;
     }
 }
+#if FTR_FRAME_RATE_ON_THE_FLY
+// Update the target rate, sequence QP...
+static void update_frame_rate_info(ResourceCoordinationContext *ctx, EbBufferHeaderType *input_ptr,
+                                   SequenceControlSet *scs) {
+    EbPrivDataNode *node = (EbPrivDataNode *)input_ptr->p_app_private;
+    while (node) {
+        if (node->node_type == FRAME_RATE_CHANGE_EVENT) {
+            svt_aom_assert_err(node->size == sizeof(SvtAv1FrameRateInfo) && node->data,
+                               "invalid private data of type FRAME_RATE_CHANGE_EVENT");
+            SvtAv1FrameRateInfo *input_pic_def        = (SvtAv1FrameRateInfo *)node->data;
+            scs->static_config.frame_rate_numerator   = input_pic_def->frame_rate_numerator;
+            scs->static_config.frame_rate_denominator = input_pic_def->frame_rate_denominator;
+#if FIX_FPS_CALC
+            scs->frame_rate = (double)scs->static_config.frame_rate_numerator /
+                (double)scs->static_config.frame_rate_denominator;
+#else
+            scs->frame_rate =
+                ((scs->static_config.frame_rate_numerator << 8) / (scs->static_config.frame_rate_denominator)) << 8;
+#endif
+            ctx->seq_param_change = true;
+        }
+        node = node->next;
+    }
+}
+#endif
 static void update_frame_event(PictureParentControlSet *pcs, uint64_t pic_num) {
     SequenceControlSet *scs  = pcs->scs;
     EbPrivDataNode     *node = (EbPrivDataNode *)pcs->input_ptr->p_app_private;
@@ -751,6 +821,14 @@ static void update_frame_event(PictureParentControlSet *pcs, uint64_t pic_num) {
             svt_aom_assert_err(node->size == sizeof(SvtAv1RoiMapEvt *) && node->data,
                                "invalide private data of type ROI_MAP_EVENT");
             scs->enc_ctx->roi_map_evt = (SvtAv1RoiMapEvt *)node->data;
+#if FTR_PER_FRAME_QUALITY
+        } else if (node->node_type == COMPUTE_QUALITY_EVENT) {
+            svt_aom_assert_err(node->size == sizeof(SvtAv1ComputeQualityInfo) && node->data,
+                               "invalid private data of type COMPUTE_QUALITY_EVENT");
+            SvtAv1ComputeQualityInfo *quality_info = (SvtAv1ComputeQualityInfo *)node->data;
+            pcs->compute_psnr                      = pcs->compute_psnr || quality_info->compute_psnr;
+            pcs->compute_ssim                      = pcs->compute_ssim || quality_info->compute_ssim;
+#endif
         }
         node = node->next;
     }
@@ -762,7 +840,6 @@ static void update_frame_event(PictureParentControlSet *pcs, uint64_t pic_num) {
     }
 }
 
-#if OPT_LD_LATENCY2
 // When the end of sequence recieved, there is no need to inject a new PCS.
 // terminating_picture_number and terminating_sequence_flag_received are set. When all
 // the pictures in the packetiztion queue are processed, EOS is signalled to the application.
@@ -783,12 +860,24 @@ static void set_eos_terminating_signals(PictureParentControlSet *pcs) {
         tmp_out_str->n_filled_len = 0;
 
         svt_post_full_object(tmp_out_str_wrp);
+
+        // if applicable, also need to signal recon EOS
+        if (scs->static_config.recon_enabled) {
+            EbObjectWrapper *tmp_out_recon_wrp;
+            svt_get_empty_object(scs->enc_ctx->recon_output_fifo_ptr, &tmp_out_recon_wrp);
+            EbBufferHeaderType *tmp_out_recon = (EbBufferHeaderType *)tmp_out_recon_wrp->object_ptr;
+
+            tmp_out_recon->flags        = EB_BUFFERFLAG_EOS;
+            tmp_out_recon->n_filled_len = 0;
+
+            svt_post_full_object(tmp_out_recon_wrp);
+        }
+
         release_references_eos(scs);
     }
 
     svt_release_mutex(enc_ctx->total_number_of_shown_frames_mutex);
 }
-#endif
 
 /* Resource Coordination Kernel */
 /*********************************************************************************
@@ -863,6 +952,10 @@ void *svt_aom_resource_coordination_kernel(void *input_ptr) {
         update_input_pic_def(context_ptr, eb_input_ptr, scs);
         // Update the target rate
         update_rate_info(context_ptr, eb_input_ptr, scs);
+#if FTR_FRAME_RATE_ON_THE_FLY
+        // Update the frame rate
+        update_frame_rate_info(context_ptr, eb_input_ptr, scs);
+#endif
         // If config changes occured since the last picture began encoding, then
         //   prepare a new scs containing the new changes and update the state
         //   of the previous Active scs
@@ -883,8 +976,16 @@ void *svt_aom_resource_coordination_kernel(void *input_ptr) {
             const uint32_t input_size = scs->max_input_luma_width * scs->max_input_luma_height;
             svt_aom_derive_input_resolution(&scs->input_resolution, input_size);
 
-            svt_aom_b64_geom_init(scs);
-            svt_aom_sb_geom_init(scs);
+            scs->pic_width_in_b64  = DIVIDE_AND_CEIL(scs->max_input_luma_width, scs->b64_size);
+            scs->pic_height_in_b64 = DIVIDE_AND_CEIL(scs->max_input_luma_height, scs->b64_size);
+            scs->b64_total_count   = scs->pic_width_in_b64 * scs->pic_height_in_b64;
+
+            scs->picture_width_in_sb  = DIVIDE_AND_CEIL(scs->max_input_luma_width, scs->sb_size);
+            scs->picture_height_in_sb = DIVIDE_AND_CEIL(scs->max_input_luma_height, scs->sb_size);
+            scs->sb_total_count       = scs->picture_width_in_sb * scs->picture_height_in_sb;
+
+            b64_geom_init(scs, scs->max_input_luma_width, scs->max_input_luma_height, &scs->b64_geom);
+            sb_geom_init(scs, scs->max_input_luma_width, scs->max_input_luma_height, &scs->sb_geom);
 
             // sf_identity
             svt_av1_setup_scale_factors_for_frame(&scs->sf_identity,
@@ -1040,6 +1141,8 @@ void *svt_aom_resource_coordination_kernel(void *input_ptr) {
             pcs->y8b_wrapper          = y8b_wrapper;
             pcs->end_of_sequence_flag = end_of_sequence_flag;
             pcs->rc_reset_flag        = false;
+            pcs->compute_psnr         = scs->static_config.stat_report;
+            pcs->compute_ssim         = scs->static_config.stat_report;
             update_frame_event(pcs, context_ptr->picture_number_array[instance_index]);
             pcs->is_not_scaled = (scs->static_config.superres_mode == SUPERRES_NONE) &&
                 scs->static_config.resize_mode == RESIZE_NONE;
@@ -1109,10 +1212,18 @@ void *svt_aom_resource_coordination_kernel(void *input_ptr) {
                 pcs->qp_on_the_fly = false;
                 pcs->picture_qp    = (uint8_t)scs->static_config.qp;
             }
+#if FTR_SFRAME_QP
+            pcs->sframe_qp_offset = 0;
+#endif //FTR_SFRAME_QP
+
             // Initialize variables for calculating the average QP
-            pcs->tot_qindex               = 0;
-            pcs->valid_qindex_area        = 0;
-            pcs->ts_duration              = (double)10000000 * (1 << 16) / scs->frame_rate;
+            pcs->tot_qindex        = 0;
+            pcs->valid_qindex_area = 0;
+#if FIX_FPS_CALC
+            pcs->ts_duration = (double)10000000 / scs->frame_rate;
+#else
+            pcs->ts_duration = (double)10000000 * (1 << 16) / scs->frame_rate;
+#endif
             scs->enc_ctx->initial_picture = false;
             pcs->sframe_ref_pruned        = false;
 
@@ -1133,7 +1244,6 @@ void *svt_aom_resource_coordination_kernel(void *input_ptr) {
                 // y8b follows longest life cycle of pa ref and input. so it needs to build on top of live count of pa ref
                 svt_object_inc_live_count(pcs->y8b_wrapper, 1);
             }
-#if OPT_LD_LATENCY2
             // Get Empty Output Results Object
             // For the low delay mode, buffering for receiving EOS does not happen
             if (scs->static_config.pred_structure == LOW_DELAY) {
@@ -1199,35 +1309,6 @@ void *svt_aom_resource_coordination_kernel(void *input_ptr) {
                 }
             }
             prev_pcs_wrapper_ptr = pcs_wrapper;
-
-#else
-            // Get Empty Output Results Object
-            if (pcs->picture_number > 0 && (prev_pcs_wrapper_ptr != NULL)) {
-                PictureParentControlSet *ppcs_out = (PictureParentControlSet *)prev_pcs_wrapper_ptr->object_ptr;
-
-                ppcs_out->end_of_sequence_flag = end_of_sequence_flag;
-                // since overlay frame has the end of sequence set properly, set the end of sequence to true in the alt ref picture
-                if (ppcs_out->is_overlay && end_of_sequence_flag)
-                    ppcs_out->alt_ref_ppcs_ptr->end_of_sequence_flag = true;
-
-                reset_pcs_av1(ppcs_out);
-
-                svt_get_empty_object(context_ptr->resource_coordination_results_output_fifo_ptr, &output_wrapper_ptr);
-                out_results = (ResourceCoordinationResults *)output_wrapper_ptr->object_ptr;
-
-                if (scs->static_config.enable_overlays == true) {
-                    // ppcs live_count + 1 for PictureAnalysis & PictureDecision, will svt_release_object(ppcs) at the end of svt_aom_picture_decision_kernel.
-                    svt_object_inc_live_count(prev_pcs_wrapper_ptr, 1);
-                    svt_object_inc_live_count(
-                        ((PictureParentControlSet *)prev_pcs_wrapper_ptr->object_ptr)->scs_wrapper, 1);
-                }
-
-                out_results->pcs_wrapper = prev_pcs_wrapper_ptr;
-                // Post the finished Results Object
-                svt_post_full_object(output_wrapper_ptr);
-            }
-            prev_pcs_wrapper_ptr = pcs_wrapper;
-#endif
         }
         // Release the Input Command
         svt_release_object(eb_input_cmd_wrapper);

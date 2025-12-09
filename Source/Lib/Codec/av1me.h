@@ -84,6 +84,18 @@ int svt_av1_full_pixel_search(struct PictureControlSet *pcs, IntraBcContext /*MA
                               int *cost_list, const Mv *ref_mv, int var_max, int rd, int x_pos, int y_pos, int intra);
 int svt_aom_mv_err_cost(const Mv *mv, const Mv *ref, const int *mvjcost, int *mvcost[2], int error_per_bit);
 int svt_aom_mv_err_cost_light(const Mv *mv, const Mv *ref);
+#if CONFIG_ENABLE_OBMC
+struct ModeDecisionContext;
+struct Av1Common;
+int svt_av1_obmc_full_pixel_search(struct ModeDecisionContext *ctx, IntraBcContext *x, const Mv *mvp_full, int sadpb,
+                                   const AomVarianceFnPtr *fn_ptr, const Mv *ref_mv, Mv *dst_mv, int is_second);
+int svt_av1_find_best_obmc_sub_pixel_tree_up(struct ModeDecisionContext *ctx, IntraBcContext *x,
+                                             const struct Av1Common *const cm, int mi_row, int mi_col, Mv *bestmv,
+                                             const Mv *ref_mv, int allow_hp, int error_per_bit,
+                                             const AomVarianceFnPtr *vfp, int forced_stop, int iters_per_step,
+                                             int *mvjcost, int *mvcost[2], int *distortion, unsigned int *sse1,
+                                             int is_second, int use_accurate_subpel_search);
+#endif
 #ifdef __cplusplus
 } // extern "C"
 #endif

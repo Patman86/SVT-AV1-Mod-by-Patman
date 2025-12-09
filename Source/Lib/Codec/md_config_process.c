@@ -192,26 +192,24 @@ static INLINE int aom_get_qmlevel(int qindex, int first, int last) {
 }
 
 // Polynomial to determine QM levels tuned for still images
-static INLINE int psy_still_get_qmlevel(int qindex, int min, int max) {
+static INLINE int svt_av1_still_get_qmlevel(int qindex, int min, int max) {
     // Polynomial coefficients
-    const double coeffs[] = {
-        1.10464272e-14,
-        -9.78597634e-12,
-        3.46261763e-09,
-        -6.26759877e-07,
-        6.10876647e-05,
-        -3.04942759e-03,
-        4.79930113e-02,
-        9.86922373e+00
-    };
+    static const double coeffs[] = {1.10464272e-14,
+                                    -9.78597634e-12,
+                                    3.46261763e-09,
+                                    -6.26759877e-07,
+                                    6.10876647e-05,
+                                    -3.04942759e-03,
+                                    4.79930113e-02,
+                                    9.86922373e+00};
     // Degree of the polynomial
     const int degree = 7;
 
-    double result = 0.0;
-    double x = 1.0;
-    for (int i = degree; i >= 0; i--) {
-        result += coeffs[i] * x;
-        x *= qindex;
+    double result  = 0.0;
+    double q_power = 1.0;
+    for (int coeff_idx = degree; coeff_idx >= 0; coeff_idx--) {
+        result += coeffs[coeff_idx] * q_power;
+        q_power *= qindex;
     }
 
     const int qm_level = (int)round(result);
@@ -265,15 +263,28 @@ static void svt_av1_qm_init(PictureParentControlSet *pcs) {
         const int32_t base_qindex        = pcs->frm_hdr.quantization_params.base_q_idx;
 
         switch (pcs->scs->static_config.tune) {
-            case 4:
-                pcs->frm_hdr.quantization_params.qm[AOM_PLANE_Y] = psy_still_get_qmlevel(base_qindex, min_qmlevel, max_qmlevel);
-                pcs->frm_hdr.quantization_params.qm[AOM_PLANE_U] = psy_still_get_qmlevel(base_qindex + pcs->frm_hdr.quantization_params.delta_q_ac[AOM_PLANE_U], min_chroma_qmlevel, max_chroma_qmlevel);
-                pcs->frm_hdr.quantization_params.qm[AOM_PLANE_V] = psy_still_get_qmlevel(base_qindex + pcs->frm_hdr.quantization_params.delta_q_ac[AOM_PLANE_V], min_chroma_qmlevel, max_chroma_qmlevel);
+        case TUNE_IQ:
+            pcs->frm_hdr.quantization_params.qm[AOM_PLANE_Y] = svt_av1_still_get_qmlevel(
+                base_qindex, min_qmlevel, max_qmlevel);
+            pcs->frm_hdr.quantization_params.qm[AOM_PLANE_U] = svt_av1_still_get_qmlevel(
+                base_qindex + pcs->frm_hdr.quantization_params.delta_q_ac[AOM_PLANE_U],
+                min_chroma_qmlevel,
+                max_chroma_qmlevel);
+            pcs->frm_hdr.quantization_params.qm[AOM_PLANE_V] = svt_av1_still_get_qmlevel(
+                base_qindex + pcs->frm_hdr.quantization_params.delta_q_ac[AOM_PLANE_V],
+                min_chroma_qmlevel,
+                max_chroma_qmlevel);
             break;
-            default:
-                pcs->frm_hdr.quantization_params.qm[AOM_PLANE_Y] = aom_get_qmlevel(base_qindex, min_qmlevel, max_qmlevel);
-                pcs->frm_hdr.quantization_params.qm[AOM_PLANE_U] = aom_get_qmlevel(base_qindex + pcs->frm_hdr.quantization_params.delta_q_ac[AOM_PLANE_U], min_chroma_qmlevel, max_chroma_qmlevel);
-                pcs->frm_hdr.quantization_params.qm[AOM_PLANE_V] = aom_get_qmlevel(base_qindex + pcs->frm_hdr.quantization_params.delta_q_ac[AOM_PLANE_V], min_chroma_qmlevel, max_chroma_qmlevel);
+        default:
+            pcs->frm_hdr.quantization_params.qm[AOM_PLANE_Y] = aom_get_qmlevel(base_qindex, min_qmlevel, max_qmlevel);
+            pcs->frm_hdr.quantization_params.qm[AOM_PLANE_U] = aom_get_qmlevel(
+                base_qindex + pcs->frm_hdr.quantization_params.delta_q_ac[AOM_PLANE_U],
+                min_chroma_qmlevel,
+                max_chroma_qmlevel);
+            pcs->frm_hdr.quantization_params.qm[AOM_PLANE_V] = aom_get_qmlevel(
+                base_qindex + pcs->frm_hdr.quantization_params.delta_q_ac[AOM_PLANE_V],
+                min_chroma_qmlevel,
+                max_chroma_qmlevel);
             break;
         }
 #if DEBUG_QM_LEVEL
@@ -578,7 +589,6 @@ static void av1_setup_motion_field(Av1Common *cm, PictureControlSet *pcs) {
         motion_field_projection(cm, pcs, LAST2_FRAME, 2);
 }
 EbErrorType svt_av1_hash_table_create(HashTable *p_hash_table);
-void       *rtime_alloc_block_hash_block_is_same(size_t size) { return malloc(size); }
 int32_t     svt_aom_noise_log1p_fp16(int32_t noise_level_fp16);
 /* Determine the frame complexity level (stored under pcs->coeff_lvl) based
 on the ME distortion and QP. */
@@ -943,49 +953,26 @@ void *svt_aom_mode_decision_configuration_kernel(void *input_ptr) {
                 const int pic_width  = pcs->ppcs->aligned_width;
                 const int pic_height = pcs->ppcs->aligned_height;
 
-                uint32_t *block_hash_values[2][2];
-                int8_t   *is_block_same[2][3];
-                int       k, j;
+                uint32_t *block_hash_values[2];
+                int       j;
 
-                for (k = 0; k < 2; k++) {
-                    for (j = 0; j < 2; j++)
-                        block_hash_values[k][j] = rtime_alloc_block_hash_block_is_same(sizeof(uint32_t) * pic_width *
-                                                                                       pic_height);
-                    for (j = 0; j < 3; j++)
-                        is_block_same[k][j] = rtime_alloc_block_hash_block_is_same(sizeof(int8_t) * pic_width *
-                                                                                   pic_height);
-                }
+                for (j = 0; j < 2; j++) { EB_MALLOC_ARRAY_NO_CHECK(block_hash_values[j], pic_width * pic_height); }
                 svt_aom_rtime_alloc_svt_av1_hash_table_create(&pcs->hash_table);
                 Yv12BufferConfig cpi_source;
                 svt_aom_link_eb_to_aom_buffer_desc_8bit(pcs->ppcs->enhanced_pic, &cpi_source);
-
-                svt_av1_crc_calculator_init(&pcs->crc_calculator1, 24, 0x5D6DCB);
-                svt_av1_crc_calculator_init(&pcs->crc_calculator2, 24, 0x864CFB);
-
-                svt_av1_generate_block_2x2_hash_value(&cpi_source, block_hash_values[0], is_block_same[0], pcs);
+                svt_av1_crc32c_calculator_init(&pcs->crc_calculator);
+                svt_av1_generate_block_2x2_hash_value(&cpi_source, block_hash_values[0], pcs);
                 uint8_t       src_idx     = 0;
                 const uint8_t max_sb_size = pcs->ppcs->intraBC_ctrls.max_block_size_hash;
                 for (int size = 4; size <= max_sb_size; size <<= 1, src_idx = !src_idx) {
                     const uint8_t dst_idx = !src_idx;
-                    svt_av1_generate_block_hash_value(&cpi_source,
-                                                      size,
-                                                      block_hash_values[src_idx],
-                                                      block_hash_values[dst_idx],
-                                                      is_block_same[src_idx],
-                                                      is_block_same[dst_idx],
-                                                      pcs);
+                    svt_av1_generate_block_hash_value(
+                        &cpi_source, size, block_hash_values[src_idx], block_hash_values[dst_idx], pcs);
                     if (size != 4 || pcs->ppcs->intraBC_ctrls.hash_4x4_blocks)
-                        svt_aom_rtime_alloc_svt_av1_add_to_hash_map_by_row_with_precal_data(&pcs->hash_table,
-                                                                                            block_hash_values[dst_idx],
-                                                                                            is_block_same[dst_idx][2],
-                                                                                            pic_width,
-                                                                                            pic_height,
-                                                                                            size);
+                        svt_aom_rtime_alloc_svt_av1_add_to_hash_map_by_row_with_precal_data(
+                            &pcs->hash_table, block_hash_values[dst_idx], pic_width, pic_height, size);
                 }
-                for (k = 0; k < 2; k++) {
-                    for (j = 0; j < 2; j++) free(block_hash_values[k][j]);
-                    for (j = 0; j < 3; j++) free(is_block_same[k][j]);
-                }
+                for (j = 0; j < 2; j++) { EB_FREE_ARRAY(block_hash_values[j]); }
             }
 
             svt_av1_init3smotion_compensation(&pcs->ss_cfg, pcs->ppcs->enhanced_pic->stride_y);

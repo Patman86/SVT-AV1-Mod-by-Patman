@@ -37,22 +37,7 @@ extern "C" {
 #define MAX_CU_COST (0xFFFFFFFFFFFFFFFFull >> 1)
 #define MAX_MODE_COST (13754408443200 * 8) // RDCOST(6544618, 128 * 128 * 255 * 255, 128 * 128 * 255 * 255) * 8;
 
-static const uint32_t intra_luma_to_chroma[INTRA_MODES] = // EB_INTRA_PLANAR
-    {
-        UV_DC_PRED, // Average of above and left pixels
-        UV_V_PRED, // Vertical
-        UV_H_PRED, // Horizontal
-        UV_D45_PRED, // Directional 45  degree
-        UV_D135_PRED, // Directional 135 degree
-        UV_D113_PRED, // Directional 113 degree
-        UV_D157_PRED, // Directional 157 degree
-        UV_D203_PRED, // Directional 203 degree
-        UV_D67_PRED, // Directional 67  degree
-        UV_SMOOTH_PRED, // Combination of horizontal and vertical interpolation
-        UV_SMOOTH_V_PRED, // Vertical interpolation
-        UV_SMOOTH_H_PRED, // Horizontal interpolation
-        UV_PAETH_PRED, // Predict from the direction of smallest gradient
-};
+extern const uint32_t intra_luma_to_chroma[INTRA_MODES];
 
 typedef struct {
     Mv      mfmv0;
@@ -154,12 +139,10 @@ typedef struct IntraBcContext {
     int        **mv_cost_stack;
     // buffer for hash value calculation of a block
     // used only in svt_av1_get_block_hash_value()
-    // [first hash/second hash]
     // [two buffers used ping-pong]
-    uint32_t      *hash_value_buffer[2][2];
-    uint8_t        is_exhaustive_allowed;
-    CRC_CALCULATOR crc_calculator1;
-    CRC_CALCULATOR crc_calculator2;
+    uint32_t *hash_value_buffer[2];
+    uint8_t   is_exhaustive_allowed;
+    CRC32C    crc_calculator;
     // use approximate rate for inter cost (set at pic-level b/c some pic-level initializations will
     // be removed)
     uint8_t approx_inter_rate;
@@ -194,7 +177,7 @@ typedef struct BlkStruct {
     // svt_aom_d2_inter_depth_block_decision()
     uint64_t     default_cost;
     uint64_t     total_rate;
-    uint32_t     full_dist;
+    uint64_t     full_dist;
     QuantDcData  quant_dc;
     EobData      eob;
     TxType       tx_type[MAX_TXB_COUNT];

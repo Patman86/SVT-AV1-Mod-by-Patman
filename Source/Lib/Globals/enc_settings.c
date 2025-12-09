@@ -238,18 +238,16 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if ((config->enable_adaptive_quantization || config->variance_boost_strength) && config->extended_crf_qindex_offset > (7 * 4)) {
-        SVT_ERROR("Instance %u: %s must be [0 - %d]\n",
-                  channel_number + 1,
-                  "CRF",
-                  70);
-        return_error = EB_ErrorBadParameter;
-    }
     if (config->qp > MAX_QP_VALUE) {
         SVT_ERROR("Instance %u: %s must be [0 - %d]\n",
                   channel_number + 1,
                   config->enable_adaptive_quantization ? "CRF" : "QP",
                   MAX_QP_VALUE);
+        return_error = EB_ErrorBadParameter;
+    }
+
+    if ((config->qp == MAX_QP_VALUE && config->extended_crf_qindex_offset > (7 * 4))) {
+        SVT_ERROR("Instance %u: %s must be [0 - %d]\n", channel_number + 1, "CRF", 70);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -301,12 +299,20 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     }
 
     // Check if the current input video is conformant with the Level constraint
+#if FIX_FPS_CALC
+    if (scs->frame_rate > 240) {
+#else
     if (scs->frame_rate > (240 << 16)) {
+#endif
         SVT_ERROR("Instance %u: The maximum allowed frame rate is 240 fps\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
     // Check that the frame_rate is non-zero
+#if FIX_FPS_CALC
     if (!scs->frame_rate) {
+#else
+    if (!scs->frame_rate) {
+#endif
         SVT_ERROR("Instance %u: The frame rate should be greater than 0 fps \n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
@@ -317,7 +323,12 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
-
+#if !FIX_FPS_CALC
+    if (scs->static_config.frame_rate_numerator < scs->static_config.frame_rate_denominator) {
+        SVT_ERROR("Instance %u: Invalid frame rate. The minimum supported frame rate is 1 fps.\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+#endif
     if (config->recode_loop > 4) {
         SVT_ERROR("Instance %u: The recode_loop must be [0 - 4] \n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
@@ -435,8 +446,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_ERROR("Instance %u : Invalid StatReport. StatReport must be [0 - 1]\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
-    if (config->screen_content_mode > 2) {
-        SVT_ERROR("Instance %u : Invalid screen_content_mode. screen_content_mode must be [0 - 2]\n",
+    if (config->screen_content_mode > 3) {
+        SVT_ERROR("Instance %u : Invalid screen_content_mode. screen_content_mode must be [0 - 3]\n",
                   channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
@@ -542,29 +553,35 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             config->fast_decode);
         return_error = EB_ErrorBadParameter;
     }
-
-    if (config->tune > 4) {
+    if (config->tune > TUNE_FILM_GRAIN) {
         SVT_ERROR(
-            "Instance %u: Invalid tune flag [0 - 4, 0: VQ, 1: PSNR, 2: SSIM, 3: Film Grain, 4: Still Picture], your "
-            "input: %d\n",
+            "Instance %u: Invalid tune flag [0 - 4: 0 for VQ, 1 for PSNR, 2 for SSIM, 3 for IQ, 4 for Film Grain], "
+            "your input: %d\n",
             channel_number + 1,
             config->tune);
         return_error = EB_ErrorBadParameter;
     }
-    if (config->tune == 2 || config->tune == 4) {
-        if (config->rate_control_mode != 0 || config->pred_structure != SVT_AV1_PRED_RANDOM_ACCESS) {
-            SVT_ERROR("Instance %u: Tunes SSIM & Tune Still Picture currently only support the CRF rate control mode\n",
+    if (config->tune == TUNE_SSIM) {
+        if (config->rate_control_mode != 0 || config->pred_structure != RANDOM_ACCESS) {
+            SVT_ERROR("Instance %u: tune SSIM only supports CRF rate control mode currently\n",
                       channel_number + 1,
                       config->tune);
             return_error = EB_ErrorBadParameter;
+        } else {
+            SVT_WARN(
+                "Instance %u: tune ssim (2) is supported for testing and debugging purposes."
+                "This configuration should not be used for any benchmarking analysis at this stage\n",
+                channel_number + 1);
         }
     }
-    if (config->tune == 3) {
+
+    if (config->tune == TUNE_FILM_GRAIN) {
         SVT_WARN(
             "Instance %u: This tune is optimized for content that has moderate to heavy film grain. "
             "Keep in mind for benchmarking analysis that this configuration will likely harm metric performance.\n",
             channel_number + 1);
     }
+
     if (config->superres_mode > SUPERRES_AUTO) {
         SVT_ERROR("Instance %u: invalid superres-mode %d, should be in the range [%d - %d]\n",
                   channel_number + 1,
@@ -660,13 +677,17 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
-    // Limit 8K & 16K configurations (due to memory constraints)
-    uint64_t pixel_count = (uint64_t)(scs->max_input_luma_width * scs->max_input_luma_height);
-    if (pixel_count >= INPUT_SIZE_8K_TH) {
-        if (config->enc_mode >= ENC_M2 && config->enc_mode <= ENC_M7) {
-            SVT_WARN("Instance %u: 8K and higher resolution support below M8 isn't officially supported. 64 GB of available memory are recommended.\n", channel_number + 1);
-        } else if (config->enc_mode < ENC_M2) {
-            SVT_ERROR("Instance %u: 8K and higher resolution support is limited to M2 and faster presets.\n", channel_number + 1);
+    // Block the use of M4 or lower for resolutions higher than 4K, unless still-image coding is used (due to memory constraints)
+    if (!scs->static_config.avif &&
+        (uint64_t)(scs->max_input_luma_width * scs->max_input_luma_height) > INPUT_SIZE_4K_TH &&
+        config->enc_mode <= ENC_M4) {
+        if (config->enc_mode >= ENC_M2) {
+            SVT_WARN(
+                "Instance %u: 8K+ resolution support below M5 isn't officially supported. 64 GB of available memory "
+                "are recommended.\n",
+                channel_number + 1);
+        } else {
+            SVT_ERROR("Instance %u: 8K+ resolution support is limited to M2 and faster presets.\n", channel_number + 1);
             return_error = EB_ErrorBadParameter;
         }
     }
@@ -707,15 +728,59 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_ERROR("Error instance %u: switch frame feature does not support flat IPPP\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
+#if FTR_SFRAME_DEC_POSI
+    if (config->sframe_dist > 0 &&
+        (config->sframe_mode < SFRAME_STRICT_BASE || config->sframe_mode > SFRAME_DEC_POSI_BASE)) {
+        SVT_ERROR("Error instance %u: invalid switch frame mode %d, should be in the range [%d - %d]\n",
+                  channel_number + 1,
+                  config->sframe_mode,
+                  SFRAME_STRICT_BASE,
+                  SFRAME_DEC_POSI_BASE);
+        return_error = EB_ErrorBadParameter;
+    }
+#else
     if (config->sframe_dist > 0 && config->sframe_mode != SFRAME_STRICT_BASE &&
+#if FTR_SFRAME_FLEX
+        config->sframe_mode != SFRAME_NEAREST_BASE && config->sframe_mode != SFRAME_FLEXIBLE_BASE) {
+        SVT_ERROR("Error instance %u: invalid switch frame mode %d, should be in the range [%d - %d]\n",
+                  channel_number + 1,
+                  config->sframe_mode,
+                  SFRAME_STRICT_BASE,
+                  SFRAME_FLEXIBLE_BASE);
+#else
         config->sframe_mode != SFRAME_NEAREST_BASE) {
         SVT_ERROR("Error instance %u: invalid switch frame mode %d, should be in the range [%d - %d]\n",
                   channel_number + 1,
                   config->sframe_mode,
                   SFRAME_STRICT_BASE,
                   SFRAME_NEAREST_BASE);
+#endif // FTR_SFRAME_FLEX
         return_error = EB_ErrorBadParameter;
     }
+#endif // FTR_SFRAME_DEC_POSI
+#if FTR_SFRAME_POSI
+#if FTR_SFRAME_DEC_POSI
+    if (config->sframe_posi.sframe_posis && !IS_SFRAME_FLEXIBLE_INSERT(config->sframe_mode)) {
+#else
+    if (config->sframe_posi.sframe_posis && config->sframe_mode != SFRAME_FLEXIBLE_BASE) {
+#endif // FTR_SFRAME_DEC_POSI
+        SVT_ERROR("Error instance %u: S-Frame positions are only supported in S-Frame Flexible ARF mode\n",
+                  channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+#endif // FTR_SFRAME_POSI
+#if FTR_SFRAME_QP
+    if (config->sframe_posi.sframe_qp_num && config->rate_control_mode != SVT_AV1_RC_MODE_CQP_OR_CRF) {
+        SVT_ERROR("Instance %u: S-Frame QP feature only supports CRF/CQP rate control mode\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+    if ((config->sframe_posi.sframe_qps && config->sframe_posi.sframe_qp_offsets) ||
+        (config->sframe_qp > 0 && config->sframe_qp_offset != 0)) {
+        SVT_ERROR("Instance %u: S-Frame QP feature cannot support QP value and QP offset at same time\n",
+                  channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+#endif // FTR_SFRAME_QP
 
     /* Warnings about the use of features that are incomplete */
     if (config->enable_adaptive_quantization == 1) {
@@ -799,10 +864,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     }
 
     if (config->pred_structure == LOW_DELAY) {
-        if (config->tune == 0 || config->tune == 3) {
+        if (config->tune == TUNE_VQ || config->tune == TUNE_FILM_GRAIN) {
             SVT_WARN("Instance %u: Tune %i is not applicable for low-delay, tune will be forced to 1.\n",
-                     channel_number + 1, config->tune);
-            config->tune = 1;
+                     channel_number + 1,
+                     config->tune);
+            config->tune = TUNE_PSNR;
         }
 
         if (config->superres_mode != 0) {
@@ -814,6 +880,10 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             SVT_ERROR("Instance %u: Overlay is not supported for low-delay.\n", channel_number + 1);
             return_error = EB_ErrorBadParameter;
         }
+    }
+
+    if (!config->rtc && config->enc_mode >= ENC_M10) {
+        SVT_WARN("Non-RTC M10+ are meant for automation tooling usage. Visual artifacts may occur otherwise.\n");
     }
 
     if (scs->static_config.scene_change_detection) {
@@ -828,10 +898,10 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             "consider using --fast-decode 1 or 2, especially if the intended decoder is running with "
             "limited multi-threading capabilities.\n");
     }
-    if ((config->tune == 0 || config->tune == 3) && config->fast_decode > 0) {
+    if (config->tune == TUNE_VQ && config->fast_decode > 0) {
         SVT_WARN(
             "--fast - decode has been developed and optimized with --tune 1. "
-            "Please use it with caution when encoding with --tune 0 or 3. You can also consider using "
+            "Please use it with caution when encoding with --tune 0. You can also consider using "
             "--tile-columns 1 if you are targeting a high quality encode and a multi-core "
             "high-performance decoder HW\n");
     }
@@ -896,12 +966,21 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     if (config->qp_scale_compress_strength < 0.0 || config->qp_scale_compress_strength > 8.0) {
         SVT_ERROR("Instance %u: QP scale compress strength must be between 0.0 and 8.0\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
-    }
-    else if (config->qp_scale_compress_strength > 4.0) {
+    } else if (config->qp_scale_compress_strength > 3.0) {
         SVT_WARN(
             "Instance %u: Using a high QP Scale Compress Strength is only useful under specific situations. "
             "Use with caution!\n",
             channel_number + 1);
+    }
+
+    if (config->max_tx_size != 32 && config->max_tx_size != 64) {
+        SVT_ERROR("Instance %u: Supported Max TX size values are 32 and 64\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+
+    if (config->ac_bias > 8.0 || config->ac_bias < 0.0) {
+        SVT_ERROR("Instance %u: AC bias strength must be between 0.0 and 8.0\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
     }
 
     if (config->noise_norm_strength > 4) {
@@ -914,21 +993,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (config->noise_norm_strength > 4) {
-        SVT_ERROR("Instance %u: Noise normalization strength must be between 0 and 4\n", channel_number + 1);
-        return_error = EB_ErrorBadParameter;
-    }
-
-    if (config->ac_bias > 8.0 || config->ac_bias < 0.0) {
-        SVT_ERROR("Instance %u: AC bias strength must be between 0.0 and 8.0\n", channel_number + 1);
-        return_error = EB_ErrorBadParameter;
-    }
-
-    if (config->spy_rd < 0 || config->spy_rd > 2) {
-        SVT_ERROR("Instance %u: spy-rd must be between 0 and 2\n", channel_number + 1);
-        return_error = EB_ErrorBadParameter;
-    }
-
     if (config->sharp_tx > 1) {
         SVT_ERROR("Instance %u: sharp-tx must be either 0 and 1\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
@@ -936,6 +1000,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
 
     if (config->hbd_mds > 2) {
         SVT_ERROR("Instance %u: hbd-mds must be between 0 and 2\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+
+    if (config->tx_bias > 3) {
+        SVT_ERROR("Instance %u: TX bias must be between 0 and 3\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -1096,19 +1165,30 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->sharpness                         = 1;
     config_ptr->lossless                          = false;
     config_ptr->avif                              = false;
-    config_ptr->extended_crf_qindex_offset        = 0;
     config_ptr->qp_scale_compress_strength        = 1;
-    config_ptr->max_32_tx_size                    = false;
-    config_ptr->adaptive_film_grain               = true;
-    config_ptr->noise_norm_strength               = 1;
-    config_ptr->kf_tf_strength                    = 1;
-    config_ptr->ac_bias                           = 1.0;
-    config_ptr->spy_rd                            = 0;
-    config_ptr->sharp_tx                          = 1;
-    config_ptr->hbd_mds                           = 0;
-    config_ptr->complex_hvs                       = 0;
-    config_ptr->alt_lambda_factors                = 1;
-    config_ptr->alt_ssim_tuning                   = false;
+#if FTR_SFRAME_POSI
+    config_ptr->sframe_posi.sframe_num   = 0;
+    config_ptr->sframe_posi.sframe_posis = NULL;
+#endif // FTR_SFRAME_POSI
+#if FTR_SFRAME_QP
+    config_ptr->sframe_posi.sframe_qp_num     = 0;
+    config_ptr->sframe_posi.sframe_qps        = NULL;
+    config_ptr->sframe_posi.sframe_qp_offsets = NULL;
+    config_ptr->sframe_qp                     = 0;
+    config_ptr->sframe_qp_offset              = 0;
+#endif // FTR_SFRAME_QP
+    config_ptr->adaptive_film_grain        = true;
+    config_ptr->max_tx_size                = 64;
+    config_ptr->extended_crf_qindex_offset = 0;
+    config_ptr->ac_bias                    = 1.0;
+    config_ptr->noise_norm_strength        = 1;
+    config_ptr->kf_tf_strength             = 1;
+    config_ptr->alt_lambda_factors         = 1;
+    config_ptr->sharp_tx                   = 1;
+    config_ptr->alt_ssim_tuning            = false;
+    config_ptr->hbd_mds                    = 0;
+    config_ptr->tx_bias                    = 0;
+    config_ptr->complex_hvs                = 0;
     return return_error;
 }
 
@@ -1161,12 +1241,12 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
 
         PRINT_CONFIG("preset / tune / pred struct", "%d / %s%s / %s\n",
                  config->enc_mode,
-                 config->tune == 0       ? "VQ"
-                     : config->tune == 1 ? "PSNR"
-                         : config->tune == 2 ? "SSIM"
-                             : config->tune == 3 ? "Film Grain"
-                                             : "Still Picture",
-                 (config->tune == 2 || config->tune == 4) && config->alt_ssim_tuning ? " (Alt)" : "",
+                 config->tune == TUNE_VQ         ? "VQ"
+                     : config->tune == TUNE_PSNR ? "PSNR"
+                     : config->tune == TUNE_SSIM ? "SSIM"
+                     : config->tune == TUNE_IQ   ? "IQ"
+                                                 : "Film Grain",
+                 (config->tune == TUNE_SSIM && config->alt_ssim_tuning) ? " (Alt)" : "",
                  config->pred_structure == LOW_DELAY           ? "low delay"
                      : config->pred_structure == RANDOM_ACCESS ? "random access"
                                                                : "Unknown pred structure");
@@ -1234,31 +1314,26 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                  config->luminance_qp_bias);
 
         switch (config->enable_tf) {
-        case 1: PRINT_CONFIG("temporal filtering strength", "%d", config->tf_strength); break;
-        case 2: PRINT_CONFIG("temporal filtering strength", "auto"); break;
+        case 1: PRINT_CONFIG("Temporal Filtering / keyframe strength", "%d / %d", config->tf_strength, config->kf_tf_strength); break;
+        case 2: PRINT_CONFIG("Temporal Filtering strength", "auto"); break;
         default: break;
         }
 
         PRINT_CONFIG("QP scale compress strength", "%.2f",
                  config->qp_scale_compress_strength);
 
+        if (config->ac_bias || config->tx_bias) {
+            PRINT_CONFIG("AC Bias Strength / TX Bias", "%.2f / %s",
+                    config->ac_bias,
+                    config->tx_bias == 1 ? "full"
+                 : (config->tx_bias == 2 ? "size only"
+                 : (config->tx_bias == 3 ? "interp. only" : "off")));
+        }
+
         if (config->noise_norm_strength >= 0) {
             PRINT_CONFIG("Noise Normalization Strength", "%d",
                 config->noise_norm_strength);
         }
-
-        if (config->kf_tf_strength > 0 && config->enable_tf == 1) {
-            PRINT_CONFIG("Keyframe TF Strength", "%d",
-                config->kf_tf_strength);
-        }
-
-        if (config->ac_bias > 0.0) {
-            PRINT_CONFIG("AC Bias Strength", "%.2f",
-                    config->ac_bias);
-        }
-        // 1 is full spy-rd, 2 is partial spy-rd
-        PRINT_CONFIG("spy-rd", "%s",
-        config->spy_rd == 1 ? "full" : (config->spy_rd == 2 ? "partial" : "no"));
     }
 #if DEBUG_BUFFERS
     PRINT_CONFIG("INPUT / OUTPUT", "%d / %d",
@@ -1269,10 +1344,10 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
              scs->pa_reference_picture_buffer_init_count,
              scs->reference_picture_buffer_init_count,
              scs->me_pool_init_count);
-    PRINT_CONFIG("ME_SEG_W / ME_SEG_H", "%d / %d",
+    PRINT_CONFIG("ME_SEG_W / ME_SEG_H", "%u / %u",
              scs->me_segment_col_count_array,
              scs->me_segment_row_count_array);
-    PRINT_CONFIG("ENC_DEC_SEG_W / ENC_DEC_SEG_H", "%d / %d",
+    PRINT_CONFIG("ENC_DEC_SEG_W / ENC_DEC_SEG_H", "%u / %u",
              scs->enc_dec_segment_col_count_array,
              scs->enc_dec_segment_row_count_array);
     PRINT_CONFIG("PA_P / ME_P / SBO_P / MDC_P / ED_P / EC_P", "%d / %d / %d / %d / %d / %d",
@@ -1364,9 +1439,55 @@ static EbErrorType str_to_uint(const char *nptr, uint32_t *out, char **nextptr) 
     return EB_ErrorNone;
 }
 
-static EbErrorType str_to_double(const char *nptr, double *out, char **nextptr) {
+#if RFCTR_PARSE_LIST
+static EbErrorType str_to_int8(const char *nptr, int8_t *out, char **nextptr) {
+    char   *endptr;
+    int32_t val;
+
+    val = strtol(nptr, &endptr, 0);
+
+    if (endptr == nptr || (!nextptr && *endptr))
+        return EB_ErrorBadParameter;
+
+    // check for the range
+    if (val < INT8_MIN || val > INT8_MAX)
+        return EB_ErrorBadParameter;
+
+    *out = (int8_t)val;
+    if (nextptr)
+        *nextptr = endptr;
+    return EB_ErrorNone;
+}
+
+static EbErrorType str_to_uint8(const char *nptr, uint8_t *out, char **nextptr) {
     char    *endptr;
-    double  val;
+    uint32_t val;
+
+    if (strtol(nptr, NULL, 0) < 0) {
+        return EB_ErrorBadParameter;
+    }
+
+    val = strtoul(nptr, &endptr, 0);
+
+    if (endptr == nptr || (!nextptr && *endptr))
+        return EB_ErrorBadParameter;
+
+    // check for the range
+    if (val > UINT8_MAX)
+        return EB_ErrorBadParameter;
+
+    *out = (uint8_t)val;
+    if (nextptr)
+        *nextptr = endptr;
+    return EB_ErrorNone;
+}
+
+#define str_to_int32 str_to_int
+#define str_to_uint32 str_to_uint
+
+static EbErrorType str_to_double(const char *nptr, double *out, char **nextptr) {
+    char  *endptr;
+    double val;
 
     val = strtod(nptr, &endptr);
 
@@ -1380,7 +1501,41 @@ static EbErrorType str_to_double(const char *nptr, double *out, char **nextptr) 
 }
 
 //assume the input list of values are in the format of "[v1,v2,v3,...]"
-static EbErrorType parse_list_s32(const char *nptr, int32_t *list, size_t n) {
+#define PARSE_LIST(list_type)                                                                    \
+    static EbErrorType parse_list_##list_type(const char *nptr, list_type##_t *list, size_t n) { \
+        const char *ptr = nptr;                                                                  \
+        char       *endptr;                                                                      \
+        size_t      i = 0;                                                                       \
+        memset(list, 0, n * sizeof(*list));                                                      \
+        while (*ptr) {                                                                           \
+            if (*ptr == '[' || *ptr == ']') {                                                    \
+                ptr++;                                                                           \
+                continue;                                                                        \
+            }                                                                                    \
+            list_type##_t rawval;                                                                \
+            EbErrorType   err = str_to_##list_type(ptr, &rawval, &endptr);                       \
+            if (err != EB_ErrorNone)                                                             \
+                return err;                                                                      \
+            if (i >= n) {                                                                        \
+                return EB_ErrorBadParameter;                                                     \
+            } else if (*endptr == ',' || *endptr == ']') {                                       \
+                endptr++;                                                                        \
+            } else if (*endptr) {                                                                \
+                return EB_ErrorBadParameter;                                                     \
+            }                                                                                    \
+            list[i++] = rawval;                                                                  \
+            ptr       = endptr;                                                                  \
+        }                                                                                        \
+        return EB_ErrorNone;                                                                     \
+    }
+PARSE_LIST(int8)
+PARSE_LIST(uint8)
+PARSE_LIST(int32)
+PARSE_LIST(uint32)
+PARSE_LIST(uint64)
+#else
+//assume the input list of values are in the format of "[v1,v2,v3,...]"
+static EbErrorType parse_list_int32(const char *nptr, int32_t *list, size_t n) {
     const char *ptr = nptr;
     char       *endptr;
     size_t      i = 0;
@@ -1408,7 +1563,7 @@ static EbErrorType parse_list_s32(const char *nptr, int32_t *list, size_t n) {
     return EB_ErrorNone;
 }
 
-static EbErrorType parse_list_u32(const char *nptr, uint32_t *list, size_t n) {
+static EbErrorType parse_list_uint32(const char *nptr, uint32_t *list, size_t n) {
     const char *ptr = nptr;
     char       *endptr;
     size_t      i = 0;
@@ -1436,7 +1591,7 @@ static EbErrorType parse_list_u32(const char *nptr, uint32_t *list, size_t n) {
     return EB_ErrorNone;
 }
 
-static EbErrorType parse_list_u64(const char *nptr, uint64_t *list, size_t n) {
+static EbErrorType parse_list_uint64(const char *nptr, uint64_t *list, size_t n) {
     const char *ptr = nptr;
     char       *endptr;
     size_t      i = 0;
@@ -1463,6 +1618,7 @@ static EbErrorType parse_list_u64(const char *nptr, uint64_t *list, size_t n) {
     }
     return EB_ErrorNone;
 }
+#endif // RFCTR_PARSE_LIST
 
 static uint32_t count_params(const char *nptr) {
     const char *ptr = nptr;
@@ -1513,8 +1669,8 @@ static EbErrorType str_to_crf(const char *nptr, EbSvtAv1EncConfiguration *config
     if (crf < 0)
         return EB_ErrorBadParameter;
 
-    uint32_t extended_q_index = (uint32_t)(crf * 4);
-    uint32_t qp = AOMMIN(MAX_QP_VALUE, (uint32_t)crf);
+    uint32_t extended_q_index           = (uint32_t)(crf * 4);
+    uint32_t qp                         = AOMMIN(MAX_QP_VALUE, (uint32_t)crf);
     uint32_t extended_crf_qindex_offset = extended_q_index - qp * 4;
 
     config_struct->qp                           = qp;
@@ -1850,6 +2006,12 @@ static EbErrorType str_to_sframe_mode(const char *nptr, EbSFrameMode *out) {
     } sframe_mode[] = {
         {"strict", SFRAME_STRICT_BASE},
         {"nearest", SFRAME_NEAREST_BASE},
+#if FTR_SFRAME_FLEX
+        {"flexible", SFRAME_FLEXIBLE_BASE},
+#endif // FTR_SFRAME_FLEX
+#if FTR_SFRAME_DEC_POSI
+        {"decposi", SFRAME_DEC_POSI_BASE},
+#endif // FTR_SFRAME_DEC_POSI
     };
     const size_t sframe_mode_size = sizeof(sframe_mode) / sizeof(sframe_mode[0]);
 
@@ -1922,7 +2084,7 @@ static EbErrorType str_to_frm_resz_evts(const char *nptr, SvtAv1FrameScaleEvts *
         EB_FREE(evts->start_frame_nums);
     EB_MALLOC(evts->start_frame_nums, param_count * sizeof(uint64_t));
     evts->evt_num = param_count;
-    return parse_list_u64(nptr, evts->start_frame_nums, param_count);
+    return parse_list_uint64(nptr, evts->start_frame_nums, param_count);
 }
 
 static EbErrorType str_to_resz_kf_denoms(const char *nptr, SvtAv1FrameScaleEvts *evts) {
@@ -1935,7 +2097,7 @@ static EbErrorType str_to_resz_kf_denoms(const char *nptr, SvtAv1FrameScaleEvts 
         EB_FREE(evts->resize_kf_denoms);
     EB_MALLOC(evts->resize_kf_denoms, param_count * sizeof(uint32_t));
     evts->evt_num = param_count;
-    return parse_list_u32(nptr, evts->resize_kf_denoms, param_count);
+    return parse_list_uint32(nptr, evts->resize_kf_denoms, param_count);
 }
 
 static EbErrorType str_to_resz_denoms(const char *nptr, SvtAv1FrameScaleEvts *evts) {
@@ -1948,8 +2110,79 @@ static EbErrorType str_to_resz_denoms(const char *nptr, SvtAv1FrameScaleEvts *ev
         EB_FREE(evts->resize_denoms);
     EB_MALLOC(evts->resize_denoms, param_count * sizeof(uint32_t));
     evts->evt_num = param_count;
-    return parse_list_u32(nptr, evts->resize_denoms, param_count);
+    return parse_list_uint32(nptr, evts->resize_denoms, param_count);
 }
+
+#if FTR_SFRAME_POSI
+static EbErrorType str_to_sframe_posi(const char *nptr, SvtAv1SFramePositions *posis) {
+    const uint32_t param_count = count_params(nptr);
+    if ((posis->sframe_num != 0 && posis->sframe_num != param_count) || param_count == 0) {
+        SVT_ERROR("Error: Size for the list passed to %s doesn't match %u\n", "sframe-posi", posis->sframe_num);
+        return EB_ErrorBadParameter;
+    }
+    if (posis->sframe_posis)
+        EB_FREE(posis->sframe_posis);
+    EB_MALLOC(posis->sframe_posis, param_count * sizeof(uint64_t));
+    posis->sframe_num = param_count;
+    return parse_list_uint64(nptr, posis->sframe_posis, param_count);
+}
+#endif // FTR_SFRAME_POSI
+
+#if FTR_SFRAME_QP
+static EbErrorType str_to_sframe_qp(const char *nptr, SvtAv1SFramePositions *posis, uint8_t *qp) {
+    const uint32_t param_count = count_params(nptr);
+    if ((posis->sframe_num != 0 && posis->sframe_num != param_count && param_count != 1) || param_count == 0) {
+        SVT_ERROR("Error: Size for the list passed to %s doesn't match %u\n", "sframe-qp", posis->sframe_num);
+        return EB_ErrorBadParameter;
+    }
+    if (posis->sframe_qps)
+        EB_FREE(posis->sframe_qps);
+    EB_MALLOC(posis->sframe_qps, param_count * sizeof(uint8_t));
+    posis->sframe_qp_num = param_count;
+    EbErrorType err      = parse_list_uint8(nptr, posis->sframe_qps, param_count);
+    // check if the QP values are valid
+    for (uint32_t i = 0; i < posis->sframe_qp_num; ++i) {
+        if (posis->sframe_qps[i] < 1 || posis->sframe_qps[i] > 63) {
+            SVT_ERROR("Error: Invalid S-Frame QP value. QPs must be [1 - 63]\n");
+            EB_FREE(posis->sframe_qps);
+            posis->sframe_qp_num = 0;
+            err                  = EB_ErrorBadParameter;
+        }
+    }
+    // If sframe-qp parameter contains only one value, apply it to all S-frames
+    if (err == EB_ErrorNone && param_count == 1) {
+        *qp = posis->sframe_qps[0];
+    }
+    return err;
+}
+
+static EbErrorType str_to_sframe_qp_offset(const char *nptr, SvtAv1SFramePositions *posis, int8_t *qp_offset) {
+    const uint32_t param_count = count_params(nptr);
+    if ((posis->sframe_num != 0 && posis->sframe_num != param_count && param_count != 1) || param_count == 0) {
+        SVT_ERROR("Error: Size for the list passed to %s doesn't match %u\n", "sframe-qp-offset", posis->sframe_num);
+        return EB_ErrorBadParameter;
+    }
+    if (posis->sframe_qp_offsets)
+        EB_FREE(posis->sframe_qp_offsets);
+    EB_MALLOC(posis->sframe_qp_offsets, param_count * sizeof(int8_t));
+    posis->sframe_qp_num = param_count;
+    EbErrorType err      = parse_list_int8(nptr, posis->sframe_qp_offsets, param_count);
+    // check if the QP offset values are valid
+    for (uint32_t i = 0; i < posis->sframe_qp_num; ++i) {
+        if (posis->sframe_qp_offsets[i] < -63 || posis->sframe_qp_offsets[i] > 63) {
+            SVT_ERROR("Error: Invalid S-Frame QP offset value. QP offsets must be [-63 - 63]\n");
+            EB_FREE(posis->sframe_qp_offsets);
+            posis->sframe_qp_num = 0;
+            err                  = EB_ErrorBadParameter;
+        }
+    }
+    // If sframe-qp-offset parameter contains only one value, apply it to all S-frames
+    if (err == EB_ErrorNone && param_count == 1) {
+        *qp_offset = posis->sframe_qp_offsets[0];
+    }
+    return err;
+}
+#endif // FTR_SFRAME_QP
 
 #define COLOR_OPT(par, opt)                                          \
     do {                                                             \
@@ -2030,13 +2263,13 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
 
     // arrays
     if (!strcmp(name, "qindex-offsets"))
-        return parse_list_s32(value, config_struct->qindex_offsets, EB_MAX_TEMPORAL_LAYERS);
+        return parse_list_int32(value, config_struct->qindex_offsets, EB_MAX_TEMPORAL_LAYERS);
 
     if (!strcmp(name, "chroma-qindex-offsets"))
-        return parse_list_s32(value, config_struct->chroma_qindex_offsets, EB_MAX_TEMPORAL_LAYERS);
+        return parse_list_int32(value, config_struct->chroma_qindex_offsets, EB_MAX_TEMPORAL_LAYERS);
 
     if (!strcmp(name, "lambda-scale-factors"))
-        return parse_list_s32(value, config_struct->lambda_scale_factors, SVT_AV1_FRAME_UPDATE_TYPES);
+        return parse_list_int32(value, config_struct->lambda_scale_factors, SVT_AV1_FRAME_UPDATE_TYPES);
 
     if (!strcmp(name, "frame-resz-events"))
         return str_to_frm_resz_evts(value, &config_struct->frame_scale_evts);
@@ -2046,6 +2279,19 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
 
     if (!strcmp(name, "frame-resz-denoms"))
         return str_to_resz_denoms(value, &config_struct->frame_scale_evts);
+
+#if FTR_SFRAME_POSI
+    if (!strcmp(name, "sframe-posi"))
+        return str_to_sframe_posi(value, &config_struct->sframe_posi);
+#endif // FTR_SFRAME_POSI
+
+#if FTR_SFRAME_QP
+    if (!strcmp(name, "sframe-qp"))
+        return str_to_sframe_qp(value, &config_struct->sframe_posi, &config_struct->sframe_qp);
+
+    if (!strcmp(name, "sframe-qp-offset"))
+        return str_to_sframe_qp_offset(value, &config_struct->sframe_posi, &config_struct->sframe_qp_offset);
+#endif // FTR_SFRAME_QP
 
     // uint32_t fields
     const struct {
@@ -2120,13 +2366,14 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"variance-boost-curve", &config_struct->variance_boost_curve},
         {"fast-decode", &config_struct->fast_decode},
         {"luminance-qp-bias", &config_struct->luminance_qp_bias},
-        {"noise-norm-strength", &config_struct->noise_norm_strength},
-        {"kf-tf-strength", &config_struct->kf_tf_strength},
         {"enable-tf", &config_struct->enable_tf},
         {"tf-strength", &config_struct->tf_strength},
-        {"spy-rd", &config_struct->spy_rd},
-        {"hbd-mds", &config_struct->hbd_mds},
+        {"max-tx-size", &config_struct->max_tx_size},
+        {"noise-norm-strength", &config_struct->noise_norm_strength},
+        {"kf-tf-strength", &config_struct->kf_tf_strength},
         {"sharp-tx", &config_struct->sharp_tx},
+        {"hbd-mds", &config_struct->hbd_mds},
+        {"tx-bias", &config_struct->tx_bias},
         {"complex-hvs", &config_struct->complex_hvs},
     };
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);
@@ -2250,7 +2497,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"lossless", &config_struct->lossless},
         {"avif", &config_struct->avif},
         {"rtc", &config_struct->rtc},
-        {"max-32-tx-size", &config_struct->max_32_tx_size},
         {"adaptive-film-grain", &config_struct->adaptive_film_grain},
         {"alt-lambda-factors", &config_struct->alt_lambda_factors},
         {"alt-ssim-tuning", &config_struct->alt_ssim_tuning},

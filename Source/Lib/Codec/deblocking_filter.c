@@ -23,20 +23,65 @@
 #include "ac_bias.h"
 //#include "svt_log.h"
 #define DLF_MAX_LVL 4
-const int32_t  inter_frame_multiplier[INPUT_SIZE_COUNT]      = {6017, 6017, 6017, 12034, 12034, 12034, 12034};
-const uint32_t disable_dlf_th[DLF_MAX_LVL][INPUT_SIZE_COUNT] = {{0, 0, 0, 0, 0, 0, 0},
-                                                                {100, 200, 500, 800, 1000, 1000, 1000},
-                                                                {900, 1000, 2000, 3000, 4000, 4000, 4000},
-                                                                {6000, 7000, 8000, 9000, 10000, 10000, 10000}};
+static const int32_t  inter_frame_multiplier[INPUT_SIZE_COUNT]      = {6017, 6017, 6017, 12034, 12034, 12034, 12034};
+static const uint32_t disable_dlf_th[DLF_MAX_LVL][INPUT_SIZE_COUNT] = {{0, 0, 0, 0, 0, 0, 0},
+                                                                       {100, 200, 500, 800, 1000, 1000, 1000},
+                                                                       {900, 1000, 2000, 3000, 4000, 4000, 4000},
+                                                                       {6000, 7000, 8000, 9000, 10000, 10000, 10000}};
+
+static const TxSize txsize_horz_map[TX_SIZES_ALL] = {
+    TX_4X4, // TX_4X4
+    TX_8X8, // TX_8X8
+    TX_16X16, // TX_16X16
+    TX_32X32, // TX_32X32
+    TX_64X64, // TX_64X64
+    TX_4X4, // TX_4X8
+    TX_8X8, // TX_8X4
+    TX_8X8, // TX_8X16
+    TX_16X16, // TX_16X8
+    TX_16X16, // TX_16X32
+    TX_32X32, // TX_32X16
+    TX_32X32, // TX_32X64
+    TX_64X64, // TX_64X32
+    TX_4X4, // TX_4X16
+    TX_16X16, // TX_16X4
+    TX_8X8, // TX_8X32
+    TX_32X32, // TX_32X8
+    TX_16X16, // TX_16X64
+    TX_64X64, // TX_64X16
+};
+
+static const TxSize txsize_vert_map[TX_SIZES_ALL] = {
+    TX_4X4, // TX_4X4
+    TX_8X8, // TX_8X8
+    TX_16X16, // TX_16X16
+    TX_32X32, // TX_32X32
+    TX_64X64, // TX_64X64
+    TX_8X8, // TX_4X8
+    TX_4X4, // TX_8X4
+    TX_16X16, // TX_8X16
+    TX_8X8, // TX_16X8
+    TX_32X32, // TX_16X32
+    TX_16X16, // TX_32X16
+    TX_64X64, // TX_32X64
+    TX_32X32, // TX_64X32
+    TX_16X16, // TX_4X16
+    TX_4X4, // TX_16X4
+    TX_32X32, // TX_8X32
+    TX_8X8, // TX_32X8
+    TX_64X64, // TX_16X64
+    TX_16X16, // TX_64X16
+};
+
 /*************************************************************************************************
  * svt_av1_loop_filter_init
  * Initialize the loop filter limits and thresholds
  *************************************************************************************************/
 void svt_av1_loop_filter_init(PictureControlSet *pcs) {
     //assert(MB_MODE_COUNT == n_elements(mode_lf_lut));
-    LoopFilterInfoN   *lfi = &pcs->ppcs->lf_info;
-    struct LoopFilter *lf  = &pcs->ppcs->frm_hdr.loop_filter_params;
-    int32_t            lvl;
+    LoopFilterInfoN *lfi = &pcs->ppcs->lf_info;
+    LoopFilter      *lf  = &pcs->ppcs->frm_hdr.loop_filter_params;
+    int32_t          lvl;
 
     lf->combine_vert_horz_lf = 1;
 
@@ -395,7 +440,7 @@ void svt_av1_filter_block_plane_vert(const PictureControlSet *const pcs, const i
             }
             // advance the destination pointer
             assert(tx_size < TX_SIZES_ALL);
-            advance_units = tx_size_wide_unit[tx_size];
+            advance_units = eb_tx_size_wide_unit[tx_size];
             x += advance_units;
             p += ((advance_units * MI_SIZE) << plane_ptr->is_16bit);
         }
@@ -530,7 +575,7 @@ void svt_av1_filter_block_plane_horz(const PictureControlSet *const pcs, const i
 
             // advance the destination pointer
             assert(tx_size < TX_SIZES_ALL);
-            advance_units = tx_size_high_unit[tx_size];
+            advance_units = eb_tx_size_high_unit[tx_size];
             y += advance_units;
             p += ((advance_units * dst_stride * MI_SIZE) << plane_ptr->is_16bit);
         }
@@ -1136,9 +1181,24 @@ EbErrorType svt_av1_pick_filter_level(EbPictureBufferDesc *srcBuffer, // source 
     struct LoopFilter *const lf            = &frm_hdr->loop_filter_params;
     const int32_t            sharpness_val = CLIP3(0, 7, pcs->scs->static_config.sharpness);
     lf->sharpness_level                    = sharpness_val;
-    if (frm_hdr->frame_type == KEY_FRAME && (pcs->scs->static_config.tune == 0 || pcs->scs->static_config.tune == 3))
+    if (frm_hdr->frame_type == KEY_FRAME &&
+        (pcs->scs->static_config.tune == TUNE_VQ || pcs->scs->static_config.tune == TUNE_FILM_GRAIN))
         lf->sharpness_level = MIN(7, sharpness_val + 2);
+    else if (pcs->scs->static_config.tune == TUNE_IQ) {
+        // Loop filter sharpness levels are highly nonlinear. Visually, lf sharpness 1 is closer to 7 than
+        // it is to 0, so in practice let's choose between levels 0, 1 and 7 to keep it simple
+        int32_t max_lf_sharpness;
 
+        if (frm_hdr->quantization_params.base_q_idx <= 120) {
+            max_lf_sharpness = 7;
+        } else if (frm_hdr->quantization_params.base_q_idx <= 160) {
+            max_lf_sharpness = 1;
+        } else {
+            max_lf_sharpness = 0;
+        }
+
+        lf->sharpness_level = MIN(lf->sharpness_level, max_lf_sharpness);
+    }
     if (method == LPF_PICK_MINIMAL_LPF)
         lf->filter_level[0] = lf->filter_level[1] = 0;
     else if (method >= LPF_PICK_FROM_Q) {

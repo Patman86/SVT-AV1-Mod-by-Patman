@@ -353,12 +353,18 @@ static void set_me_search_params(SequenceControlSet *scs, PictureParentControlSe
     }
 
     // Scale up the MIN ME area if low frame rate
+#if FIX_FPS_CALC
+    if (scs->frame_rate <= 240) {
+        me_ctx->me_sa.sa_min.width  = (me_ctx->me_sa.sa_min.width * 3) >> 1;
+        me_ctx->me_sa.sa_min.height = (me_ctx->me_sa.sa_min.height * 3) >> 1;
+    }
+#else
     bool low_frame_rate_flag = (scs->frame_rate >> 16);
     if (low_frame_rate_flag) {
         me_ctx->me_sa.sa_min.width  = (me_ctx->me_sa.sa_min.width * 3) >> 1;
         me_ctx->me_sa.sa_min.height = (me_ctx->me_sa.sa_min.height * 3) >> 1;
     }
-
+#endif
     uint32_t q_weight, q_weight_denom;
     svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.me_qp_based_th_scaling,
                                             &q_weight,
@@ -767,19 +773,17 @@ void svt_aom_sig_deriv_me(SequenceControlSet *scs, PictureParentControlSet *pcs,
 
     uint8_t me_ref_prune_level = 0;
 
-    if (sc_class1) {
-        if (enc_mode <= ENC_MRS)
-            me_ref_prune_level = 0;
-        else if (enc_mode <= ENC_M2)
+    if (enc_mode <= ENC_MRS)
+        me_ref_prune_level = 0;
+    else if (sc_class1) {
+        if (enc_mode <= ENC_M2)
             me_ref_prune_level = 1;
         else if (enc_mode <= ENC_M7)
             me_ref_prune_level = 3;
         else
             me_ref_prune_level = 6;
     } else {
-        if (enc_mode <= ENC_MR) {
-            me_ref_prune_level = 0;
-        } else if (enc_mode <= ENC_M0) {
+        if (enc_mode <= ENC_M0) {
             me_ref_prune_level = is_base ? 1 : 4;
         } else if (enc_mode <= ENC_M4) {
             me_ref_prune_level = is_base ? 1 : 5;
@@ -1859,27 +1863,15 @@ void svt_aom_sig_deriv_multi_processes(SequenceControlSet *scs, PictureParentCon
     // 1                                     ON
     pcs->frame_end_cdf_update_mode = 1;
 
-    if (scs->enable_hbd_mode_decision == DEFAULT) {
-
-    if (pcs->scs->static_config.hbd_mds == 0) {
+    if (pcs->scs->static_config.hbd_mds > 0)
+        pcs->hbd_md = pcs->scs->static_config.hbd_mds;
+    else if (scs->enable_hbd_mode_decision == DEFAULT)
         if (enc_mode <= ENC_M2)
             pcs->hbd_md = 1;
-        //Empiral testing shows enabling full 10-bit MD greatly increases
-        //ac-bias performance once it becomes strong enough (>=0.6)
-        if (enc_mode <= ENC_M4 && pcs->scs->static_config.ac_bias >= 0.6)
-            pcs->hbd_md = 1;
-        else if (enc_mode <= ENC_M6)
-            pcs->hbd_md = 2;
+        else if (enc_mode <= ENC_M5)
+            pcs->hbd_md = is_base ? 2 : 0;
         else
             pcs->hbd_md = is_islice ? 2 : 0;
-
-    } else if (pcs->scs->static_config.hbd_mds == 1){
-        pcs->hbd_md = 1;
-
-    } else if (pcs->scs->static_config.hbd_mds == 2) {
-        pcs->hbd_md = 2;
-    }
-}
     else
         pcs->hbd_md = scs->enable_hbd_mode_decision;
 
@@ -2134,8 +2126,6 @@ Output  : Pre-Analysis signal(s)
 void svt_aom_sig_deriv_pre_analysis_scs(SequenceControlSet *scs) {
     const int8_t enc_mode = scs->static_config.enc_mode;
     const bool   rtc_tune = scs->static_config.rtc;
-    // Set the SCD Mode
-    scs->scd_mode = scs->static_config.scene_change_detection == 0 ? SCD_MODE_0 : SCD_MODE_1;
 
     // initialize sequence level enable_superres
     scs->seq_header.enable_superres = scs->static_config.superres_mode > SUPERRES_NONE ? 1 : 0;
@@ -2160,11 +2150,6 @@ void svt_aom_sig_deriv_pre_analysis_scs(SequenceControlSet *scs) {
         scs->seq_header.enable_masked_compound          = 0;
     }
     scs->seq_header.enable_intra_edge_filter = 1;
-
-    // Tune 4 gets the "still picture" flag set
-    if (scs->static_config.tune == 4) {
-        scs->seq_header.still_picture = 1;
-    }
 
     if (scs->static_config.enable_restoration_filtering == DEFAULT) {
         // As allocation has already happened based on the initial input resolution, the resolution
@@ -2206,10 +2191,10 @@ uint32_t hadamard_path_c(Buf2D residualBuf, Buf2D coeffBuf, Buf2D inputBuf, Buf2
 
     uint32_t satd_cost = 0;
 
-    const TxSize tx_size = AOMMIN(TX_32X32, max_txsize_lookup[bsize]);
+    const TxSize tx_size = AOMMIN(TX_32X32, eb_max_txsize_lookup[bsize]);
 
-    const int stepr = tx_size_high_unit[tx_size];
-    const int stepc = tx_size_wide_unit[tx_size];
+    const int stepr = eb_tx_size_high_unit[tx_size];
+    const int stepc = eb_tx_size_wide_unit[tx_size];
     const int txbw  = tx_size_wide[tx_size];
     const int txbh  = tx_size_high[tx_size];
 
@@ -2281,7 +2266,7 @@ bool svt_aom_is_ref_same_size(PictureControlSet *pcs, uint8_t list_idx, uint8_t 
     return ref_obj->reference_picture->width == pcs->ppcs->frame_width &&
         ref_obj->reference_picture->height == pcs->ppcs->frame_height;
 }
-void svt_aom_set_obmc_controls(ModeDecisionContext *ctx, uint8_t obmc_mode) {
+static void set_obmc_controls(ModeDecisionContext *ctx, uint8_t obmc_mode) {
     ObmcControls *obmc_ctrls = &ctx->obmc_ctrls;
     switch (obmc_mode) {
     case 0: obmc_ctrls->enabled = 0; break;
@@ -3835,7 +3820,11 @@ uint8_t svt_aom_get_nic_level(SequenceControlSet *scs, EncMode enc_mode, uint8_t
                               uint8_t sc_class1) {
     uint8_t nic_level;
 
-    if (scs->static_config.avif || scs->allintra) {
+    if (enc_mode <= ENC_MRS)
+        nic_level = 0;
+    else if (enc_mode <= ENC_MRP)
+        nic_level = 1;
+    else if (scs->static_config.avif || scs->allintra) {
         if (enc_mode <= ENC_MR)
             nic_level = 2;
         else if (enc_mode <= ENC_M2)
@@ -3856,13 +3845,7 @@ uint8_t svt_aom_get_nic_level(SequenceControlSet *scs, EncMode enc_mode, uint8_t
             nic_level = 9;
         else
             nic_level = 10;
-    }
-
-    else if (enc_mode <= ENC_MRS)
-        nic_level = 0;
-    else if (enc_mode <= ENC_MRP)
-        nic_level = 1;
-    else if (enc_mode <= ENC_MR)
+    } else if (enc_mode <= ENC_MR)
         nic_level = is_base ? 1 : 2;
     else if (enc_mode <= ENC_M0)
         nic_level = is_base ? 2 : 3;
@@ -4246,8 +4229,8 @@ uint8_t svt_aom_set_nic_controls(ModeDecisionContext *ctx, uint8_t nic_level) {
 }
 void svt_aom_set_nsq_geom_ctrls(ModeDecisionContext *ctx, uint8_t nsq_geom_level, uint8_t *allow_HVA_HVB,
                                 uint8_t *allow_HV4, uint8_t *min_nsq_bsize) {
-    NsqGeomCtrls  nsq_geom_ctrls_struct;
-    NsqGeomCtrls *nsq_geom_ctrls = &nsq_geom_ctrls_struct;
+    NsqGeomCtrls  nsq_geom_ctrls_struct = {0};
+    NsqGeomCtrls *nsq_geom_ctrls        = &nsq_geom_ctrls_struct;
     switch (nsq_geom_level) {
     case 0:
         nsq_geom_ctrls->enabled            = 0;
@@ -4294,7 +4277,7 @@ void svt_aom_set_nsq_geom_ctrls(ModeDecisionContext *ctx, uint8_t nsq_geom_level
         memcpy(&ctx->nsq_geom_ctrls, nsq_geom_ctrls, sizeof(NsqGeomCtrls));
 }
 
-static void svt_aom_set_nsq_search_ctrls(PictureControlSet *pcs, ModeDecisionContext *ctx, uint8_t nsq_search_level) {
+static void set_nsq_search_ctrls(PictureControlSet *pcs, ModeDecisionContext *ctx, uint8_t nsq_search_level) {
     bool me_dist_mod;
     // Whether or not to modulate the nsq_search_level using me-distortion
     if (pcs->slice_type == I_SLICE) {
@@ -4645,7 +4628,7 @@ static void svt_aom_set_nsq_search_ctrls(PictureControlSet *pcs, ModeDecisionCon
 
     set_sq_txs_ctrls(ctx, ctx->nsq_search_ctrls.psq_txs_lvl);
 }
-void svt_aom_set_inter_intra_ctrls(ModeDecisionContext *ctx, uint8_t inter_intra_level) {
+static void set_inter_intra_ctrls(ModeDecisionContext *ctx, uint8_t inter_intra_level) {
     InterIntraCompCtrls *ii_ctrls = &ctx->inter_intra_comp_ctrls;
 
     switch (inter_intra_level) {
@@ -5811,8 +5794,8 @@ static void set_mds0_controls(ModeDecisionContext *ctx, uint8_t mds0_level) {
 
     switch (mds0_level) {
     case 0:
-        ctrls->mds0_dist_type               = VAR;
-        ctrls->pruning_method_th            = 0;
+        ctrls->mds0_dist_type    = VAR;
+        ctrls->pruning_method_th = 0;
         break;
     case 1:
         ctrls->mds0_dist_type                          = VAR;
@@ -5828,8 +5811,8 @@ static void set_mds0_controls(ModeDecisionContext *ctx, uint8_t mds0_level) {
         ctrls->dist_to_cost_th   = 0;
         break;
     case 3:
-        ctrls->mds0_dist_type               = SSD;
-        ctrls->pruning_method_th            = 0;
+        ctrls->mds0_dist_type    = SSD;
+        ctrls->pruning_method_th = 0;
         break;
     default: assert(0); break;
     }
@@ -6035,7 +6018,16 @@ void svt_aom_sig_deriv_enc_dec_common(SequenceControlSet *scs, PictureControlSet
         ctx->depth_removal_ctrls.disallow_below_32x32 = false;
     if (b64_geom->width % 8 != 0 || b64_geom->height % 8 != 0)
         ctx->depth_removal_ctrls.disallow_below_16x16 = false;
-    ctx->disallow_8x8 = pcs->pic_disallow_8x8;
+    // Must check disallow_8x8 on an SB level. If a preset wants 8x8 off, it may still be required at the
+    // picture edge if the SB width/height is <=8 (to ensure that there is a conformant block to encode
+    // for those dimensions). Use the SB width/height so that 8x8 can still be skipped for all complete
+    // SBs and used only for the incomplete blocks that require 8x8 for conformance.
+    ctx->disallow_8x8 = svt_aom_get_disallow_8x8(enc_mode,
+                                                 rtc_tune,
+                                                 scs->static_config.screen_content_mode,
+                                                 scs->super_block_size,
+                                                 b64_geom->width,
+                                                 b64_geom->height);
     ctx->disallow_4x4 = pcs->pic_disallow_4x4;
     if (rtc_tune && !pcs->ppcs->sc_class1) {
         // RTC assumes SB 64x64 is used
@@ -6078,7 +6070,7 @@ void svt_aom_sig_deriv_enc_dec_common(SequenceControlSet *scs, PictureControlSet
         ctx->pd1_lvl_refinement = 2;
     svt_aom_set_nsq_geom_ctrls(ctx, pcs->nsq_geom_level, NULL, NULL, NULL);
 
-    if (scs->static_config.max_32_tx_size) {
+    if (scs->static_config.max_tx_size == 32) {
         // Ensure we allow at least 32x32 transforms
         ctx->depth_removal_ctrls.disallow_below_64x64 = false;
     }
@@ -6182,7 +6174,7 @@ void svt_aom_sig_deriv_enc_dec_light_pd0(SequenceControlSet *scs, PictureControl
     }
 
     ctx->d2_parent_bias = 1000;
-    set_mds0_controls(ctx, 2); // Use most aggressive MDS0 level
+    set_mds0_controls(ctx, 2);
     if (pd0_level == VERY_LIGHT_PD0)
         return;
     svt_aom_set_chroma_controls(ctx, 0 /*chroma off*/);
@@ -6385,12 +6377,12 @@ void svt_aom_sig_deriv_enc_dec_light_pd1(PictureControlSet *pcs, ModeDecisionCon
             ctx->lpd1_tx_ctrls.chroma_detector_level = 0;
     }
 
-    /* In modes below M11, only skip non-NEAREST_NEAREST TX b/c skipping all inter TX will cause blocking artifacts
+    /* In modes below M10, only skip non-NEAREST_NEAREST TX b/c skipping all inter TX will cause blocking artifacts
     in certain clips.  This signal is separated from the general lpd1_tx_ctrls (above) to avoid
     accidentally turning this on for modes below M13.
 
-    Do not test this signal in M10 and below during preset tuning.  This signal should be kept as an enc_mode check
-    instead of and LPD1_LEVEL check to ensure that M10 and below do not use it.
+    Do not test this signal in M9 and below during preset tuning.  This signal should be kept as an enc_mode check
+    instead of and LPD1_LEVEL check to ensure that M9 and below do not use it.
     */
     if (rtc_tune) {
         if (pcs->enc_mode <= ENC_M7)
@@ -6491,7 +6483,7 @@ void svt_aom_sig_deriv_enc_dec_light_pd1(PictureControlSet *pcs, ModeDecisionCon
     ctx->rate_est_ctrls.update_skip_ctx_dc_sign_ctx = 0;
     ctx->rate_est_ctrls.update_skip_coeff_ctx       = 0;
     ctx->subres_ctrls.odd_to_even_deviation_th      = 0;
-    svt_aom_set_inter_intra_ctrls(ctx, 0);
+    set_inter_intra_ctrls(ctx, 0);
 }
 void svt_aom_sig_deriv_enc_dec(SequenceControlSet *scs, PictureControlSet *pcs, ModeDecisionContext *ctx) {
     EncMode                  enc_mode             = pcs->enc_mode;
@@ -6506,7 +6498,7 @@ void svt_aom_sig_deriv_enc_dec(SequenceControlSet *scs, PictureControlSet *pcs, 
     uint8_t                  l0_was_skip = 0, l1_was_skip = 0;
     uint8_t                  ref_skip_perc = pcs->ref_skip_percentage;
     const bool               rtc_tune      = scs->static_config.rtc;
-    svt_aom_set_nsq_search_ctrls(pcs, ctx, pcs->nsq_search_level);
+    set_nsq_search_ctrls(pcs, ctx, pcs->nsq_search_level);
     svt_aom_set_nic_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 10 : pcs->nic_level);
     set_cand_reduction_ctrls(pcs,
                              ctx,
@@ -6591,8 +6583,8 @@ void svt_aom_sig_deriv_enc_dec(SequenceControlSet *scs, PictureControlSet *pcs, 
     else
         ctx->md_pic_obmc_level = pcs->ppcs->pic_obmc_level;
 
-    svt_aom_set_obmc_controls(ctx, ctx->md_pic_obmc_level);
-    svt_aom_set_inter_intra_ctrls(ctx, pd_pass == PD_PASS_0 ? 0 : pcs->inter_intra_level);
+    set_obmc_controls(ctx, ctx->md_pic_obmc_level);
+    set_inter_intra_ctrls(ctx, pd_pass == PD_PASS_0 ? 0 : pcs->inter_intra_level);
     set_txs_controls(pcs, ctx, pd_pass == PD_PASS_0 ? 0 : pcs->txs_level);
     set_filter_intra_ctrls(ctx, pd_pass == PD_PASS_0 ? 0 : pcs->pic_filter_intra_level);
     // Set md_allow_intrabc @ MD
@@ -6676,6 +6668,9 @@ void svt_aom_sig_deriv_enc_dec(SequenceControlSet *scs, PictureControlSet *pcs, 
     if (pd_pass == PD_PASS_0) {
         intra_level           = 7;
         angular_pruning_level = 2;
+    } else if (enc_mode <= ENC_MRS) {
+        intra_level           = 1;
+        angular_pruning_level = 0;
     } else if (rtc_tune) {
         if (enc_mode <= ENC_M7) {
             intra_level           = (is_islice || ppcs->transition_present == 1) ? 1 : 6;
@@ -6683,11 +6678,7 @@ void svt_aom_sig_deriv_enc_dec(SequenceControlSet *scs, PictureControlSet *pcs, 
         } else if (enc_mode <= ENC_M9 || sc_class1) {
             intra_level           = (is_islice || ppcs->transition_present == 1) ? 4 : 6;
             angular_pruning_level = 1;
-        } else if (enc_mode <= ENC_MRS) {
-            intra_level = 1;
-            angular_pruning_level = 1;
-        }
-    else if (enc_mode <= ENC_M10) {
+        } else if (enc_mode <= ENC_M10) {
             intra_level           = (is_islice || ppcs->transition_present == 1) ? 4 : 6;
             angular_pruning_level = 2;
         } else {
@@ -6757,8 +6748,17 @@ bool svt_aom_get_disallow_4x4(EncMode enc_mode, uint8_t is_base) {
 /*
 * return the 8x8 level
 Used by svt_aom_sig_deriv_enc_dec and memory allocation
+
+The aligned width/height can be either the picture width/height or the SB width/height. For memory
+allocation, we should use the picture width/height.
 */
-bool svt_aom_get_disallow_8x8(EncMode enc_mode, bool rtc_tune, uint32_t screen_content_mode) {
+bool svt_aom_get_disallow_8x8(EncMode enc_mode, bool rtc_tune, uint32_t screen_content_mode, const uint16_t sb_size,
+                              const uint16_t aligned_width, const uint16_t aligned_height) {
+    // If aligned picture dimensions result in an SB with width/height of 8, the picture will
+    // require 8x8 blocks for conformance. When the width/height is <=8 larger block sizes will
+    // be invalid.
+    if (((aligned_width % sb_size) == 8) || ((aligned_height % sb_size) == 8))
+        return false;
     if (rtc_tune) {
         if (screen_content_mode == 1) {
             if (enc_mode <= ENC_M10)
@@ -6810,12 +6810,12 @@ uint8_t svt_aom_get_nsq_geom_level(EncMode enc_mode, uint8_t is_base, InputCoeff
 uint8_t svt_aom_get_nsq_search_level(PictureControlSet *pcs, EncMode enc_mode, InputCoeffLvl coeff_lvl, uint32_t qp) {
     int        nsq_search_level;
     const bool rtc_tune = pcs->scs->static_config.rtc;
-    if (pcs->scs->static_config.avif || pcs->scs->allintra) {
-        if (enc_mode <= ENC_MRS) {
-            nsq_search_level = 1;
-        } else if (enc_mode <= ENC_MRP) {
-            nsq_search_level = 2;
-        } else if (enc_mode <= ENC_MR) {
+    if (enc_mode <= ENC_MRS) {
+        nsq_search_level = 1;
+    } else if (enc_mode <= ENC_MRP) {
+        nsq_search_level = 2;
+    } else if (pcs->scs->static_config.avif || pcs->scs->allintra) {
+        if (enc_mode <= ENC_MR) {
             nsq_search_level = 3;
         } else if (enc_mode <= ENC_M0) {
             nsq_search_level = 4;
@@ -6832,10 +6832,6 @@ uint8_t svt_aom_get_nsq_search_level(PictureControlSet *pcs, EncMode enc_mode, I
         } else {
             nsq_search_level = 19;
         }
-    } else if (enc_mode <= ENC_MRS) {
-        nsq_search_level = 1;
-    } else if (enc_mode <= ENC_MRP) {
-        nsq_search_level = 2;
     } else if (enc_mode <= ENC_M0) {
         const uint8_t is_base = pcs->ppcs->temporal_layer_index == 0;
         nsq_search_level      = is_base ? 2 : 3;
@@ -7611,7 +7607,10 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet *scs, PictureCont
         pcs->inter_intra_level = svt_aom_get_inter_intra_level(enc_mode, is_base, transition_present);
     } else
         pcs->inter_intra_level = 0;
-    if (rtc_tune) {
+
+    if (enc_mode <= ENC_MRP) {
+        pcs->txs_level = 1;
+    } else if (rtc_tune) {
         if (enc_mode <= ENC_M7) {
             pcs->txs_level = is_base ? 3 : 0;
         } else if (enc_mode <= ENC_M8) {
@@ -7622,9 +7621,6 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet *scs, PictureCont
         } else {
             pcs->txs_level = is_islice ? 4 : 0;
         }
-    } else if (enc_mode <= ENC_MRP) {
-        pcs->txs_level = 1;
-    //The following setting is M1 in mainline
     } else if (enc_mode <= ENC_M2) {
         pcs->txs_level = 2;
     } else if (enc_mode <= ENC_M2) {
@@ -7693,16 +7689,12 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet *scs, PictureCont
             pcs->mds0_level = is_islice ? 0 : 2;
     }
     /*
-disallow_4x4
-*/
+    disallow_4x4
+    */
     pcs->pic_disallow_4x4 = svt_aom_get_disallow_4x4(enc_mode, is_base);
     /*
-    * pic_disallow_8x8
+    Bypassing EncDec
     */
-    pcs->pic_disallow_8x8 = svt_aom_get_disallow_8x8(enc_mode, rtc_tune, scs->static_config.screen_content_mode);
-    /*
-Bypassing EncDec
-*/
     // This signal can only be modified per picture right now, not per SB.  Per SB requires
     // neighbour array updates at EncDec for all SBs, that are currently skipped if EncDec is bypassed.
     if (!ppcs->frm_hdr.segmentation_params.segmentation_enabled) {
@@ -7711,8 +7703,8 @@ Bypassing EncDec
         pcs->pic_bypass_encdec = 0;
 
     /*
-set lpd0_level
-*/
+    set lpd0_level
+    */
     // for the low delay enhance base layer frames, lower the enc_mode to improve the quality
     set_pic_lpd0_lvl(pcs, enc_mode);
     // Depth-removal not supported for I_SLICE
@@ -7973,24 +7965,33 @@ set lpd0_level
     }
 
     pcs->lambda_weight = 0;
-    if (pcs->scs->static_config.tune == 4) {
-        // Adjust lambda weight towards more favorable still-picture performance (from 128 to 200), with gradual ramp-down for the lowest and highest QPs
+
+    if (pcs->scs->static_config.tune == TUNE_IQ) {
+        // Adjust lambda weight towards more favorable still-picture performance (from 128 to 200),
+        // with gradual ramp-down for the lowest and highest QPs
         // Lower QP cutoff: QP 18 = (QP) * 4
         // Upper QP cutoff: QP 39 = (63 - QP) * 3
-        // ToDo: understand full implications of lambda adjustment on various encoding parts (TX search, TX partition, RDO...) to fully harness their advantage
         pcs->lambda_weight = CLIP3(0, 72, MIN(pcs->picture_qp * 4, (63 - pcs->picture_qp) * 3)) + 128;
-    } else if (!rtc_tune && !(enc_mode <= ENC_MR)) {
-        if (pcs->picture_qp >= 62) {
-            pcs->lambda_weight = 300;
-        } else if (pcs->picture_qp >= 56) {
-            pcs->lambda_weight = 175;
-        } else if (pcs->picture_qp >= 16) {
-            pcs->lambda_weight = 150;
+    } else { // Tune 0 to 2
+        if (!rtc_tune && !(enc_mode <= ENC_MR)) {
+#if FIX_INTRA_BLUR_QP62
+            if (!is_islice && pcs->picture_qp >= 62) {
+#else
+            if (pcs->picture_qp >= 62) {
+#endif
+                pcs->lambda_weight = 300;
+            } else if (pcs->picture_qp >= 56) {
+                pcs->lambda_weight = 175;
+            } else if (pcs->picture_qp >= 16) {
+                pcs->lambda_weight = 150;
+            }
         }
     }
 
     // Extended CRF range (63.25 - 70), increase lambda weight toward further bit saving
     // Max lambda weight increase: 28 * 28 = 784
+    // The multiplier of "28" was derived empirically to allow a smooth bitrate decrease as
+    // CRF increases from 63.25 (extended_crf_qindex_offset = 1) to 70 (extended_crf_qindex_offset = 4 * 7)
     if (scs->static_config.qp == MAX_QP_VALUE && scs->static_config.extended_crf_qindex_offset) {
         pcs->lambda_weight += scs->static_config.extended_crf_qindex_offset * 28;
     }
@@ -8002,7 +8003,7 @@ set lpd0_level
         if (pcs->scs->static_config.enable_dlf_flag == 2) {
             // trade off more accurate deblocking for longer encode time
             // use dlf_mode as if were being set for 3 presets lower
-            dlf_enc_mode = AOMMAX(ENC_MRS, enc_mode - 3);
+            dlf_enc_mode = AOMMAX(ENC_MR, enc_mode - 3);
         }
 
         dlf_level = get_dlf_level(pcs,

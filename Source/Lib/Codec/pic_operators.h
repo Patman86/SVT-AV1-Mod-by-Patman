@@ -17,6 +17,8 @@
 #include "definitions.h"
 #include "pic_buffer_desc.h"
 #include "svt_log.h"
+#include "common_dsp_rtcd.h"
+#include "block_structures.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -25,10 +27,17 @@ void svt_aom_picture_full_distortion32_bits_single(int32_t *coeff, int32_t *reco
                                                    uint32_t cnt_nz_coeff);
 
 void svt_aom_picture_full_distortion32_bits_single_facade(int32_t *coeff, int32_t *recon_coeff, uint32_t stride,
-                                                   uint32_t bwidth, uint32_t bheight, uint32_t area_width,
-                                                   uint32_t area_height, uint64_t *distortion, uint32_t cnt_nz_coeff,
-                                                   PredictionMode mode, CompoundType compound_type, uint8_t temporal_layer_index,
-                                                   double ac_bias, uint8_t spy_rd);
+                                                          uint32_t bwidth, uint32_t bheight, uint32_t area_width,
+                                                          uint32_t area_height, uint64_t *distortion,
+                                                          uint32_t cnt_nz_coeff, BlockModeInfo *block_mi,
+                                                          bool is_chroma, uint8_t temporal_layer_index, double ac_bias,
+                                                          uint8_t tx_bias);
+
+uint64_t svt_spatial_full_distortion_kernel_facade(uint8_t *input, uint32_t input_offset, uint32_t input_stride,
+                                                   uint8_t *recon, int32_t recon_offset, uint32_t recon_stride,
+                                                   uint32_t area_width, uint32_t area_height, bool hbd_md,
+                                                   BlockModeInfo *block_mi, bool is_chroma,
+                                                   uint8_t temporal_layer_index, double ac_bias, uint8_t tx_bias);
 
 //Residual Data
 
@@ -71,17 +80,6 @@ void svt_residual_kernel16bit_c(uint16_t *input, uint32_t input_stride, uint16_t
 
 void svt_residual_kernel8bit_c(uint8_t *input, uint32_t input_stride, uint8_t *pred, uint32_t pred_stride,
                                int16_t *residual, uint32_t residual_stride, uint32_t area_width, uint32_t area_height);
-void svt_aom_pic_copy_kernel_8bit(EbByte src, uint32_t src_stride, EbByte dst, uint32_t dst_stride, uint32_t area_width,
-                                  uint32_t area_height);
-
-void svt_aom_pic_copy_kernel_16bit(uint16_t *src, uint32_t src_stride, uint16_t *dst, uint32_t dst_stride,
-                                   uint32_t width, uint32_t height);
-
-EbErrorType svt_av1_picture_copy(EbPictureBufferDesc *src, uint32_t src_luma_origin_index,
-                                 uint32_t src_chroma_origin_index, EbPictureBufferDesc *dst,
-                                 uint32_t dst_luma_origin_index, uint32_t dst_chroma_origin_index, uint32_t area_width,
-                                 uint32_t area_height, uint32_t chroma_area_width, uint32_t chroma_area_height,
-                                 uint32_t component_mask, bool hbd);
 
 void svt_aom_generate_padding(EbByte src_pic, uint32_t src_stride, uint32_t original_src_width,
                               uint32_t original_src_height, uint32_t padding_width, uint32_t padding_height);
@@ -114,6 +112,67 @@ void svt_aom_pack_highbd_pic(const EbPictureBufferDesc *pic_ptr, uint16_t *buffe
                              uint32_t ss_y, bool include_padding);
 void svt_aom_unpack_highbd_pic(uint16_t *buffer_highbd[3], EbPictureBufferDesc *pic_ptr, uint32_t ss_x, uint32_t ss_y,
                                bool include_padding);
+
+static inline void svt_av1_picture_copy_y(EbPictureBufferDesc *src, uint32_t src_origin_index, EbPictureBufferDesc *dst,
+                                          uint32_t dst_origin_index, uint32_t area_width, uint32_t area_height,
+                                          bool hbd) {
+    if (hbd) {
+        svt_av1_copy_wxh_16bit((uint16_t *)src->buffer_y + src_origin_index,
+                               src->stride_y,
+                               (uint16_t *)dst->buffer_y + dst_origin_index,
+                               dst->stride_y,
+                               area_height,
+                               area_width);
+    } else {
+        svt_av1_copy_wxh_8bit(src->buffer_y + src_origin_index,
+                              src->stride_y,
+                              dst->buffer_y + dst_origin_index,
+                              dst->stride_y,
+                              area_height,
+                              area_width);
+    }
+}
+
+static inline void svt_av1_picture_copy_cb(EbPictureBufferDesc *src, uint32_t src_origin_index,
+                                           EbPictureBufferDesc *dst, uint32_t dst_origin_index, uint32_t area_width,
+                                           uint32_t area_height, bool hbd) {
+    if (hbd) {
+        svt_av1_copy_wxh_16bit((uint16_t *)src->buffer_cb + src_origin_index,
+                               src->stride_cb,
+                               (uint16_t *)dst->buffer_cb + dst_origin_index,
+                               dst->stride_cb,
+                               area_height,
+                               area_width);
+    } else {
+        svt_av1_copy_wxh_8bit(src->buffer_cb + src_origin_index,
+                              src->stride_cb,
+                              dst->buffer_cb + dst_origin_index,
+                              dst->stride_cb,
+                              area_height,
+                              area_width);
+    }
+}
+
+static inline void svt_av1_picture_copy_cr(EbPictureBufferDesc *src, uint32_t src_origin_index,
+                                           EbPictureBufferDesc *dst, uint32_t dst_origin_index, uint32_t area_width,
+                                           uint32_t area_height, bool hbd) {
+    if (hbd) {
+        svt_av1_copy_wxh_16bit((uint16_t *)src->buffer_cr + src_origin_index,
+                               src->stride_cr,
+                               (uint16_t *)dst->buffer_cr + dst_origin_index,
+                               dst->stride_cr,
+                               area_height,
+                               area_width);
+    } else {
+        svt_av1_copy_wxh_8bit(src->buffer_cr + src_origin_index,
+                              src->stride_cr,
+                              dst->buffer_cr + dst_origin_index,
+                              dst->stride_cr,
+                              area_height,
+                              area_width);
+    }
+}
+
 #ifdef __cplusplus
 }
 #endif

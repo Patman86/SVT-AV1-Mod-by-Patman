@@ -92,12 +92,15 @@
 #define EB_PacketizationProcessInitCount                1
 
 // Output Buffer Transfer Parameters
-#define TPL_INPUT_PORT_SOP                                0
-#define TPL_INPUT_PORT_TPL                                1
-#define TPL_INPUT_PORT_INVALID                           -1
-#define ENCDEC_INPUT_PORT_MDC                                0
-#define ENCDEC_INPUT_PORT_ENCDEC                             1
-#define ENCDEC_INPUT_PORT_INVALID                           -1
+#define TPL_INPUT_PORT_SOP                              0
+#define TPL_INPUT_PORT_TPL                              1
+#define TPL_INPUT_PORT_INVALID                          -1
+#define ENCDEC_INPUT_PORT_MDC                           0
+#define ENCDEC_INPUT_PORT_ENCDEC                        1
+#define ENCDEC_INPUT_PORT_INVALID                       -1
+
+#define ENCODE_FIRST_PASS                               1
+
 /**************************************
  * Globals
  **************************************/
@@ -215,13 +218,11 @@ static EbErrorType init_thread_management_params() {
                 if (socket_id >= max_size) {
                     old_max_size = max_size;
                     max_size = max_size * 2;
-                    processorGroup *temp = realloc(lp_group, max_size * sizeof(*temp));
-                    if (temp) {
-                        memset(temp + old_max_size, 0, (max_size - old_max_size) * sizeof(*temp));
-                        lp_group = temp;
+                    EB_REALLOC_ARRAY(lp_group, max_size);
+                    if (lp_group) {
+                        memset(lp_group + old_max_size, 0, (max_size - old_max_size) * sizeof(*lp_group));
                     }
                     else {
-                        free(lp_group);
                         fclose(fin);
                         return EB_ErrorInsufficientResources;
                     }
@@ -387,7 +388,7 @@ void set_segments_numbers(SequenceControlSet* scs) {
         (scs->super_block_size == 128) ?
         ((scs->max_input_luma_height + 64) / 128) :
         ((scs->max_input_luma_height + 32) / 64);
-    scs->enc_dec_segment_col_count_array = (lp == PARALLEL_LEVEL_1) ? 1 :
+    scs->enc_dec_segment_col_count_array = (lp == PARALLEL_LEVEL_1 || is_pic_dimension_single_sb(scs->super_block_size, scs->max_input_luma_height)) ? 1 :
         (scs->super_block_size == 128) ?
         ((scs->max_input_luma_width + 64) / 128) :
         ((scs->max_input_luma_width + 32) / 64);
@@ -1038,7 +1039,7 @@ static EbErrorType svt_enc_handle_ctor(
     enc_handle_ptr->compute_segments_total_count_array                    = EB_ComputeSegmentInitCount;
     // Initialize Callbacks
     EB_ALLOC_PTR_ARRAY(enc_handle_ptr->app_callback_ptr_array, enc_handle_ptr->encode_instance_total_count);
-    EB_MALLOC(enc_handle_ptr->app_callback_ptr_array[0], sizeof(EbCallback));
+    EB_MALLOC_OBJECT(enc_handle_ptr->app_callback_ptr_array[0]);
     enc_handle_ptr->app_callback_ptr_array[0]->error_handler = lib_svt_encoder_send_error_exit;
     enc_handle_ptr->app_callback_ptr_array[0]->handle = ebHandlePtr;
 
@@ -1433,7 +1434,9 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component)
     svt_aom_init_intra_predictors_internal();
 #ifdef MINIMAL_BUILD
     if (svt_aom_blk_geom_mds == NULL) {
-        svt_aom_blk_geom_mds = svt_aom_malloc(MAX_NUM_BLOCKS_ALLOC * sizeof(svt_aom_blk_geom_mds[0]));
+        // NOTE: this must be re-allocated if configuration changes!
+        int max_block_count = enc_handle_ptr->scs_instance_array[0]->scs->max_block_cnt;
+        svt_aom_blk_geom_mds = svt_aom_malloc(max_block_count * sizeof(svt_aom_blk_geom_mds[0]));
         svt_aom_build_blk_geom(enc_handle_ptr->scs_instance_array[0]->scs->svt_aom_geom_idx);
     }
 #else
@@ -1526,18 +1529,17 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component)
         input_data.variance_octile = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.variance_octile;
         input_data.tf_strength = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.tf_strength;
         input_data.qp_scale_compress_strength = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.qp_scale_compress_strength;
-        input_data.max_32_tx_size = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.max_32_tx_size;
         input_data.adaptive_film_grain = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.adaptive_film_grain;
+        input_data.max_tx_size = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.max_tx_size;
+        input_data.ac_bias = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.ac_bias;
         input_data.noise_norm_strength = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.noise_norm_strength;
         input_data.kf_tf_strength = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.kf_tf_strength;
-        input_data.ac_bias = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.ac_bias;
-        input_data.spy_rd = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.spy_rd;
-        input_data.hbd_mds = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.hbd_mds;
-        input_data.sharp_tx = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.sharp_tx;
-        input_data.complex_hvs = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.complex_hvs;
         input_data.alt_lambda_factors = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.alt_lambda_factors;
+        input_data.sharp_tx = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.sharp_tx;
         input_data.alt_ssim_tuning = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.alt_ssim_tuning;
-        //check if all added parameters have been added
+        input_data.hbd_mds = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.hbd_mds;
+        input_data.tx_bias = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.tx_bias;
+        input_data.complex_hvs = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.complex_hvs;
         input_data.static_config = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config;
         input_data.allintra = enc_handle_ptr->scs_instance_array[instance_index]->scs->allintra;
         EB_NEW(
@@ -1588,7 +1590,6 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component)
             input_data.b64_size = enc_handle_ptr->scs_instance_array[instance_index]->scs->b64_size;
             input_data.sb_size = enc_handle_ptr->scs_instance_array[instance_index]->scs->super_block_size;
             input_data.hbd_md = enc_handle_ptr->scs_instance_array[instance_index]->scs->enable_hbd_mode_decision;
-            input_data.cdf_mode = enc_handle_ptr->scs_instance_array[instance_index]->scs->cdf_mode;
             input_data.mfmv = enc_handle_ptr->scs_instance_array[instance_index]->scs->mfmv_enabled;
             input_data.cfg_palette = enc_handle_ptr->scs_instance_array[0]->scs->static_config.screen_content_mode;
             //Jing: Get tile info from parent_pcs
@@ -1642,7 +1643,6 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component)
             input_data.b64_size = enc_handle_ptr->scs_instance_array[instance_index]->scs->b64_size;
             input_data.sb_size = enc_handle_ptr->scs_instance_array[instance_index]->scs->super_block_size;
             input_data.hbd_md = enc_handle_ptr->scs_instance_array[instance_index]->scs->enable_hbd_mode_decision;
-            input_data.cdf_mode = enc_handle_ptr->scs_instance_array[instance_index]->scs->cdf_mode;
             input_data.mfmv = enc_handle_ptr->scs_instance_array[instance_index]->scs->mfmv_enabled;
             input_data.cfg_palette = enc_handle_ptr->scs_instance_array[0]->scs->static_config.screen_content_mode;
             //Jing: Get tile info from parent_pcs
@@ -2391,15 +2391,11 @@ EB_API EbErrorType svt_av1_enc_init_handle(
 
     #if defined(__linux__)
         if(lp_group == NULL) {
-            EB_MALLOC(lp_group, INITIAL_PROCESSOR_GROUP * sizeof(processorGroup));
+            EB_MALLOC_ARRAY(lp_group, INITIAL_PROCESSOR_GROUP);
         }
     #endif
 
-    *p_handle = (EbComponentType*)malloc(sizeof(EbComponentType));
-    if (*p_handle == (EbComponentType*)NULL) {
-        SVT_ERROR("Component Struct Malloc Failed\n");
-        return EB_ErrorInsufficientResources;
-    }
+    EB_MALLOC_OBJECT(*p_handle);
     // Init Component OS objects (threads, semaphores, etc.)
     // also links the various Component control functions
     EbErrorType return_error = init_svt_av1_encoder_handle(*p_handle);
@@ -2409,7 +2405,7 @@ EB_API EbErrorType svt_av1_enc_init_handle(
     }
     if (return_error != EB_ErrorNone) {
         svt_av1_enc_deinit(*p_handle);
-        free(*p_handle);
+        EB_FREE(*p_handle);
         *p_handle = NULL;
         return return_error;
     }
@@ -2443,9 +2439,9 @@ EB_API EbErrorType svt_av1_enc_deinit_handle(
     if (svt_enc_component) {
         EbErrorType return_error = svt_av1_enc_component_de_init(svt_enc_component);
 
-        free(svt_enc_component);
+        EB_FREE(svt_enc_component);
 #if  defined(__linux__)
-        EB_FREE(lp_group);
+        EB_FREE_ARRAY(lp_group);
 #endif
         svt_decrease_component_count();
         return return_error;
@@ -2458,7 +2454,11 @@ static int32_t compute_default_intra_period(
     SequenceControlSet       *scs){
     int32_t intra_period               = 0;
     EbSvtAv1EncConfiguration   *config = &scs->static_config;
+#if FIX_FPS_CALC
+    double fps                          = scs->frame_rate;
+#else
     double fps                         = (double)scs->frame_rate / (1 << 16);
+#endif
     int32_t mini_gop_size              = (1 << (config->hierarchical_levels));
 
     // If mini_gop_size = 32, pretend that the minigop size is 16 instead
@@ -2693,7 +2693,7 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
         scs->tf_params_per_type[0].avoid_2d_qpel = 0;
         scs->tf_params_per_type[0].use_2tap = 0;
         scs->tf_params_per_type[0].use_intra_for_noise_est = 0;
-        scs->tf_params_per_type[0].use_8bit_subpel = 0;
+        scs->tf_params_per_type[0].use_8bit_subpel = 1;
         scs->tf_params_per_type[0].use_pred_64x64_only_th = 0;
         scs->tf_params_per_type[0].me_exit_th = 0;
         scs->tf_params_per_type[0].subpel_early_exit_th = 0;
@@ -2717,7 +2717,7 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
         scs->tf_params_per_type[1].avoid_2d_qpel = 0;
         scs->tf_params_per_type[1].use_2tap = 0;
         scs->tf_params_per_type[1].use_intra_for_noise_est = 0;
-        scs->tf_params_per_type[1].use_8bit_subpel = 0;
+        scs->tf_params_per_type[1].use_8bit_subpel = 1;
         scs->tf_params_per_type[1].use_pred_64x64_only_th = 0;
         scs->tf_params_per_type[1].me_exit_th = 0;
         scs->tf_params_per_type[1].subpel_early_exit_th = 0;
@@ -2741,7 +2741,7 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
         scs->tf_params_per_type[2].avoid_2d_qpel = 0;
         scs->tf_params_per_type[2].use_2tap = 0;
         scs->tf_params_per_type[2].use_intra_for_noise_est = 0;
-        scs->tf_params_per_type[2].use_8bit_subpel = 0;
+        scs->tf_params_per_type[2].use_8bit_subpel = 1;
         scs->tf_params_per_type[2].use_pred_64x64_only_th = 0;
         scs->tf_params_per_type[2].me_exit_th = 0;
         scs->tf_params_per_type[2].subpel_early_exit_th = 0;
@@ -2766,7 +2766,7 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
         scs->tf_params_per_type[0].avoid_2d_qpel = 0;
         scs->tf_params_per_type[0].use_2tap = 0;
         scs->tf_params_per_type[0].use_intra_for_noise_est = 0;
-        scs->tf_params_per_type[0].use_8bit_subpel = 0;
+        scs->tf_params_per_type[0].use_8bit_subpel = 1;
         scs->tf_params_per_type[0].use_pred_64x64_only_th = 0;
         scs->tf_params_per_type[0].me_exit_th = 0;
         scs->tf_params_per_type[0].subpel_early_exit_th = 0;
@@ -2790,7 +2790,7 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
         scs->tf_params_per_type[1].avoid_2d_qpel = 0;
         scs->tf_params_per_type[1].use_2tap = 0;
         scs->tf_params_per_type[1].use_intra_for_noise_est = 0;
-        scs->tf_params_per_type[1].use_8bit_subpel = 0;
+        scs->tf_params_per_type[1].use_8bit_subpel = 1;
         scs->tf_params_per_type[1].use_pred_64x64_only_th = 0;
         scs->tf_params_per_type[1].me_exit_th = 0;
         scs->tf_params_per_type[1].subpel_early_exit_th = 0;
@@ -2814,7 +2814,7 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
         scs->tf_params_per_type[2].avoid_2d_qpel = 0;
         scs->tf_params_per_type[2].use_2tap = 0;
         scs->tf_params_per_type[2].use_intra_for_noise_est = 0;
-        scs->tf_params_per_type[2].use_8bit_subpel = 0;
+        scs->tf_params_per_type[2].use_8bit_subpel = 1;
         scs->tf_params_per_type[2].use_pred_64x64_only_th = 0;
         scs->tf_params_per_type[2].me_exit_th = 0;
         scs->tf_params_per_type[2].subpel_early_exit_th = 0;
@@ -3258,7 +3258,7 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
 static void derive_vq_params(SequenceControlSet* scs) {
     VqCtrls* vq_ctrl = &scs->vq_ctrls;
 
-    if (scs->static_config.tune == 0 || (scs->static_config.alt_ssim_tuning && (scs->static_config.tune == 2 || scs->static_config.tune == 4))) {
+    if (scs->static_config.tune == TUNE_VQ || scs->static_config.tune == TUNE_FILM_GRAIN || (scs->static_config.alt_ssim_tuning && scs->static_config.tune == TUNE_SSIM)) {
 
         // Sharpness
         vq_ctrl->sharpness_ctrls.scene_transition = 1;
@@ -3269,16 +3269,7 @@ static void derive_vq_params(SequenceControlSet* scs) {
         vq_ctrl->sharpness_ctrls.restoration      = 1;
         vq_ctrl->sharpness_ctrls.rdoq             = 1;
     }
-    else if (scs->static_config.tune == 3) {
-
-        vq_ctrl->sharpness_ctrls.scene_transition = 1;
-        vq_ctrl->sharpness_ctrls.tf               = 1;
-        vq_ctrl->sharpness_ctrls.unipred_bias     = 1;
-        vq_ctrl->sharpness_ctrls.ifs              = 1;
-        vq_ctrl->sharpness_ctrls.cdef             = 1;
-        vq_ctrl->sharpness_ctrls.restoration      = 1;
-        vq_ctrl->sharpness_ctrls.rdoq             = 1;
-    } else {
+    else {
 
         // Sharpness
         vq_ctrl->sharpness_ctrls.scene_transition = 1;
@@ -3324,7 +3315,7 @@ static void derive_tf_params(SequenceControlSet *scs) {
     if (do_tf == 0) {
         tf_level = 0;
     }
-    else if (enc_mode <= ENC_M2) {
+    else if (enc_mode <= ENC_M1) {
         tf_level = 1;
     }
     else if (enc_mode <= ENC_M2) {
@@ -3884,7 +3875,11 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         }
         const uint8_t tbr_bands[5] = { 1,2,4,6,8};
         const uint64_t src_samples = (uint64_t)(scs->seq_header.max_frame_width*scs->seq_header.max_frame_height);
+#if FIX_FPS_CALC
+        const uint64_t target_bit_rate = (uint64_t)((double)scs->static_config.target_bit_rate * 60.0 / (scs->frame_rate * (double)src_samples));
+#else
         const uint64_t target_bit_rate = scs->static_config.target_bit_rate * 60 / (scs->static_config.frame_rate_numerator / scs->static_config.frame_rate_denominator) / src_samples;
+#endif
         if (target_bit_rate < tbr_bands[0])
             scs->static_config.qp = 55;
         else if (target_bit_rate < tbr_bands[1])
@@ -3898,7 +3893,6 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         else
             scs->static_config.qp = 30;
     }
-    scs->initial_qp = scs->static_config.qp;
     svt_aom_derive_input_resolution(
         &scs->input_resolution,
         scs->max_input_luma_width *scs->max_input_luma_height);
@@ -4016,7 +4010,11 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         else
             scs->super_block_size = 64;
     // When switch frame is on, all renditions must have same super block size. See spec 5.5.1, 5.9.15.
+#if FTR_SFRAME_POSI
+    if (scs->static_config.sframe_dist != 0 || scs->static_config.sframe_posi.sframe_posis)
+#else
     if (scs->static_config.sframe_dist != 0)
+#endif // FTR_SFRAME_POSI
         scs->super_block_size = 64;
     // Set config info related to SB size
     if (scs->super_block_size == 128) {
@@ -4043,11 +4041,11 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     if (scs->static_config.variance_boost_strength >= 4) {
         SVT_WARN("Aggressive Variance Boost strength used. This is a curve that's only useful under specific situations. Use with caution!\n");
     }
-    if (scs->static_config.max_32_tx_size && scs->static_config.qp >= 20) {
+    if (scs->static_config.max_tx_size == 32 && scs->static_config.qp >= 25 && scs->static_config.tune != 3) {
         SVT_WARN("Restricting transform sizes to a max of 32x32 might reduce coding efficiency at low to medium fidelity settings. Use with caution!\n");
     }
-    if (scs->static_config.alt_ssim_tuning && (scs->static_config.tune != 2 && scs->static_config.tune != 4)) {
-        SVT_WARN("Alternative SSIM tuning only applies to tunes 2 (SSIM) & 4 (Still Picture). Neither of those tunes are enabled!\n");
+    if (scs->static_config.alt_ssim_tuning && scs->static_config.tune != TUNE_SSIM) {
+        SVT_WARN("Alternative SSIM tuning only applies to tune 2 (SSIM)!\n");
     }
     if (scs->static_config.intra_refresh_type == SVT_AV1_FWDKF_REFRESH && scs->static_config.hierarchical_levels != 4){
         scs->static_config.hierarchical_levels = 4;
@@ -4080,7 +4078,12 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     for (uint8_t is_islice = 0; is_islice <= 1; is_islice++)
         for (uint8_t is_base = 0; is_base <= 1; is_base++)
             disallow_4x4 = MIN(disallow_4x4, svt_aom_get_disallow_4x4(scs->static_config.enc_mode, is_base));
-    bool disallow_8x8 = svt_aom_get_disallow_8x8(scs->static_config.enc_mode, scs->static_config.rtc, scs->static_config.screen_content_mode);
+    bool disallow_8x8 = svt_aom_get_disallow_8x8(scs->static_config.enc_mode,
+        scs->static_config.rtc,
+        scs->static_config.screen_content_mode,
+        scs->super_block_size,
+        scs->max_input_luma_width,
+        scs->max_input_luma_height);
         if (scs->super_block_size == 128) {
     if(!allow_HVA_HVB && disallow_4x4) {
         scs->svt_aom_geom_idx = GEOM_10;
@@ -4150,10 +4153,6 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     scs->static_config.enable_overlays = !scs->static_config.enable_tf ||
         (scs->static_config.rate_control_mode != SVT_AV1_RC_MODE_CQP_OR_CRF) ?
         0 : scs->static_config.enable_overlays;
-    //0: ON
-    //1: OFF
-    // Memory Footprint reduction tool ONLY if no CDF (should be controlled using an API signal and not f(enc_mode))
-    scs->cdf_mode = 0;
 
     // Enforce starting frame in decode order (at PicMgr)
     // Does not wait for feedback from PKT
@@ -4273,26 +4272,24 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         ? 1
         : 0;
 
-    scs->max_heirachical_level = scs->static_config.hierarchical_levels;
+    scs->fast_aa_aware_screen_detection_mode = (scs->static_config.enc_mode >= ENC_M3) ? 1 : 0;
 }
-static void copy_api_from_app(
-    SequenceControlSet       *scs,
-    EbSvtAv1EncConfiguration   *config_struct){
 
+static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration *config_struct) {
     scs->max_input_luma_width = config_struct->source_width;
     scs->max_input_luma_height = config_struct->source_height;
     // SB Definitions
-    scs->static_config.pred_structure = ((EbSvtAv1EncConfiguration*)config_struct)->pred_structure;
+    scs->static_config.pred_structure = config_struct->pred_structure;
 
-    scs->static_config.avif = ((EbSvtAv1EncConfiguration*)config_struct)->avif;
-    scs->static_config.rtc = ((EbSvtAv1EncConfiguration*)config_struct)->rtc;
+    scs->static_config.avif = config_struct->avif;
+    scs->static_config.rtc = config_struct->rtc;
     if (scs->static_config.rtc && scs->static_config.pred_structure != LOW_DELAY) {
         scs->static_config.pred_structure = LOW_DELAY;
-        SVT_WARN("Instance %u: Force low delay pred strucutre to be used for rtc.\n");
+        SVT_WARN("Instance %u: Force low delay pred structure to be used for rtc.\n");
     }
     // Tpl is disabled in low delay applications
     if (scs->static_config.avif || scs->allintra || scs->static_config.pred_structure == LOW_DELAY) {
-        ((EbSvtAv1EncConfiguration*)config_struct)->enable_tpl_la = 0;
+        config_struct->enable_tpl_la = 0;
     }
     scs->enable_qp_scaling_flag = scs->static_config.avif || scs->allintra ? 0 : 1;
     // Set Picture Parameters for statistics gathering
@@ -4306,11 +4303,11 @@ static void copy_api_from_app(
     scs->speed_control_flag = 0;
     // Padding Offsets
     scs->b64_size = 64;
-    scs->static_config.intra_period_length = ((EbSvtAv1EncConfiguration*)config_struct)->intra_period_length;
+    scs->static_config.intra_period_length = config_struct->intra_period_length;
     scs->allintra = (scs->static_config.intra_period_length == 0);
     scs->static_config.multiply_keyint = config_struct->multiply_keyint;
-    scs->static_config.intra_refresh_type = ((EbSvtAv1EncConfiguration*)config_struct)->intra_refresh_type;
-    scs->static_config.enc_mode = ((EbSvtAv1EncConfiguration*)config_struct)->enc_mode;
+    scs->static_config.intra_refresh_type = config_struct->intra_refresh_type;
+    scs->static_config.enc_mode = config_struct->enc_mode;
     if(scs->static_config.rtc) {
         if (scs->static_config.enc_mode > ENC_M12) {
             SVT_WARN("Preset M%d is mapped to M12.\n", scs->static_config.enc_mode);
@@ -4332,16 +4329,16 @@ static void copy_api_from_app(
         SVT_WARN("Setting preset to M9 as it is the highest supported preset for 4k and higher resolutions in Random Access mode\n");
     }
 
-    scs->static_config.use_qp_file = ((EbSvtAv1EncConfiguration*)config_struct)->use_qp_file;
-    scs->static_config.use_fixed_qindex_offsets = ((EbSvtAv1EncConfiguration*)config_struct)->use_fixed_qindex_offsets;
-    scs->static_config.key_frame_chroma_qindex_offset = ((EbSvtAv1EncConfiguration*)config_struct)->key_frame_chroma_qindex_offset;
-    scs->static_config.key_frame_qindex_offset = ((EbSvtAv1EncConfiguration*)config_struct)->key_frame_qindex_offset;
+    scs->static_config.use_qp_file = config_struct->use_qp_file;
+    scs->static_config.use_fixed_qindex_offsets = config_struct->use_fixed_qindex_offsets;
+    scs->static_config.key_frame_chroma_qindex_offset = config_struct->key_frame_chroma_qindex_offset;
+    scs->static_config.key_frame_qindex_offset = config_struct->key_frame_qindex_offset;
     if (scs->static_config.use_fixed_qindex_offsets) {
         scs->enable_qp_scaling_flag = scs->static_config.use_fixed_qindex_offsets == 1
             ? 0
             : 1; // do not shut the auto QPS if use_fixed_qindex_offsets 2
         scs->static_config.use_qp_file = 0;
-        memcpy(scs->static_config.qindex_offsets, ((EbSvtAv1EncConfiguration*)config_struct)->qindex_offsets,
+        memcpy(scs->static_config.qindex_offsets, config_struct->qindex_offsets,
             MAX_TEMPORAL_LAYERS * sizeof(int32_t));
     }
     memcpy(scs->static_config.chroma_qindex_offsets, config_struct->chroma_qindex_offsets,
@@ -4356,80 +4353,80 @@ static void copy_api_from_app(
         scs->static_config.chroma_v_ac_qindex_offset = 0;
     } else {
         scs->static_config.luma_y_dc_qindex_offset =
-            ((EbSvtAv1EncConfiguration*)config_struct)->luma_y_dc_qindex_offset;
+            config_struct->luma_y_dc_qindex_offset;
         scs->static_config.chroma_u_dc_qindex_offset =
-            ((EbSvtAv1EncConfiguration*)config_struct)->chroma_u_dc_qindex_offset;
+            config_struct->chroma_u_dc_qindex_offset;
         scs->static_config.chroma_u_ac_qindex_offset =
-            ((EbSvtAv1EncConfiguration*)config_struct)->chroma_u_ac_qindex_offset;
+            config_struct->chroma_u_ac_qindex_offset;
         scs->static_config.chroma_v_dc_qindex_offset =
-            ((EbSvtAv1EncConfiguration*)config_struct)->chroma_v_dc_qindex_offset;
+            config_struct->chroma_v_dc_qindex_offset;
         scs->static_config.chroma_v_ac_qindex_offset =
-            ((EbSvtAv1EncConfiguration*)config_struct)->chroma_v_ac_qindex_offset;
+            config_struct->chroma_v_ac_qindex_offset;
     }
     memcpy(scs->static_config.lambda_scale_factors, config_struct->lambda_scale_factors,
         SVT_AV1_FRAME_UPDATE_TYPES * sizeof(int32_t));
 
-    scs->static_config.rc_stats_buffer = ((EbSvtAv1EncConfiguration*)config_struct)->rc_stats_buffer;
-    scs->static_config.pass = ((EbSvtAv1EncConfiguration*)config_struct)->pass;
+    scs->static_config.rc_stats_buffer = config_struct->rc_stats_buffer;
+    scs->static_config.pass = config_struct->pass;
     // Deblock Filter
-    scs->static_config.enable_dlf_flag = ((EbSvtAv1EncConfiguration*)config_struct)->enable_dlf_flag;
+    scs->static_config.enable_dlf_flag = config_struct->enable_dlf_flag;
 
     // CDEF
-    scs->static_config.cdef_level = ((EbSvtAv1EncConfiguration*)config_struct)->cdef_level;
+    scs->static_config.cdef_level = config_struct->cdef_level;
 
     // Restoration filtering
-    scs->static_config.enable_restoration_filtering = ((EbSvtAv1EncConfiguration*)config_struct)->enable_restoration_filtering;
+    scs->static_config.enable_restoration_filtering = config_struct->enable_restoration_filtering;
 
     // motion field motion vector
-    scs->static_config.enable_mfmv                  = ((EbSvtAv1EncConfiguration*)config_struct)->enable_mfmv;
+    scs->static_config.enable_mfmv                  = config_struct->enable_mfmv;
 
     // Dynamic GoP
-    scs->static_config.enable_dg = ((EbSvtAv1EncConfiguration*)config_struct)->enable_dg;
+    scs->static_config.enable_dg = config_struct->enable_dg;
 
     // Decoder Optimization Flag
-    scs->static_config.fast_decode = ((EbSvtAv1EncConfiguration*)config_struct)->fast_decode;
+    scs->static_config.fast_decode = config_struct->fast_decode;
 
     //Film Grain
-    scs->static_config.film_grain_denoise_strength = ((EbSvtAv1EncConfiguration*)config_struct)->film_grain_denoise_strength;
-    scs->static_config.film_grain_denoise_apply = ((EbSvtAv1EncConfiguration*)config_struct)->film_grain_denoise_apply;
+    scs->static_config.film_grain_denoise_strength = config_struct->film_grain_denoise_strength;
+    scs->static_config.film_grain_denoise_apply = config_struct->film_grain_denoise_apply;
     if (scs->static_config.film_grain_denoise_strength == 0 && scs->static_config.film_grain_denoise_apply == 1) {
         SVT_WARN("Film grain denoise apply signal is going to be ignored when film grain is off.\n");
     }
     scs->seq_header.film_grain_params_present = (uint8_t)(scs->static_config.film_grain_denoise_strength>0);
-    scs->static_config.fgs_table = ((EbSvtAv1EncConfiguration*)config_struct)->fgs_table;
+    scs->static_config.fgs_table = config_struct->fgs_table;
 
     // MD Parameters
-    scs->enable_hbd_mode_decision = ((EbSvtAv1EncConfiguration*)config_struct)->encoder_bit_depth > 8 ? DEFAULT : 0;
+    scs->enable_hbd_mode_decision = config_struct->encoder_bit_depth > 8 ? DEFAULT : 0;
     {
-        if (((EbSvtAv1EncConfiguration*)config_struct)->tile_rows == DEFAULT && ((EbSvtAv1EncConfiguration*)config_struct)->tile_columns == DEFAULT) {
+        if (config_struct->tile_rows == DEFAULT && config_struct->tile_columns == DEFAULT) {
 
             scs->static_config.tile_rows = 0;
             scs->static_config.tile_columns = 0;
 
         }
         else {
-            if (((EbSvtAv1EncConfiguration*)config_struct)->tile_rows == DEFAULT) {
+            if (config_struct->tile_rows == DEFAULT) {
                 scs->static_config.tile_rows = 0;
-                scs->static_config.tile_columns = ((EbSvtAv1EncConfiguration*)config_struct)->tile_columns;
+                scs->static_config.tile_columns = config_struct->tile_columns;
             }
-            else if (((EbSvtAv1EncConfiguration*)config_struct)->tile_columns == DEFAULT) {
-                scs->static_config.tile_rows = ((EbSvtAv1EncConfiguration*)config_struct)->tile_rows;
+            else if (config_struct->tile_columns == DEFAULT) {
+                scs->static_config.tile_rows = config_struct->tile_rows;
                 scs->static_config.tile_columns = 0;
             }
             else {
-                scs->static_config.tile_rows = ((EbSvtAv1EncConfiguration*)config_struct)->tile_rows;
-                scs->static_config.tile_columns = ((EbSvtAv1EncConfiguration*)config_struct)->tile_columns;
+                scs->static_config.tile_rows = config_struct->tile_rows;
+                scs->static_config.tile_columns = config_struct->tile_columns;
             }
         }
     }
 
     // Rate Control
-    scs->static_config.scene_change_detection = ((EbSvtAv1EncConfiguration*)config_struct)->scene_change_detection;
-    if (((EbSvtAv1EncConfiguration*)config_struct)->lossless && ((EbSvtAv1EncConfiguration*)config_struct)->rate_control_mode) {
+    scs->static_config.scene_change_detection = config_struct->scene_change_detection;
+    if (config_struct->lossless && config_struct->rate_control_mode) {
         scs->static_config.rate_control_mode = SVT_AV1_RC_MODE_CQP_OR_CRF;
         SVT_WARN("Switched to CQP mode since lossless coding is enabled\n");
     } else
-    scs->static_config.rate_control_mode = ((EbSvtAv1EncConfiguration*)config_struct)->rate_control_mode;
+    scs->static_config.rate_control_mode = config_struct->rate_control_mode;
     if (scs->static_config.pass == ENC_SINGLE_PASS && scs->static_config.rtc) {
         if (scs->static_config.enc_mode < ENC_M7) {
             scs->static_config.enc_mode = ENC_M7;
@@ -4437,7 +4434,7 @@ static void copy_api_from_app(
         }
     }
     scs->static_config.tune = config_struct->tune;
-    scs->static_config.hierarchical_levels = ((EbSvtAv1EncConfiguration*)config_struct)->hierarchical_levels;
+    scs->static_config.hierarchical_levels = config_struct->hierarchical_levels;
 
     if (scs->static_config.rtc && scs->static_config.hierarchical_levels == 0) {
         scs->static_config.hierarchical_levels = HIERARCHICAL_LEVELS_AUTO;
@@ -4475,30 +4472,30 @@ static void copy_api_from_app(
         scs->static_config.hierarchical_levels = 2;
     }
     scs->max_temporal_layers = scs->static_config.hierarchical_levels;
-    scs->static_config.look_ahead_distance = ((EbSvtAv1EncConfiguration*)config_struct)->look_ahead_distance;
-    scs->static_config.frame_rate_denominator = ((EbSvtAv1EncConfiguration*)config_struct)->frame_rate_denominator;
-    scs->static_config.frame_rate_numerator = ((EbSvtAv1EncConfiguration*)config_struct)->frame_rate_numerator;
+    scs->static_config.look_ahead_distance = config_struct->look_ahead_distance;
+    scs->static_config.frame_rate_denominator = config_struct->frame_rate_denominator;
+    scs->static_config.frame_rate_numerator = config_struct->frame_rate_numerator;
 
-    scs->static_config.target_bit_rate = ((EbSvtAv1EncConfiguration*)config_struct)->target_bit_rate;
-    scs->static_config.max_bit_rate = ((EbSvtAv1EncConfiguration*)config_struct)->max_bit_rate;
-    if (((EbSvtAv1EncConfiguration*)config_struct)->enable_tpl_la == 0 && scs->static_config.max_bit_rate) {
+    scs->static_config.target_bit_rate = config_struct->target_bit_rate;
+    scs->static_config.max_bit_rate = config_struct->max_bit_rate;
+    if (config_struct->enable_tpl_la == 0 && scs->static_config.max_bit_rate) {
         scs->static_config.max_bit_rate = 0;
         SVT_WARN("Maximum bit rate only supported with tpl on. max bit rate 0 is used instead.\n");
     }
 
     scs->static_config.max_qp_allowed = scs->static_config.lossless
         ? MIN_QP_VALUE
-        : ((EbSvtAv1EncConfiguration*)config_struct)->max_qp_allowed;
+        : config_struct->max_qp_allowed;
 
     scs->static_config.min_qp_allowed = scs->static_config.lossless
         ? MIN_QP_VALUE
-        : ((EbSvtAv1EncConfiguration*)config_struct)->min_qp_allowed == MIN_QP_AUTO
+        : config_struct->min_qp_allowed == MIN_QP_AUTO
         ? scs->static_config.rate_control_mode ? 4 : MIN_QP_VALUE
-        : ((EbSvtAv1EncConfiguration*)config_struct)->min_qp_allowed;
-    scs->static_config.vbr_min_section_pct = ((EbSvtAv1EncConfiguration*)config_struct)->vbr_min_section_pct;
-    scs->static_config.vbr_max_section_pct = ((EbSvtAv1EncConfiguration*)config_struct)->vbr_max_section_pct;
-    scs->static_config.under_shoot_pct     = ((EbSvtAv1EncConfiguration*)config_struct)->under_shoot_pct;
-    scs->static_config.over_shoot_pct      = ((EbSvtAv1EncConfiguration*)config_struct)->over_shoot_pct;
+        : config_struct->min_qp_allowed;
+    scs->static_config.vbr_min_section_pct = config_struct->vbr_min_section_pct;
+    scs->static_config.vbr_max_section_pct = config_struct->vbr_max_section_pct;
+    scs->static_config.under_shoot_pct     = config_struct->under_shoot_pct;
+    scs->static_config.over_shoot_pct      = config_struct->over_shoot_pct;
     if (scs->static_config.under_shoot_pct == (uint32_t)DEFAULT) {
         if (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_VBR)
             scs->static_config.under_shoot_pct = 50;
@@ -4509,12 +4506,12 @@ static void copy_api_from_app(
     if (scs->static_config.over_shoot_pct == (uint32_t)DEFAULT) {
         scs->static_config.over_shoot_pct = 25;
     }
-    scs->static_config.mbr_over_shoot_pct  = ((EbSvtAv1EncConfiguration*)config_struct)->mbr_over_shoot_pct;
-    scs->static_config.gop_constraint_rc   = ((EbSvtAv1EncConfiguration*)config_struct)->gop_constraint_rc;
-    scs->static_config.maximum_buffer_size_ms   = ((EbSvtAv1EncConfiguration*)config_struct)->maximum_buffer_size_ms;
-    scs->static_config.starting_buffer_level_ms = ((EbSvtAv1EncConfiguration*)config_struct)->starting_buffer_level_ms;
-    scs->static_config.optimal_buffer_level_ms  = ((EbSvtAv1EncConfiguration*)config_struct)->optimal_buffer_level_ms;
-    scs->static_config.recode_loop         = ((EbSvtAv1EncConfiguration*)config_struct)->recode_loop;
+    scs->static_config.mbr_over_shoot_pct  = config_struct->mbr_over_shoot_pct;
+    scs->static_config.gop_constraint_rc   = config_struct->gop_constraint_rc;
+    scs->static_config.maximum_buffer_size_ms   = config_struct->maximum_buffer_size_ms;
+    scs->static_config.starting_buffer_level_ms = config_struct->starting_buffer_level_ms;
+    scs->static_config.optimal_buffer_level_ms  = config_struct->optimal_buffer_level_ms;
+    scs->static_config.recode_loop         = config_struct->recode_loop;
     if (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_VBR && scs->static_config.pass == ENC_SINGLE_PASS)
         scs->lap_rc = 1;
     else
@@ -4525,46 +4522,50 @@ static void copy_api_from_app(
         ? 0
         : config_struct->enable_adaptive_quantization;
     // Misc
-    scs->static_config.encoder_bit_depth = ((EbSvtAv1EncConfiguration*)config_struct)->encoder_bit_depth;
-    scs->static_config.encoder_color_format = ((EbSvtAv1EncConfiguration*)config_struct)->encoder_color_format;
+    scs->static_config.encoder_bit_depth = config_struct->encoder_bit_depth;
+    scs->static_config.encoder_color_format = config_struct->encoder_color_format;
 
     scs->chroma_format_idc = (uint32_t)(scs->static_config.encoder_color_format);
     scs->encoder_bit_depth = (uint32_t)(scs->static_config.encoder_bit_depth);
     //16bit pipeline
-    scs->is_16bit_pipeline = ((((EbSvtAv1EncConfiguration*)config_struct)->encoder_bit_depth) > EB_EIGHT_BIT) ? true: false;
+    scs->is_16bit_pipeline = ((config_struct->encoder_bit_depth) > EB_EIGHT_BIT) ? true: false;
     scs->subsampling_x = (scs->chroma_format_idc == EB_YUV444 ? 0 : 1);
     scs->subsampling_y = (scs->chroma_format_idc >= EB_YUV422 ? 0 : 1);
     // Thresholds
-    scs->static_config.screen_content_mode = ((EbSvtAv1EncConfiguration*)config_struct)->screen_content_mode;
+    scs->static_config.screen_content_mode = config_struct->screen_content_mode;
 
     // Annex A parameters
-    scs->static_config.profile = ((EbSvtAv1EncConfiguration*)config_struct)->profile;
-    scs->static_config.tier = ((EbSvtAv1EncConfiguration*)config_struct)->tier;
-    scs->static_config.level = ((EbSvtAv1EncConfiguration*)config_struct)->level;
-    scs->static_config.stat_report = ((EbSvtAv1EncConfiguration*)config_struct)->stat_report;
+    scs->static_config.profile = config_struct->profile;
+    scs->static_config.tier = config_struct->tier;
+    scs->static_config.level = config_struct->level;
+    scs->static_config.stat_report = config_struct->stat_report;
 
     // Buffers - Hardcoded(Cleanup)
-    scs->static_config.use_cpu_flags = ((EbSvtAv1EncConfiguration*)config_struct)->use_cpu_flags;
+    scs->static_config.use_cpu_flags = config_struct->use_cpu_flags;
 
-    scs->static_config.channel_id = ((EbSvtAv1EncConfiguration*)config_struct)->channel_id;
-    scs->static_config.active_channel_count = ((EbSvtAv1EncConfiguration*)config_struct)->active_channel_count;
-    scs->static_config.level_of_parallelism = ((EbSvtAv1EncConfiguration*)config_struct)->level_of_parallelism;
+    scs->static_config.channel_id = config_struct->channel_id;
+    scs->static_config.active_channel_count = config_struct->active_channel_count;
+    scs->static_config.level_of_parallelism = config_struct->level_of_parallelism;
     if (scs->static_config.level_of_parallelism >= PARALLEL_LEVEL_COUNT) {
         SVT_WARN("Level of parallelism supports levels [0-%d]. Setting maximum parallelism level.\n", PARALLEL_LEVEL_COUNT - 1);
         SVT_WARN("Level of parallelism does not correspond to a target number of processors to use. See Docs/Parameters.md for info.\n");
         scs->static_config.level_of_parallelism = PARALLEL_LEVEL_6;
     }
-    scs->static_config.pin_threads = ((EbSvtAv1EncConfiguration*)config_struct)->pin_threads;
-    scs->static_config.target_socket = ((EbSvtAv1EncConfiguration*)config_struct)->target_socket;
-    scs->static_config.qp = ((EbSvtAv1EncConfiguration*)config_struct)->qp;
-    scs->static_config.recon_enabled = ((EbSvtAv1EncConfiguration*)config_struct)->recon_enabled;
-    scs->static_config.enable_tpl_la = ((EbSvtAv1EncConfiguration*)config_struct)->enable_tpl_la;
+    scs->static_config.pin_threads = config_struct->pin_threads;
+    scs->static_config.target_socket = config_struct->target_socket;
+    scs->static_config.qp = config_struct->qp;
+    scs->static_config.recon_enabled = config_struct->recon_enabled;
+    scs->static_config.enable_tpl_la = config_struct->enable_tpl_la;
     if (scs->static_config.enable_tpl_la != 1){
         scs->static_config.enable_tpl_la = 1;
     }
     // Extract frame rate from Numerator and Denominator if not 0
     if (scs->static_config.frame_rate_numerator != 0 && scs->static_config.frame_rate_denominator != 0)
+#if FIX_FPS_CALC
+        scs->frame_rate = (double)scs->static_config.frame_rate_numerator / (double)scs->static_config.frame_rate_denominator;
+#else
         scs->frame_rate = ((scs->static_config.frame_rate_numerator << 8) / (scs->static_config.frame_rate_denominator)) << 8;
+#endif
     // Get Default Intra Period if not specified
     if (scs->static_config.intra_period_length == -2) {
         scs->static_config.intra_period_length = compute_default_intra_period(scs);
@@ -4585,6 +4586,15 @@ static void copy_api_from_app(
     scs->static_config.superres_kf_denom = config_struct->superres_kf_denom;
     scs->static_config.superres_qthres = config_struct->superres_qthres;
     scs->static_config.superres_kf_qthres = config_struct->superres_kf_qthres;
+
+    if (scs->static_config.superres_mode == SUPERRES_AUTO)
+    {
+        // TODO: set search mode based on preset
+        //scs->static_config.superres_auto_search_type = SUPERRES_AUTO_SOLO;
+        scs->static_config.superres_auto_search_type = SUPERRES_AUTO_DUAL;
+        //scs->static_config.superres_auto_search_type = SUPERRES_AUTO_ALL;
+    }
+
     scs->static_config.resize_mode = config_struct->resize_mode;
     scs->static_config.resize_denom = config_struct->resize_denom;
     scs->static_config.resize_kf_denom = config_struct->resize_kf_denom;
@@ -4601,6 +4611,24 @@ static void copy_api_from_app(
         memcpy(scs->static_config.frame_scale_evts.resize_denoms, config_struct->frame_scale_evts.resize_denoms, sizeof(int32_t) * config_struct->frame_scale_evts.evt_num);
     }
     scs->static_config.frame_scale_evts.evt_num = config_struct->frame_scale_evts.evt_num;
+#if FTR_SFRAME_POSI
+    if (config_struct->sframe_posi.sframe_posis) {
+        EB_NO_THROW_MALLOC(scs->static_config.sframe_posi.sframe_posis, sizeof(uint64_t) * config_struct->sframe_posi.sframe_num);
+        memcpy(scs->static_config.sframe_posi.sframe_posis, config_struct->sframe_posi.sframe_posis, sizeof(uint64_t) * config_struct->sframe_posi.sframe_num);
+    }
+    scs->static_config.sframe_posi.sframe_num = config_struct->sframe_posi.sframe_num;
+#endif // FTR_SFRAME_POSI
+#if FTR_SFRAME_QP
+    if (config_struct->sframe_posi.sframe_qps) {
+        EB_NO_THROW_MALLOC(scs->static_config.sframe_posi.sframe_qps, sizeof(config_struct->sframe_posi.sframe_qps[0]) * config_struct->sframe_posi.sframe_qp_num);
+        memcpy(scs->static_config.sframe_posi.sframe_qps, config_struct->sframe_posi.sframe_qps, sizeof(config_struct->sframe_posi.sframe_qps[0]) * config_struct->sframe_posi.sframe_qp_num);
+    }
+    if (config_struct->sframe_posi.sframe_qp_offsets) {
+        EB_NO_THROW_MALLOC(scs->static_config.sframe_posi.sframe_qp_offsets, sizeof(config_struct->sframe_posi.sframe_qp_offsets[0]) * config_struct->sframe_posi.sframe_qp_num);
+        memcpy(scs->static_config.sframe_posi.sframe_qp_offsets, config_struct->sframe_posi.sframe_qp_offsets, sizeof(config_struct->sframe_posi.sframe_qp_offsets[0]) * config_struct->sframe_posi.sframe_qp_num);
+    }
+    scs->static_config.sframe_posi.sframe_qp_num = config_struct->sframe_posi.sframe_qp_num;
+#endif // FTR_SFRAME_QP
 
     // Color description
     scs->static_config.color_primaries = config_struct->color_primaries;
@@ -4614,10 +4642,21 @@ static void copy_api_from_app(
     // switch frame
     scs->static_config.sframe_dist = config_struct->sframe_dist;
     scs->static_config.sframe_mode = config_struct->sframe_mode;
+#if FTR_SFRAME_QP
+    scs->static_config.sframe_qp = config_struct->sframe_qp;
+    scs->static_config.sframe_qp_offset = config_struct->sframe_qp_offset;
+#endif // FTR_SFRAME_QP
+#if FTR_SFRAME_POSI
+    scs->seq_header.max_frame_width = config_struct->forced_max_frame_width > 0 ? config_struct->forced_max_frame_width
+        : scs->static_config.sframe_dist > 0 || scs->static_config.sframe_posi.sframe_posis ? 16384 : scs->max_input_luma_width;
+    scs->seq_header.max_frame_height = config_struct->forced_max_frame_height > 0 ? config_struct->forced_max_frame_height
+        : scs->static_config.sframe_dist > 0 || scs->static_config.sframe_posi.sframe_posis ? 8704 : scs->max_input_luma_height;
+#else
     scs->seq_header.max_frame_width = config_struct->forced_max_frame_width > 0 ? config_struct->forced_max_frame_width
         : scs->static_config.sframe_dist > 0 ? 16384 : scs->max_input_luma_width;
     scs->seq_header.max_frame_height = config_struct->forced_max_frame_height > 0 ? config_struct->forced_max_frame_height
         : scs->static_config.sframe_dist > 0 ? 8704 : scs->max_input_luma_height;
+#endif // FTR_SFRAME_POSI
     scs->static_config.force_key_frames = config_struct->force_key_frames;
 
     // QM
@@ -4639,21 +4678,11 @@ static void copy_api_from_app(
         SVT_WARN("Quantization matrices will be forced off since lossless coding is applied\n");
         scs->static_config.enable_qm = 0;
     }
-
-#ifdef ARCH_AARCH64
-    // Work around a VQ issue that creates blocking with QMs and presets 3 and faster on ARM environments with NEON
-    // https://gitlab.com/AOMediaCodec/SVT-AV1/-/issues/2189
-    if (scs->static_config.enable_qm && scs->static_config.enc_mode >= ENC_M3 && scs->static_config.tune != 4) {
-        SVT_WARN("Quantization matrices will be turned off for presets 3 and higher on NEON-enabled environments\n");
-        scs->static_config.enable_qm = 0;
-    }
-#endif
-
     scs->static_config.startup_mg_size = config_struct->startup_mg_size;
     scs->static_config.startup_qp_offset = config_struct->startup_qp_offset;
     scs->static_config.enable_roi_map = config_struct->enable_roi_map;
 
-    // Variance boost
+    // Variance Boost
     scs->static_config.enable_variance_boost = config_struct->enable_variance_boost;
     scs->static_config.variance_boost_strength = config_struct->variance_boost_strength;
     scs->static_config.variance_octile = config_struct->variance_octile;
@@ -4668,28 +4697,28 @@ static void copy_api_from_app(
     // Sharpness
     scs->static_config.sharpness = config_struct->sharpness;
 
-    // Extended CRF
-    scs->static_config.extended_crf_qindex_offset = config_struct->extended_crf_qindex_offset;
-
     // QP scaling compression
     scs->static_config.qp_scale_compress_strength = config_struct->qp_scale_compress_strength;
 
-    // Max 32 TX size
-    scs->static_config.max_32_tx_size = config_struct->max_32_tx_size;
-
     // Adaptive film grain
     scs->static_config.adaptive_film_grain = config_struct->adaptive_film_grain;
+
+    // Max TX size
+    scs->static_config.max_tx_size = config_struct->max_tx_size;
+
+    // Extended CRF
+    scs->static_config.extended_crf_qindex_offset = config_struct->extended_crf_qindex_offset;
+
+    // AC bias
+    scs->static_config.ac_bias = config_struct->ac_bias;
 
     // Noise normalization strength
     scs->static_config.noise_norm_strength = config_struct->noise_norm_strength;
     //Alt-ref keyframe temporal filtering strength
     scs->static_config.kf_tf_strength = config_struct->kf_tf_strength;
 
-    // Psy rd
-    scs->static_config.ac_bias = config_struct->ac_bias;
-
-    // Spy rd
-    scs->static_config.spy_rd = config_struct->spy_rd;
+    // Alt lambda factors
+    scs->static_config.alt_lambda_factors = config_struct->alt_lambda_factors;
 
     // Sharp TX
     scs->static_config.sharp_tx = config_struct->sharp_tx;
@@ -4697,44 +4726,41 @@ static void copy_api_from_app(
     // HBD-MD
     scs->static_config.hbd_mds = config_struct->hbd_mds;
 
-    // Complex HVS
-    scs->static_config.complex_hvs = config_struct->complex_hvs;
-
-    // Alt lambda factors
-    scs->static_config.alt_lambda_factors = config_struct->alt_lambda_factors;
-
     // Alternative SSIM tuning
     scs->static_config.alt_ssim_tuning = config_struct->alt_ssim_tuning;
 
-    // Override settings for Still Picture tune
-    if (scs->static_config.tune == 4) {
-        SVT_WARN("Tune 4: Still Picture is experimental, expect frequent changes that may modify present behavior.\n");
-        SVT_WARN("Tune 4: Still Picture overrides: sharpness, variance boost strength and curve, enable-qm and min/max level, max 32 TX size, and DLF\n");
+    // TX bias
+    scs->static_config.tx_bias = config_struct->tx_bias;
+
+    // Complex HVS
+    scs->static_config.complex_hvs = config_struct->complex_hvs;
+
+    // Override settings for Still IQ tune
+    if (scs->static_config.tune == TUNE_IQ) {
+        SVT_WARN("Tune IQ overrides: sharpness, Var. Boost strength/curve, enable-qm and min/max level, max TX size and SCM\n");
         scs->static_config.enable_qm = 1;
         scs->static_config.min_qm_level = 4;
         scs->static_config.max_qm_level = 10;
         scs->static_config.min_chroma_qm_level = 4;
         scs->static_config.max_chroma_qm_level = 10;
         scs->static_config.sharpness = 7;
+        scs->static_config.enable_variance_boost = 1;
         scs->static_config.variance_boost_strength = 3;
         scs->static_config.variance_boost_curve = 2;
+        scs->static_config.max_tx_size = scs->static_config.qp <= 45 ? 32 : 64;
+        scs->static_config.screen_content_mode = 3;
     }
 
     // Override settings for Film Grain tune
-    if (scs->static_config.tune == 3) {
-        SVT_WARN("Tune 3: Film Grain is opinionated! Works best with 1080p, 4k and 8k content.\n");
-        SVT_WARN("Tune 3: Film Grain turns off: TF, CDEF, rest. filtering and enables complex HVS, spy-rd and strong ac-bias.\n");
+    if (scs->static_config.tune == TUNE_FILM_GRAIN) {
+        SVT_WARN("Tune 4: Film Grain is opinionated! Works best with 1080p, 4k and 8k content.\n");
+        SVT_WARN("Tune 4: Film Grain turns off: TF, CDEF, rest. filtering, and enables complex HVS, TX bias and strong AC bias.\n");
         scs->static_config.enable_tf = 0;
         scs->static_config.cdef_level = 0;
         scs->static_config.enable_restoration_filtering = 0;
-        scs->static_config.spy_rd = 1;
         scs->static_config.complex_hvs = 1;
-
-        if (scs->static_config.transfer_characteristics == EB_CICP_TC_SMPTE_2084) {
-            scs->static_config.ac_bias = 6.0;
-        } else {
-            scs->static_config.ac_bias = 4.0;
-        }
+        scs->static_config.ac_bias = 4.0;
+        scs->static_config.tx_bias = 1;
     }
 
     // Override Variance Boost curve for PQ transfer
@@ -4762,7 +4788,7 @@ EB_API EbErrorType svt_av1_enc_set_parameter(
     uint32_t              instance_index = 0;
     copy_api_from_app(
         enc_handle->scs_instance_array[instance_index]->scs,
-        (EbSvtAv1EncConfiguration*)config_struct);
+        config_struct);
 
     EbErrorType return_error = svt_av1_verify_settings(
         enc_handle->scs_instance_array[instance_index]->scs);
@@ -4795,6 +4821,16 @@ EB_API EbErrorType svt_av1_enc_set_parameter(
     if (config_struct->frame_scale_evts.start_frame_nums) EB_FREE(config_struct->frame_scale_evts.start_frame_nums);
     memset(&config_struct->frame_scale_evts, 0, sizeof(SvtAv1FrameScaleEvts));
 
+    // free sframe position list
+#if FTR_SFRAME_QP
+    if (config_struct->sframe_posi.sframe_qps) EB_FREE(config_struct->sframe_posi.sframe_qps);
+    if (config_struct->sframe_posi.sframe_qp_offsets) EB_FREE(config_struct->sframe_posi.sframe_qp_offsets);
+#endif // FTR_SFRAME_QP
+#if FTR_SFRAME_POSI
+    if (config_struct->sframe_posi.sframe_posis) EB_FREE(config_struct->sframe_posi.sframe_posis);
+    memset(&config_struct->sframe_posi, 0, sizeof(SvtAv1SFramePositions));
+#endif // FTR_SFRAME_POSI
+
     return return_error;
 }
 EB_API EbErrorType svt_av1_enc_stream_header(
@@ -4815,13 +4851,10 @@ EB_API EbErrorType svt_av1_enc_stream_header(
     memset(&bitstream, 0, sizeof(Bitstream));
     memset(&output_bitstream, 0, sizeof(OutputBitstreamUnit));
     bitstream.output_bitstream_ptr = &output_bitstream;
-    output_stream_buffer = (EbBufferHeaderType *)malloc(sizeof(EbBufferHeaderType));
-    if (!output_stream_buffer) {
-        return EB_ErrorInsufficientResources;
-    }
-    output_stream_buffer->p_buffer = (uint8_t *)malloc(sizeof(uint8_t) * output_buffer_size);
+    EB_MALLOC_OBJECT(output_stream_buffer);
+    EB_MALLOC_ARRAY_NO_CHECK(output_stream_buffer->p_buffer, output_buffer_size);
     if (!output_stream_buffer->p_buffer) {
-        free(output_stream_buffer);
+        EB_FREE(output_stream_buffer);
         return EB_ErrorInsufficientResources;
     }
 
@@ -4831,14 +4864,14 @@ EB_API EbErrorType svt_av1_enc_stream_header(
     output_stream_buffer->pic_type = EB_AV1_INVALID_PICTURE;
     output_stream_buffer->n_filled_len = 0;
 
-    ((OutputBitstreamUnit *)bitstream.output_bitstream_ptr)->buffer_begin_av1 = output_stream_buffer->p_buffer;
+    bitstream.output_bitstream_ptr->buffer_begin_av1 = output_stream_buffer->p_buffer;
 
     svt_aom_output_bitstream_reset(bitstream.output_bitstream_ptr);
 
     // Code the SPS
     svt_aom_encode_sps_av1(&bitstream, scs);
 
-    output_stream_buffer->n_filled_len = (uint32_t)(((OutputBitstreamUnit *)bitstream.output_bitstream_ptr)->buffer_av1 - ((OutputBitstreamUnit *)bitstream.output_bitstream_ptr)->buffer_begin_av1);
+    output_stream_buffer->n_filled_len = (uint32_t)(bitstream.output_bitstream_ptr->buffer_av1 - bitstream.output_bitstream_ptr->buffer_begin_av1);
 
     *output_stream_ptr = output_stream_buffer;
 
@@ -4853,8 +4886,8 @@ EB_API EbErrorType svt_av1_enc_stream_header_release(
         return EB_ErrorBadParameter;
     }
 
-    free(stream_header_ptr->p_buffer);
-    free(stream_header_ptr);
+    EB_FREE_ARRAY(stream_header_ptr->p_buffer);
+    EB_FREE(stream_header_ptr);
 
     return return_error;
 }
@@ -4944,100 +4977,67 @@ static EbErrorType downsample_copy_frame_buffer(
     uint8_t                       *source,
     int                            pass)
 {
-    EbSvtAv1EncConfiguration          *config = &scs->static_config;
-    EbErrorType                      return_error = EB_ErrorNone;
+    EbErrorType return_error = EB_ErrorNone;
 
-    EbPictureBufferDesc           *input_pic = (EbPictureBufferDesc*)destination;
-    EbPictureBufferDesc           *y8b_input_picture_ptr = (EbPictureBufferDesc*)destination_y8b;
-    EbSvtIOFormat                   *input_ptr = (EbSvtIOFormat*)source;
-    bool                           is_16bit_input = (bool)(config->encoder_bit_depth > EB_EIGHT_BIT);
+    EbPictureBufferDesc *input_pic = (EbPictureBufferDesc*)destination;
+    EbPictureBufferDesc *y8b_input_picture_ptr = (EbPictureBufferDesc*)destination_y8b;
+    EbSvtIOFormat       *input_ptr = (EbSvtIOFormat*)source;
 
     // Need to include for Interlacing on the fly with pictureScanType = 1
-    if (!is_16bit_input) {
-        uint32_t     luma_buffer_offset = (input_pic->stride_y*scs->top_padding + scs->left_padding) << is_16bit_input;
-        uint32_t     chroma_buffer_offset = (input_pic->stride_cr*(scs->top_padding >> 1) + (scs->left_padding >> 1)) << is_16bit_input;
-        uint16_t     luma_stride = input_pic->stride_y << is_16bit_input;
-        uint16_t     chroma_stride = input_pic->stride_cb << is_16bit_input;
-        uint16_t     luma_height = (uint16_t)(input_pic->height - scs->max_input_pad_bottom);
-        uint16_t     luma_width = (uint16_t)(input_pic->width - scs->max_input_pad_right);
+    uint32_t luma_buffer_offset = input_pic->stride_y * scs->top_padding + scs->left_padding;
+    uint32_t chroma_buffer_offset = input_pic->stride_cr * (scs->top_padding >> 1) + (scs->left_padding >> 1);
+    uint32_t luma_width = (uint32_t)(input_pic->width - scs->max_input_pad_right);
+    uint32_t luma_height = (uint32_t)(input_pic->height - scs->max_input_pad_bottom);
 
-        uint16_t     source_luma_stride = (uint16_t)(input_ptr->y_stride);
-        uint16_t     source_cr_stride = (uint16_t)(input_ptr->cr_stride);
-        uint16_t     source_cb_stride = (uint16_t)(input_ptr->cb_stride);
-        const uint8_t  subsampling_x = (input_pic->color_format == EB_YUV444 ? 0 : 1);
-        const uint8_t  subsampling_y = ((input_pic->color_format == EB_YUV444 || input_pic->color_format == EB_YUV422) ? 0 : 1);
-        const uint32_t chroma_width = (luma_width + subsampling_x) >> subsampling_x;
-        const uint32_t chroma_height = (luma_height + subsampling_y) >> subsampling_y;
+    const uint8_t subsampling_x = (input_pic->color_format == EB_YUV444 ? 0 : 1);
+    const uint8_t subsampling_y = ((input_pic->color_format == EB_YUV444 || input_pic->color_format == EB_YUV422) ? 0 : 1);
+    const uint32_t chroma_width = (luma_width + subsampling_x) >> subsampling_x;
+    const uint32_t chroma_height = (luma_height + subsampling_y) >> subsampling_y;
 
-        uint8_t *src = input_ptr->luma;
-        uint8_t *dst = y8b_input_picture_ptr->buffer_y + luma_buffer_offset;
+    if (scs->static_config.encoder_bit_depth == EB_EIGHT_BIT) {
         downsample_2d_c_skipall(
-            src,
-            source_luma_stride,
+            input_ptr->luma,
+            input_ptr->y_stride,
             luma_width << 1,
             luma_height << 1,
-            dst,
-            luma_stride,
+            y8b_input_picture_ptr->buffer_y + luma_buffer_offset,
+            input_pic->stride_y,
             2);
 
-#define ENCODE_FIRST_PASS 1
         if (pass != ENCODE_FIRST_PASS) {
-            src = input_ptr->cb;
-            dst = input_pic->buffer_cb + chroma_buffer_offset;
-
             downsample_2d_c_skipall(
-                src,
-                source_cb_stride,
+                input_ptr->cb,
+                input_ptr->cb_stride,
                 chroma_width << 1,
                 chroma_height << 1,
-                dst,
-                chroma_stride,
+                input_pic->buffer_cb + chroma_buffer_offset,
+                input_pic->stride_cb,
                 2);
-
-            src = input_ptr->cr;
-            dst = input_pic->buffer_cr + chroma_buffer_offset;
             downsample_2d_c_skipall(
-                src,
-                source_cr_stride,
+                input_ptr->cr,
+                input_ptr->cr_stride,
                 chroma_width << 1,
                 chroma_height << 1,
-                dst,
-                chroma_stride,
+                input_pic->buffer_cr + chroma_buffer_offset,
+                input_pic->stride_cr,
                 2);
         }
     } else { // 10bit packed
-
-        uint32_t luma_offset = 0;
-        uint32_t luma_buffer_offset = (input_pic->stride_y*scs->top_padding + scs->left_padding);
-        uint32_t chroma_buffer_offset = (input_pic->stride_cr*(scs->top_padding >> 1) + (scs->left_padding >> 1));
-        uint16_t luma_width = (uint16_t)(input_pic->width - scs->max_input_pad_right);
-        uint16_t luma_height = (uint16_t)(input_pic->height - scs->max_input_pad_bottom);
-
-        uint16_t source_luma_stride = (uint16_t)(input_ptr->y_stride);
-        uint16_t source_cr_stride = (uint16_t)(input_ptr->cr_stride);
-        uint16_t source_cb_stride = (uint16_t)(input_ptr->cb_stride);
-        const uint8_t  subsampling_x = (input_pic->color_format == EB_YUV444 ? 0 : 1);
-        const uint8_t  subsampling_y = ((input_pic->color_format == EB_YUV444 || input_pic->color_format == EB_YUV422) ? 0 : 1);
-        const uint32_t chroma_width = (luma_width + subsampling_x) >> subsampling_x;
-        const uint32_t chroma_height = (luma_height + subsampling_y) >> subsampling_y;
-
         downsample_2d_c_16_zero2bit_skipall(
-            (uint16_t*)(uint16_t*)(input_ptr->luma + luma_offset),
-            source_luma_stride,
+            (uint16_t*)input_ptr->luma,
+            input_ptr->y_stride,
             luma_width << 1,
             luma_height << 1,
-            (y8b_input_picture_ptr->buffer_y + luma_buffer_offset),
+            y8b_input_picture_ptr->buffer_y + luma_buffer_offset,
             y8b_input_picture_ptr->stride_y,
             2);
 
         memset(input_pic->buffer_bit_inc_y, 0, input_pic->luma_size/4);
 
         if (pass != ENCODE_FIRST_PASS) {
-            uint32_t chroma_offset = 0;
-
             downsample_2d_c_16_zero2bit_skipall(
-                (uint16_t*)(input_ptr->cb + chroma_offset),
-                source_cb_stride,
+                (uint16_t*)input_ptr->cb,
+                input_ptr->cb_stride,
                 chroma_width << 1,
                 chroma_height << 1,
                 input_pic->buffer_cb + chroma_buffer_offset,
@@ -5047,8 +5047,8 @@ static EbErrorType downsample_copy_frame_buffer(
             memset(input_pic->buffer_bit_inc_cb, 0, input_pic->chroma_size/4);
 
             downsample_2d_c_16_zero2bit_skipall(
-                (uint16_t*)(input_ptr->cr + chroma_offset),
-                source_cr_stride,
+                (uint16_t*)input_ptr->cr,
+                input_ptr->cr_stride,
                 chroma_width << 1,
                 chroma_height << 1,
                 input_pic->buffer_cr + chroma_buffer_offset,
@@ -5072,72 +5072,44 @@ static EbErrorType copy_frame_buffer(
     uint8_t                       *source,
     int                            pass)
 {
-    EbSvtAv1EncConfiguration          *config = &scs->static_config;
-    EbErrorType                      return_error = EB_ErrorNone;
+    EbErrorType return_error = EB_ErrorNone;
 
-    EbPictureBufferDesc           *input_pic = (EbPictureBufferDesc*)destination;
-    EbPictureBufferDesc           *y8b_input_picture_ptr = (EbPictureBufferDesc*)destination_y8b;
-    EbSvtIOFormat                   *input_ptr = (EbSvtIOFormat*)source;
-    bool                           is_16bit_input = (bool)(config->encoder_bit_depth > EB_EIGHT_BIT);
+    EbPictureBufferDesc *input_pic = (EbPictureBufferDesc*)destination;
+    EbPictureBufferDesc *y8b_input_picture_ptr = (EbPictureBufferDesc*)destination_y8b;
+    EbSvtIOFormat       *input_ptr = (EbSvtIOFormat*)source;
 
     // Need to include for Interlacing on the fly with pictureScanType = 1
 
-    if (!is_16bit_input) {
-        uint32_t     luma_buffer_offset = (input_pic->stride_y*scs->top_padding + scs->left_padding) << is_16bit_input;
-        uint32_t     chroma_buffer_offset = (input_pic->stride_cr*(scs->top_padding >> 1) + (scs->left_padding >> 1)) << is_16bit_input;
-        uint16_t     luma_stride = input_pic->stride_y << is_16bit_input;
-        uint16_t     chroma_stride = input_pic->stride_cb << is_16bit_input;
-        uint16_t     luma_height = (uint16_t)(input_pic->height - scs->max_input_pad_bottom);
-        uint16_t     luma_width = (uint16_t)(input_pic->width - scs->max_input_pad_right);
-        uint16_t     source_luma_stride = (uint16_t)(input_ptr->y_stride);
-        uint16_t     source_cr_stride = (uint16_t)(input_ptr->cr_stride);
-        uint16_t     source_cb_stride = (uint16_t)(input_ptr->cb_stride);
+    uint32_t luma_buffer_offset = input_pic->stride_y * scs->top_padding + scs->left_padding;
+    uint32_t chroma_buffer_offset = input_pic->stride_cr * (scs->top_padding >> 1) + (scs->left_padding >> 1);
+    uint32_t luma_width = (uint32_t)(input_pic->width - scs->max_input_pad_right);
+    uint32_t luma_height = (uint32_t)(input_pic->height - scs->max_input_pad_bottom);
 
-        const uint8_t subsampling_x = (input_pic->color_format == EB_YUV444 ? 0 : 1);
-        const uint8_t subsampling_y = ((input_pic->color_format == EB_YUV444 || input_pic->color_format == EB_YUV422) ? 0 : 1);
-        const uint64_t source_chroma_width = (luma_width + subsampling_x) >> subsampling_x;
-        const uint64_t source_chroma_height = (luma_height + subsampling_y) >> subsampling_y;
+    const uint8_t subsampling_x = (input_pic->color_format == EB_YUV444 ? 0 : 1);
+    const uint8_t subsampling_y = ((input_pic->color_format == EB_YUV444 || input_pic->color_format == EB_YUV422) ? 0 : 1);
+    const uint32_t chroma_width = (luma_width + subsampling_x) >> subsampling_x;
+    const uint32_t chroma_height = (luma_height + subsampling_y) >> subsampling_y;
 
-        uint8_t *src = input_ptr->luma;
-        uint8_t *dst = y8b_input_picture_ptr->buffer_y + luma_buffer_offset;
-        for (unsigned i = 0; i < luma_height; i++) {
-            svt_memcpy(dst, src, luma_width);
-            src += source_luma_stride;
-            dst += luma_stride;
-        }
-        {
-            src = input_ptr->cb;
-            dst = input_pic->buffer_cb + chroma_buffer_offset;
-            for (unsigned i = 0; i < source_chroma_height; i++) {
-                svt_memcpy(dst, src, source_chroma_width);
-                src += source_cb_stride;
-                dst += chroma_stride;
-            }
-
-            src = input_ptr->cr;
-            dst = input_pic->buffer_cr + chroma_buffer_offset;
-            for (unsigned i = 0; i < source_chroma_height; i++) {
-                svt_memcpy(dst, src, source_chroma_width);
-                src += source_cr_stride;
-                dst += chroma_stride;
-            }
-        }
+    if (scs->static_config.encoder_bit_depth == EB_EIGHT_BIT) {
+        svt_av1_copy_wxh_8bit(input_ptr->luma,
+                              input_ptr->y_stride,
+                              y8b_input_picture_ptr->buffer_y + luma_buffer_offset,
+                              input_pic->stride_y,
+                              luma_height,
+                              luma_width);
+        svt_av1_copy_wxh_8bit(input_ptr->cb,
+                              input_ptr->cb_stride,
+                              input_pic->buffer_cb + chroma_buffer_offset,
+                              input_pic->stride_cb,
+                              chroma_height,
+                              chroma_width);
+        svt_av1_copy_wxh_8bit(input_ptr->cr,
+                              input_ptr->cr_stride,
+                              input_pic->buffer_cr + chroma_buffer_offset,
+                              input_pic->stride_cr,
+                              chroma_height,
+                              chroma_width);
     } else { // 10bit packed
-        uint32_t luma_offset = 0;
-        uint32_t luma_buffer_offset = (input_pic->stride_y*scs->top_padding + scs->left_padding);
-        uint32_t chroma_buffer_offset = (input_pic->stride_cr*(scs->top_padding >> 1) + (scs->left_padding >> 1));
-        uint16_t luma_width = (uint16_t)(input_pic->width - scs->max_input_pad_right);
-        uint16_t luma_height = (uint16_t)(input_pic->height - scs->max_input_pad_bottom);
-
-        uint16_t source_luma_stride = (uint16_t)(input_ptr->y_stride);
-        uint16_t source_cr_stride = (uint16_t)(input_ptr->cr_stride);
-        uint16_t source_cb_stride = (uint16_t)(input_ptr->cb_stride);
-
-        const uint8_t subsampling_x = (input_pic->color_format == EB_YUV444 ? 0 : 1);
-        const uint8_t subsampling_y = ((input_pic->color_format == EB_YUV444 || input_pic->color_format == EB_YUV422) ? 0 : 1);
-        const uint32_t chroma_width = (luma_width + subsampling_x) >> subsampling_x;
-        const uint32_t chroma_height = (luma_height + subsampling_y) >> subsampling_y;
-
         uint32_t comp_stride_y = input_pic->stride_y / 4;
         uint32_t comp_luma_buffer_offset = comp_stride_y * input_pic->org_y + input_pic->org_x/4;
 
@@ -5145,8 +5117,8 @@ static EbErrorType copy_frame_buffer(
         uint32_t comp_chroma_buffer_offset = comp_stride_uv * (input_pic->org_y/2) + input_pic->org_x /2 / 4;
 
         svt_unpack_and_2bcompress(
-            (uint16_t*)(input_ptr->luma + luma_offset),
-            source_luma_stride,
+            (uint16_t*)input_ptr->luma,
+            input_ptr->y_stride,
             y8b_input_picture_ptr->buffer_y + luma_buffer_offset,
             y8b_input_picture_ptr->stride_y,
             input_pic->buffer_bit_inc_y + comp_luma_buffer_offset,
@@ -5154,26 +5126,25 @@ static EbErrorType copy_frame_buffer(
             luma_width,
             luma_height);
         if (pass != ENCODE_FIRST_PASS) {
-            uint32_t chroma_offset = 0;
-        svt_unpack_and_2bcompress(
-            (uint16_t*)(input_ptr->cb + chroma_offset),
-            source_cb_stride,
-            input_pic->buffer_cb + chroma_buffer_offset,
-            input_pic->stride_cb,
-            input_pic->buffer_bit_inc_cb + comp_chroma_buffer_offset,
-            comp_stride_uv,
-            chroma_width,
-            chroma_height);
+            svt_unpack_and_2bcompress(
+                (uint16_t*)input_ptr->cb,
+                input_ptr->cb_stride,
+                input_pic->buffer_cb + chroma_buffer_offset,
+                input_pic->stride_cb,
+                input_pic->buffer_bit_inc_cb + comp_chroma_buffer_offset,
+                comp_stride_uv,
+                chroma_width,
+                chroma_height);
 
-        svt_unpack_and_2bcompress(
-            (uint16_t*)(input_ptr->cr + chroma_offset),
-            source_cr_stride,
-            input_pic->buffer_cr + chroma_buffer_offset,
-            input_pic->stride_cr,
-            input_pic->buffer_bit_inc_cr + comp_chroma_buffer_offset,
-            comp_stride_uv,
-            chroma_width,
-            chroma_height);
+            svt_unpack_and_2bcompress(
+                (uint16_t*)input_ptr->cr,
+                input_ptr->cr_stride,
+                input_pic->buffer_cr + chroma_buffer_offset,
+                input_pic->stride_cr,
+                input_pic->buffer_bit_inc_cr + comp_chroma_buffer_offset,
+                comp_stride_uv,
+                chroma_width,
+                chroma_height);
         }
     }
     return return_error;
@@ -5504,11 +5475,13 @@ static EbErrorType validate_on_the_fly_settings(EbBufferHeaderType *input_ptr, S
         }
         else if (node->node_type == RATE_CHANGE_EVENT) {
             SvtAv1RateInfo  *node_data = (SvtAv1RateInfo *)node->data;
+#if !OPT_RATE_ON_THE_FLY_NO_KF
             if (input_ptr->pic_type != EB_AV1_KEY_PICTURE) {
                 input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("QP/TBR change on the fly not supported for non key frames\n");
                 return EB_ErrorBadParameter;
             }
+#endif
             if ((scs->static_config.target_bit_rate != node_data->target_bit_rate) &&
                 !((scs->static_config.pred_structure == LOW_DELAY) && (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR))) {
                 input_ptr->flags = EB_BUFFERFLAG_EOS;
@@ -5528,6 +5501,21 @@ static EbErrorType validate_on_the_fly_settings(EbBufferHeaderType *input_ptr, S
                 return EB_ErrorBadParameter;
             }
         }
+#if FTR_FRAME_RATE_ON_THE_FLY
+        else if (node->node_type == FRAME_RATE_CHANGE_EVENT) {
+            SvtAv1FrameRateInfo* node_data = (SvtAv1FrameRateInfo*)node->data;
+            if (!((scs->static_config.pred_structure == LOW_DELAY) && (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR))) {
+                input_ptr->flags = EB_BUFFERFLAG_EOS;
+                SVT_ERROR("Frame rate change on the fly not supported for any mode other than Low-Delay CBR\n");
+                return EB_ErrorBadParameter;
+            }
+            if (node_data->frame_rate_numerator == 0 || node_data->frame_rate_denominator == 0) {
+                input_ptr->flags = EB_BUFFERFLAG_EOS;
+                SVT_ERROR("Frame rate change on the fly requires that he frame_rate_numerator and frame_rate_denominator must be greater than 0\n");
+                return EB_ErrorBadParameter;
+            }
+        }
+#endif
         node = node->next;
     }
     return EB_ErrorNone;
@@ -5851,7 +5839,7 @@ static EbErrorType init_svt_av1_encoder_handle(
     EbComponentType * hComponent)
 {
     EbErrorType       return_error = EB_ErrorNone;
-    EbComponentType  *svt_enc_component = (EbComponentType*)hComponent;
+    EbComponentType  *svt_enc_component = hComponent;
     EbEncHandle      *handle;
     svt_av1_print_version();
 

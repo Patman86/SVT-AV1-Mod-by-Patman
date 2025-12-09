@@ -260,27 +260,37 @@ static EbErrorType test_update_rate_info(uint64_t pic_num, EbBufferHeaderType *h
         data = (SvtAv1RateInfo *)malloc(sizeof(SvtAv1RateInfo));
         memset(data, 0, sizeof(SvtAv1RateInfo));
         data->target_bit_rate = 2000;
-        header_ptr->pic_type  = EB_AV1_KEY_PICTURE;
+#if !OPT_RATE_ON_THE_FLY_NO_KF
+        header_ptr->pic_type = EB_AV1_KEY_PICTURE;
+#endif
     } else if (pic_num % (4 * interval) == 0) {
         data = (SvtAv1RateInfo *)malloc(sizeof(SvtAv1RateInfo));
         memset(data, 0, sizeof(SvtAv1RateInfo));
         data->target_bit_rate = 300;
-        header_ptr->pic_type  = EB_AV1_KEY_PICTURE;
+#if !OPT_RATE_ON_THE_FLY_NO_KF
+        header_ptr->pic_type = EB_AV1_KEY_PICTURE;
+#endif
     } else if (pic_num % (3 * interval) == 0) {
         data = (SvtAv1RateInfo *)malloc(sizeof(SvtAv1RateInfo));
         memset(data, 0, sizeof(SvtAv1RateInfo));
         data->target_bit_rate = 500;
-        header_ptr->pic_type  = EB_AV1_KEY_PICTURE;
+#if !OPT_RATE_ON_THE_FLY_NO_KF
+        header_ptr->pic_type = EB_AV1_KEY_PICTURE;
+#endif
     } else if (pic_num % (2 * interval) == 0) {
         data = (SvtAv1RateInfo *)malloc(sizeof(SvtAv1RateInfo));
         memset(data, 0, sizeof(SvtAv1RateInfo));
         data->target_bit_rate = 1000;
-        header_ptr->pic_type  = EB_AV1_KEY_PICTURE;
+#if !OPT_RATE_ON_THE_FLY_NO_KF
+        header_ptr->pic_type = EB_AV1_KEY_PICTURE;
+#endif
     } else if (pic_num % interval == 0) {
         data = (SvtAv1RateInfo *)malloc(sizeof(SvtAv1RateInfo));
         memset(data, 0, sizeof(SvtAv1RateInfo));
         data->target_bit_rate = 200;
-        header_ptr->pic_type  = EB_AV1_KEY_PICTURE;
+#if !OPT_RATE_ON_THE_FLY_NO_KF
+        header_ptr->pic_type = EB_AV1_KEY_PICTURE;
+#endif
     } else {
         return EB_ErrorNone;
     }
@@ -339,6 +349,88 @@ static EbErrorType test_update_qp_info(uint64_t pic_num, EbBufferHeaderType *hea
     EbPrivDataNode *new_node = (EbPrivDataNode *)malloc(sizeof(EbPrivDataNode));
     new_node->size           = sizeof(SvtAv1RateInfo);
     new_node->node_type      = RATE_CHANGE_EVENT;
+    new_node->data           = data;
+    new_node->next           = NULL;
+
+    // append to tail
+    if (header_ptr->p_app_private == NULL) {
+        header_ptr->p_app_private = new_node;
+    } else {
+        EbPrivDataNode *last = header_ptr->p_app_private;
+        while (last->next != NULL) { last = last->next; }
+        last->next = new_node;
+    }
+
+    return EB_ErrorNone;
+}
+#endif
+#if FTR_FRAME_RATE_ON_FLY_SAMPLE
+// test_update_frame_rate_info: sample test case for updating the rate info on the fly
+static EbErrorType test_update_frame_rate_info(uint64_t pic_num, EbBufferHeaderType *header_ptr) {
+    SvtAv1FrameRateInfo *data;
+    int                  interval = 500;
+    if (pic_num == 0)
+        return EB_ErrorNone;
+    else if (pic_num % (5 * interval) == 0) {
+        data = (SvtAv1FrameRateInfo *)malloc(sizeof(SvtAv1FrameRateInfo));
+        memset(data, 0, sizeof(SvtAv1FrameRateInfo));
+        data->frame_rate_numerator   = 24000;
+        data->frame_rate_denominator = 1000;
+    } else if (pic_num % (4 * interval) == 0) {
+        data = (SvtAv1FrameRateInfo *)malloc(sizeof(SvtAv1FrameRateInfo));
+        memset(data, 0, sizeof(SvtAv1FrameRateInfo));
+        data->frame_rate_numerator   = 30000;
+        data->frame_rate_denominator = 1000;
+    } else if (pic_num % (3 * interval) == 0) {
+        data = (SvtAv1FrameRateInfo *)malloc(sizeof(SvtAv1FrameRateInfo));
+        memset(data, 0, sizeof(SvtAv1FrameRateInfo));
+        data->frame_rate_numerator   = 15000;
+        data->frame_rate_denominator = 1000;
+    } else if (pic_num % (2 * interval) == 0) {
+        data = (SvtAv1FrameRateInfo *)malloc(sizeof(SvtAv1FrameRateInfo));
+        memset(data, 0, sizeof(SvtAv1FrameRateInfo));
+        data->frame_rate_numerator   = 60000;
+        data->frame_rate_denominator = 1000;
+    } else if (pic_num % interval == 0) {
+        data = (SvtAv1FrameRateInfo *)malloc(sizeof(SvtAv1FrameRateInfo));
+        memset(data, 0, sizeof(SvtAv1FrameRateInfo));
+        data->frame_rate_numerator   = 30000;
+        data->frame_rate_denominator = 1000;
+    } else {
+        return EB_ErrorNone;
+    }
+    EbPrivDataNode *new_node = (EbPrivDataNode *)malloc(sizeof(EbPrivDataNode));
+    new_node->size           = sizeof(SvtAv1FrameRateInfo);
+    new_node->node_type      = FRAME_RATE_CHANGE_EVENT;
+    new_node->data           = data;
+    new_node->next           = NULL;
+
+    // append to tail
+    if (header_ptr->p_app_private == NULL) {
+        header_ptr->p_app_private = new_node;
+    } else {
+        EbPrivDataNode *last = header_ptr->p_app_private;
+        while (last->next != NULL) { last = last->next; }
+        last->next = new_node;
+    }
+
+    return EB_ErrorNone;
+}
+#endif
+#if FTR_PER_FRAME_QUALITY_SAMPLE
+// test_update_psnr_per_frame_info: sample test case for computing PSNR per frame
+static EbErrorType test_update_psnr_per_frame_info(uint64_t pic_num, EbBufferHeaderType *header_ptr) {
+    int interval = 10;
+    if (pic_num % (1 * interval) != 0) {
+        return EB_ErrorNone;
+    }
+    SvtAv1ComputeQualityInfo *data = (SvtAv1ComputeQualityInfo *)malloc(sizeof(SvtAv1ComputeQualityInfo));
+    data->compute_psnr             = true;
+    data->compute_ssim             = false;
+
+    EbPrivDataNode *new_node = (EbPrivDataNode *)malloc(sizeof(EbPrivDataNode));
+    new_node->size           = sizeof(SvtAv1ComputeQualityInfo);
+    new_node->node_type      = COMPUTE_QUALITY_EVENT;
     new_node->data           = data;
     new_node->next           = NULL;
 
@@ -459,14 +551,15 @@ static EbErrorType retrieve_roi_map_event(SvtAv1RoiMap *roi_map, uint64_t pic_nu
 }
 
 #ifdef LIBDOVI_FOUND
-static EbErrorType retrieve_dovi_rpu_for_frame(const DoviRpuOpaqueList *rpus, uint64_t pic_num, EbBufferHeaderType *header_ptr) {
+static EbErrorType retrieve_dovi_rpu_for_frame(const DoviRpuOpaqueList *rpus, uint64_t pic_num,
+                                               EbBufferHeaderType *header_ptr) {
     if (rpus == NULL) {
         return EB_ErrorNone;
     }
     if (pic_num > rpus->len - 1) {
         return EB_ErrorNone;
     }
-    DoviRpuOpaque *rpu = rpus->list[pic_num];
+    DoviRpuOpaque  *rpu         = rpus->list[pic_num];
     const DoviData *rpu_payload = dovi_write_av1_rpu_metadata_obu_t35_complete(rpu);
     if (svt_add_metadata(header_ptr, EB_AV1_METADATA_TYPE_ITUT_T35, rpu_payload->data, rpu_payload->len)) {
         dovi_data_free(rpu_payload);
@@ -477,7 +570,8 @@ static EbErrorType retrieve_dovi_rpu_for_frame(const DoviRpuOpaqueList *rpus, ui
 }
 #endif
 #ifdef LIBHDR10PLUS_RS_FOUND
-static EbErrorType retrieve_hdr10plus_payload_for_frame(Hdr10PlusRsJsonOpaque *hdr10plus_json, uint64_t pic_num, EbBufferHeaderType *header_ptr) {
+static EbErrorType retrieve_hdr10plus_payload_for_frame(Hdr10PlusRsJsonOpaque *hdr10plus_json, uint64_t pic_num,
+                                                        EbBufferHeaderType *header_ptr) {
     if (hdr10plus_json == NULL) {
         return EB_ErrorNone;
     }
@@ -565,6 +659,12 @@ void process_input_buffer(EncChannel *channel) {
 #if FTR_RATE_ON_FLY_SAMPLE
             test_update_rate_info(header_ptr->pts, header_ptr);
             //  test_update_qp_info(header_ptr->pts, header_ptr);
+#endif
+#if FTR_FRAME_RATE_ON_FLY_SAMPLE
+            test_update_frame_rate_info(header_ptr->pts, header_ptr);
+#endif
+#if FTR_PER_FRAME_QUALITY_SAMPLE
+            test_update_psnr_per_frame_info(header_ptr->pts, header_ptr);
 #endif
             retrieve_roi_map_event(app_cfg->roi_map, header_ptr->pts, header_ptr);
 #ifdef LIBDOVI_FOUND
@@ -879,7 +979,7 @@ void process_output_stream_buffer(EncChannel *channel, EncApp *enc_app, int32_t 
             return;
         } else if (stream_status != EB_NoErrorEmptyQueue) {
             uint32_t flags = header_ptr->flags;
-#if OPT_LD_LATENCY2
+
             if (flags & EB_BUFFERFLAG_EOS) {
                 // Update Output Port Activity State
                 *port_state  = APP_PortInactive;
@@ -946,23 +1046,10 @@ void process_output_stream_buffer(EncChannel *channel, EncApp *enc_app, int32_t 
 
                 ++*frame_count;
             }
+
             const double fps        = (double)*frame_count / app_cfg->performance_context.total_encode_time;
             const double frame_rate = (double)app_cfg->config.frame_rate_numerator /
                 (double)app_cfg->config.frame_rate_denominator;
-
-            // Patman's progress variables
-            const double ete        = app_cfg->performance_context.total_encode_time;
-            int ete_r               = round(ete);
-            int ete_hours           = ete_r / 3600;
-            int ete_minutes         = (ete_r - (ete_hours * 3600)) / 60;
-            int ete_seconds         = ete_r - (ete_hours * 3600) - (ete_minutes * 60);
-            const double eta        = (app_cfg->performance_context.total_encode_time / app_cfg->frames_encoded) * (app_cfg->frames_to_be_encoded - app_cfg->frames_encoded);
-            int eta_r               = round(eta);
-            int eta_hours           = eta_r / 3600;
-            int eta_minutes         = (eta_r - (eta_hours * 3600)) / 60;
-            int eta_seconds         = eta_r - (eta_hours * 3600) - (eta_minutes * 60);
-            double size             = ((double)app_cfg->performance_context.byte_count / 1000000);
-            double estsz            = ((double)app_cfg->performance_context.byte_count * app_cfg->frames_to_be_encoded / (app_cfg->frames_encoded * 1000) / 1000);
 
             switch (app_cfg->progress) {
             case 0: break;
@@ -970,42 +1057,63 @@ void process_output_stream_buffer(EncChannel *channel, EncApp *enc_app, int32_t 
                 if (!(flags & EB_BUFFERFLAG_IS_ALT_REF))
                     fprintf(stderr, "\b\b\b\b\b\b\b\b\b%9d", *frame_count);
                 break;
-            case 2:
-                fprintf(stderr,
-                        "\rEncoding frame %4d %.2f kbps %.2f fp%c  ",
-                        *frame_count,
-                        ((double)(app_cfg->performance_context.byte_count << 3) * frame_rate /
-                         (app_cfg->frames_encoded * 1000)),
-                        fps >= 1.0 ? fps : fps * 60,
-                        fps >= 1.0 ? 's' : 'm');
-                break;
-            case 3:
+            case 2: {
+                // Detailed progress variables
+                const double ete         = app_cfg->performance_context.total_encode_time;
+                const int    ete_r       = round(ete);
+                const int    ete_hours   = ete_r / 3600;
+                const int    ete_minutes = (ete_r - (ete_hours * 3600)) / 60;
+                const int    ete_seconds = ete_r - (ete_hours * 3600) - (ete_minutes * 60);
+                const double size        = ((double)app_cfg->performance_context.byte_count / 1000000);
+
                 if ((int)app_cfg->frames_to_be_encoded == -1) {
+                    // Encoder doesn't know how many frames are to be encoded, therefore an ETA can't be calculated
                     fprintf(stderr,
-                            "\rEncoding: \x1b[33m%4d Frames\x1b[0m @ \x1b[32m%.2f\x1b[0m fp%c | \x1b[35m%.2f kb/s\x1b[0m | Time: \x1b[36m%d:%02d:%02d\x1b[0m | Size: \x1b[31m%.2f MB\x1b[0m",
+                            "\rEncoding: \x1b[33m%4d Frames\x1b[0m @ \x1b[32m%.2f\x1b[0m fp%c | \x1b[35m%.2f "
+                            "kb/s\x1b[0m | Size: \x1b[31m%.2f MB\x1b[0m | Time: \x1b[36m%d:%02d:%02d\x1b[0m ",
                             *frame_count,
-                            // (int)app_cfg->frames_to_be_encoded,
                             fps >= 1.0 ? fps : fps * 60,
                             fps >= 1.0 ? 's' : 'm',
                             ((double)(app_cfg->performance_context.byte_count << 3) * frame_rate /
                              (app_cfg->frames_encoded * 1000)),
-                            ete_hours, ete_minutes, ete_seconds, /* eta_hours, eta_minutes, eta_seconds, */ size /*, estsz */);
+                            size,
+                            ete_hours,
+                            ete_minutes,
+                            ete_seconds);
                 } else {
+                    const double eta = (app_cfg->performance_context.total_encode_time / *frame_count) *
+                        (app_cfg->frames_to_be_encoded - *frame_count);
+                    const int    eta_r       = round(eta);
+                    const int    eta_hours   = eta_r / 3600;
+                    const int    eta_minutes = (eta_r - (eta_hours * 3600)) / 60;
+                    const int    eta_seconds = eta_r - (eta_hours * 3600) - (eta_minutes * 60);
+                    const double estsz       = size * app_cfg->frames_to_be_encoded / *frame_count;
+
+                    // Encoder knows how many frames are to be encoded, therefore an ETA can be calculated
                     fprintf(stderr,
-                            "\rEncoding: \x1b[33m%4d/%d Frames\x1b[0m @ \x1b[32m%.2f\x1b[0m fp%c | \x1b[35m%.2f kb/s\x1b[0m | Time: \x1b[36m%d:%02d:%02d\x1b[0m \x1b[38;5;248m[-%d:%02d:%02d]\x1b[0m | Size: \x1b[31m%.2f MB\x1b[0m \x1b[38;5;248m[%.2f MB]\x1b[0m",
+                            "\rEncoding: \x1b[33m%4d/%d Frames\x1b[0m @ \x1b[32m%.2f\x1b[0m fp%c | \x1b[35m%.2f "
+                            "kb/s\x1b[0m | Size: \x1b[31m%.2f MB\x1b[0m \x1b[38;5;248m[%.2f MB]\x1b[0m | Time: "
+                            "\x1b[36m%d:%02d:%02d\x1b[0m \x1b[38;5;248m[-%d:%02d:%02d]\x1b[0m ",
                             *frame_count,
                             (int)app_cfg->frames_to_be_encoded,
                             fps >= 1.0 ? fps : fps * 60,
                             fps >= 1.0 ? 's' : 'm',
                             ((double)(app_cfg->performance_context.byte_count << 3) * frame_rate /
                              (app_cfg->frames_encoded * 1000)),
-                            ete_hours, ete_minutes, ete_seconds, eta_hours, eta_minutes, eta_seconds, size, estsz);
+                            size,
+                            estsz,
+                            ete_hours,
+                            ete_minutes,
+                            ete_seconds,
+                            eta_hours,
+                            eta_minutes,
+                            eta_seconds);
                 }
-                break;
+            } break;
             default: break;
             }
-            fflush(stderr);
 
+            fflush(stderr);
             app_cfg->performance_context.average_speed = (double)app_cfg->performance_context.frame_count /
                 app_cfg->performance_context.total_encode_time;
             app_cfg->performance_context.average_latency = (double)app_cfg->performance_context.total_latency /
@@ -1015,138 +1123,6 @@ void process_output_stream_buffer(EncChannel *channel, EncApp *enc_app, int32_t 
                 fprintf(stderr,
                         "\nAverage System Encoding Speed:        %.2f\n",
                         (double)*frame_count / app_cfg->performance_context.total_encode_time);
-#else
-            is_alt_ref = (flags & EB_BUFFERFLAG_IS_ALT_REF);
-            if (!(flags & EB_BUFFERFLAG_IS_ALT_REF))
-                ++(app_cfg->performance_context.frame_count);
-            *total_latency += (uint64_t)header_ptr->n_tick_count;
-            *max_latency = (header_ptr->n_tick_count > *max_latency) ? header_ptr->n_tick_count : *max_latency;
-            app_svt_av1_get_time(&finish_s_time, &finish_u_time);
-
-            // total execution time, inc init time
-            app_cfg->performance_context.total_execution_time = app_svt_av1_compute_overall_elapsed_time(
-                app_cfg->performance_context.lib_start_time[0],
-                app_cfg->performance_context.lib_start_time[1],
-                finish_s_time,
-                finish_u_time);
-
-            // total encode time
-            app_cfg->performance_context.total_encode_time = app_svt_av1_compute_overall_elapsed_time(
-                app_cfg->performance_context.encode_start_time[0],
-                app_cfg->performance_context.encode_start_time[1],
-                finish_s_time,
-                finish_u_time);
-
-            // Write Stream Data to file
-            if (stream_file) {
-                if (app_cfg->performance_context.frame_count == 1 && !(flags & EB_BUFFERFLAG_IS_ALT_REF)) {
-                    write_ivf_stream_header(
-                        app_cfg, app_cfg->frames_to_be_encoded == -1 ? 0 : (int32_t)app_cfg->frames_to_be_encoded);
-                }
-                write_ivf_frame_header(app_cfg, header_ptr->n_filled_len);
-                fwrite(header_ptr->p_buffer, 1, header_ptr->n_filled_len, stream_file);
-            }
-
-            app_cfg->performance_context.byte_count += header_ptr->n_filled_len;
-
-            if (app_cfg->config.stat_report && !(flags & EB_BUFFERFLAG_IS_ALT_REF))
-                process_output_statistics_buffer(header_ptr, app_cfg);
-
-            // Update Output Port Activity State
-            *port_state  = (flags & EB_BUFFERFLAG_EOS) ? APP_PortInactive : *port_state;
-            return_value = (flags & EB_BUFFERFLAG_EOS) ? APP_ExitConditionFinished : APP_ExitConditionNone;
-            // Release the output buffer
-            svt_av1_enc_release_out_buffer(&header_ptr);
-
-            if (flags & EB_BUFFERFLAG_EOS) {
-                if (app_cfg->config.pass == ENC_FIRST_PASS) {
-                    SvtAv1FixedBuf first_pass_stat;
-                    EbErrorType    ret = svt_av1_enc_get_stream_info(
-                        component_handle, SVT_AV1_STREAM_INFO_FIRST_PASS_STATS_OUT, &first_pass_stat);
-                    if (ret == EB_ErrorNone) {
-                        if (app_cfg->output_stat_file) {
-                            fwrite(first_pass_stat.buf, 1, first_pass_stat.sz, app_cfg->output_stat_file);
-                        }
-                        enc_app->rc_twopasses_stats.buf = realloc(enc_app->rc_twopasses_stats.buf, first_pass_stat.sz);
-                        if (enc_app->rc_twopasses_stats.buf) {
-                            memcpy(enc_app->rc_twopasses_stats.buf, first_pass_stat.buf, first_pass_stat.sz);
-                            enc_app->rc_twopasses_stats.sz = first_pass_stat.sz;
-                        }
-                    }
-                }
-            }
-            ++*frame_count;
-
-            const double fps        = (double)*frame_count / app_cfg->performance_context.total_encode_time;
-            const double frame_rate = (double)app_cfg->config.frame_rate_numerator /
-                (double)app_cfg->config.frame_rate_denominator;
-
-            // Patman's progress variables
-            const double ete        = app_cfg->performance_context.total_encode_time;
-            int ete_r               = round(ete);
-            int ete_hours           = ete_r / 3600;
-            int ete_minutes         = (ete_r - (ete_hours * 3600)) / 60;
-            int ete_seconds         = ete_r - (ete_hours * 3600) - (ete_minutes * 60);
-            const double eta        = (app_cfg->performance_context.total_encode_time / app_cfg->frames_encoded) * (app_cfg->frames_to_be_encoded - app_cfg->frames_encoded);
-            int eta_r               = round(eta);
-            int eta_hours           = eta_r / 3600;
-            int eta_minutes         = (eta_r - (eta_hours * 3600)) / 60;
-            int eta_seconds         = eta_r - (eta_hours * 3600) - (eta_minutes * 60);
-            double size             = ((double)app_cfg->performance_context.byte_count / 1000000);
-            double estsz            = ((double)app_cfg->performance_context.byte_count * app_cfg->frames_to_be_encoded / (app_cfg->frames_encoded * 1000) / 1000);
-
-            switch (app_cfg->progress) {
-            case 0: break;
-            case 1:
-                if (!(flags & EB_BUFFERFLAG_IS_ALT_REF))
-                    fprintf(stderr, "\b\b\b\b\b\b\b\b\b%9d", *frame_count);
-                break;
-            case 2:
-                fprintf(stderr,
-                        "\rEncoding frame %4d %.2f kbps %.2f fp%c  ",
-                        *frame_count,
-                        ((double)(app_cfg->performance_context.byte_count << 3) * frame_rate /
-                         (app_cfg->frames_encoded * 1000)),
-                        fps >= 1.0 ? fps : fps * 60,
-                        fps >= 1.0 ? 's' : 'm');
-                break;
-            case 3:
-                if ((int)app_cfg->frames_to_be_encoded == -1) {
-                    fprintf(stderr,
-                            "\rEncoding: \x1b[33m%4d Frames\x1b[0m @ \x1b[32m%.2f\x1b[0m fp%c | \x1b[35m%.2f kb/s\x1b[0m | Time: \x1b[36m%d:%02d:%02d\x1b[0m | Size: \x1b[31m%.2f MB\x1b[0m",
-                            *frame_count,
-                            // (int)app_cfg->frames_to_be_encoded,
-                            fps >= 1.0 ? fps : fps * 60,
-                            fps >= 1.0 ? 's' : 'm',
-                            ((double)(app_cfg->performance_context.byte_count << 3) * frame_rate /
-                             (app_cfg->frames_encoded * 1000)),
-                            ete_hours, ete_minutes, ete_seconds, /* eta_hours, eta_minutes, eta_seconds, */ size /*, estsz */);
-                } else {
-                    fprintf(stderr,
-                            "\rEncoding: \x1b[33m%4d/%d Frames\x1b[0m @ \x1b[32m%.2f\x1b[0m fp%c | \x1b[35m%.2f kb/s\x1b[0m | Time: \x1b[36m%d:%02d:%02d\x1b[0m \x1b[38;5;248m[-%d:%02d:%02d]\x1b[0m | Size: \x1b[31m%.2f MB\x1b[0m \x1b[38;5;248m[%.2f MB]\x1b[0m",
-                            *frame_count,
-                            (int)app_cfg->frames_to_be_encoded,
-                            fps >= 1.0 ? fps : fps * 60,
-                            fps >= 1.0 ? 's' : 'm',
-                            ((double)(app_cfg->performance_context.byte_count << 3) * frame_rate /
-                             (app_cfg->frames_encoded * 1000)),
-                            ete_hours, ete_minutes, ete_seconds, eta_hours, eta_minutes, eta_seconds, size, estsz);
-                }
-                break;
-            default: break;
-            }
-            fflush(stderr);
-
-            app_cfg->performance_context.average_speed = (double)app_cfg->performance_context.frame_count /
-                app_cfg->performance_context.total_encode_time;
-            app_cfg->performance_context.average_latency = (double)app_cfg->performance_context.total_latency /
-                app_cfg->performance_context.frame_count;
-
-            if (app_cfg->progress == 1 && !(*frame_count % SPEED_MEASUREMENT_INTERVAL))
-                fprintf(stderr,
-                        "\nAverage System Encoding Speed:        %.2f\n",
-                        (double)*frame_count / app_cfg->performance_context.total_encode_time);
-#endif
         }
     }
     channel->exit_cond_output = return_value;

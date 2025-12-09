@@ -16,7 +16,6 @@ cmake_minimum_required(VERSION 3.5...3.28)
 # Include Subdirectories
 include_directories(${PROJECT_SOURCE_DIR}/Source/API/)
 
-# libdovi detection & preprocessor macro
 option(LIBDOVI_FOUND "Use the dovi library" OFF)
 if(LIBDOVI_FOUND)
   if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
@@ -100,16 +99,6 @@ endif()
 
 #********** SET COMPILE FLAGS************
 # Link the Encoder App
-target_link_libraries(SvtAv1EncApp
-        SvtAv1Enc
-        ${LIBDOVI_LIBRARY}
-        ${LIBHDR10PLUS_RS_LIBRARY})
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
-    target_link_libraries(SvtAv1EncApp ${PLATFORM_LIBS})
-elseif(UNIX)
-    target_link_libraries(SvtAv1EncApp
-        pthread
-        m)
-endif()
+target_link_libraries(SvtAv1EncApp PRIVATE SvtAv1Enc ${LIBDOVI_LIBRARY} ${LIBHDR10PLUS_RS_LIBRARY})
 
-install(TARGETS SvtAv1EncApp RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
+install(TARGETS SvtAv1EncApp RUNTIME COMPONENT Runtime DESTINATION ${CMAKE_INSTALL_BINDIR})

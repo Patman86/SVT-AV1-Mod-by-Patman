@@ -12,7 +12,6 @@
 # ASM_NEON_I8MM Directory CMakeLists.txt
 
 # Include Encoder Subdirectories
-enable_language(ASM) # needed for .S files
 
 check_both_flags_add(-march=armv8.2-a+dotprod+i8mm)
 
@@ -22,6 +21,7 @@ target_sources(
   PUBLIC aom_convolve8_neon_i8mm.c
   PUBLIC convolve_neon_i8mm.c
   PUBLIC convolve_scale_neon_i8mm.c
+  PUBLIC intra_prediction_neon_i8mm.c
   PUBLIC jnt_convolve_neon_i8mm.c
   PUBLIC warp_plane_neon_i8mm.c)
 

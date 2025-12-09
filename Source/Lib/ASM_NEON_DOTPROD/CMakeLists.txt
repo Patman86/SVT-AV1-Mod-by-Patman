@@ -12,7 +12,6 @@
 # ASM_NEON_DOTPROD Directory CMakeLists.txt
 
 # Include Encoder Subdirectories
-enable_language(ASM) # needed for .S files
 
 check_both_flags_add(-march=armv8.2-a+dotprod)
 
@@ -25,7 +24,6 @@ target_sources(
   PUBLIC convolve_neon_dotprod.c
   PUBLIC convolve_scale_neon_dotprod.c
   PUBLIC corner_match_neon_dotprod.c
-  PUBLIC highbd_variance_neon_dotprod.c
   PUBLIC jnt_convolve_neon_dotprod.c
   PUBLIC pic_analysis_neon_dotprod.c
   PUBLIC sad_neon_dotprod.c

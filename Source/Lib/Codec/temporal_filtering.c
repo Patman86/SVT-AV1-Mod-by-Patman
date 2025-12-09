@@ -3808,6 +3808,7 @@ int32_t svt_estimate_noise_fp16_c(const uint8_t *src, uint16_t width, uint16_t h
     return (int32_t)((sum * SQRT_PI_BY_2_FP16) / (6 * num));
 }
 
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
 // Noise estimation for highbd
 int32_t svt_estimate_noise_highbd_fp16_c(const uint16_t *src, int width, int height, int stride, int bd) {
     int64_t sum = 0;
@@ -3843,6 +3844,8 @@ int32_t svt_estimate_noise_highbd_fp16_c(const uint16_t *src, int width, int hei
     FP_ASSERT((((int64_t)sum * SQRT_PI_BY_2_FP16) / (6 * num)) < ((int64_t)1 << 31));
     return (int32_t)((sum * SQRT_PI_BY_2_FP16) / (6 * num));
 }
+#endif
+
 void pad_and_decimate_filtered_pic(PictureParentControlSet *centre_pcs) {
     // reference structures (padded pictures + downsampled versions)
     SequenceControlSet *scs = centre_pcs->scs;
@@ -3923,26 +3926,26 @@ static EbErrorType save_src_pic_buffers(PictureParentControlSet *centre_pcs,
     assert(height_uv * src_pic_ptr->stride_cb == src_pic_ptr->chroma_size);
     assert(height_uv * src_pic_ptr->stride_cr == src_pic_ptr->chroma_size);
 
-    svt_aom_pic_copy_kernel_8bit(src_pic_ptr->buffer_y,
+    svt_av1_copy_wxh_8bit(src_pic_ptr->buffer_y,
                          src_pic_ptr->stride_y,
                          centre_pcs->save_source_picture_ptr[C_Y],
                          src_pic_ptr->stride_y,
-                         src_pic_ptr->stride_y,
-                         height_y);
+                         height_y,
+                         src_pic_ptr->stride_y);
 
-    svt_aom_pic_copy_kernel_8bit(src_pic_ptr->buffer_cb,
+    svt_av1_copy_wxh_8bit(src_pic_ptr->buffer_cb,
                          src_pic_ptr->stride_cb,
                          centre_pcs->save_source_picture_ptr[C_U],
                          src_pic_ptr->stride_cb,
-                         src_pic_ptr->stride_cb,
-                         height_uv);
+                         height_uv,
+                         src_pic_ptr->stride_cb);
 
-    svt_aom_pic_copy_kernel_8bit(src_pic_ptr->buffer_cr,
+    svt_av1_copy_wxh_8bit(src_pic_ptr->buffer_cr,
                          src_pic_ptr->stride_cr,
                          centre_pcs->save_source_picture_ptr[C_V],
                          src_pic_ptr->stride_cr,
-                         src_pic_ptr->stride_cr,
-                         height_uv);
+                         height_uv,
+                         src_pic_ptr->stride_cr);
 
     if (is_highbd) {
         // if highbd, copy bit inc buffers
@@ -3995,12 +3998,12 @@ static EbErrorType save_y_src_pic_buffers(PictureParentControlSet* centre_pcs, b
 
     assert(height_y * src_pic_ptr->stride_y == src_pic_ptr->luma_size);
 
-    svt_aom_pic_copy_kernel_8bit(src_pic_ptr->buffer_y,
+    svt_av1_copy_wxh_8bit(src_pic_ptr->buffer_y,
         src_pic_ptr->stride_y,
         centre_pcs->save_source_picture_ptr[C_Y],
         src_pic_ptr->stride_y,
-        src_pic_ptr->stride_y,
-        height_y);
+        height_y,
+        src_pic_ptr->stride_y);
 
     if (is_highbd) {
         // if highbd, copy bit inc buffers
@@ -4030,7 +4033,7 @@ static uint32_t filt_unfilt_dist(
         ? svt_full_distortion_kernel16_bits
         : svt_spatial_full_distortion_kernel;
 
-    uint64_t dist = 0;
+    uint32_t dist = 0;
     for (uint32_t y_b64_idx = 0; y_b64_idx < pic_height_in_b64; ++y_b64_idx) {
         for (uint32_t x_b64_idx = 0; x_b64_idx < pic_width_in_b64; ++x_b64_idx) {
 
@@ -4039,7 +4042,8 @@ static uint32_t filt_unfilt_dist(
 
             uint32_t buffer_index = b64_origin_y * stride_y + b64_origin_x;
 
-            dist += spatial_full_dist_type_fun(
+
+            dist += (uint32_t)(spatial_full_dist_type_fun(
                 filt,
                 buffer_index,
                 stride_y,
@@ -4047,18 +4051,7 @@ static uint32_t filt_unfilt_dist(
                 buffer_index,
                 stride_y,
                 ppcs->scs->b64_size,
-                ppcs->scs->b64_size);
-            dist += get_svt_psy_full_dist(
-                filt,
-                buffer_index,
-                stride_y,
-                unfil,
-                buffer_index,
-                stride_y,
-                ppcs->scs->b64_size,
-                ppcs->scs->b64_size,
-                (uint8_t)is_highbd,
-                ppcs->scs->static_config.ac_bias);
+                ppcs->scs->b64_size));
 
         }
     }
@@ -4131,8 +4124,7 @@ EbErrorType svt_av1_init_temporal_filtering(
             true; // set temporal filtering flag ON for current picture
 
         // save original source picture (to be replaced by the temporally filtered pic)
-        // if stat_report is enabled for PSNR computation
-        // or if superres recode is enabled
+        // if PSNR or SSIM computation needed or if superres recode is enabled
         SUPERRES_MODE superres_mode =
             centre_pcs->scs->static_config.superres_mode;
         SUPERRES_AUTO_SEARCH_TYPE search_type =
@@ -4143,8 +4135,8 @@ EbErrorType svt_av1_init_temporal_filtering(
             ((search_type == SUPERRES_AUTO_DUAL) ||
              (search_type == SUPERRES_AUTO_ALL)) // auto-dual or auto-all
             && ((frame_update_type == SVT_AV1_KF_UPDATE) ||
-                (frame_update_type == SVT_AV1_ARF_UPDATE && centre_pcs->scs->static_config.tune != 3)); // recode only applies to key and arf
-        if (centre_pcs->scs->static_config.stat_report ||
+                (frame_update_type == SVT_AV1_ARF_UPDATE)); // recode only applies to key and arf
+        if ((centre_pcs->compute_psnr || centre_pcs->compute_ssim) ||
             superres_recode_enabled) {
             save_src_pic_buffers(centre_pcs, ss_y, is_highbd);
         }

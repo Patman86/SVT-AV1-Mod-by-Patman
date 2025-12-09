@@ -9,6 +9,7 @@
 * PATENTS file, you can obtain it at https://www.aomedia.org/license/patent-license.
 */
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -1617,6 +1618,27 @@ int svt_av1_count_colors(const uint8_t *src, int stride, int rows, int cols, int
     return n;
 }
 
+bool svt_av1_count_colors_with_threshold(const uint8_t *src, int stride, int rows, int cols, int num_colors_threshold,
+                                         int *num_colors) {
+    bool has_color[1 << 8] = {false};
+    *num_colors            = 0;
+
+    for (int r = 0; r < rows; ++r) {
+        for (int c = 0; c < cols; ++c) {
+            const int this_val = src[r * stride + c];
+            if (!has_color[this_val]) {
+                has_color[this_val] = true;
+                (*num_colors)++;
+                if (*num_colors > num_colors_threshold) {
+                    // We're over the threshold, so we can exit early
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
 // This is used as a reference when computing the source variance for the
 //  purposes of activity masking.
 // Eventually this should be replaced by custom no-reference routines,
@@ -1636,49 +1658,51 @@ unsigned int svt_av1_get_sby_perpixel_variance(const AomVarianceFnPtr *fn_ptr, c
     const unsigned int var =
         //cpi->fn_ptr[bs].vf(ref->buf, ref->stride, svt_aom_eb_av1_var_offs, 0, &sse);
         fn_ptr->vf(src, stride, svt_aom_eb_av1_var_offs, 0, &sse);
-    return ROUND_POWER_OF_TWO(var, num_pels_log2_lookup[bs]);
+    return ROUND_POWER_OF_TWO(var, eb_num_pels_log2_lookup[bs]);
 }
 
 // Check if the number of color of a block is superior to 1 and inferior
 // to a given threshold.
-static bool is_valid_palette_nb_colors(const uint8_t *src, int stride, int rows, int cols, int nb_colors_threshold, uint16_t* nb_colors) {
+static bool is_valid_palette_nb_colors(const uint8_t *src, int stride, int rows, int cols, int nb_colors_threshold) {
     bool has_color[1 << 8]; // Maximum (1 << 8) color levels.
     memset(has_color, 0, (1 << 8) * sizeof(*has_color));
-    *nb_colors = 0;
+    int nb_colors = 0;
 
     for (int r = 0; r < rows; ++r) {
         for (int c = 0; c < cols; ++c) {
             const int this_val = src[r * stride + c];
             if (has_color[this_val] == 0) {
                 has_color[this_val] = 1;
-                (*nb_colors)++;
-                //Added a commit for this fix by Julio
-                if (*nb_colors > nb_colors_threshold)
+                nb_colors++;
+                if (nb_colors > nb_colors_threshold)
                     return false;
             }
         }
     }
-    if (*nb_colors <= 1)
+    if (nb_colors <= 1)
         return false;
 
     return true;
 }
 
-uint8_t find_dominant_value(const uint8_t *src, int stride, int rows, int cols) {
-    uint32_t value_freq[1 << 8]; // Maximum (1 << 8) value levels.
-    memset(value_freq, 0, (1 << 8) * sizeof(*value_freq));
+// Helper function that finds the dominant value of a block.
+//
+// This function builds a histogram of all 256 possible (8 bit) values, and
+// returns with the value with the greatest count (i.e. the dominant value).
+uint8_t svt_av1_find_dominant_value(const uint8_t *src, int stride, int rows, int cols) {
+    uint32_t value_count[1 << 8]  = {0}; // Maximum (1 << 8) value levels.
     uint32_t dominant_value_count = 0;
-    uint8_t dominant_value = 0;
+    uint8_t  dominant_value       = 0;
 
     for (int r = 0; r < rows; ++r) {
         for (int c = 0; c < cols; ++c) {
-            const int value = src[r * stride + c];
+            const uint8_t value = src[r * (ptrdiff_t)stride + c];
 
-            value_freq[value]++;
+            value_count[value]++;
 
-            if (value_freq[value] > dominant_value_count) {
-                dominant_value = value;
-                dominant_value_count = value_freq[value];
+            if (value_count[value] > dominant_value_count) {
+                dominant_value       = value;
+                dominant_value_count = value_count[value];
             }
         }
     }
@@ -1686,124 +1710,196 @@ uint8_t find_dominant_value(const uint8_t *src, int stride, int rows, int cols) 
     return dominant_value;
 }
 
-void dilate_block(const uint8_t* src, uint32_t src_stride, uint8_t* dilated_block, uint32_t dilated_stride, int32_t rows, int32_t cols) {
-    uint8_t dominant_value = find_dominant_value(src, src_stride, rows, cols);
+// Helper function that performs one round of image dilation on a block.
+//
+// This function finds the dominant value (i.e. the value that appears most
+// often within a block), then performs a round of dilation by "extending" all
+// occurrences of the dominant value outwards in all 8 directions (4 sides + 4
+// corners).
+//
+// For a visual example, let:
+//  - D: the dominant value
+//  - [a-p]: different non-dominant values (usually anti-aliased pixels)
+//  - .: the most common non-dominant value
+//
+// Before dilation:       After dilation:
+// . . a b D c d . .     . . D D D D D . .
+// . e f D D D g h .     D D D D D D D D D
+// . D D D D D D D .     D D D D D D D D D
+// . D D D D D D D .     D D D D D D D D D
+// . i j D D D k l .     D D D D D D D D D
+// . . m n D o p . .     . . D D D D D . .
+void svt_av1_dilate_block(const uint8_t *src, int src_stride, uint8_t *dilated, int dilated_stride, int rows,
+                          int cols) {
+    uint8_t dominant_value = svt_av1_find_dominant_value(src, src_stride, rows, cols);
 
-#if DEBUG_PSY_SCM_DILATION
-    printf("Original values:\n");
-#endif
     for (int r = 0; r < rows; ++r) {
         for (int c = 0; c < cols; ++c) {
-            const int value = src[r * src_stride + c];
+            const uint8_t value = src[r * (ptrdiff_t)src_stride + c];
 
-            dilated_block[r * dilated_stride + c] = value;
-
-#if DEBUG_PSY_SCM_DILATION
-            printf("%3i,", value);
-#endif
+            dilated[r * (ptrdiff_t)dilated_stride + c] = value;
         }
-#if DEBUG_PSY_SCM_DILATION
-        printf("\n");
-#endif
     }
 
     for (int r = 0; r < rows; ++r) {
         for (int c = 0; c < cols; ++c) {
-            const int value = src[r * src_stride + c];
+            const uint8_t value = src[r * (ptrdiff_t)src_stride + c];
 
             if (value == dominant_value) {
                 // Dilate up
-                if (r != 0) { dilated_block[(r - 1) * dilated_stride + c] = value; }
+                if (r != 0) {
+                    dilated[(r - 1) * (ptrdiff_t)dilated_stride + c] = value;
+                }
                 // Dilate down
-                if (r != rows - 1) { dilated_block[(r + 1) * dilated_stride + c] = value; }
+                if (r != rows - 1) {
+                    dilated[(r + 1) * (ptrdiff_t)dilated_stride + c] = value;
+                }
                 // Dilate left
-                if (c != 0) { dilated_block[r * dilated_stride + (c - 1)] = value; }
+                if (c != 0) {
+                    dilated[r * (ptrdiff_t)dilated_stride + (c - 1)] = value;
+                }
                 // Dilate right
-                if (c != cols - 1) { dilated_block[r * dilated_stride + (c + 1)] = value; }
+                if (c != cols - 1) {
+                    dilated[r * (ptrdiff_t)dilated_stride + (c + 1)] = value;
+                }
                 // Dilate upper-left corner
-                if (r != 0 && c != 0) { dilated_block[(r - 1) * dilated_stride + (c - 1)] = value; }
+                if (r != 0 && c != 0) {
+                    dilated[(r - 1) * (ptrdiff_t)dilated_stride + (c - 1)] = value;
+                }
                 // Dilate upper-right corner
-                if (r != 0 && c != cols - 1) { dilated_block[(r - 1) * dilated_stride + (c + 1)] = value; }
+                if (r != 0 && c != cols - 1) {
+                    dilated[(r - 1) * (ptrdiff_t)dilated_stride + (c + 1)] = value;
+                }
                 // Dilate lower-left corner
-                if (r != rows - 1 && c != 0) { dilated_block[(r + 1) * dilated_stride + (c - 1)] = value; }
+                if (r != rows - 1 && c != 0) {
+                    dilated[(r + 1) * (ptrdiff_t)dilated_stride + (c - 1)] = value;
+                }
                 // Dilate lower-right corner
-                if (r != rows - 1 && c != cols - 1) { dilated_block[(r + 1) * dilated_stride + (c + 1)] = value; }
+                if (r != rows - 1 && c != cols - 1) {
+                    dilated[(r + 1) * (ptrdiff_t)dilated_stride + (c + 1)] = value;
+                }
             }
         }
     }
-#if DEBUG_PSY_SCM_DILATION
-    printf("Dilated values:\n");
-
-    for (int r = 0; r < rows; ++r) {
-        for (int c = 0; c < cols; ++c) {
-            printf("%3i,", dilated_block[r * dilated_stride + c]);
-        }
-        printf("\n");
-    }
-#endif
 }
 
-// Estimate if the source frame is screen content, with more robust detection of anti-aliased glyphs
-void svt_aom_is_screen_content_psy(PictureParentControlSet *pcs) {
-    const int blk_w = 16;
-    const int blk_h = 16;
+// Estimates if the source frame is a candidate to enable palette mode
+// and intra block copy, with an accurate detection of anti-aliased text and
+// graphics.
+//
+// Screen content detection is done by dividing frame's luma plane (Y) into
+// small blocks, counting how many unique colors each block contains and
+// their per-pixel variance, and classifying these blocks into three main
+// categories:
+// 1. Palettizable blocks, low variance (can use palette mode)
+// 2. Palettizable blocks, high variance (can use palette mode and IntraBC)
+// 3. Non palettizable, photo-like blocks (can neither use palette mode nor
+//    IntraBC)
+// Finally, this function decides whether the frame could benefit from
+// enabling palette mode with or without IntraBC, based on the ratio of the
+// three categories mentioned above.
+void svt_aom_is_screen_content_antialiasing_aware(PictureParentControlSet *pcs) {
+    enum {
+        blk_w    = 16,
+        blk_h    = 16,
+        blk_area = blk_w * blk_h,
+    };
+
+    const bool fast_detection = pcs->scs->fast_aa_aware_screen_detection_mode;
     // These threshold values are selected experimentally.
-    const int simple_color_thresh          = 4;  // Detects text and glyphs without anti-aliasing, and graphics with a 4-color palette
-    const int complex_initial_color_thresh = 40; // Detects potential text and glyphs with anti-aliasing, and graphics with a more extended color palette
-    const int complex_final_color_thresh   = 6;  // Detects text and glyphs with anti-aliasing, and graphics with a more extended color palette
-    const int var_thresh                   = 5;
-    // Counts of blocks with no more than final_color_thresh colors.
-    int counts_1 = 0;
-    // Counts of blocks with no more than final_color_thresh colors and variance larger
-    // than var_thresh.
-    int counts_2 = 0;
-    // Counts of "photo-like" blocks
-    int counts_photo = 0;
+    // Detects text and glyphs without anti-aliasing, and graphics with a 4-color palette
+    const int simple_color_thresh = 4;
+    // Detects potential text and glyphs with anti-aliasing, and graphics with a more extended color palette
+    const int complex_initial_color_thresh = 40;
+    // Detects text and glyphs with anti-aliasing, and graphics with a more extended color palette
+    const int complex_final_color_thresh = 6;
+    // Counts of blocks with no more than final_color_thresh colors
+    const int var_thresh = 5;
+    // Count of blocks that are candidates for using palette mode
+    int64_t count_palette = 0;
+    // Count of blocks that are candidates for using IntraBC than var_thresh
+    int64_t count_intrabc = 0;
+    // Count of "photo-like" blocks (i.e. can't use palette mode or IntraBC)
+    int64_t count_photo = 0;
+
+#if DEBUG_AA_SCM
+    FILE *stats_file;
+    stats_file = fopen("aascrdet.stt", "a");
+
+    fprintf(stats_file, "\n");
+    fprintf(stats_file, "AA-aware screen detection image map legend\n");
+    if (fast_detection) {
+        fprintf(stats_file, "Fast detection enabled\n");
+    }
+    fprintf(stats_file, "-------------------------------------------------------\n");
+    fprintf(stats_file, "S: simple block, high var    C: complex block, high var\n");
+    fprintf(stats_file, "-: simple block, low var     =: complex block, low var \n");
+    fprintf(stats_file, "x: photo-like block          .: non-palettizable block \n");
+    fprintf(stats_file, "(whitespace): solid block                              \n");
+    fprintf(stats_file, "-------------------------------------------------------\n");
+#endif
+
+    // Skip every other block and weigh each block twice as much when performing
+    // fast detection
+    const int multiplier = fast_detection ? 2 : 1;
 
     const AomVarianceFnPtr *fn_ptr    = &svt_aom_mefn_ptr[BLOCK_16X16];
     EbPictureBufferDesc    *input_pic = pcs->enhanced_pic;
-    uint8_t                dilated_blk[256];
+    const int64_t           area      = (int64_t)input_pic->width * input_pic->height;
+    uint8_t                 dilated_blk[blk_area];
 
     for (int r = 0; r + blk_h <= input_pic->height; r += blk_h) {
-        for (int c = 0; c + blk_w <= input_pic->width; c += blk_w) {
-            uint8_t *src = input_pic->buffer_y + (input_pic->org_y + r) * input_pic->stride_y + input_pic->org_x +
-                c;
-            uint16_t number_of_colors;
+        // Alternate skipping in a "checkerboard" pattern when performing fast detection
+        const int initial_col = (fast_detection && (r / blk_h) % 2) ? blk_w : 0;
+
+        for (int c = initial_col; c + blk_w <= input_pic->width; c += blk_w * multiplier) {
+            uint8_t *src = input_pic->buffer_y + (input_pic->org_y + r) * input_pic->stride_y + input_pic->org_x + c;
+            int      number_of_colors;
 
             // First, find if the block could be palletized
-            if (is_valid_palette_nb_colors(src, input_pic->stride_y, blk_w, blk_h, complex_initial_color_thresh, &number_of_colors)) {
+            if (svt_av1_count_colors_with_threshold(src,
+                                                    input_pic->stride_y,
+                                                    /*rows=*/blk_h,
+                                                    /*cols=*/blk_w,
+                                                    complex_initial_color_thresh,
+                                                    &number_of_colors) &&
+                number_of_colors > 1) {
                 if (number_of_colors <= simple_color_thresh) {
                     // Simple block detected, add to block count with no further processing required
-                    ++counts_1;
+                    ++count_palette;
                     int var = svt_av1_get_sby_perpixel_variance(fn_ptr, src, input_pic->stride_y, BLOCK_16X16);
 
                     if (var > var_thresh) {
-                        ++counts_2;
-#if DEBUG_PSY_SCM
-                        printf("S");
+                        ++count_intrabc;
+#if DEBUG_AA_SCM
+                        fprintf(stats_file, "S");
                     } else {
-                        printf("-");
+                        fprintf(stats_file, "-");
 #endif
                     }
                 } else {
                     // Complex block detected, try to find if it's palettizable
                     // Dilate block with dominant color, to exclude anti-aliased pixels from final palette count
-                    dilate_block(src, input_pic->stride_y, dilated_blk, blk_w, blk_w, blk_h);
+                    svt_av1_dilate_block(src, input_pic->stride_y, dilated_blk, blk_w, /*rows=*/blk_h, /*cols=*/blk_w);
 
-                    if (is_valid_palette_nb_colors(dilated_blk, blk_w, blk_w, blk_h, complex_final_color_thresh, &number_of_colors)) {
-                        ++counts_1;
-
+                    if (svt_av1_count_colors_with_threshold(dilated_blk,
+                                                            blk_w,
+                                                            /*rows=*/blk_h,
+                                                            /*cols=*/blk_w,
+                                                            complex_final_color_thresh,
+                                                            &number_of_colors)) {
                         int var = svt_av1_get_sby_perpixel_variance(fn_ptr, src, input_pic->stride_y, BLOCK_16X16);
 
                         if (var > var_thresh) {
-                            ++counts_2;
-#if DEBUG_PSY_SCM
-                            printf("C");
+                            ++count_palette;
+                            ++count_intrabc;
+#if DEBUG_AA_SCM
+                            fprintf(stats_file, "C");
                         } else {
-                            printf("=");
+                            fprintf(stats_file, "=");
                         }
                     } else {
-                        printf(".");
+                        fprintf(stats_file, ".");
                     }
                 }
 #else
@@ -1813,15 +1909,15 @@ void svt_aom_is_screen_content_psy(PictureParentControlSet *pcs) {
 #endif
             } else {
                 if (number_of_colors > complex_initial_color_thresh) {
-                    ++counts_photo;
-#if DEBUG_PSY_SCM
-                    printf("x");
+                    ++count_photo;
+#if DEBUG_AA_SCM
+                    fprintf(stats_file, "x");
                 } else {
-                    printf(" "); // Solid block (1 color)
+                    fprintf(stats_file, " "); // Solid block (1 color)
                 }
             }
         }
-        printf("\n");
+        fprintf(stats_file, "\n");
     }
 #else
                 }
@@ -1830,29 +1926,53 @@ void svt_aom_is_screen_content_psy(PictureParentControlSet *pcs) {
     }
 #endif
 
+    // Normalize counts to account for the blocks that were skipped
+    if (fast_detection) {
+        count_photo *= multiplier;
+        count_palette *= multiplier;
+        count_intrabc *= multiplier;
+    }
+
     // The threshold values are selected experimentally.
-    // Penalize presence of photo-like blocks (1/24th the weight of a palettizable block)
-    pcs->sc_class0 = ((counts_1 - counts_photo / 24) * blk_h * blk_w * 10 > input_pic->width * input_pic->height);
+    // Penalize presence of photo-like blocks (1/16th the weight of a palettizable block)
+    pcs->sc_class0 = ((count_palette - count_photo / 16) * blk_area * 10 > area);
 
     // IntraBC would force loop filters off, so we use more strict rules that also
     // requires that the block has high variance.
-    // Penalize presence of photo-like blocks (1/24th the weight of a palettizable block)
-    pcs->sc_class1 = pcs->sc_class0 && ((counts_2 - counts_photo / 24) * blk_h * blk_w * 12 > input_pic->width * input_pic->height);
-
-#if DEBUG_PSY_SCM
-    printf("block count 1: %i, count 2: %i, count photo: %i, total: %i\n", counts_1, counts_2, counts_photo, (int)(ceil(input_pic->width / blk_w) * ceil(input_pic->height / blk_h)));
-    printf("sc_class0 value: %i, threshold %i\n", (counts_1 - counts_photo / 24) * blk_h * blk_w * 10, input_pic->width * input_pic->height);
-    printf("sc_class1 value: %i, threshold %i\n", (counts_2 - counts_photo / 24) * blk_h * blk_w * 12, input_pic->width * input_pic->height);
-    printf("is sc_class1: %i\n", pcs->sc_class1);
-#endif
+    // Penalize presence of photo-like blocks (1/16th the weight of a palettizable block)
+    pcs->sc_class1 = pcs->sc_class0 && ((count_intrabc - count_photo / 16) * blk_area * 12 > area);
 
     pcs->sc_class2 = pcs->sc_class1 ||
-        (counts_1 * blk_h * blk_w * 15 > input_pic->width * input_pic->height * 4 &&
-         counts_2 * blk_h * blk_w * 30 > input_pic->width * input_pic->height);
+        (count_palette * blk_area * 15 > area * 4 && count_intrabc * blk_area * 30 > area);
 
-    pcs->sc_class3 = pcs->sc_class1 ||
-        (counts_1 * blk_h * blk_w * 8 > input_pic->width * input_pic->height &&
-         counts_2 * blk_h * blk_w * 50 > input_pic->width * input_pic->height);
+    pcs->sc_class3 = pcs->sc_class1 || (count_palette * blk_area * 8 > area && count_intrabc * blk_area * 50 > area);
+
+    // Anti-alias aware SCM pre-dates the introduction of SC Class 4, so leave it disabled
+    pcs->sc_class4 = 0;
+
+#if DEBUG_AA_SCM
+    fprintf(stats_file,
+            "block count palette: %" PRId64 ", count intrabc: %" PRId64 ", count photo: %" PRId64 ", total: %d\n",
+            count_palette,
+            count_intrabc,
+            count_photo,
+            (int)(ceil(input_pic->width / blk_w) * ceil(input_pic->height / blk_h)));
+    fprintf(stats_file,
+            "sc palette value: %" PRId64 ", threshold %" PRId64 "\n",
+            (count_palette - count_photo / 16) * blk_area * 10,
+            area);
+    fprintf(stats_file,
+            "sc ibc value: %" PRId64 ", threshold %" PRId64 "\n",
+            (count_intrabc - count_photo / 16) * blk_area * 12,
+            area);
+    fprintf(stats_file,
+            "is sc_class0: %d, is sc_class1: %d, is sc_class2: %d, is sc_class3: %d, is sc_class4: %d\n",
+            pcs->sc_class0,
+            pcs->sc_class1,
+            pcs->sc_class2,
+            pcs->sc_class3,
+            pcs->sc_class4);
+#endif
 }
 
 // Estimate if the source frame is screen content, based on the portion of
@@ -1871,7 +1991,6 @@ void svt_aom_is_screen_content(PictureParentControlSet *pcs) {
 
     const AomVarianceFnPtr *fn_ptr    = &svt_aom_mefn_ptr[BLOCK_16X16];
     EbPictureBufferDesc    *input_pic = pcs->enhanced_pic;
-    uint16_t number_of_colors         = 0;
 
     for (int r = 0; r + blk_h <= input_pic->height; r += blk_h) {
         for (int c = 0; c + blk_w <= input_pic->width; c += blk_w) {
@@ -1879,7 +1998,7 @@ void svt_aom_is_screen_content(PictureParentControlSet *pcs) {
                 uint8_t *src = input_pic->buffer_y + (input_pic->org_y + r) * input_pic->stride_y + input_pic->org_x +
                     c;
 
-                if (is_valid_palette_nb_colors(src, input_pic->stride_y, blk_w, blk_h, color_thresh, &number_of_colors)) {
+                if (is_valid_palette_nb_colors(src, input_pic->stride_y, blk_w, blk_h, color_thresh)) {
                     ++counts_1;
                     int var = svt_av1_get_sby_perpixel_variance(fn_ptr, src, input_pic->stride_y, BLOCK_16X16);
                     if (var > var_thresh)
@@ -1920,7 +2039,7 @@ void svt_aom_is_screen_content(PictureParentControlSet *pcs) {
                 uint8_t *src = input_pic->buffer_y + (input_pic->org_y + r) * input_pic->stride_y + input_pic->org_x +
                     c;
 
-                if (is_valid_palette_nb_colors(src, input_pic->stride_y, blk_w, blk_h, color_thresh, &number_of_colors)) {
+                if (is_valid_palette_nb_colors(src, input_pic->stride_y, blk_w, blk_h, color_thresh)) {
                     ++counts_1;
                     int var = svt_av1_get_sby_perpixel_variance(fn_ptr, src, input_pic->stride_y, BLOCK_8X8);
                     if (var > var_thresh)
@@ -2141,14 +2260,13 @@ void *svt_aom_picture_analysis_kernel(void *input_ptr) {
                 // Get PA ref, copy 8bit luma to pa_ref->input_padded_pic
                 pa_ref_obj_                 = (EbPaReferenceObject *)pcs->pa_ref_pic_wrapper->object_ptr;
                 pa_ref_obj_->picture_number = pcs->picture_number;
-                input_padded_pic            = (EbPictureBufferDesc *)pa_ref_obj_->input_padded_pic;
+                input_padded_pic            = pa_ref_obj_->input_padded_pic;
 
                 // 1/4 & 1/16 input picture downsampling through filtering
-                svt_aom_downsample_filtering_input_picture(
-                    pcs,
-                    input_padded_pic,
-                    (EbPictureBufferDesc *)pa_ref_obj_->quarter_downsampled_picture_ptr,
-                    (EbPictureBufferDesc *)pa_ref_obj_->sixteenth_downsampled_picture_ptr);
+                svt_aom_downsample_filtering_input_picture(pcs,
+                                                           input_padded_pic,
+                                                           pa_ref_obj_->quarter_downsampled_picture_ptr,
+                                                           pa_ref_obj_->sixteenth_downsampled_picture_ptr);
 
                 pcs->ds_pics.quarter_picture_ptr   = pa_ref_obj_->quarter_downsampled_picture_ptr;
                 pcs->ds_pics.sixteenth_picture_ptr = pa_ref_obj_->sixteenth_downsampled_picture_ptr;
@@ -2156,24 +2274,23 @@ void *svt_aom_picture_analysis_kernel(void *input_ptr) {
             // Gathering statistics of input picture, including Variance Calculation, Histogram Bins
             {
                 svt_aom_gathering_picture_statistics(
-                    scs, pcs, input_padded_pic, (EbPictureBufferDesc *)pa_ref_obj_->sixteenth_downsampled_picture_ptr);
+                    scs, pcs, input_padded_pic, pa_ref_obj_->sixteenth_downsampled_picture_ptr);
 
                 pa_ref_obj_->avg_luma = pcs->avg_luma;
             }
 
             // If running multi-threaded mode, perform SC detection in svt_aom_picture_analysis_kernel, else in svt_aom_picture_decision_kernel
             if (scs->static_config.level_of_parallelism != 1) {
-                if (scs->static_config.screen_content_mode == 2) { // auto detect
-                    if (scs->static_config.tune == 4)
-                        svt_aom_is_screen_content_psy(pcs);
+                switch (scs->static_config.screen_content_mode) {
+                case 0: pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = 0; break;
+                case 1: pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = 1; break;
+                case 2:
                     // SC Detection is OFF for 4K and higher
-                    else if (scs->input_resolution <= INPUT_SIZE_1080p_RANGE)
+                    if (scs->input_resolution <= INPUT_SIZE_1080p_RANGE)
                         svt_aom_is_screen_content(pcs);
-                    else
-                        pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = 0;
-                } else // off / on
-                    pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 =
-                        scs->static_config.screen_content_mode;
+                    break;
+                case 3: svt_aom_is_screen_content_antialiasing_aware(pcs); break;
+                }
             }
         }
 

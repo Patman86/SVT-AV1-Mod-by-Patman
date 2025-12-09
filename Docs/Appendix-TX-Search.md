@@ -177,7 +177,7 @@ and Figure 1 below summarize the available PF sizes.
 | ```ONLY_DC_SHAPE``` | DC position only – not recommended            |
 
 
-![tx_search_new_fig1](./img/tx_search_new_fig1.webp)
+![tx_search_new_fig1](./img/tx_search_new_fig1.png)
 
 ##### Figure 1. A Summary of the Tx search optimization approaches.
 

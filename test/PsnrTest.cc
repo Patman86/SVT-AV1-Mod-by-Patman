@@ -29,16 +29,12 @@
 #include "svt_psnr.h"
 #include "random.h"
 #include "util.h"
+#include "pic_buffer_desc.h"
 
 namespace {
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
 using std::make_tuple;
 using svt_av1_test_tool::SVTRandom;
-
-extern "C" int32_t svt_aom_realloc_frame_buffer(
-    Yv12BufferConfig* ybf, int32_t width, int32_t height, int32_t ss_x,
-    int32_t ss_y, int32_t use_highbitdepth, int32_t border,
-    int32_t byte_alignment, AomCodecFrameBuffer* fb, AomGetFrameBufferCbFn cb,
-    void* cb_priv);
 
 /** setup_test_env is implemented in test/TestEnv.c */
 extern "C" void setup_test_env();
@@ -259,6 +255,7 @@ class PsnrCalcHbdTest : public PsnrCalcTest<uint16_t, PsnrCalcHbdParam> {
             calc_psnr_part_and_check(part_w, part_h);
     }
 
+#define MAX_PSNR 100.0
     double sse_to_psnr(double samples, double peak, double sse) {
         if (sse > 0.0) {
             const double psnr = 10.0 * log10(samples * peak * peak / sse);
@@ -359,5 +356,7 @@ INSTANTIATE_TEST_SUITE_P(
     AV1, PsnrCalcHbdTest,
     ::testing::Combine(::testing::ValuesIn(psnr_test_vector),
                        ::testing::ValuesIn(bit_depth_table)));
+
+#endif
 
 }  // namespace
