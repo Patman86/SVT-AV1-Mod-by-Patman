@@ -72,6 +72,48 @@ extern "C" {
 #define OPT_RECON_OPERATIONS        1 // Remove unnecessary reconstruction operations
 #define OPT_FD2_FD1_STILL_IMAGE     1 // Add fast-decode for still-image
 
+#define OPT_DEFAULT_6L              1 // Set 6L as default structure for most modes
+#define EN_M11_RA                   1 // Enable M11 for RA
+#define EN_FLAT_ALL_PRESETS         1 // Enable flat pred structure for all RTC presets
+#define TUNE_RTC_RA_PRESETS         1 // Preset tuning for RTC mode and RA
+#define CLN_ME_SCALING              1 // Remove min ME search area scaling based on non-zero framerate (which is always true)
+#define OPT_RTC_FACTORS             1 // Use same RTC CBR factors as libaom
+#define FIX_FRAMES_SINCE_KEY        1 // align to libaom count
+#define OPT_ME_DIST_IN_RC           1 // Use 64x64 ME distortion for adjust_q_cbr_flat; update at every frame
+#define FIX_RATE_SPIKES             1 // Fix bit allocation behaviour that causes every 4th frame to be huge in flat pred structure
+#define OPT_LPD1_RTC                1 // Simplify and improve LPD1 for RTC
+#define OPT_REMOVE_ENH_BASE         1 // Remove LD enhanced base frame
+#define OPT_SUBPEL_TH               1 // Optimize subpel skipping equation
+#define OPT_SKIP_CANDS_LPD1         1 // Optimize how candidates are skipped in lpd1
+#define OPT_RATE_EST_FAST           1 // bypass some rate estimation steps for speed
+#define OPT_LPD1_TX_SKIP            1 // Optimize LPD1 TX skipping based on full cost estimate
+#define OPT_LPD0_RTC                1 // Unify LPD0-classifier between rtc and non-rtc
+#define OPT_RTC_VLPD0_DEPTH         1 // Enable depth early exit for VLPD0 in RTC M12. Aggressive tx shortcut level for RTC M12.
+#define CLN_UNUSED_SIGS             1 // Remove unused signals
+#define CLN_MDS0_DIST_LPD1          1 // Don't shift MDS0 variance in LPD1; use full lambda for variance
+#define CLN_MDS0_DIST_LPD0          1 // Don't shift MDS0 variance in LPD0
+#define FIX_10BIT_BYPASS_ED         1 // Use proper lambda during MD when bypassing encdec for 10bit
+#define OPT_RPS_MRP_4_REFS          1 // Reduce the number of reference pictures stored in LD
+#define OPT_ENABLE_MRP_FLAT         1 // Enable multiple reference frames to be used for flat prediction structure
+#define OPT_DR_RTC                  1 // Unify depth-removal between rtc and non-rtc
+#if OPT_DR_RTC
+#define OPT_B8                      1 // b8 for up to M10
+#define OPT_DR_T_INFO               1 // Use collocated min blk size @ to modulate dr deviation-threshold
+#define OPT_DR_COST_TH              1 // Enhance the granularity of the dr cost-threshold multipliers
+#endif
+#define FIX_DISALLOW_8X8            1 // Fix when 8x8 are needed at pic boundaries
+#define TUNE_RTC_RA_PRESETS_2       1 // Preset tuning for RTC mode and RA
+#define CLN_DLF_DEF                 1 // Clean dlf-level def
+#define OPT_CYCLIC_REFRESH          1
+#if OPT_CYCLIC_REFRESH
+#define OPT_CR_CTRL                 1 // Use avg_frame_low_motion and avg_frame_qindex, reflecting stationary block, and average Q-index, from past frames, to decide whether to keep or disable cyclic-refresh for the current frame
+#define OPT_BOOST_MODULATION        1 // Replace the step-based rate_boost_fac logic by quadratic scaling, so the boost increases gradually with deviation rather than jumping at fixed thresholds
+#define FIX_LAMBDA_FLAT             1 // Use the the actual layer-index and hierarchical-level
+#endif
+#define OPT_RDOQ_RTC                1 // Use default lambda at RDOQ for RTC
+#define TUNE_RTC_FLAT               1 // Preset tuning flat for RTC
+#define TUNE_RTC_3L                 1 // Preset tuning 3L for RTC
+
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one
 #define DEBUG_TPL               0 // Prints to debug TPL

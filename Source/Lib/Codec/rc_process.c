@@ -614,11 +614,19 @@ int svt_av1_get_deltaq_offset(EbBitDepth bit_depth, int qindex, double beta, uin
 static int get_bpmb_enumerator_cbr(FRAME_TYPE frame_type, const int is_screen_content_type) {
     int enumerator;
 
+#if OPT_RTC_FACTORS
+    if (is_screen_content_type) {
+        enumerator = (frame_type == KEY_FRAME) ? 1000000 : 750000;
+    } else {
+        enumerator = (frame_type == KEY_FRAME) ? 1400000 : 1000000;
+    }
+#else
     if (is_screen_content_type) {
         enumerator = (frame_type == KEY_FRAME) ? 1000000 : 600000;
     } else {
         enumerator = (frame_type == KEY_FRAME) ? 1500000 : 1000000;
     }
+#endif
 
     return enumerator;
 }
@@ -1120,8 +1128,13 @@ static const int rd_frame_type_factor[2][SVT_AV1_FRAME_UPDATE_TYPES] = {{150, 18
 int svt_aom_compute_rd_mult(PictureControlSet *pcs, uint8_t q_index, uint8_t me_q_index, uint8_t bit_depth) {
     FrameType frame_type = pcs->ppcs->frm_hdr.frame_type;
     // To set gf_update_type based on current TL vs. the max TL (e.g. for 5L, max TL is 4)
+#if FIX_LAMBDA_FLAT
+    uint8_t temporal_layer_index = pcs->scs->use_flat_ipp ? 0 : pcs->ppcs->temporal_layer_index;
+    uint8_t max_temporal_layer   = pcs->scs->use_flat_ipp ? 0 : pcs->ppcs->hierarchical_levels;
+#else
     uint8_t temporal_layer_index = pcs->ppcs->temporal_layer_index;
     uint8_t max_temporal_layer   = pcs->ppcs->hierarchical_levels;
+#endif
     // Always use q_index for the derivation of the initial rdmult (i.e. don't use me_q_index)
     int64_t rdmult = svt_aom_compute_rd_mult_based_on_qindex(bit_depth, pcs->ppcs->update_type, q_index);
     // Update rdmult based on the frame's position in the miniGOP
@@ -1162,8 +1175,13 @@ int svt_aom_compute_rd_mult(PictureControlSet *pcs, uint8_t q_index, uint8_t me_
 int svt_aom_compute_fast_lambda(PictureControlSet *pcs, uint8_t q_index, uint8_t me_q_index, uint8_t bit_depth) {
     FrameType frame_type = pcs->ppcs->frm_hdr.frame_type;
     // To set gf_update_type based on current TL vs. the max TL (e.g. for 5L, max TL is 4)
+#if FIX_LAMBDA_FLAT
+    uint8_t temporal_layer_index = pcs->scs->use_flat_ipp ? 0 : pcs->ppcs->temporal_layer_index;
+    uint8_t max_temporal_layer   = pcs->scs->use_flat_ipp ? 0 : pcs->ppcs->hierarchical_levels;
+#else
     uint8_t temporal_layer_index = pcs->ppcs->temporal_layer_index;
     uint8_t max_temporal_layer   = pcs->ppcs->hierarchical_levels;
+#endif
     // Always use q_index for the derivation of the initial rdmult (i.e. don't use me_q_index)
     int64_t rdmult = bit_depth == 8 ? av1_lambda_mode_decision8_bit_sad[q_index]
                                     : av1lambda_mode_decision10_bit_sad[q_index];
@@ -1349,6 +1367,9 @@ int svt_av1_cyclic_refresh_rc_bits_per_mb(PictureParentControlSet *ppcs, double 
 #define CR_SEGMENT_ID_BASE 0
 #define CR_SEGMENT_ID_BOOST1 1
 #define CR_SEGMENT_ID_BOOST2 2
+#if OPT_BOOST_MODULATION
+const int BOOST_MAX = 10;
+#endif
 // Maximum rate target ratio for setting segment delta-qp.
 #define CR_MAX_RATE_TARGET_RATIO 4.0
 static void cyclic_sb_qp_derivation(PictureControlSet *pcs) {
@@ -1378,10 +1399,16 @@ static void cyclic_sb_qp_derivation(PictureControlSet *pcs) {
     if (!ppcs->sc_class1 && cr->actual_num_seg2_sbs) {
         seg2_dist    = (seg2_dist / cr->actual_num_seg2_sbs);
         uint64_t dev = (avg_me_dist - seg2_dist) * 100 / avg_me_dist;
+#if OPT_BOOST_MODULATION
+        // Quadratic Scaling; boost = BOOST_MAX * (dev/100)^2
+        int boost = (BOOST_MAX * dev * dev) / (100 * 100); // = /10000
+        cr->rate_boost_fac += boost;
+#else
         if (dev > 75)
             cr->rate_boost_fac += 10;
         else if (dev > 50)
             cr->rate_boost_fac += 5;
+#endif
     }
     int delta1 = compute_deltaq(
         ppcs, rc, ppcs->frm_hdr.quantization_params.base_q_idx, cr->rate_ratio_qdelta, bit_depth);
@@ -1435,19 +1462,30 @@ void svt_aom_cyclic_refresh_init(PictureParentControlSet *ppcs) {
 
     cr->apply_cyclic_refresh = (ppcs->slice_type != I_SLICE &&
                                 (ppcs->scs->use_flat_ipp || ppcs->temporal_layer_index == 0));
+
+#if OPT_CR_CTRL
+    const int qp_thresh     = AOMMAX(16, rc->best_quality + 4);
+    const int qp_max_thresh = 118 * MAXQ >> 7;
+
+    if (rc->avg_frame_qindex[INTER_FRAME] > qp_max_thresh)
+        cr->apply_cyclic_refresh = 0;
+
+    if (rc->avg_frame_qindex[INTER_FRAME] < qp_thresh)
+        cr->apply_cyclic_refresh = 0;
+
+    if (rc->avg_frame_low_motion && rc->avg_frame_low_motion < 50)
+        cr->apply_cyclic_refresh = 0;
+#endif
+
     if (!cr->apply_cyclic_refresh)
         return;
 
     uint16_t sb_cnt = scs->sb_total_count;
 
-    if (cr->apply_cyclic_refresh) {
-        cr->sb_start            = scs->enc_ctx->cr_sb_end;
-        cr->sb_end              = cr->sb_start + sb_cnt * cr->percent_refresh / 100;
-        scs->enc_ctx->cr_sb_end = cr->sb_end >= sb_cnt ? 0 : cr->sb_end;
-    } else {
-        cr->sb_start = 0;
-        cr->sb_end   = 0;
-    }
+    cr->sb_start            = scs->enc_ctx->cr_sb_end;
+    cr->sb_end              = cr->sb_start + sb_cnt * cr->percent_refresh / 100;
+    scs->enc_ctx->cr_sb_end = cr->sb_end >= sb_cnt ? 0 : cr->sb_end;
+
     // Use larger delta - qp(increase rate_ratio_qdelta) for first few(~4)
     // periods of the refresh cycle, after a key frame.
     cr->max_qdelta_perc = 60;
@@ -1916,6 +1954,9 @@ static void av1_rc_init(SequenceControlSet *scs) {
     // current and previous average base layer ME distortion
     rc->cur_avg_base_me_dist  = 0;
     rc->prev_avg_base_me_dist = 0;
+#if OPT_CR_CTRL
+    rc->avg_frame_low_motion = 0;
+#endif
 }
 
 #define MIN_BOOST_COMBINE_FACTOR 4.0
@@ -2152,7 +2193,11 @@ static int adjust_q_cbr_flat(PictureParentControlSet *ppcs, int q) {
                 q = qclamp;
         }
         // Adjust Q base on source content change from scene detection.
+#if OPT_ME_DIST_IN_RC
+        if (rc->prev_avg_base_me_dist > 0 && rc->frames_since_key > 5 && rc->cur_avg_base_me_dist > 0) {
+#else
         if (rc->prev_avg_base_me_dist > 0 && rc->frames_since_key > 10 && rc->cur_avg_base_me_dist > 0) {
+#endif
             const int bit_depth = scs->static_config.encoder_bit_depth;
             double    delta     = (double)rc->cur_avg_base_me_dist / (double)rc->prev_avg_base_me_dist - 1.0;
             // Push Q downwards if content change is decreasing and buffer level
@@ -2186,10 +2231,10 @@ static int adjust_q_cbr(PictureParentControlSet *ppcs, int q) {
     EncodeContext      *enc_ctx = scs->enc_ctx;
     RATE_CONTROL       *rc      = &enc_ctx->rc;
 
-    const int           max_delta      = max_delta_per_layer[ppcs->hierarchical_levels][ppcs->temporal_layer_index];
-    const int           max_delta_down = (ppcs->sc_class1) ? AOMMIN(max_delta, AOMMAX(1, rc->q_1_frame / 2))
-                                                           : AOMMIN(max_delta, AOMMAX(1, rc->q_1_frame / 3));
-    const int           change_avg_frame_bandwidth = abs(rc->avg_frame_bandwidth - rc->prev_avg_frame_bandwidth) >
+    const int max_delta                  = max_delta_per_layer[ppcs->hierarchical_levels][ppcs->temporal_layer_index];
+    const int max_delta_down             = (ppcs->sc_class1) ? AOMMIN(max_delta, AOMMAX(1, rc->q_1_frame / 2))
+                                                             : AOMMIN(max_delta, AOMMAX(1, rc->q_1_frame / 3));
+    const int change_avg_frame_bandwidth = abs(rc->avg_frame_bandwidth - rc->prev_avg_frame_bandwidth) >
         0.1 * (rc->avg_frame_bandwidth);
     // If resolution changes or avg_frame_bandwidth significantly changed,
     // then set this flag to indicate change in target bits per macroblock.
@@ -2200,7 +2245,11 @@ static int adjust_q_cbr(PictureParentControlSet *ppcs, int q) {
         (!enc_ctx->rc_cfg.gf_cbr_boost_pct ||
          !(ppcs->update_type == SVT_AV1_GF_UPDATE || ppcs->update_type == SVT_AV1_ARF_UPDATE))) {
         // Adjust Q base on source content change.
+#if OPT_ME_DIST_IN_RC
+        if (ppcs->temporal_layer_index == 0 && rc->prev_avg_base_me_dist > 0 && rc->frames_since_key > 5 &&
+#else
         if (ppcs->temporal_layer_index == 0 && rc->prev_avg_base_me_dist > 0 && rc->frames_since_key > 10 &&
+#endif
             rc->cur_avg_base_me_dist > 0) {
             const int bit_depth = scs->static_config.encoder_bit_depth;
             double    delta     = (double)rc->cur_avg_base_me_dist / (double)rc->prev_avg_base_me_dist - 1.0;
@@ -2295,8 +2344,15 @@ static int calc_active_worst_quality_no_stats_cbr(PictureParentControlSet *ppcs)
     svt_release_mutex(enc_ctx->frame_updated_mutex);
     ambient_qp = (frame_updated < 4) ? AOMMIN(rc->avg_frame_qindex[INTER_FRAME], rc->avg_frame_qindex[KEY_FRAME])
                                      : rc->avg_frame_qindex[INTER_FRAME];
+#if OPT_RTC_FACTORS
+    ambient_qp = AOMMIN(rc->worst_quality, ambient_qp);
+#else
     active_worst_quality = AOMMIN(rc->worst_quality, ambient_qp * 5 / 4);
+#endif
     if (rc->buffer_level > rc->optimal_buffer_level) {
+#if OPT_RTC_FACTORS
+        active_worst_quality = AOMMIN(rc->worst_quality, ambient_qp * 5 / 4);
+#endif
         // Adjust down.
         // Maximum limit for down adjustment, ~30%.
         int max_adjustment_down = active_worst_quality / 3;
@@ -2307,6 +2363,9 @@ static int calc_active_worst_quality_no_stats_cbr(PictureParentControlSet *ppcs)
             active_worst_quality -= adjustment;
         }
     } else if (rc->buffer_level > critical_level) {
+#if OPT_RTC_FACTORS
+        active_worst_quality = AOMMIN(rc->worst_quality, ambient_qp);
+#endif
         // Adjust up from ambient Q.
         if (critical_level) {
             buff_lvl_step = (rc->optimal_buffer_level - critical_level);
@@ -2314,7 +2373,11 @@ static int calc_active_worst_quality_no_stats_cbr(PictureParentControlSet *ppcs)
                 adjustment = (int)((rc->worst_quality - ambient_qp) * (rc->optimal_buffer_level - rc->buffer_level) /
                                    buff_lvl_step);
             }
+#if OPT_RTC_FACTORS
+            active_worst_quality += adjustment;
+#else
             active_worst_quality = ambient_qp + adjustment;
+#endif
         }
     } else {
         // Set to worst_quality if buffer is below critical level.
@@ -2512,7 +2575,7 @@ static int rc_pick_q_and_bounds_no_stats_cbr(PictureControlSet *pcs) {
         if (pcs->slice_type == I_SLICE) {
             int q1 = pcs->picture_number == 0 ? q + 20 : rc->q_1_frame;
             q      = (q + q1) / 2;
-        } else if (pcs->slice_type != I_SLICE && pcs->ppcs->temporal_layer_index == 0) {
+        } else if (pcs->ppcs->temporal_layer_index == 0) {
             int qdelta = 0;
             qdelta     = svt_av1_compute_qdelta_by_rate(
                 rc, pcs->ppcs->frm_hdr.frame_type, active_worst_quality, QFACTOR, bit_depth, pcs->ppcs->sc_class1);
@@ -2668,6 +2731,10 @@ static void av1_rc_update_rate_correction_factors(PictureParentControlSet *ppcs,
     // Work out a size correction factor.
     if (projected_size_based_on_q > FRAME_OVERHEAD_BITS)
         correction_factor = (int)((100 * (int64_t)ppcs->projected_frame_size) / projected_size_based_on_q);
+#if OPT_RTC_FACTORS
+    // Clamp correction factor to prevent anything too extreme
+    correction_factor = AOMMAX(correction_factor, 25);
+#endif
     rc->q_2_frame  = rc->q_1_frame;
     rc->q_1_frame  = ppcs->frm_hdr.quantization_params.base_q_idx; //cm->quant_params.base_qindex;
     rc->rc_2_frame = rc->rc_1_frame;
@@ -2706,7 +2773,11 @@ static void av1_rc_update_rate_correction_factors(PictureParentControlSet *ppcs,
             rc->rate_ratio_qdelta_adjustment = AOMMIN(rc->rate_ratio_qdelta_adjustment + 0.05, 0.25);
         }
     }
+#if OPT_RTC_FACTORS
+    if (correction_factor > 101) {
+#else
     if (correction_factor > 102) {
+#endif
         // We are not already at the worst allowable quality
         correction_factor      = (int)(100 + ((correction_factor - 100) * adjustment_limit));
         rate_correction_factor = (rate_correction_factor * correction_factor) / 100;
@@ -2715,7 +2786,14 @@ static void av1_rc_update_rate_correction_factors(PictureParentControlSet *ppcs,
             rate_correction_factor = MAX_BPB_FACTOR;
     } else if (correction_factor < 99) {
         // We are not already at the best allowable quality
-        correction_factor      = (int)(100 - ((100 - correction_factor) * adjustment_limit));
+#if OPT_RTC_FACTORS
+        double tmp_corr_fac = 100 / (double)correction_factor;
+        tmp_corr_fac        = (1.0 + ((tmp_corr_fac - 1.0) * adjustment_limit));
+        tmp_corr_fac        = 1.0 / tmp_corr_fac;
+        correction_factor   = (int)(100 * tmp_corr_fac);
+#else
+        correction_factor = (int)(100 - ((100 - correction_factor) * adjustment_limit));
+#endif
         rate_correction_factor = (rate_correction_factor * correction_factor) / 100;
 
         // Keep rate_correction_factor within limits
@@ -2881,7 +2959,11 @@ static void av1_rc_postencode_update(PictureParentControlSet *ppcs) {
         rc->rolling_actual_bits = (int)ROUND_POWER_OF_TWO_64(rc->rolling_actual_bits * 3 + ppcs->projected_frame_size,
                                                              2);
     }
-
+#if OPT_CR_CTRL
+    rc->avg_frame_low_motion = (rc->avg_frame_low_motion == 0)
+        ? ppcs->child_pcs->avg_cnt_zeromv
+        : (3 * rc->avg_frame_low_motion + ppcs->child_pcs->avg_cnt_zeromv) / 4;
+#endif
     // Actual bits spent
     rc->total_actual_bits += ppcs->projected_frame_size;
     rc->total_target_bits += ppcs->frm_hdr.showable_frame ? rc->avg_frame_bandwidth : 0;
@@ -3183,7 +3265,7 @@ static AOM_INLINE int get_regulated_q_undershoot(PictureParentControlSet *ppcs, 
 // This function works out whether we under- or over-shot
 // our bitrate target and adjusts q as appropriate.  Also decides whether
 // or not we should do another recode loop, indicated by *loop
-void recode_loop_update_q(PictureParentControlSet *ppcs, int *const loop, int *const q, int *const q_low,
+void recode_loop_update_q(PictureParentControlSet *ppcs, bool *const loop, int *const q, int *const q_low,
                           int *const q_high, const int top_index, const int bottom_index, int *const undershoot_seen,
                           int *const overshoot_seen, int *const low_cr_seen, const int loop_count) {
     SequenceControlSet *const   scs           = ppcs->scs;
@@ -3202,7 +3284,7 @@ void recode_loop_update_q(PictureParentControlSet *ppcs, int *const loop, int *c
     } else {
         ppcs->projected_frame_size = 0;
     }
-    *loop = 0;
+    *loop = false;
     if (scs->enc_ctx->recode_loop == ALLOW_RECODE_KFMAXBW && ppcs->frm_hdr.frame_type != KEY_FRAME) {
         // skip re-encode for inter frame when setting -recode-loop 1
         return;
@@ -3220,7 +3302,7 @@ void recode_loop_update_q(PictureParentControlSet *ppcs, int *const loop, int *c
                 *q                       = AOMMIN(AOMMIN(projected_q, *q + 32), rc->worst_quality);
                 *q_low                   = AOMMAX(*q, *q_low);
                 *q_high                  = AOMMAX(*q, *q_high);
-                *loop                    = 1;
+                *loop                    = true;
             }
         }
         if (*low_cr_seen)
@@ -3303,7 +3385,10 @@ void recode_loop_update_q(PictureParentControlSet *ppcs, int *const loop, int *c
 
     *q    = clamp_qindex(scs, *q);
     *loop = (*q != last_q);
-    // Used for capped CRF. Update the active worse quality based on the final assigned qindex
+    // Used for capped CRF. Update the active worse quality based on the final assigned qindex.
+    // cppcheck claims that `*loop == 0` is always true here, but that's a false positive based on the assumption that
+    // the recode_loop_test is true branch is not taken.
+    // cppcheck-suppress knownConditionTrueFalse
     if (rc_cfg->mode == AOM_Q && scs->static_config.max_bit_rate && *loop == 0 && ppcs->temporal_layer_index == 0 &&
         ppcs->loop_count > 0) {
         if (ppcs->slice_type == I_SLICE)
@@ -3627,12 +3712,22 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
                 rc->rate_average_periodin_frames = 60;
             // limit the average period to MAX_RATE_AVG_PERIOD
             rc->rate_average_periodin_frames = MIN(rc->rate_average_periodin_frames, MAX_RATE_AVG_PERIOD);
+
+#if OPT_ME_DIST_IN_RC
+            // Store the avg me distortion
+            if (pcs->ppcs->slice_type != I_SLICE) {
+#else
             // Store the avg me distortion for base layer pictures only
             if (pcs->ppcs->temporal_layer_index == 0 && pcs->ppcs->slice_type != I_SLICE) {
+#endif
                 rc->prev_avg_base_me_dist = rc->cur_avg_base_me_dist;
                 uint64_t avg_me_dist      = 0;
                 for (int b64_idx = 0; b64_idx < pcs->ppcs->b64_total_count; ++b64_idx) {
+#if OPT_ME_DIST_IN_RC
+                    avg_me_dist += pcs->ppcs->me_64x64_distortion[b64_idx];
+#else
                     avg_me_dist += pcs->ppcs->rc_me_distortion[b64_idx];
+#endif
                 }
                 avg_me_dist /= pcs->ppcs->b64_total_count;
                 rc->cur_avg_base_me_dist = (uint32_t)avg_me_dist;
@@ -3946,8 +4041,9 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
                 cyclic_sb_qp_derivation(pcs);
             }
 
-            if (pcs->scs->static_config.tune == TUNE_SSIM && !pcs->ppcs->frm_hdr.delta_q_params.delta_q_present) {
-                // enable sb level qindex when tune SSIM
+            if ((pcs->scs->static_config.tune == TUNE_SSIM || pcs->scs->static_config.tune == TUNE_IQ) &&
+                !pcs->ppcs->frm_hdr.delta_q_params.delta_q_present) {
+                // enable sb level qindex when tune SSIM or IQ
                 pcs->ppcs->frm_hdr.delta_q_params.delta_q_present = 1;
             }
 
@@ -3956,9 +4052,11 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
                 // adjust delta q res and normalize superblock delta q values to reduce signaling overhead
                 svt_av1_normalize_sb_delta_q(pcs);
             }
+#if !FIX_FRAMES_SINCE_KEY
             if (scs->static_config.rate_control_mode && !is_superres_recode_task) {
                 svt_aom_update_rc_counts(pcs->ppcs);
             }
+#endif
 
             // Derive a QP per 64x64 using ME distortions (to be used for lambda modulation only; not at Q/Q-1)
             if (scs->stats_based_sb_lambda_modulation)
@@ -4005,6 +4103,9 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
                     if (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_VBR)
                         svt_av1_twopass_postencode_update(ppcs);
                 }
+#if FIX_FRAMES_SINCE_KEY
+                svt_aom_update_rc_counts(ppcs);
+#endif
             }
             // Queue variables
             if (scs->static_config.max_bit_rate)

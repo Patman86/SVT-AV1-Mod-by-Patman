@@ -58,7 +58,7 @@ MvJointType svt_av1_get_mv_joint(const Mv *mv) {
     else
         return mv->x == 0 ? MV_JOINT_HZVNZ : MV_JOINT_HNZVNZ;
 }
-static int32_t mv_cost(const Mv *mv, const int32_t *joint_cost, int32_t *const comp_cost[2]) {
+static int32_t mv_cost(const Mv *mv, const int32_t *joint_cost, const int32_t *const comp_cost[2]) {
     int32_t jn_c = svt_av1_get_mv_joint(mv);
     int32_t res  = joint_cost[jn_c] + comp_cost[0][CLIP3(MV_LOW, MV_UPP, mv->y)] +
         comp_cost[1][CLIP3(MV_LOW, MV_UPP, mv->x)];
@@ -71,19 +71,17 @@ int32_t svt_av1_mv_bit_cost_light(const Mv *mv, const Mv *ref) {
     const uint32_t mv_rate    = 1296 + (factor * (absmvdiffx + absmvdiffy));
     return mv_rate;
 }
-int32_t svt_av1_mv_bit_cost(const Mv *mv, const Mv *ref, const int32_t *mvjcost, int32_t *mvcost[2], int32_t weight) {
+int32_t svt_av1_mv_bit_cost(const Mv *mv, const Mv *ref, const int32_t *mvjcost, const int32_t *const mvcost[2],
+                            int32_t weight) {
     // Restrict the size of the MV diff to be within the max AV1 range.  If the MV diff
     // is outside this range, the diff will index beyond the cost array, causing a seg fault.
     // Both the MVs and the MV diffs should be within the allowable range for accessing the MV cost
     // infrastructure.
-    Mv temp_diff = {{mv->x - ref->x, mv->y - ref->y}};
-    temp_diff.y  = MAX(temp_diff.y, MV_LOW);
-    temp_diff.y  = MIN(temp_diff.y, MV_UPP);
-    temp_diff.x  = MAX(temp_diff.x, MV_LOW);
-    temp_diff.x  = MIN(temp_diff.x, MV_UPP);
+    const int16_t x         = MIN(MAX(mv->x - ref->x, MV_LOW), MV_UPP);
+    const int16_t y         = MIN(MAX(mv->y - ref->y, MV_LOW), MV_UPP);
+    Mv            temp_diff = {{x, y}};
 
-    const Mv diff = temp_diff;
-    return ROUND_POWER_OF_TWO(mv_cost(&diff, mvjcost, mvcost) * weight, 7);
+    return ROUND_POWER_OF_TWO(mv_cost(&temp_diff, mvjcost, mvcost) * weight, 7);
 }
 
 /////////////////////////////COEFFICIENT CALCULATION //////////////////////////////////////////////
@@ -671,11 +669,11 @@ uint64_t svt_aom_intra_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
     if (svt_aom_allow_intrabc(&pcs->ppcs->frm_hdr, pcs->ppcs->slice_type) && cand->block_mi.use_intrabc) {
         uint64_t rate = 0;
 
-        Mv      mv        = {.as_int = cand->block_mi.mv[0].as_int};
-        Mv      ref_mv    = {.as_int = cand->pred_mv[0].as_int};
-        int    *dvcost[2] = {(int *)&ctx->md_rate_est_ctx->dv_cost[0][MV_MAX],
-                             (int *)&ctx->md_rate_est_ctx->dv_cost[1][MV_MAX]};
-        int32_t mv_rate   = svt_av1_mv_bit_cost(
+        Mv         mv        = {.as_int = cand->block_mi.mv[0].as_int};
+        Mv         ref_mv    = {.as_int = cand->pred_mv[0].as_int};
+        const int *dvcost[2] = {(int *)&ctx->md_rate_est_ctx->dv_cost[0][MV_MAX],
+                                (int *)&ctx->md_rate_est_ctx->dv_cost[1][MV_MAX]};
+        int32_t    mv_rate   = svt_av1_mv_bit_cost(
             &mv, &ref_mv, ctx->md_rate_est_ctx->dv_joint_cost, dvcost, MV_COST_WEIGHT_SUB);
 
         rate                      = mv_rate + ctx->md_rate_est_ctx->intrabc_fac_bits[cand->block_mi.use_intrabc];
@@ -1021,7 +1019,10 @@ static uint64_t av1_inter_fast_cost_light(struct ModeDecisionContext *ctx, BlkSt
     const uint8_t        is_compound         = is_inter_compound_mode(cand->block_mi.mode);
     const uint32_t       mode_context        = svt_aom_mode_context_analyzer(ctx->inter_mode_ctx[ref_frame_type], rf);
     uint64_t             reference_picture_bits_num = 0;
-    reference_picture_bits_num                      = ctx->estimate_ref_frames_num_bits[ref_frame_type];
+#if OPT_RATE_EST_FAST
+    if (ctx->approx_inter_rate < 2)
+#endif
+        reference_picture_bits_num = ctx->estimate_ref_frames_num_bits[ref_frame_type];
     if (is_compound) {
         assert(INTER_COMPOUND_OFFSET(inter_mode) < INTER_COMPOUND_MODES);
         inter_mode_bits_num += r->inter_compound_mode_fac_bits[mode_context][INTER_COMPOUND_OFFSET(inter_mode)];
@@ -1522,7 +1523,6 @@ void svt_aom_full_cost(PictureControlSet *pcs, ModeDecisionContext *ctx, struct 
             // For inter modes, signalling skip means no TX depth is used and the TX type will be DCT_DCT
             cand_bf->cand->block_mi.tx_depth = 0;
             cand_bf->cand->transform_type_uv = DCT_DCT;
-            assert(DCT_DCT == 0);
             memset(cand_bf->cand->transform_type, DCT_DCT, 16 * sizeof(cand_bf->cand->transform_type[0]));
             memset(&cand_bf->quant_dc, 0, sizeof(QuantDcData));
             memset(&cand_bf->eob, 0, sizeof(EobData));
@@ -1573,7 +1573,6 @@ void svt_aom_full_cost(PictureControlSet *pcs, ModeDecisionContext *ctx, struct 
             cand_bf->v_has_coeff             = 0;
             cand_bf->cnt_nz_coeff            = 0;
             cand_bf->cand->block_mi.tx_depth = 0;
-            assert(DCT_DCT == 0);
             memset(cand_bf->cand->transform_type, DCT_DCT, 16 * sizeof(cand_bf->cand->transform_type[0]));
             cand_bf->cand->transform_type_uv = DCT_DCT;
             memset(&cand_bf->quant_dc, 0, sizeof(QuantDcData));

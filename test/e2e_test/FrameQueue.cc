@@ -69,6 +69,9 @@ class FrameQueueFile : public FrameQueue {
         FOPEN(recon_file_, file_path, "wb");
         record_list_.clear();
     }
+    FrameQueueFile(const FrameQueueFile &) = delete;
+    FrameQueueFile &operator=(const FrameQueueFile &) = delete;
+
     virtual ~FrameQueueFile() {
         if (recon_file_) {
             fflush(recon_file_);
@@ -156,14 +159,14 @@ class FrameQueueFile : public FrameQueue {
 
 class FrameQueueBufferSort_ASC {
   public:
-    bool operator()(VideoFrame *a, VideoFrame *b) const {
+    bool operator()(const VideoFrame *a, const VideoFrame *b) const {
         return a->timestamp < b->timestamp;
     }
 };
 
 class FrameQueueBuffer : public FrameQueue {
   public:
-    FrameQueueBuffer(VideoFrameParam fmt) : FrameQueue(fmt) {
+    explicit FrameQueueBuffer(const VideoFrameParam &fmt) : FrameQueue(fmt) {
         queue_type_ = FRAME_QUEUE_BUFFER;
         frame_list_.clear();
     }
@@ -183,11 +186,12 @@ class FrameQueueBuffer : public FrameQueue {
             delete frame;
     }
     VideoFrame *take_frame(const uint64_t time_stamp) override {
-        for (VideoFrame *frame : frame_list_) {
-            if (frame->timestamp == time_stamp)
-                return frame;
-        }
-        return nullptr;
+        auto ret = std::find_if(frame_list_.begin(),
+                                frame_list_.end(),
+                                [time_stamp](VideoFrame *frame) {
+                                    return frame->timestamp == time_stamp;
+                                });
+        return (ret != frame_list_.end()) ? *ret : nullptr;
     }
     VideoFrame *take_frame_inorder(const uint32_t index) override {
         if (index < frame_list_.size())

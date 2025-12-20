@@ -157,7 +157,7 @@ static int64_t try_restoration_unit_seg(const RestSearchCtxt *rsc, const Restora
 
 int64_t svt_av1_lowbd_pixel_proj_error_c(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride,
                                          const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride,
-                                         int32_t *flt1, int32_t flt1_stride, int32_t xq[2],
+                                         int32_t *flt1, int32_t flt1_stride, const int32_t xq[2],
                                          const SgrParamsType *params) {
     int32_t        i, j;
     const uint8_t *src = src8;
@@ -224,7 +224,7 @@ int64_t svt_av1_lowbd_pixel_proj_error_c(const uint8_t *src8, int32_t width, int
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
 int64_t svt_av1_highbd_pixel_proj_error_c(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride,
                                           const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride,
-                                          int32_t *flt1, int32_t flt1_stride, int32_t xq[2],
+                                          int32_t *flt1, int32_t flt1_stride, const int32_t xq[2],
                                           const SgrParamsType *params) {
     const uint16_t *src = CONVERT_TO_SHORTPTR(src8);
     const uint16_t *dat = CONVERT_TO_SHORTPTR(dat8);
@@ -906,7 +906,7 @@ static void update_b_sep_sym(int32_t wiener_win, int64_t **Mc, int64_t **hc, int
     }
 }
 
-static int32_t wiener_decompose_sep_sym(int32_t wiener_win, int64_t *M, int64_t *H, int32_t *a, int32_t *b) {
+static void wiener_decompose_sep_sym(int32_t wiener_win, int64_t *M, int64_t *H, int32_t *a, int32_t *b) {
     static const int32_t init_filt[WIENER_WIN] = {
         WIENER_FILT_TAP0_MIDV,
         WIENER_FILT_TAP1_MIDV,
@@ -935,7 +935,6 @@ static int32_t wiener_decompose_sep_sym(int32_t wiener_win, int64_t *M, int64_t 
         update_b_sep_sym(wiener_win, Mc, hc, a, b);
         iter++;
     }
-    return 1;
 }
 static int64_t compute_score(int32_t wiener_win, int64_t *M, int64_t *H, InterpKernel vfilt, InterpKernel hfilt) {
     int32_t       ab[WIENER_WIN * WIENER_WIN];
@@ -1353,12 +1352,7 @@ static void search_wiener_seg(const RestorationTileLimits *limits, const Av1Pixe
                                   H);
         }
 
-        if (!wiener_decompose_sep_sym(wiener_win, M, H, vfilterd, hfilterd)) {
-            SVT_LOG("CHKN never get here\n");
-            rusi->best_rtype[RESTORE_WIENER - 1] = RESTORE_NONE;
-            rusi->sse[RESTORE_WIENER]            = INT64_MAX;
-            return;
-        }
+        wiener_decompose_sep_sym(wiener_win, M, H, vfilterd, hfilterd);
         finalize_sym_filter(wiener_win, vfilterd, rui.wiener_info.vfilter);
         finalize_sym_filter(wiener_win, hfilterd, rui.wiener_info.hfilter);
 
@@ -1406,8 +1400,8 @@ static void search_wiener_finish(const RestorationTileLimits *limits, const Av1P
     if (rusi->sse[RESTORE_WIENER] == INT64_MAX) {
         rsc->bits += bits_none;
         rsc->sse += rusi->sse[RESTORE_NONE];
-        rusi->best_rtype[RESTORE_WIENER - 1] = RESTORE_NONE;
-        rusi->sse[RESTORE_WIENER]            = INT64_MAX;
+        rusi->best_rtype[RESTORE_NONE] = RESTORE_NONE;
+        rusi->sse[RESTORE_WIENER]      = INT64_MAX;
         return;
     }
 
@@ -1419,8 +1413,8 @@ static void search_wiener_finish(const RestorationTileLimits *limits, const Av1P
     double cost_none   = RDCOST_DBL(x->rdmult, bits_none >> 4, rusi->sse[RESTORE_NONE]);
     double cost_wiener = RDCOST_DBL(x->rdmult, bits_wiener >> 4, rusi->sse[RESTORE_WIENER]);
 
-    RestorationType rtype                = (cost_wiener < cost_none) ? RESTORE_WIENER : RESTORE_NONE;
-    rusi->best_rtype[RESTORE_WIENER - 1] = rtype;
+    RestorationType rtype          = (cost_wiener < cost_none) ? RESTORE_WIENER : RESTORE_NONE;
+    rusi->best_rtype[RESTORE_NONE] = rtype;
 
     rsc->sse += rusi->sse[rtype];
     rsc->bits += (cost_wiener < cost_none) ? bits_wiener : bits_none;

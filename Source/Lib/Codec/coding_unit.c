@@ -31,6 +31,12 @@ Tasks & Questions
     -Need a ReconPicture for each candidate.
     -I don't see a way around doing the copies in temp memory and then copying it in...
 */
+#if FIX_DISALLOW_8X8
+EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock *larget_coding_unit_ptr, uint8_t sb_size_pix,
+                                             uint16_t sb_origin_x, uint16_t sb_origin_y, uint16_t sb_index,
+                                             EncMode enc_mode, bool rtc, uint16_t max_block_cnt, bool allintra,
+                                             ResolutionRange input_resolution, PictureControlSet *picture_control_set)
+#else
 #if TUNE_STILL_IMAGE_0
 EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock *larget_coding_unit_ptr, uint8_t sb_size_pix,
                                              uint16_t sb_origin_x, uint16_t sb_origin_y, uint16_t sb_index,
@@ -44,6 +50,7 @@ EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock *larget_coding_unit_ptr,
                                              uint16_t max_block_cnt,
 
                                              PictureControlSet *picture_control_set)
+#endif
 #endif
 {
     larget_coding_unit_ptr->dctor = svt_aom_largest_coding_unit_dctor;
@@ -60,14 +67,21 @@ EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock *larget_coding_unit_ptr,
     larget_coding_unit_ptr->index = sb_index;
     bool disallow_sub_8x8_nsq     = true;
     bool disallow_sub_16x16_nsq   = true;
+#if !TUNE_RTC_RA_PRESETS
     for (uint8_t is_base = 0; is_base <= 1; is_base++) {
+#endif
         for (uint8_t is_islice = 0; is_islice <= 1; is_islice++) {
             for (uint8_t coeff_lvl = 0; coeff_lvl <= HIGH_LVL + 1; coeff_lvl++) {
-#if TUNE_STILL_IMAGE_0
+#if TUNE_RTC_RA_PRESETS
                 const uint8_t nsq_geom_lvl = svt_aom_get_nsq_geom_level(
-                    allintra, input_resolution, enc_mode, is_base, coeff_lvl, rtc);
+                    allintra, input_resolution, enc_mode, coeff_lvl, rtc);
 #else
-                const uint8_t nsq_geom_lvl = svt_aom_get_nsq_geom_level(enc_mode, is_base, coeff_lvl, rtc);
+#if TUNE_STILL_IMAGE_0
+            const uint8_t nsq_geom_lvl = svt_aom_get_nsq_geom_level(
+                allintra, input_resolution, enc_mode, is_base, coeff_lvl, rtc);
+#else
+            const uint8_t nsq_geom_lvl = svt_aom_get_nsq_geom_level(enc_mode, is_base, coeff_lvl, rtc);
+#endif
 #endif
                 // nsq_geom_lvl level 0 means NSQ shapes are disallowed so don't adjust based on the level
                 if (nsq_geom_lvl) {
@@ -80,23 +94,27 @@ EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock *larget_coding_unit_ptr,
                 }
             }
         }
+#if !TUNE_RTC_RA_PRESETS
     }
+#endif
+#if TUNE_STILL_IMAGE_1
+    bool disallow_4x4 = svt_aom_get_disallow_4x4(enc_mode);
+#else
     bool disallow_4x4 = true;
     for (uint8_t is_islice = 0; is_islice <= 1; is_islice++) {
         for (uint8_t is_base = 0; is_base <= 1; is_base++) {
-#if TUNE_STILL_IMAGE_1
-            disallow_4x4 = MIN(disallow_4x4, svt_aom_get_disallow_4x4(enc_mode, is_base, allintra));
-#else
             disallow_4x4 = MIN(disallow_4x4, svt_aom_get_disallow_4x4(enc_mode, is_base));
-#endif
         }
     }
+#endif
 #if TUNE_STILL_IMAGE_0
     bool disallow_8x8 = svt_aom_get_disallow_8x8(enc_mode,
                                                  allintra,
                                                  rtc,
+#if !FIX_DISALLOW_8X8
                                                  screen_content_mode,
                                                  sb_size_pix,
+#endif
                                                  picture_control_set->frame_width,
                                                  picture_control_set->frame_height);
 #else

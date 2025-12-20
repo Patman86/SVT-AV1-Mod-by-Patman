@@ -2072,9 +2072,6 @@ static void perform_pred_depth_refinement(SequenceControlSet *scs, PictureContro
     if (pred_depth_only)
         ctx->pred_depth_only = 1;
 }
-void recode_loop_update_q(PictureParentControlSet *ppcs, int *const loop, int *const q, int *const q_low,
-                          int *const q_high, const int top_index, const int bottom_index, int *const undershoot_seen,
-                          int *const overshoot_seen, int *const low_cr_seen, const int loop_count);
 void svt_variance_adjust_qp(PictureControlSet *pcs);
 void svt_aom_sb_qp_derivation_tpl_la(PictureControlSet *pcs);
 #if CLN_MDC_FUNCS
@@ -2088,7 +2085,7 @@ static void recode_loop_decision_maker(PictureControlSet *pcs, SequenceControlSe
     PictureParentControlSet *ppcs    = pcs->ppcs;
     EncodeContext *const     enc_ctx = ppcs->scs->enc_ctx;
     RATE_CONTROL *const      rc      = &(enc_ctx->rc);
-    int32_t                  loop    = 0;
+    bool                     loop    = false;
     FrameHeader             *frm_hdr = &ppcs->frm_hdr;
     int32_t                  q       = frm_hdr->quantization_params.base_q_idx;
     if (ppcs->loop_count == 0) {
@@ -2111,9 +2108,9 @@ static void recode_loop_decision_maker(PictureControlSet *pcs, SequenceControlSe
 
     // Special case for overlay frame.
     if (loop && ppcs->is_overlay && ppcs->projected_frame_size < rc->max_frame_bandwidth) {
-        loop = 0;
+        loop = false;
     }
-    *do_recode = loop == 1;
+    *do_recode = loop;
 
     if (*do_recode) {
         ppcs->loop_count++;
@@ -2167,7 +2164,11 @@ static void exaustive_light_pd1_features(ModeDecisionContext *md_ctx, PicturePar
             md_ctx->spatial_sse_ctrls.level == SSSE_OFF && md_ctx->md_sq_me_ctrls.enabled == 0 &&
             md_ctx->md_pme_ctrls.enabled == 0 && md_ctx->txt_ctrls.enabled == 0 && md_ctx->unipred3x3_injection == 0 &&
             md_ctx->bipred3x3_ctrls.enabled == 0 && md_ctx->inter_comp_ctrls.tot_comp_types == 1 &&
+#if CLN_UNUSED_SIGS
+            md_ctx->obmc_ctrls.enabled == 0 && md_ctx->filter_intra_ctrls.enabled == 0 &&
+#else
             md_ctx->md_pic_obmc_level == 0 && md_ctx->filter_intra_ctrls.enabled == 0 &&
+#endif
             md_ctx->new_nearest_near_comb_injection == 0 && md_ctx->md_palette_level == 0 &&
             ppcs->gm_ctrls.enabled == 0 &&
             // If TXS enabled at picture level, there are necessary context updates that must be added to LPD1
@@ -2185,8 +2186,16 @@ static void exaustive_light_pd1_features(ModeDecisionContext *md_ctx, PicturePar
 }
 /* Light-PD1 classifier used when cost/coeff info is available.  If PD0 is skipped, or the trasnsform is
 not performed, a separate detector (lpd1_detector_skip_pd0) is used. */
+#if OPT_LPD1_RTC
+static void lpd1_detector_post_pd0(PictureControlSet *pcs, ModeDecisionContext *md_ctx) {
+#else
 static void lpd1_detector_post_pd0(PictureControlSet *pcs, ModeDecisionContext *md_ctx, bool rtc_tune) {
+#endif
     for (int pd1_lvl = LPD1_LEVELS - 1; pd1_lvl > REGULAR_PD1; pd1_lvl--) {
+#if OPT_LPD1_RTC
+        if (pd1_lvl <= (md_ctx->pd1_lvl_refinement - 1))
+            break;
+#endif
         if (md_ctx->lpd1_ctrls.pd1_level == pd1_lvl) {
             if (md_ctx->lpd1_ctrls.use_lpd1_detector[pd1_lvl]) {
                 // Use info from ref frames (if available)
@@ -2201,7 +2210,12 @@ static void lpd1_detector_post_pd0(PictureControlSet *pcs, ModeDecisionContext *
                     if (pcs->ppcs->ref_list0_count_try && is_ref_l0_avail) {
                         EbReferenceObject *ref_obj_l0 =
                             (EbReferenceObject *)pcs->ref_pic_ptr_array[REF_LIST_0][0]->object_ptr;
+#if OPT_LPD1_RTC
+                        // flat ipp should not use hierarchical concept
+                        if (ref_obj_l0->tmp_layer_idx <= pcs->temporal_layer_index || pcs->scs->use_flat_ipp) {
+#else
                         if (ref_obj_l0->tmp_layer_idx <= pcs->temporal_layer_index) {
+#endif
                             l0_was_intra += ref_obj_l0->sb_intra[md_ctx->sb_index];
                             l0_refs++;
                         }
@@ -2214,7 +2228,12 @@ static void lpd1_detector_post_pd0(PictureControlSet *pcs, ModeDecisionContext *
                     if (pcs->ppcs->ref_list1_count_try && is_ref_l1_avail) {
                         EbReferenceObject *ref_obj_l1 =
                             (EbReferenceObject *)pcs->ref_pic_ptr_array[REF_LIST_1][0]->object_ptr;
+#if OPT_LPD1_RTC
+                        // flat ipp should not use hierarchical concept
+                        if (ref_obj_l1->tmp_layer_idx <= pcs->temporal_layer_index || pcs->scs->use_flat_ipp) {
+#else
                         if (ref_obj_l1->tmp_layer_idx <= pcs->temporal_layer_index) {
+#endif
                             l1_was_intra += ref_obj_l1->sb_intra[md_ctx->sb_index];
                             l1_refs++;
                         }
@@ -2267,6 +2286,14 @@ static void lpd1_detector_post_pd0(PictureControlSet *pcs, ModeDecisionContext *
                 }
 
                 if (pcs->slice_type != I_SLICE) {
+#if OPT_LPD1_RTC
+                    /* me_8x8_cost_variance_th is shifted by 5 then mulitplied by 73 minus pic_qp.  Therefore, the TH must be less than
+                        (((uint32_t)~0) >> 2) to avoid overflow issues from the multiplication. */
+                    if (md_ctx->lpd1_ctrls.me_8x8_cost_variance_th[pd1_lvl] < (((uint32_t)~0) >> 2) &&
+                        pcs->ppcs->me_8x8_cost_variance[md_ctx->sb_index] >
+                            (md_ctx->lpd1_ctrls.me_8x8_cost_variance_th[pd1_lvl] >> 5) * (73 - pcs->picture_qp))
+                        md_ctx->lpd1_ctrls.pd1_level = pd1_lvl - 1;
+#else
                     // lpd1 needs to be optimized for low-delay so that all modes can use the RA version of this check
                     if (rtc_tune) {
                         if (md_ctx->lpd1_ctrls.me_8x8_cost_variance_th[pd1_lvl] < (((uint32_t)~0) >> 1) &&
@@ -2281,6 +2308,7 @@ static void lpd1_detector_post_pd0(PictureControlSet *pcs, ModeDecisionContext *
                                 (md_ctx->lpd1_ctrls.me_8x8_cost_variance_th[pd1_lvl] >> 5) * (73 - pcs->picture_qp))
                             md_ctx->lpd1_ctrls.pd1_level = pd1_lvl - 1;
                     }
+#endif
                 }
             }
         }
@@ -2289,6 +2317,9 @@ static void lpd1_detector_post_pd0(PictureControlSet *pcs, ModeDecisionContext *
 
 /* Light-PD1 classifier used when cost/coeff info is unavailable.  If PD0 is skipped, or the trasnsform is
 not performed, this detector is used (else lpd1_detector_post_pd0() is used). */
+#if OPT_LPD1_RTC
+static void lpd1_detector_skip_pd0(PictureControlSet *pcs, ModeDecisionContext *md_ctx, uint32_t pic_width_in_sb) {
+#else
 static void lpd1_detector_skip_pd0(PictureControlSet *pcs, ModeDecisionContext *md_ctx, uint32_t pic_width_in_sb,
                                    bool rtc_tune) {
     if (md_ctx->pd1_lvl_refinement) {
@@ -2305,10 +2336,15 @@ static void lpd1_detector_skip_pd0(PictureControlSet *pcs, ModeDecisionContext *
 
         return;
     }
+#endif
     const uint16_t left_sb_index = md_ctx->sb_index - 1;
     const uint16_t top_sb_index  = md_ctx->sb_index - (uint16_t)pic_width_in_sb;
 
     for (int pd1_lvl = LPD1_LEVELS - 1; pd1_lvl > REGULAR_PD1; pd1_lvl--) {
+#if OPT_LPD1_RTC
+        if (pd1_lvl <= (md_ctx->pd1_lvl_refinement - 1))
+            break;
+#endif
         if (md_ctx->lpd1_ctrls.pd1_level == pd1_lvl) {
             if (md_ctx->lpd1_ctrls.use_lpd1_detector[pd1_lvl]) {
                 // Use info from ref. frames (if available)
@@ -2326,7 +2362,12 @@ static void lpd1_detector_skip_pd0(PictureControlSet *pcs, ModeDecisionContext *
                     if (pcs->ppcs->ref_list0_count_try && is_ref_l0_avail) {
                         EbReferenceObject *ref_obj_l0 =
                             (EbReferenceObject *)pcs->ref_pic_ptr_array[REF_LIST_0][0]->object_ptr;
+#if OPT_LPD1_RTC
+                        // flat ipp should not use hierarchical concept
+                        if (ref_obj_l0->tmp_layer_idx <= pcs->temporal_layer_index || pcs->scs->use_flat_ipp) {
+#else
                         if (ref_obj_l0->tmp_layer_idx <= pcs->temporal_layer_index) {
+#endif
                             if (ref_obj_l0->slice_type != I_SLICE) {
                                 if (ref_obj_l0->sb_intra[md_ctx->sb_index])
                                     score += 5;
@@ -2351,7 +2392,12 @@ static void lpd1_detector_skip_pd0(PictureControlSet *pcs, ModeDecisionContext *
                     if (pcs->ppcs->ref_list1_count_try && is_ref_l1_avail) {
                         EbReferenceObject *ref_obj_l1 =
                             (EbReferenceObject *)pcs->ref_pic_ptr_array[REF_LIST_1][0]->object_ptr;
+#if OPT_LPD1_RTC
+                        // flat ipp should not use hierarchical concept
+                        if (ref_obj_l1->tmp_layer_idx <= pcs->temporal_layer_index || pcs->scs->use_flat_ipp) {
+#else
                         if (ref_obj_l1->tmp_layer_idx <= pcs->temporal_layer_index) {
+#endif
                             if (ref_obj_l1->slice_type != I_SLICE) {
                                 if (ref_obj_l1->sb_intra[md_ctx->sb_index])
                                     score += 5;
@@ -2384,6 +2430,15 @@ static void lpd1_detector_skip_pd0(PictureControlSet *pcs, ModeDecisionContext *
                         if (pcs->ppcs->me_64x64_distortion[md_ctx->sb_index] >
                             md_ctx->lpd1_ctrls.skip_pd0_edge_dist_th[pd1_lvl])
                             md_ctx->lpd1_ctrls.pd1_level = pd1_lvl - 1;
+
+#if OPT_LPD1_RTC
+                        /* me_8x8_cost_variance_th is shifted by 5 then mulitplied by 73 minus pic_qp.  Therefore, the TH must be less than
+                            (((uint32_t)~0) >> 2) to avoid overflow issues from the multiplication. */
+                        if (md_ctx->lpd1_ctrls.me_8x8_cost_variance_th[pd1_lvl] < (((uint32_t)~0) >> 2) &&
+                            pcs->ppcs->me_8x8_cost_variance[md_ctx->sb_index] >
+                                (md_ctx->lpd1_ctrls.me_8x8_cost_variance_th[pd1_lvl] >> 5) * (73 - pcs->picture_qp))
+                            md_ctx->lpd1_ctrls.pd1_level = pd1_lvl - 1;
+#else
                         // lpd1 needs to be optimized for low-delay so that all modes can use the RA version of this check
                         else if (rtc_tune) {
                             /* me_8x8_cost_variance_th is shifted by 5 then mulitplied by the pic QP (max 63).  Therefore, the TH must be less than
@@ -2400,6 +2455,7 @@ static void lpd1_detector_skip_pd0(PictureControlSet *pcs, ModeDecisionContext *
                                     (md_ctx->lpd1_ctrls.me_8x8_cost_variance_th[pd1_lvl] >> 5) * (73 - pcs->picture_qp))
                                 md_ctx->lpd1_ctrls.pd1_level = pd1_lvl - 1;
                         }
+#endif
                     } else {
                         if (md_ctx->lpd1_ctrls.skip_pd0_me_shift[pd1_lvl] != (uint16_t)~0 &&
                             pcs->ppcs->me_64x64_distortion[md_ctx->sb_index] >
@@ -2454,7 +2510,11 @@ static void lpd0_detector(PictureControlSet *pcs, ModeDecisionContext *md_ctx, u
                     if (pcs->ppcs->ref_list0_count_try && is_ref_l0_avail) {
                         EbReferenceObject *ref_obj_l0 =
                             (EbReferenceObject *)pcs->ref_pic_ptr_array[REF_LIST_0][0]->object_ptr;
+#if OPT_LPD0_RTC
+                        if (ref_obj_l0->tmp_layer_idx <= pcs->temporal_layer_index || pcs->scs->use_flat_ipp) {
+#else
                         if (ref_obj_l0->tmp_layer_idx <= pcs->temporal_layer_index) {
+#endif
                             l0_was_intra += ref_obj_l0->sb_intra[md_ctx->sb_index];
                             l0_refs++;
                         }
@@ -2467,7 +2527,11 @@ static void lpd0_detector(PictureControlSet *pcs, ModeDecisionContext *md_ctx, u
                     if (pcs->ppcs->ref_list1_count_try && is_ref_l1_avail) {
                         EbReferenceObject *ref_obj_l1 =
                             (EbReferenceObject *)pcs->ref_pic_ptr_array[REF_LIST_1][0]->object_ptr;
+#if OPT_LPD0_RTC
+                        if (ref_obj_l1->tmp_layer_idx <= pcs->temporal_layer_index || pcs->scs->use_flat_ipp) {
+#else
                         if (ref_obj_l1->tmp_layer_idx <= pcs->temporal_layer_index) {
+#endif
                             l1_was_intra += ref_obj_l1->sb_intra[md_ctx->sb_index];
                             l1_refs++;
                         }
@@ -2797,6 +2861,9 @@ void *svt_aom_mode_decision_kernel(void *input_ptr) {
         ed_ctx->tot_intra_coded_area    = 0;
         ed_ctx->tot_skip_coded_area     = 0;
         ed_ctx->tot_hp_coded_area       = 0;
+#if OPT_CR_CTRL
+        ed_ctx->tot_cnt_zero_mv = 0;
+#endif
         // Bypass encdec for the first pass
         if (svt_aom_is_pic_skipped(pcs->ppcs)) {
             svt_release_object(pcs->ppcs->me_data_wrapper);
@@ -2987,10 +3054,18 @@ void *svt_aom_mode_decision_kernel(void *input_ptr) {
                                 : 0;
 
                         // If LPD0 is used, a more conservative level can be set for complex SBs
+#if OPT_LPD0_RTC
+                        const bool use_lpd0_classifier = !scs->static_config.rtc || pcs->ppcs->sc_class1 ||
+                            pcs->enc_mode <= ENC_M9;
+                        if (use_lpd0_classifier && md_ctx->lpd0_ctrls.pd0_level > REGULAR_PD0) {
+                            lpd0_detector(pcs, md_ctx, pic_width_in_sb);
+                        }
+#else
                         const bool rtc_tune = scs->static_config.rtc;
                         if (!(rtc_tune && !pcs->ppcs->sc_class1) && md_ctx->lpd0_ctrls.pd0_level > REGULAR_PD0) {
                             lpd0_detector(pcs, md_ctx, pic_width_in_sb);
                         }
+#endif
 
                         // PD0 is only skipped if there is a single depth to test
                         if (skip_pd_pass_0)
@@ -3057,7 +3132,11 @@ void *svt_aom_mode_decision_kernel(void *input_ptr) {
                             // This classifier is used for only pd0_level 0 and pd0_level 1
                             // where the cnt_nz_coeff is derived @ PD0
                             if (md_ctx->lpd0_ctrls.pd0_level < VERY_LIGHT_PD0)
+#if OPT_LPD1_RTC
+                                lpd1_detector_post_pd0(pcs, md_ctx);
+#else
                                 lpd1_detector_post_pd0(pcs, md_ctx, rtc_tune);
+#endif
                             // Force pred depth only for modes where that is not the default
                             if (md_ctx->lpd1_ctrls.pd1_level > REGULAR_PD1) {
                                 ed_ctx->md_ctx->depth_refinement_ctrls.mode = PD0_DEPTH_PRED_PART_ONLY;
@@ -3071,7 +3150,11 @@ void *svt_aom_mode_decision_kernel(void *input_ptr) {
                         // This classifier is used for the case PD0 is bypassed and for pd0_level 2
                         // where the cnt_nz_coeff is not derived @ PD0
                         if (skip_pd_pass_0 || md_ctx->lpd0_ctrls.pd0_level == VERY_LIGHT_PD0) {
+#if OPT_LPD1_RTC
+                            lpd1_detector_skip_pd0(pcs, md_ctx, pic_width_in_sb);
+#else
                             lpd1_detector_skip_pd0(pcs, md_ctx, pic_width_in_sb, rtc_tune);
+#endif
                         }
 
                         // Can only use light-PD1 under the following conditions
@@ -3119,6 +3202,9 @@ void *svt_aom_mode_decision_kernel(void *input_ptr) {
             pcs->intra_coded_area += (uint32_t)ed_ctx->tot_intra_coded_area;
             pcs->skip_coded_area += (uint32_t)ed_ctx->tot_skip_coded_area;
             pcs->hp_coded_area += (uint32_t)ed_ctx->tot_hp_coded_area;
+#if OPT_CR_CTRL
+            pcs->avg_cnt_zeromv += (uint32_t)ed_ctx->tot_cnt_zero_mv;
+#endif
             // Accumulate block selection
             pcs->enc_dec_coded_sb_count += (uint32_t)ed_ctx->coded_sb_count;
             bool last_sb_flag = (pcs->sb_total_count == pcs->enc_dec_coded_sb_count);

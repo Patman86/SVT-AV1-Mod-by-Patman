@@ -97,7 +97,7 @@ static void av1_make_masked_scaled_inter_predictor(
         // for reference scaling, it might be 4x since both width and height is scaled 2x
         // should pack enough buffer for scaled reference
         DECLARE_ALIGNED(16, uint16_t, src16[PACKED_BUFFER_SIZE * 4]);
-        uint16_t *src_ptr_10b = src16;
+        uint16_t *src_ptr_10b;
         int32_t   src_stride16;
         if (src_ptr_2b) {
             // pack the reference into temp 16bit buffer
@@ -460,8 +460,6 @@ static void pick_wedge(PictureControlSet *pcs, ModeDecisionContext *ctx, const B
             model_rd_with_curvfit(pcs, bsize, sse, N, &rate, &dist, ctx, full_lambda);
 
             rd = RDCOST(full_lambda, rate, dist);
-        } else {
-            rd = sse;
         }
         if (rd < best_rd) {
             *best_wedge_index = wedge_index;
@@ -1699,6 +1697,7 @@ static void av1_make_masked_warp_inter_predictor(uint8_t *src_ptr, uint8_t *src_
                                            conv_params,
                                            bitdepth,
                                            is16bit);
+    conv_params->dst = NULL; // null out the pointer to avoid misuse
 }
 
 // This function has a structure similar to av1_build_obmc_inter_prediction
@@ -2675,7 +2674,7 @@ void svt_aom_enc_make_inter_predictor(SequenceControlSet *scs, uint8_t *src_ptr,
             // for reference scaling, it might be 4x since both width and height is scaled 2x
             // should pack enough buffer for scaled reference
             DECLARE_ALIGNED(16, uint16_t, src16[PACKED_BUFFER_SIZE * 4]);
-            uint16_t *src16_ptr = src16;
+            uint16_t *src16_ptr;
             int32_t   src_stride16;
             if (src_ptr_2b) {
                 // pack the reference into temp 16bit buffer
@@ -3128,7 +3127,7 @@ static uint8_t inter_chroma_4xn_pred(PictureControlSet *pcs, MacroBlockD *xd, Bl
     const int32_t row_start = (block_size_high[bsize] == 4) && ss_y ? -1 : 0;
     const int32_t col_start = (block_size_wide[bsize] == 4) && ss_x ? -1 : 0;
 
-    for (int32_t row = row_start; row <= 0 && sub8x8_inter; ++row) {
+    for (int32_t row = row_start; row <= 0; ++row) {
         for (int32_t col = col_start; col <= 0; ++col) {
             const MbModeInfo *this_mbmi = xd->mi[row * xd->mi_stride + col];
             if (!is_inter_block(&this_mbmi->block_mi))

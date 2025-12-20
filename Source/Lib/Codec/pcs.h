@@ -189,8 +189,11 @@ typedef struct PictureControlSet {
     uint32_t          intra_coded_area;
     uint64_t          skip_coded_area;
     uint64_t          hp_coded_area;
-    uint32_t          tot_seg_searched_cdef;
-    EbHandle          cdef_search_mutex;
+#if OPT_CR_CTRL
+    uint64_t avg_cnt_zeromv;
+#endif
+    uint32_t tot_seg_searched_cdef;
+    EbHandle cdef_search_mutex;
 
     uint16_t cdef_segments_total_count;
     uint8_t  cdef_segments_column_count;
@@ -318,7 +321,9 @@ typedef struct PictureControlSet {
     uint8_t pic_disallow_4x4; // disallow 4x4 at pic level
     // depth_removal_level signal at the picture level
     uint8_t pic_depth_removal_level;
+#if !OPT_DR_RTC
     uint8_t pic_depth_removal_level_rtc;
+#endif
     // block_based_depth_refinement_level signal set at the picture level
     uint8_t          pic_block_based_depth_refinement_level;
     uint8_t          pic_lpd0_lvl; // lpd0_lvl signal set at the picture level
@@ -362,8 +367,14 @@ typedef struct PictureControlSet {
     uint64_t avg_me_clpx;
     uint64_t min_me_clpx;
     uint64_t max_me_clpx;
+#if OPT_RATE_EST_FAST
     // use approximate rate for inter cost (set at pic-level b/c some pic-level initializations will
     // be removed)
+    // 0: off, 1: on, 2: on (more aggressive)
+#else
+    // use approximate rate for inter cost (set at pic-level b/c some pic-level initializations will
+    // be removed)
+#endif
     uint8_t  approx_inter_rate;
     uint8_t  skip_intra;
     uint16_t lambda_weight;
@@ -1078,8 +1089,12 @@ typedef struct PictureParentControlSet {
     struct PictureParentControlSet *gf_group[MAX_TPL_GROUP_SIZE];
     StatStruct                      stat_struct;
     CyclicRefresh                   cyclic_refresh;
-    bool                            ld_enhanced_base_frame; // enhanced periodic base layer frames used in LD
-    bool                            update_ref_count; // Update ref count
+#if !OPT_REMOVE_ENH_BASE
+    bool ld_enhanced_base_frame; // enhanced periodic base layer frames used in LD
+#endif
+#if !TUNE_RTC_RA_PRESETS
+    bool update_ref_count; // Update ref count
+#endif
     bool                            use_accurate_part_ctx;
     uint16_t                        max_can_count;
     uint8_t                         enable_me_8x8;
@@ -1196,6 +1211,9 @@ typedef struct PictureControlSetInitData {
     bool    adaptive_film_grain;
     uint8_t max_tx_size;
     double  ac_bias;
+#if TUNE_RTC_RA_PRESETS
+    bool use_flat_ipp;
+#endif
 } PictureControlSetInitData;
 
 /**************************************

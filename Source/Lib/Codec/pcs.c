@@ -102,7 +102,16 @@ EbErrorType svt_aom_me_sb_results_ctor(MeSbResults *obj_ptr, PictureControlSetIn
     EbInputResolution resolution;
     svt_aom_derive_input_resolution(&resolution, init_data_ptr->picture_width * init_data_ptr->picture_height);
     uint8_t number_of_pus = svt_aom_get_enable_me_16x16(init_data_ptr->enc_mode)
+#if TUNE_RTC_RA_PRESETS_2
+        ? svt_aom_get_enable_me_8x8(
+              init_data_ptr->enc_mode, resolution, init_data_ptr->static_config.rtc, init_data_ptr->use_flat_ipp)
+#else
+#if TUNE_RTC_RA_PRESETS
+        ? svt_aom_get_enable_me_8x8(init_data_ptr->enc_mode, resolution, init_data_ptr->use_flat_ipp)
+#else
         ? svt_aom_get_enable_me_8x8(init_data_ptr->enc_mode, init_data_ptr->rtc_tune, resolution)
+#endif
+#endif
             ? SQUARE_PU_COUNT
             : MAX_SB64_PU_COUNT_NO_8X8
         : MAX_SB64_PU_COUNT_WO_16X16;
@@ -556,6 +565,20 @@ static EbErrorType picture_control_set_ctor(PictureControlSet *object_ptr, EbPtr
     EB_ALLOC_PTR_ARRAY(object_ptr->sb_ptr_array, object_ptr->sb_total_count_unscaled);
 #if TUNE_STILL_IMAGE_0
     for (sb_index = 0; sb_index < all_sb; ++sb_index) {
+#if FIX_DISALLOW_8X8
+        EB_NEW(object_ptr->sb_ptr_array[sb_index],
+               svt_aom_largest_coding_unit_ctor,
+               (uint8_t)init_data_ptr->sb_size,
+               (uint16_t)(sb_origin_x * max_blk_size),
+               (uint16_t)(sb_origin_y * max_blk_size),
+               (uint16_t)sb_index,
+               init_data_ptr->enc_mode,
+               init_data_ptr->static_config.rtc,
+               init_data_ptr->init_max_block_cnt,
+               allintra,
+               init_data_ptr->input_resolution,
+               object_ptr);
+#else
         EB_NEW(object_ptr->sb_ptr_array[sb_index],
                svt_aom_largest_coding_unit_ctor,
                (uint8_t)init_data_ptr->sb_size,
@@ -569,6 +592,7 @@ static EbErrorType picture_control_set_ctor(PictureControlSet *object_ptr, EbPtr
                allintra,
                init_data_ptr->input_resolution,
                object_ptr);
+#endif
 #else
     for (sb_index = 0; sb_index < all_sb; ++sb_index) {
         EB_NEW(object_ptr->sb_ptr_array[sb_index],
@@ -1068,8 +1092,10 @@ static EbErrorType picture_control_set_ctor(PictureControlSet *object_ptr, EbPtr
     // If NSQ is allowed, then may need a 4x4 MI grid because 8x8 NSQ shapes will require 4x4 granularity
     bool disallow_4x4 = true;
     bool disallow_8x8 = true;
+#if !TUNE_RTC_RA_PRESETS
     for (uint8_t is_base = 0; is_base <= 1; is_base++) {
         for (uint8_t is_islice = 0; is_islice <= 1; is_islice++) {
+#endif
             for (uint8_t coeff_lvl = 0; coeff_lvl <= HIGH_LVL + 1; coeff_lvl++) {
                 if (!disallow_4x4 && !disallow_8x8)
                     break;
@@ -1077,12 +1103,14 @@ static EbErrorType picture_control_set_ctor(PictureControlSet *object_ptr, EbPtr
                 const uint8_t nsq_geom_lvl = svt_aom_get_nsq_geom_level(allintra,
                                                                         init_data_ptr->input_resolution,
                                                                         init_data_ptr->enc_mode,
+#if !TUNE_RTC_RA_PRESETS
                                                                         is_base,
+#endif
                                                                         coeff_lvl,
                                                                         init_data_ptr->static_config.rtc);
 #else
-                const uint8_t nsq_geom_lvl = svt_aom_get_nsq_geom_level(
-                    init_data_ptr->enc_mode, is_base, coeff_lvl, init_data_ptr->static_config.rtc);
+        const uint8_t nsq_geom_lvl = svt_aom_get_nsq_geom_level(
+            init_data_ptr->enc_mode, is_base, coeff_lvl, init_data_ptr->static_config.rtc);
 #endif
                 // nsq_geom_lvl level 0 means NSQ shapes are disallowed so don't adjust based on the level
                 if (nsq_geom_lvl) {
@@ -1094,23 +1122,31 @@ static EbErrorType picture_control_set_ctor(PictureControlSet *object_ptr, EbPtr
                         disallow_8x8 = false;
                 }
             }
+#if !TUNE_RTC_RA_PRESETS
         }
     }
+#endif
 
+#if TUNE_STILL_IMAGE_1
+    disallow_4x4 = MIN(disallow_4x4, svt_aom_get_disallow_4x4(init_data_ptr->enc_mode));
+#else
     for (uint8_t is_islice = 0; is_islice <= 1; is_islice++) {
         for (uint8_t is_base = 0; is_base <= 1; is_base++) {
-#if TUNE_STILL_IMAGE_1
-            disallow_4x4 = MIN(
-                disallow_4x4,
-                svt_aom_get_disallow_4x4(init_data_ptr->enc_mode, init_data_ptr->static_config.rtc, allintra));
-#else
             disallow_4x4 = MIN(disallow_4x4,
                                svt_aom_get_disallow_4x4(init_data_ptr->enc_mode, init_data_ptr->static_config.rtc));
-#endif
         }
     }
+#endif
 
     object_ptr->disallow_4x4_all_frames = disallow_4x4;
+#if FIX_DISALLOW_8X8
+    disallow_8x8 = MIN(disallow_8x8,
+                       svt_aom_get_disallow_8x8(init_data_ptr->enc_mode,
+                                                allintra,
+                                                init_data_ptr->static_config.rtc,
+                                                init_data_ptr->picture_width,
+                                                init_data_ptr->picture_height));
+#else
 #if TUNE_STILL_IMAGE_0
     disallow_8x8 = MIN(disallow_8x8,
                        svt_aom_get_disallow_8x8(init_data_ptr->enc_mode,
@@ -1128,6 +1164,7 @@ static EbErrorType picture_control_set_ctor(PictureControlSet *object_ptr, EbPtr
                                                 init_data_ptr->sb_size,
                                                 init_data_ptr->picture_width,
                                                 init_data_ptr->picture_height));
+#endif
 #endif
     object_ptr->disallow_8x8_all_frames = disallow_8x8;
     /* If 4x4 blocks are disallowed for all frames, the the MI blocks only need to be allocated for
@@ -1448,7 +1485,16 @@ static EbErrorType picture_parent_control_set_ctor(PictureParentControlSet *obje
 
     // 8x8 can only be used if 16x16 is enabled
     object_ptr->enable_me_8x8 = object_ptr->enable_me_16x16
+#if TUNE_RTC_RA_PRESETS_2
+        ? svt_aom_get_enable_me_8x8(
+              init_data_ptr->enc_mode, resolution, init_data_ptr->static_config.rtc, init_data_ptr->use_flat_ipp)
+#else
+#if TUNE_RTC_RA_PRESETS
+        ? svt_aom_get_enable_me_8x8(init_data_ptr->enc_mode, resolution, init_data_ptr->use_flat_ipp)
+#else
         ? svt_aom_get_enable_me_8x8(init_data_ptr->enc_mode, init_data_ptr->rtc_tune, resolution)
+#endif
+#endif
         : 0;
     EB_NEW(object_ptr->dg_detector, svt_aom_dg_detector_seg_ctor);
     return return_error;
@@ -1508,7 +1554,7 @@ static EbErrorType me_ctor(MotionEstimationData *object_ptr, EbPtr object_init_d
 #endif
         uint16_t adaptive_picture_width_in_mb  = (uint16_t)((init_data_ptr->picture_width + 15) / 16);
         uint16_t adaptive_picture_height_in_mb = (uint16_t)((init_data_ptr->picture_height + 15) / 16);
-        if (init_data_ptr->static_config.tune == TUNE_SSIM) {
+        if (init_data_ptr->static_config.tune == TUNE_SSIM || init_data_ptr->static_config.tune == TUNE_IQ) {
             EB_MALLOC_ARRAY(object_ptr->ssim_rdmult_scaling_factors,
                             adaptive_picture_width_in_mb * adaptive_picture_height_in_mb);
         } else {

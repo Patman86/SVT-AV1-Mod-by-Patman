@@ -417,9 +417,15 @@ static int av1_calc_iframe_target_size_one_pass_cbr(PictureParentControlSet *pcs
     EncodeContext      *enc_ctx = scs->enc_ctx;
     RATE_CONTROL *const rc      = &enc_ctx->rc;
     int                 target;
-    const int           w = 3;
+#if !OPT_RTC_FACTORS
+    const int w = 3;
+#endif
     if (pcs->picture_number == 0) {
+#if OPT_RTC_FACTORS
+        target = ((rc->starting_buffer_level / 2) > INT_MAX) ? INT_MAX : (int)(rc->starting_buffer_level / 2);
+#else
         target = ((rc->starting_buffer_level / 2) > INT_MAX) ? INT_MAX : (int)(rc->starting_buffer_level * w / 4);
+#endif
     } else {
         int kf_boost = 32;
 #if FIX_FPS_CALC
@@ -1163,7 +1169,10 @@ static void av1_rc_update_framerate(SequenceControlSet *scs /*, int width, int h
     // a very high rate is given on the command line or the the rate cannnot
     // be acheived because of a user specificed max q (e.g. when the user
     // specifies lossless encode.
-    vbr_max_bits            = (int)(((int64_t)rc->avg_frame_bandwidth * enc_ctx->two_pass_cfg.vbrmax_section) / 100);
+    vbr_max_bits = (int)(((int64_t)rc->avg_frame_bandwidth * enc_ctx->two_pass_cfg.vbrmax_section) / 100);
+#if OPT_RTC_FACTORS
+    vbr_max_bits = AOMMIN(vbr_max_bits, INT_MAX);
+#endif
     rc->max_frame_bandwidth = AOMMAX(AOMMAX((MBs * MAX_MB_RATE), MAXRATE_1080P), vbr_max_bits);
 }
 
@@ -1620,7 +1629,7 @@ void svt_aom_crf_assign_max_rate(PictureParentControlSet *ppcs) {
             int max_adjustment = (available_bit_ratio + 20 < available_frames_ratio) ? rc->active_worst_quality
                                                                                      : rc->active_worst_quality / 2;
             // Adjust up from assigned QP.
-            if (buff_lvl_step && available_bit_ratio < available_frames_ratio + 10) {
+            if (available_bit_ratio < available_frames_ratio + 10) {
                 adjustment = (int)(max_adjustment * (OPTIMAL_BUFFER_LEVEL - available_bit_ratio) / buff_lvl_step);
             }
         } else {

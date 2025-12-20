@@ -884,7 +884,9 @@ ConfigDescription config_entry_specific[] = {
      "Optimize the encoding process for different desired outcomes [0 = VQ, 1 = PSNR, 2 = SSIM, 3 = IQ (Image "
      "Quality)], default is 1 [0-3]"},
     // MD Parameters
-    {SCREEN_CONTENT_TOKEN, "Set screen content detection level, default is 2 [0: off, 1: on, 2: content adaptive]"},
+    {SCREEN_CONTENT_TOKEN,
+     "Set screen content detection level, default is 2 [0: off, 1: on, 2: content adaptive, 3: content adaptive "
+     "(anti-alias aware)]"},
 #if CONFIG_ENABLE_FILM_GRAIN
     // Annex A parameters
     {FILM_GRAIN_TOKEN, "Enable film grain, default is 0 [0: off, 1-50: level of denoising for film grain]"},
@@ -1331,6 +1333,9 @@ void enc_channel_dctor(EncChannel *c, uint32_t inst_cnt) {
  *       element to terminate it, so that
  *       argv[argc] == NULL.
  */
+// cppcheck warns about argv being able to be const, but doing so would require consting everying going up it looks like
+// as this file is also included in a C++ file, so we can't easily actually const qualify it.
+// cppcheck-suppress constParameter
 static int32_t find_token(int32_t argc, char *const argv[], char const *token, char *configStr) {
     assert(argv[argc] == NULL);
 
@@ -1381,8 +1386,7 @@ static char *read_word(FILE *fp) {
     while ((c = fgetc(fp)) != EOF) {
         if (c == '#') {
             // skip to end of line
-            while ((c = fgetc(fp)) != EOF && c != '\n')
-                ;
+            while ((c = fgetc(fp)) != EOF && c != '\n');
             if (c == '\n')
                 continue;
             if (c == EOF)
@@ -1662,6 +1666,7 @@ static const char *TOKEN_ERROR_MARKER = "THIS_TOKEN_HAS_ERROR";
  * @return true token was found and configStr was populated
  * @return false token was not found and configStr was not populated
  */
+// cppcheck-suppress constParameter
 static bool find_token_multiple_inputs(unsigned nch, int argc, char *const argv[], const char *token,
                                        char *configStr[MAX_CHANNEL_NUMBER], const char *cmd_copy[MAX_NUM_TOKENS],
                                        const char *arg_copy[MAX_NUM_TOKENS]) {
@@ -1728,16 +1733,17 @@ static void print_options(const char *title, const ConfigDescription *options) {
     }
 }
 
-int get_version(int argc, char *argv[]) {
+int get_version(int argc, char *const argv[]) {
 #ifdef NDEBUG
-    static int debug_build = 1;
+#define BUILD_TYPE_STRING "release"
 #else
-    static int debug_build = 0;
+#define BUILD_TYPE_STRING "debug"
 #endif
     if (find_token(argc, argv, VERSION_TOKEN, NULL))
         return 0;
-    printf("SVT-AV1 %s (%s)\n", svt_av1_get_version(), debug_build ? "release" : "debug");
+    printf("SVT-AV1 %s (" BUILD_TYPE_STRING ")\n", svt_av1_get_version());
     return 1;
+#undef BUILD_TYPE_STRING
 }
 
 uint32_t get_help(int32_t argc, char *const argv[]) {

@@ -517,7 +517,18 @@ typedef struct NicCtrls {
 } NicCtrls;
 typedef struct CandEliminationCtlrs {
     uint32_t enabled;
-    uint8_t  dc_only;
+#if OPT_SKIP_CANDS_LPD1
+    // if inter distortion is below dc_only_th * block_area then test DC only for intra candidates
+    // inter distortion can be from pme/subpel or MDS0 (for LPD1 only)
+    // 0: off, higher is more aggressive
+    uint16_t dc_only_th;
+    // if inter distortion is below skip_dc_th * block_area then skip testing intra candidates
+    // skip_dc_th active in LPD1 MDS0 only.
+    // 0: off, higher is more aggressive
+    uint16_t skip_dc_th;
+#else
+    uint8_t dc_only;
+#endif
 } CandEliminationCtlrs;
 typedef struct NsqGeomCtrls {
     // Enable or disable nsq signal. 0: disabled, 1: enabled
@@ -1034,12 +1045,16 @@ typedef struct ModeDecisionContext {
     // Control fast_coeff_est_level per mds
     uint8_t mds_fast_coeff_est_level;
     // Control subres_step per mds
-    uint8_t              mds_subres_step;
-    uint8_t              md_pic_obmc_level;
-    FilterIntraCtrls     filter_intra_ctrls;
-    uint8_t              md_allow_intrabc;
-    uint8_t              md_palette_level;
-    uint8_t              dist_based_ref_pruning;
+    uint8_t mds_subres_step;
+#if !CLN_UNUSED_SIGS
+    uint8_t md_pic_obmc_level;
+#endif
+    FilterIntraCtrls filter_intra_ctrls;
+    uint8_t          md_allow_intrabc;
+    uint8_t          md_palette_level;
+#if !CLN_UNUSED_SIGS
+    uint8_t dist_based_ref_pruning;
+#endif
     DepthRemovalCtrls    depth_removal_ctrls;
     DepthRefinementCtrls depth_refinement_ctrls;
     SkipSubDepthCtrls    skip_sub_depth_ctrls;
@@ -1050,9 +1065,13 @@ typedef struct ModeDecisionContext {
     MdSqMotionSearchCtrls  md_sq_me_ctrls;
     MdNsqMotionSearchCtrls md_nsq_me_ctrls;
     MdPmeCtrls             md_pme_ctrls;
-    uint8_t                md_subpel_me_level;
-    MdSubPelSearchCtrls    md_subpel_me_ctrls;
-    uint8_t                md_subpel_pme_level;
+#if !TUNE_RTC_RA_PRESETS
+    uint8_t md_subpel_me_level;
+#endif
+    MdSubPelSearchCtrls md_subpel_me_ctrls;
+#if !TUNE_RTC_RA_PRESETS
+    uint8_t md_subpel_pme_level;
+#endif
     MdSubPelSearchCtrls    md_subpel_pme_ctrls;
     PmeResults             pme_res[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH];
     ObmcControls           obmc_ctrls;
@@ -1156,16 +1175,33 @@ typedef struct ModeDecisionContext {
     // regular PD1 classifier uses the number of non-zero coefficient(s)). 3: Skip pd0 if block size
     // is equal to or greater than 32x32
     Lpd1Ctrls lpd1_ctrls;
+#if OPT_LPD1_RTC
+    // Limits minimum LDP1 level that can the detector can act on. This is meant to set a minimum LPD1
+    // level that will be used (unless the set level is more conservative than pd1_lvl_refinement.
+    // 0: off
+    // 1: LPD1 detector will not act if LPD1 level is <= LPD1_LVL_0
+    // 2: LPD1 detector will not act if LPD1 level is <= LPD1_LVL_1. If LPD1 level is >= LPD1_LVL_1, the min
+    //    LPD1 level will be LPD1_LVL_1. If LPD1 is <= LPD1_LVL_0, then the detector will not apply and
+    //    the set level will be used without the detector.
+    uint8_t pd1_lvl_refinement;
+#else
     // Refines the pd1_level per SB. 0: OFF, 1: conservative 2: Aggressive
-    uint8_t         pd1_lvl_refinement;
+    uint8_t pd1_lvl_refinement;
+#endif
     SpatialSSECtrls spatial_sse_ctrls;
 
     uint16_t init_max_block_cnt;
     // set to true if MDS3 needs to perform a full 10bit compensation in MDS3 (to make MDS3
     // conformant when using bypass_encdec)
     uint8_t need_hbd_comp_mds3;
+#if OPT_RATE_EST_FAST
     // use approximate rate for inter cost (set at pic-level b/c some pic-level initializations will
     // be removed)
+    // 0: off, 1: on, 2: on (more aggressive)
+#else
+    // use approximate rate for inter cost (set at pic-level b/c some pic-level initializations will
+    // be removed)
+#endif
     uint8_t approx_inter_rate;
     // Enable pSad
     uint8_t     enable_psad;
@@ -1183,14 +1219,23 @@ typedef struct ModeDecisionContext {
     // Signal to skip INTER TX in LPD1; should only be used by M13 as this causes blocking
     // artifacts. 0: OFF, 1: Skip INTER TX if neighs have 0 coeffs, 2: skip all INTER TX
     uint8_t lpd1_skip_inter_tx_level;
+#if OPT_LPD1_TX_SKIP
+    // Specifies the threshold to bypass transform in LPD1 based on full cost estimate.
+    // 0: OFF (no bypassing)
+    // The higher the number, the more aggressive the feature is
+    uint8_t lpd1_bypass_tx_th;
+#else
     // Specifies the threshold divisor to bypass transform in LPD1. 0: OFF (no bypassing)
     // The lower the number, the more aggressive the feature is
     uint8_t lpd1_bypass_tx_th_div;
+#endif
     // chroma components to compensate at MDS3 of LPD1
     COMPONENT_TYPE lpd1_chroma_comp;
-    uint8_t        lpd1_shift_mds0_dist;
-    uint8_t        corrupted_mv_check;
-    uint8_t        pred_mode_depth_refine;
+#if !CLN_MDS0_DIST_LPD1
+    uint8_t lpd1_shift_mds0_dist;
+#endif
+    uint8_t corrupted_mv_check;
+    uint8_t pred_mode_depth_refine;
     // when MD is done on 8bit, scale palette colors to 10bit (valid when bypass is 1)
     uint8_t  scale_palette;
     uint64_t rec_dist_per_quadrant[4];

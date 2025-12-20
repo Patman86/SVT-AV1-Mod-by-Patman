@@ -682,7 +682,7 @@ generate_ref_scaling_random_access_settings() {
                             param_event));
         frame_count += 10;
     }
-    for (EncSetting param : param_vecs) {
+    for (const EncSetting &param : param_vecs) {
         string idx = std::to_string(count);
         string name = test_prefix + idx;
         EncTestSetting setting{name, param, default_test_vectors, event_vec};
@@ -721,8 +721,8 @@ TEST_P(FeaturePresetConformanceTest, DISABLED_FeaturePresetConformanceTest) {
 }
 
 static const std::vector<EncTestSetting> generate_testcase_with_preset_settings(
-    const std::string test_case_name, const std::string feature_name,
-    const std::vector<std::string> values) {
+    const std::string &test_case_name, const std::string &feature_name,
+    const std::vector<std::string> &values) {
     static const std::string test_prefix = test_case_name;
     std::vector<EncTestSetting> settings;
 
@@ -799,7 +799,7 @@ static const std::vector<EncTestSetting> generate_aq_mode_1_settings() {
         {{"AdaptiveQuantization", "1"}, {"QP", "1"}, {"EncoderMode", "10"}},
         {{"AdaptiveQuantization", "1"}, {"QP", "63"}, {"EncoderMode", "10"}}};
     // segment
-    for (EncSetting param : param_vecs) {
+    for (const EncSetting &param : param_vecs) {
         string name = test_prefix + std::to_string(count);
         EncTestSetting setting{name, param, segment_test_vectors};
         settings.push_back(setting);

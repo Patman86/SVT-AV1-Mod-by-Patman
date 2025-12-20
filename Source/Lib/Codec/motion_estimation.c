@@ -366,7 +366,7 @@ Calculate SAD for 32x32,64x64 from 16x16
 and check if there is improvment, if yes keep
 the best SAD+MV
 *******************************************/
-void svt_ext_eight_sad_calculation_32x32_64x64_c(uint32_t  p_sad16x16[16][8],
+void svt_ext_eight_sad_calculation_32x32_64x64_c(const uint32_t  p_sad16x16[16][8],
                                                  uint32_t *p_best_sad_32x32,
                                                  uint32_t *p_best_sad_64x64,
                                                  uint32_t *p_best_mv32x32, uint32_t *p_best_mv64x64,
@@ -1345,7 +1345,6 @@ static void integer_search_b64(PictureParentControlSet *pcs, MeContext* me_ctx,
                 (search_area_height /
                  me_ctx->reduce_me_sr_divisor[list_index][ref_pic_index]));
             int16_t search_area_height_before_sr_reduction = search_area_height;
-            int16_t search_area_width_before_sr_reduction  = search_area_width;
             uint64_t best_hme_sad = (uint64_t)~0;
             if (me_ctx->me_early_exit_th) {
                 if (me_ctx->zz_sad[list_index][ref_pic_index] <
@@ -1379,12 +1378,9 @@ static void integer_search_b64(PictureParentControlSet *pcs, MeContext* me_ctx,
                         (me_ctx->is_ref && me_ctx->search_results[list_index][ref_pic_index].hme_sad < (24 * 24))) {
                         search_area_height = search_area_height / 2;
                     }
-                }
-                if (me_ctx->me_sr_adjustment_ctrls.enable_me_sr_adjustment == 2) {
                     if (list_index || ref_pic_index) {
                         if (me_ctx->p_sb_best_sad[0][0][0] < 5000)
-                            if (search_area_height == search_area_height_before_sr_reduction &&
-                                search_area_width == search_area_width_before_sr_reduction) {
+                            if (search_area_height == search_area_height_before_sr_reduction) {
                                 search_area_height = search_area_height >> 1;
                                 search_area_width  = search_area_width >> 1;
                             }

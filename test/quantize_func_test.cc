@@ -96,12 +96,13 @@ class QuantizeTest : public ::testing::TestWithParam<ParamType> {
 
     void InitQuantizer() {
         PictureParentControlSet pcs;
-        pcs.scs = (SequenceControlSet *)malloc(sizeof(SequenceControlSet));
+        pcs.scs = new SequenceControlSet;
         pcs.frm_hdr.quantization_params.base_q_idx = 0;
         pcs.scs->static_config.sharpness = 0;
         PictureParentControlSet *pcs_ptr = &pcs;
         svt_av1_build_quantizer(
             pcs_ptr, bd_, 0, 0, 0, 0, 0, &qtab_->quant, &qtab_->dequant);
+        delete pcs.scs;
     }
 
     virtual void QuantizeRun(bool is_loop, int q = 0, int test_num = 1) = 0;
@@ -718,9 +719,14 @@ class QuantizeQmTest : public QuantizeTest<QuantizeQmParam, QuantizeQmFunc> {
                         iqmatrix_[q][c][t] = iqmatrix_[q][c][qm_tx_size];
                     } else {
                         assert(current + size <= QM_TOTAL_SIZE);
+                        // The following lines are suppressed since it could
+                        // break if we set num_planes to 3 cppcheck-suppress
+                        // knownConditionTrueFalse
                         qmatrix_[q][c][t] = &wt_matrix_ref[q][c >= 1][current];
+                        // cppcheck-suppress knownConditionTrueFalse
                         iqmatrix_[q][c][t] =
                             &iwt_matrix_ref[q][c >= 1][current];
+
                         current += size;
                     }
                 }
