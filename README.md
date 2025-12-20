@@ -9,7 +9,32 @@ SVT-AV1-HDR is the Scalable Video Technology for AV1 (SVT-AV1 Encoder) with perc
 
 Currently, there are [HandBrake](https://github.com/Uranite/HandBrake-SVT-AV1-HDR?tab=readme-ov-file#downloads-and-build-status) and [ffmpeg](https://github.com/QuickFatHedgehog/FFmpeg-Builds-SVT-AV1-HDR/releases) **community builds** with SVT-AV1-HDR available.
 
-## Documentation
+## Quick Overview
+
+SVT-AV1-HDR's defaults were chosen to strike a good balance between **detail retention** and **artifact prevention** across a wide variety of content (e.g. live action, animation and screen recordings).
+
+For the majority of use cases, only three parameters are required to be adjusted: tuning mode, CRF and preset.
+
+Some popular use case examples:
+- Prioritize even further detail retention over artifact prevention (tune VQ):  
+  `--tune 0 --crf xx (any, start with 35) --preset x (2 to 6 recommended)`
+- Prioritize film grain retention (tune Film Grain):  
+  `--tune 4 --crf xx (20 to 40 recommended, start with 30) --preset x (2 *HIGHLY* recommended)`
+- Still image coding (tune IQ + AVIF):  
+  `--tune 3 --crf xx (any, start with 30) --preset x (2 to 6 recommended) --avif 1`
+
+If desired, additional parameters (described down below) are available for further tweaking and hypertuning of the encoding process.
+
+Note: SVT-AV1-HDR allocates bits in a very different way than (mainline) SVT-AV1, so adjusting the CRF value is expected to match a certain bitrate or file size target.
+
+## Information
+
+Unlike its predecesor (SVT-AV1-PSY), SVT-AV1-HDR features a more relaxed development cycle, and so are its expectations:
+
+- New versions are only used for source code tagging purposes -- no first-party binaries will be provided
+- Rebases onto SVT-AV1 are only guaranteed on **major** version changes (e.g. 4.0, 5.0, etc.)
+- However, minor or patch version releases might still happen in practice
+- Rebases onto SVT-AV1 don't have any set dates to ensure the integration of SVT-AV1-HDR's features with the mainline code is solid
 
 For additional docs (build instructions, documentation, usage, etc.), see the [SVT-AV1 README](README_mainline.md).
 
@@ -140,6 +165,10 @@ Enables VQ psychovisual optimizations from tune 0, as well as changing SSIM rate
 - `Enhanced Content Detection` (**[Merged to Mainline](https://gitlab.com/AOMediaCodec/SVT-AV1/-/merge_requests/2494)**)
 
 A smarter content detection algorithm to optimize the encoder for either screen or photographic content based on the image. This helps Tune IQ achieve better visual fidelity on still images.
+
+- `--noise-adaptive-filtering` *0 to 4*
+
+Controls noise detection which disables CDEF/restoration when noise level is high enough. [0: off, 1: both CDEF and restoration noise-adaptive filtering are on, 2: default tune behavior, 3: noise-adaptive CDEF only, 4: noise-adaptive restoration only] The default is 2.
 
 ### Modified Defaults
 

@@ -1098,6 +1098,17 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      */
      uint8_t complex_hvs;
 
+     /**
+     * @brief Controls noise detection for CDEF/restoration filtering
+     * 0: off
+     * 1: always-on noise-adaptive filters
+     * 2: default tune behavior
+     * 3: noise-adaptive CDEF only
+     * 4: noise-adaptive restoration filtering only
+     * Default is 2
+     */
+     uint8_t noise_adaptive_filtering;
+
 } EbSvtAv1EncConfiguration;
 
 /**
