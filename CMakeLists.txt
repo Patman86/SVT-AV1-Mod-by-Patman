@@ -179,6 +179,8 @@ include(GNUInstallDirs)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
+# Dolby Vision / HDR10+ Integration (custom CMake Find-modules)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CMAKE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/Bin/GNU/${CMAKE_BUILD_TYPE}/" CACHE PATH "Location to write the resulting binaries to")
