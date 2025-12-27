@@ -8,47 +8,34 @@ else()
     set(_DOVI_COMP_DIR "gnu")
 endif()
 
-set(_DOVI_PROJECT_HINTS
-    "${_SVT_ROOT}/dovi/${_DOVI_COMP_DIR}/lib"
-    "${_SVT_ROOT}/dovi/${_DOVI_COMP_DIR}"
-    "${_SVT_ROOT}/dovi/lib"
-    "${_SVT_ROOT}/dovi"
-
-    "${_SVT_ROOT}/Source/dovi/${_DOVI_COMP_DIR}/lib"
-    "${_SVT_ROOT}/Source/dovi/${_DOVI_COMP_DIR}"
-    "${_SVT_ROOT}/Source/dovi/lib"
-    "${_SVT_ROOT}/Source/dovi"
-
-    "${_SVT_ROOT}/third_party/dovi/${_DOVI_COMP_DIR}/lib"
-    "${_SVT_ROOT}/third_party/dovi/${_DOVI_COMP_DIR}"
-
-    "${_SVT_ROOT}/lib/dovi"
-    "${_SVT_ROOT}/libs/dovi"
+set(_DOVI_ROOT_HINTS
+    "${_SVT_ROOT}"
+    "${_SVT_ROOT}/Source"
+    "${_SVT_ROOT}/third_party"
 )
 
-set(_DOVI_INCLUDE_HINTS
-    "${_SVT_ROOT}/dovi/${_DOVI_COMP_DIR}/include"
-    "${_SVT_ROOT}/dovi/include"
-    "${_SVT_ROOT}/Source/dovi/${_DOVI_COMP_DIR}/include"
-    "${_SVT_ROOT}/Source/dovi/include"
-)
+foreach(_ROOT ${_DOVI_ROOT_HINTS})
+    list(APPEND _DOVI_HINTS
+        "${_ROOT}/dovi/${_DOVI_COMP_DIR}"
+        "${_ROOT}/dovi/${_DOVI_COMP_DIR}/lib"
+        "${_ROOT}/dovi"
+        "${_ROOT}/dovi/lib")
+endforeach()
 
 find_path(LIBDOVI_INCLUDE_DIR
     NAMES libdovi/rpu_parser.h
-    HINTS ${_DOVI_INCLUDE_HINTS}
+    HINTS ${_DOVI_HINTS}
     PATH_SUFFIXES include libdovi
 )
 
 find_library(LIBDOVI_LIBRARY
-    NAMES dovi libdovi dovi_static
-    HINTS ${_DOVI_PROJECT_HINTS}
+    NAMES dovi libdovi
+    HINTS ${_DOVI_HINTS}
     PATH_SUFFIXES lib lib64
 )
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(dovi
-    REQUIRED_VARS LIBDOVI_LIBRARY LIBDOVI_INCLUDE_DIR
-)
+find_package_handle_standard_args(dovi REQUIRED_VARS LIBDOVI_LIBRARY LIBDOVI_INCLUDE_DIR)
 
 if(dovi_FOUND AND NOT TARGET dovi::dovi)
     add_library(dovi::dovi UNKNOWN IMPORTED)
