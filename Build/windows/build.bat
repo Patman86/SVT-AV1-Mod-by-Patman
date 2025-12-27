@@ -51,7 +51,7 @@ if not "%vs%"=="" set "ARCH_OPTION=-A x64"
 
 cmake --fresh ../../.. %GENERATOR% %ARCH_OPTION% %tool% -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% %cmake_eflags% -DCMAKE_CXX_FLAGS_RELEASE="%flags%" -DCMAKE_C_FLAGS_RELEASE="%flags%"|| exit /b 1
 
-if "%build%"=="y" cmake --build . --config %buildtype% --clean-first
+if "%build%"=="y" cmake --build . --config %buildtype% --parallel --clean-first
 goto :EOF
 
 :args
