@@ -39,12 +39,6 @@ if(LIBDOVI_FOUND)
         set(LIBDOVI_LIBRARIES ${LIBDOVI_LIBRARY})
         add_definitions(-DLIBDOVI_FOUND=1)
         message(STATUS "Building with Dolby Vision support – Yes")
-
-        # INTERFACE library to prevent duplicate Rust symbols
-        add_library(dovi_iface INTERFACE IMPORTED)
-        set_target_properties(dovi_iface PROPERTIES
-            INTERFACE_LINK_LIBRARIES "${LIBDOVI_LIBRARY}"
-            INTERFACE_INCLUDE_DIRECTORIES "${LIBDOVI_INCLUDE_DIR}")
     else()
         message(STATUS "Building with Dolby Vision support – No (library not found)")
     endif()
@@ -61,12 +55,6 @@ if(LIBHDR10PLUS_RS_FOUND)
         set(LIBHDR10PLUS_RS_LIBRARIES ${LIBHDR10PLUS_RS_LIBRARY})
         add_definitions(-DLIBHDR10PLUS_RS_FOUND=1)
         message(STATUS "Building with HDR10+ support – Yes")
-
-        # INTERFACE library to prevent duplicate Rust symbols
-        add_library(hdr10plus_iface INTERFACE IMPORTED)
-        set_target_properties(hdr10plus_iface PROPERTIES
-            INTERFACE_LINK_LIBRARIES "${LIBHDR10PLUS_RS_LIBRARY}"
-            INTERFACE_INCLUDE_DIRECTORIES "${LIBHDR10PLUS_RS_INCLUDE_DIR}")
     else()
         message(STATUS "Building with HDR10+ support – No (library not found)")
     endif()
@@ -117,8 +105,8 @@ endif()
 target_link_libraries(SvtAv1EncApp
     PRIVATE
         SvtAv1Enc
-        $<$<BOOL:${LIBDOVI_FOUND}>:dovi_iface>
-        $<$<BOOL:${LIBHDR10PLUS_RS_FOUND}>:hdr10plus_iface>
+        $<$<BOOL:${LIBDOVI_FOUND}>:dovi::dovi>
+        $<$<BOOL:${LIBHDR10PLUS_RS_FOUND}>:hdr10plus::hdr10plus>
 )
 
 install(TARGETS SvtAv1EncApp RUNTIME COMPONENT Runtime DESTINATION ${CMAKE_INSTALL_BINDIR})
