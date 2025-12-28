@@ -186,7 +186,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(_compiler_dir "Unknown")
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(_compiler_dir "GCC")
+    set(_compiler_dir "GNU")
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(_compiler_dir "MSVC")
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
