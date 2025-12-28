@@ -29,6 +29,8 @@ if exist CMakeCache.txt del /f /s /q CMakeCache.txt 1>nul
 if exist CMakeFiles rmdir /s /q CMakeFiles 1>nul
 if NOT "%GENERATOR%"=="" set GENERATOR=-G"%GENERATOR%"
 
+echo %text%
+
 echo Building in %buildtype% configuration
 
 if NOT "%build%"=="y" echo Generating build files
@@ -52,6 +54,7 @@ if not "%vs%"=="" set "ARCH_OPTION=-A x64"
 cmake --fresh ../../.. %GENERATOR% %ARCH_OPTION% %tool% -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% %cmake_eflags% -DCMAKE_CXX_FLAGS_RELEASE="%flags%" -DCMAKE_C_FLAGS_RELEASE="%flags%"|| exit /b 1
 
 if "%build%"=="y" cmake --build . --config %buildtype% --parallel --clean-first
+
 goto :EOF
 
 :args
@@ -70,56 +73,66 @@ if -%1-==-- (
     )
     exit /b
 ) else if /I "%1"=="2022" (
-    echo Generating Visual Studio 2022 solution
+    set "text=Setting environment for Visual Studio 2022"
     set "GENERATOR=Visual Studio 17 2022"
     set vs=2022
     set dir=MSVC
     set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG"
     shift
 ) else if /I "%1"=="2019" (
-    echo Generating Visual Studio 2019 solution
+    set "text=Setting environment for Visual Studio 2019"
     set "GENERATOR=Visual Studio 16 2019"
     set vs=2019
     set dir=MSVC
     set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG"
     shift
 ) else if /I "%1"=="2017" (
-    echo Generating Visual Studio 2017 solution
+    set "text=Setting environment for Visual Studio 2017"
     set "GENERATOR=Visual Studio 15 2017 Win64"
     set vs=2017
     set dir=MSVC
     set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG"
     shift
 ) else if /I "%1"=="2015" (
-    echo Generating Visual Studio 2015 solution
+    set "text=Setting environment for Visual Studio 2015"
     set "GENERATOR=Visual Studio 14 2015 Win64"
     set vs=2015
     set dir=MSVC
     set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG"
     shift
-) else if /I "%1"=="Clang" (
-    set dir=Clang
+) else if /I "%1"=="ClangVS" (
+    set "text=Setting environment for Clang with Visual Studio"
+    set dir=ClangVS
     set "tool="-T LLVM_V143""
     set "flags=/MD /MT /O2 /Ot /Gw /GA /DNDEBUG"
     shift
+) else if /I "%1"=="Clang" (
+    set "text=Setting environment for Clang with Ninja"
+    set dir=Clang
+    set "GENERATOR=Ninja"
+    set "CC=clang"
+    set "CXX=clang"
+    set "tool="-DCMAKE_BUILD_TYPE=%buildtype%""
+    set "flags=-O3 -DNDEBUG -Wno-unused-command-line-argument"
+    shift
 ) else if /I "%1"=="ninja" (
-    echo Generating Ninja files
+    set "text=Setting environment for Ninja"
     set "GENERATOR=Ninja"
     set dir=GNU
     shift
 ) else if /I "%1"=="msys" (
-    echo Generating MSYS Makefiles
+    set "text=Setting environment for MSYS"
     set "GENERATOR=MSYS Makefiles"
     set dir=GNU
     set "flags=-lws2_32 -luserenv -lntdll -s -O3 -DNDEBUG"
     shift
 ) else if /I "%1"=="mingw" (
-    echo Generating MinGW Makefiles
+    set "text=Setting environment for MinGW"
     set "GENERATOR=MinGW Makefiles"
     set dir=GNU
     shift
 ) else if /I "%1"=="unix" (
-    echo Generating Unix Makefiles
+    set "text=Setting environment for Unix"
     set "GENERATOR=Unix Makefiles"
     set dir=UNIX
     shift
