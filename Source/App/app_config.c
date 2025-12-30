@@ -1005,6 +1005,8 @@ ConfigDescription config_entry_specific[] = {
     // --- end: REFERENCE SCALING SUPPORT
     {LOSSLESS_TOKEN, "Enable lossless coding, default is 0 [0-1]"},
     {AVIF_TOKEN, "Enable still-picture coding, default is 0 [0-1]"},
+    // Auto tiling
+    {AUTO_TILING, "Auto tiling, default is 1 [0-1]"},
     // Termination
     {NULL, NULL}};
 
@@ -1071,8 +1073,6 @@ ConfigDescription config_entry_psychovisual[] = {
     {NOISE_ADAPTIVE_FILTERING_TOKEN,
      "Control noise detection for CDEF/restoration filtering, default is 2 [0: off, 1: both CDEF and restoration are "
      "on 2: default tune behavior, 3: CDEF only, 4: restoration only)]"},
-    // Auto tiling
-    {AUTO_TILING, "Auto tiling, default is 1 [0-1]"},
     // Termination
     {NULL, NULL}};
 
