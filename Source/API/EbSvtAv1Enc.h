@@ -1109,6 +1109,12 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      */
      uint8_t noise_adaptive_filtering;
 
+    /* @brief Signal to the library to automatically adjust tiles
+     *
+     * Default is true.
+     */
+    bool auto_tiling;
+
 } EbSvtAv1EncConfiguration;
 
 /**

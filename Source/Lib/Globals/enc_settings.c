@@ -1195,6 +1195,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->tx_bias                    = 0;
     config_ptr->complex_hvs                = 0;
     config_ptr->noise_adaptive_filtering   = 2;
+    config_ptr->auto_tiling                = true;
     return return_error;
 }
 
@@ -1340,6 +1341,11 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
             PRINT_CONFIG("Noise Normalization Strength", "%d",
                 config->noise_norm_strength);
         }
+
+        PRINT_CONFIG("auto tiling / columns / rows", "%d / %d / %d",
+                 config->auto_tiling,
+                 config->tile_columns,
+                 config->tile_rows);
     }
 #if DEBUG_BUFFERS
     PRINT_CONFIG("INPUT / OUTPUT", "%d / %d",
@@ -2382,6 +2388,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"tx-bias", &config_struct->tx_bias},
         {"complex-hvs", &config_struct->complex_hvs},
         {"noise-adaptive-filtering", &config_struct->noise_adaptive_filtering},
+        {"auto-tiling", &config_struct->auto_tiling},
     };
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);
 

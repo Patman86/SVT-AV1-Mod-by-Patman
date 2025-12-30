@@ -220,6 +220,7 @@
 #define MAX_TX_SIZE_TOKEN "--max-tx-size"
 #define AC_BIAS_TOKEN "--ac-bias"
 #define NOISE_NORM_STRENGTH_TOKEN "--noise-norm-strength"
+#define AUTO_TILING "--auto-tiling"
 #define KF_TF_STRENGTH_FILTER_TOKEN "--kf-tf-strength"
 #define ALT_LAMBDA_FACTORS_TOKEN "--alt-lambda-factors"
 #define SHARP_TX_TOKEN "--sharp-tx"
@@ -1066,6 +1067,8 @@ ConfigDescription config_entry_psychovisual[] = {
     {NOISE_ADAPTIVE_FILTERING_TOKEN,
      "Control noise detection for CDEF/restoration filtering, default is 2 [0: off, 1: both CDEF and restoration are "
      "on 2: default tune behavior, 3: CDEF only, 4: restoration only)]"},
+    // Auto tiling
+    {AUTO_TILING, "Auto tiling, default is 1 [0-1]"},
     // Termination
     {NULL, NULL}};
 
@@ -1318,6 +1321,9 @@ ConfigEntry config_entry[] = {
 
     // Noise adaptive filtering
     {NOISE_ADAPTIVE_FILTERING_TOKEN, "NoiseAdaptiveFiltering", set_cfg_generic_token},
+
+    // Auto tiling
+    {AUTO_TILING, "AutoTiling", set_cfg_generic_token},
 
     // Termination
     {NULL, NULL, NULL}};
