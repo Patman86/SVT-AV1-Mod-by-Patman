@@ -587,6 +587,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * 0: disabled
      * 1: enabled
      * 2: more accurate (slower)
+     * 3: most accurate (very slow)
      */
     uint8_t enable_dlf_flag;
 
