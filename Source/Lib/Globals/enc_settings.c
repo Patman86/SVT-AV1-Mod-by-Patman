@@ -910,6 +910,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     if (scs->static_config.scene_change_detection == 0) {
         scs->static_config.min_intra_period_length = 0;
         SVT_WARN("min-keyint was set to 0 as SCD is disabled.\n", channel_number + 1);
+    }
     if (config->fast_decode < 1 && config->auto_tiling == 0 && (config->tile_columns > 0 || config->tile_rows > 0)) {
         SVT_WARN(
             "If you are using tiles with the intent of increasing the decoder speed, please also "
@@ -1215,6 +1216,9 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->complex_hvs                = 0;
     config_ptr->noise_adaptive_filtering   = 2;
     config_ptr->auto_tiling                = true;
+    config_ptr->zones                      = NULL;
+    config_ptr->parsed_zones               = NULL;
+    config_ptr->num_zones                  = 0;
     return return_error;
 }
 
@@ -1276,11 +1280,12 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                  config->pred_structure == LOW_DELAY           ? "low delay"
                      : config->pred_structure == RANDOM_ACCESS ? "random access"
                                                                : "Unknown pred structure");
-        PRINT_CONFIG("min / max gop size / mini-gop size / type", "%d / %d / %d / %s",
+        PRINT_CONFIG("max / min gop size / mini-gop size / type", "%d / %d / %d / %s",
             config->intra_period_length < 0 ? config->intra_period_length
                 : config->intra_period_length + 1,
             config->min_intra_period_length < 0 ? config->min_intra_period_length
                 : config->min_intra_period_length + 1,
+            (1 << config->hierarchical_levels),
             config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH    ? "Open GOP"
                 : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "Closed GOP"
                                                                    : "Unknown key frame type");
@@ -2146,6 +2151,75 @@ static EbErrorType str_to_resz_denoms(const char *nptr, SvtAv1FrameScaleEvts *ev
     return parse_list_uint32(nptr, evts->resize_denoms, param_count);
 }
 
+static EbErrorType parse_zones_string(const char* zones_str, QualityZone** zones_out, uint16_t* num_zones_out) {
+    if (!zones_str || strlen(zones_str) == 0) {
+        *zones_out = NULL;
+        *num_zones_out = 0;
+        return EB_ErrorNone;
+    }
+
+    // Count semicolons to determine number of zones
+    int zone_count = 1;
+    for (const char* p = zones_str; *p; p++) {
+        if (*p == ';') zone_count++;
+    }
+
+    // Allocate memory for zones
+    QualityZone* zones = (QualityZone*)malloc(zone_count * sizeof(QualityZone));
+    if (!zones) {
+        return EB_ErrorInsufficientResources;
+    }
+
+    // Parse zones
+    char* zones_copy = strdup(zones_str);
+    if (!zones_copy) {
+        free(zones);
+        return EB_ErrorInsufficientResources;
+   }
+
+    char* zone_token = strtok(zones_copy, ";");
+    int parsed_zones = 0;
+
+    while (zone_token && parsed_zones < zone_count) {
+        unsigned long long start, end;
+        int quality;
+
+        if (sscanf(zone_token, "%llu,%llu,%d", &start, &end, &quality) != 3) {
+            free(zones);
+            free(zones_copy);
+            return EB_ErrorBadParameter;
+        }
+
+        // Validate zone parameters
+        if (start > end) {
+            SVT_ERROR("Invalid zone: start frame (%llu) > end frame (%llu)\n", start, end);
+            free(zones);
+            free(zones_copy);
+            return EB_ErrorBadParameter;
+        }
+
+        if (quality < 1 || quality > 63) {
+            SVT_ERROR("Invalid QP value (%d) in zone, must be 1-63\n", quality);
+            free(zones);
+            free(zones_copy);
+            return EB_ErrorBadParameter;
+        }
+
+        zones[parsed_zones].start_frame = start;
+        zones[parsed_zones].end_frame = end;
+        zones[parsed_zones].zone_quality = quality;
+        parsed_zones++;
+
+        zone_token = strtok(NULL, ";");
+    }
+
+    free(zones_copy);
+
+    *zones_out = zones;
+    *num_zones_out = parsed_zones;
+    return EB_ErrorNone;
+}
+
 #if FTR_SFRAME_POSI
 static EbErrorType str_to_sframe_posi(const char *nptr, SvtAv1SFramePositions *posis) {
     const uint32_t param_count = count_params(nptr);
@@ -2315,6 +2389,52 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
 
     if (!strcmp(name, "frame-resz-denoms"))
         return str_to_resz_denoms(value, &config_struct->frame_scale_evts);
+
+    if (!strcmp(name, "zones")) {
+        if (config_struct->zones) {
+            free(config_struct->zones);
+            if (config_struct->parsed_zones) {
+                free(config_struct->parsed_zones);
+                config_struct->parsed_zones = NULL;
+            }
+        }
+        config_struct->zones = strdup(value);
+
+        // Parse zones immediately
+        EbErrorType err = parse_zones_string(config_struct->zones,
+                                            &config_struct->parsed_zones,
+                                            &config_struct->num_zones);
+        if (err != EB_ErrorNone) {
+            SVT_ERROR("Failed to parse zones parameter: %s\n", value);
+            return err;
+        }
+
+        // Print parsed zones for verification
+        if (config_struct->num_zones > 0) {
+            if (config_struct->num_zones == 1) {
+                SVT_INFO("Parsed %d zone:\n", config_struct->num_zones);
+            } else if (config_struct->num_zones > 1) {
+                SVT_INFO("Parsed %d zones:\n", config_struct->num_zones);
+            }
+            for (int i = 0; i < config_struct->num_zones; i++) {
+                if (config_struct->enable_adaptive_quantization == 0 && config_struct->enable_variance_boost == 0) {
+                    SVT_INFO("  Zone %d: frames %llu-%llu, CQP %d\n",
+                            i + 1,
+                            config_struct->parsed_zones[i].start_frame,
+                            config_struct->parsed_zones[i].end_frame,
+                            config_struct->parsed_zones[i].zone_quality);
+                } else {
+                    SVT_INFO("  Zone %d: frames %llu-%llu, CRF %d\n",
+                            i + 1,
+                            config_struct->parsed_zones[i].start_frame,
+                            config_struct->parsed_zones[i].end_frame,
+                            config_struct->parsed_zones[i].zone_quality);
+                }
+            }
+        }
+
+        return EB_ErrorNone;
+    }
 
 #if FTR_SFRAME_POSI
     if (!strcmp(name, "sframe-posi"))

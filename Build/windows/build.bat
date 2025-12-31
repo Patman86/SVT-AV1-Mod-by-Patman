@@ -109,15 +109,14 @@ if -%1-==-- (
 ) else if /I "%1"=="Clang" (
     set "text=Setting environment for Clang with Ninja"
     set dir=Clang
-    set "GENERATOR=Ninja"
+    set "GENERATOR=Ninja Multi-Config"
     set "CC=clang"
     set "CXX=clang"
-    set "tool="-DCMAKE_BUILD_TYPE=%buildtype%""
     set "flags=-O3 -DNDEBUG -Wno-unused-command-line-argument"
     shift
 ) else if /I "%1"=="ninja" (
     set "text=Setting environment for Ninja"
-    set "GENERATOR=Ninja"
+    set "GENERATOR=Ninja Multi-Config"
     set dir=GNU
     shift
 ) else if /I "%1"=="msys" (

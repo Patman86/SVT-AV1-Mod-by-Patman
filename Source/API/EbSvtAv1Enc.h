@@ -21,6 +21,7 @@ extern "C" {
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #if defined(_MSC_VER)
 #define ALIGNED(n) __declspec(align(n))
@@ -224,6 +225,12 @@ typedef struct SvtAv1SFramePositions {
     uint8_t  *sframe_qps;
     int8_t   *sframe_qp_offsets;
 } SvtAv1SFramePositions;
+
+typedef struct QualityZone {
+    uint64_t start_frame;  // inclusive
+    uint64_t end_frame;    // inclusive
+    int      zone_quality; // CRF/CQP value for this zone
+} QualityZone;
 
 // Will contain the EbEncApi which will live in the EncHandle class
 // Only modifiable during config-time.
@@ -1125,6 +1132,18 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * Default is true.
      */
     bool auto_tiling;
+
+    /* @brief CRF zones configuration string
+     *
+     * Format: "start1,end1,crf1;start2,end2,crf2;..."
+     * Example: "0,100,35;101,200,25"
+     * Default is NULL (no zones).
+     */
+    char* zones;
+
+    // Internal parsed zones (not exposed to CLI)
+    QualityZone* parsed_zones;
+    uint16_t num_zones;
 
 } EbSvtAv1EncConfiguration;
 
