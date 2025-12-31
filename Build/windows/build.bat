@@ -51,7 +51,7 @@ if "%unittest%"=="ON" echo Building unit tests
 set "ARCH_OPTION="
 if not "%vs%"=="" set "ARCH_OPTION=-A x64"
 
-cmake --fresh ../../.. %GENERATOR% %ARCH_OPTION% %tool% -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% %cmake_eflags% -DCMAKE_CXX_FLAGS_RELEASE="%flags%" -DCMAKE_C_FLAGS_RELEASE="%flags%"|| exit /b 1
+cmake --fresh ../../.. %GENERATOR% %ARCH_OPTION% %tool% -DCMAKE_BUILD_TYPE=%buildtype% -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% %cmake_eflags% -DCMAKE_CXX_FLAGS_RELEASE="%flags%" -DCMAKE_C_FLAGS_RELEASE="%flags%"|| exit /b 1
 
 if "%build%"=="y" cmake --build . --config %buildtype% --parallel --clean-first
 
@@ -109,14 +109,14 @@ if -%1-==-- (
 ) else if /I "%1"=="Clang" (
     set "text=Setting environment for Clang with Ninja"
     set dir=Clang
-    set "GENERATOR=Ninja Multi-Config"
+    set "GENERATOR=Ninja"
     set "CC=clang"
     set "CXX=clang"
-    set "flags=-O3 -DNDEBUG -Wno-unused-command-line-argument"
+    set "flags=/MD /MT /O2 /Ot /Gw /GA -Wno-unused-command-line-argument"
     shift
 ) else if /I "%1"=="ninja" (
     set "text=Setting environment for Ninja"
-    set "GENERATOR=Ninja Multi-Config"
+    set "GENERATOR=Ninja"
     set dir=GNU
     shift
 ) else if /I "%1"=="msys" (
