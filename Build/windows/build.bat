@@ -112,7 +112,7 @@ if -%1-==-- (
     set "GENERATOR=Ninja"
     set "CC=clang"
     set "CXX=clang"
-    set "flags=/MD /MT /O2 /Ot /Gw /GA -Wno-unused-command-line-argument"
+    set "flags=/MD /MT /O2 /Ot /Gw /GA /DNDEBUG -Wno-unused-command-line-argument"
     shift
 ) else if /I "%1"=="ninja" (
     set "text=Setting environment for Ninja"
