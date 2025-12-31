@@ -2152,14 +2152,14 @@ static EbErrorType str_to_resz_denoms(const char *nptr, SvtAv1FrameScaleEvts *ev
 }
 
 static EbErrorType parse_zones_string(const char* zones_str, QualityZone** zones_out, uint16_t* num_zones_out) {
-    if (!zones_str || strlen(zones_str) == 0) {
+    if (!zones_str || !*zones_str) {
         *zones_out = NULL;
         *num_zones_out = 0;
         return EB_ErrorNone;
     }
 
     // Count semicolons to determine number of zones
-    int zone_count = 1;
+    uint16_t zone_count = 1;
     for (const char* p = zones_str; *p; p++) {
         if (*p == ';') zone_count++;
     }
@@ -2171,20 +2171,21 @@ static EbErrorType parse_zones_string(const char* zones_str, QualityZone** zones
     }
 
     // Parse zones
-    char* zones_copy = strdup(zones_str);
+    char* zones_copy = _strdup(zones_str);
     if (!zones_copy) {
         free(zones);
         return EB_ErrorInsufficientResources;
    }
 
-    char* zone_token = strtok(zones_copy, ";");
-    int parsed_zones = 0;
+    char* saveptr = NULL;
+    char* zone_token = strtok_s(zones_copy, ";", &saveptr);
+    uint16_t parsed_zones = 0;
 
     while (zone_token && parsed_zones < zone_count) {
-        unsigned long long start, end;
-        int quality;
+        uint64_t start, end;
+        int32_t quality;
 
-        if (sscanf(zone_token, "%llu,%llu,%d", &start, &end, &quality) != 3) {
+        if (sscanf_s(zone_token, "%llu,%llu,%d", &start, &end, &quality) != 3) {
             free(zones);
             free(zones_copy);
             return EB_ErrorBadParameter;
@@ -2205,12 +2206,12 @@ static EbErrorType parse_zones_string(const char* zones_str, QualityZone** zones
             return EB_ErrorBadParameter;
         }
 
-        zones[parsed_zones].start_frame = start;
-        zones[parsed_zones].end_frame = end;
-        zones[parsed_zones].zone_quality = quality;
+        zones[parsed_zones].start_frame = (uint32_t)start;
+        zones[parsed_zones].end_frame = (uint32_t)end;
+        zones[parsed_zones].zone_quality = (uint8_t)quality;
         parsed_zones++;
 
-        zone_token = strtok(NULL, ";");
+        zone_token = strtok_s(NULL, ";", &saveptr);
     }
 
     free(zones_copy);
@@ -2398,7 +2399,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
                 config_struct->parsed_zones = NULL;
             }
         }
-        config_struct->zones = strdup(value);
+        config_struct->zones = _strdup(value);
 
         // Parse zones immediately
         EbErrorType err = parse_zones_string(config_struct->zones,
@@ -2532,7 +2533,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"tx-bias", &config_struct->tx_bias},
         {"complex-hvs", &config_struct->complex_hvs},
         {"noise-adaptive-filtering", &config_struct->noise_adaptive_filtering},
-        {"auto-tiling", &config_struct->auto_tiling},
     };
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);
 
@@ -2659,6 +2659,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"adaptive-film-grain", &config_struct->adaptive_film_grain},
         {"alt-lambda-factors", &config_struct->alt_lambda_factors},
         {"alt-ssim-tuning", &config_struct->alt_ssim_tuning},
+        {"auto-tiling", &config_struct->auto_tiling},
     };
     const size_t bool_opts_size = sizeof(bool_opts) / sizeof(bool_opts[0]);
 
