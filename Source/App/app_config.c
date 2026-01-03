@@ -1046,11 +1046,12 @@ ConfigDescription config_entry_color_description[] = {
 
     {CONTENT_LIGHT_LEVEL_TOKEN,
      "Set content light level in the format of \"max_cll,max_fall\", refer to the user guide Appendix A.2"},
-// Dolby Vision RPU
 #ifdef LIBDOVI_FOUND
+    // Dolby Vision RPU
     {DOLBY_VISION_RPU_TOKEN, "Set the Dolby Vision RPU path"},
 #endif
 #ifdef LIBHDR10PLUS_RS_FOUND
+    //HDR10+ JSON
     {HDR10PLUS_JSON_TOKEN, "Set the HDR10+ JSON file path"},
 #endif
     // Termination
@@ -1233,9 +1234,6 @@ ConfigEntry config_entry[] = {
     {FILM_GRAIN_DENOISE_APPLY_TOKEN, "FilmGrainDenoise", set_cfg_generic_token},
     {FGS_TABLE_TOKEN, "FilmGrainTable", set_cfg_fgs_table_path},
 #endif
-#ifdef LIBHDR10PLUS_RS_FOUND
-    {HDR10PLUS_JSON_TOKEN, "Hdr10PlusJson", set_cfg_hdr10plus_json},
-#endif
 
     //   Super-resolution support
     {SUPERRES_MODE_INPUT, "SuperresMode", set_cfg_generic_token},
@@ -1271,9 +1269,6 @@ ConfigEntry config_entry[] = {
     {CHROMA_SAMPLE_POSITION_TOKEN, "ChromaSamplePosition", set_cfg_generic_token},
     {MASTERING_DISPLAY_TOKEN, "MasteringDisplay", set_cfg_generic_token},
     {CONTENT_LIGHT_LEVEL_TOKEN, "ContentLightLevel", set_cfg_generic_token},
-#ifdef LIBDOVI_FOUND
-    {DOLBY_VISION_RPU_TOKEN, "DolbyVisionRpu", set_cfg_dovi_rpu},
-#endif
 
 #if CONFIG_ENABLE_QUANT_MATRIX
     // QM
@@ -1351,6 +1346,13 @@ ConfigEntry config_entry[] = {
 
     // Zones
     {ZONES_TOKEN, "Zones", set_cfg_quality_zones},
+
+#ifdef LIBDOVI_FOUND
+    {DOLBY_VISION_RPU_TOKEN, "DolbyVisionRpu", set_cfg_dovi_rpu},
+#endif
+#ifdef LIBHDR10PLUS_RS_FOUND
+    {HDR10PLUS_JSON_TOKEN, "Hdr10PlusJson", set_cfg_hdr10plus_json},
+#endif
 
     // Termination
     {NULL, NULL, NULL}};
