@@ -20,6 +20,7 @@
 #include "app_config.h"
 #include "app_context.h"
 #include "app_input_y4m.h"
+#include "../Lib/Codec/svt_log.h"
 #ifdef _WIN32
 #include <windows.h>
 #include <io.h>
@@ -450,14 +451,15 @@ static EbErrorType set_cfg_fgs_table_path(EbConfig *cfg, const char *token, cons
 #endif
 #ifdef LIBDOVI_FOUND
 static EbErrorType set_cfg_dovi_rpu(EbConfig *cfg, const char *token, const char *value) {
-    printf("Svt[info]: Parsing Dolby Vision RPU file...\n");
+    (void)token;
+    SVT_INFO("Parsing Dolby Vision RPU file...\n");
     const DoviRpuOpaqueList *rpus = dovi_parse_rpu_bin_file(value);
     if (rpus->error) {
         fprintf(stderr, "%s\n", rpus->error);
         dovi_rpu_list_free(rpus);
         return validate_error(EB_ErrorBadParameter, token, value);
     }
-    printf("Svt[info]: Loaded %zu DoVi RPUs\n", rpus->len);
+    SVT_INFO("Loaded %zu DoVi RPUs\n", rpus->len);
     cfg->dovi_rpus = rpus;
     return EB_ErrorNone;
 }
@@ -465,7 +467,8 @@ static EbErrorType set_cfg_dovi_rpu(EbConfig *cfg, const char *token, const char
 
 #ifdef LIBHDR10PLUS_RS_FOUND
 static EbErrorType set_cfg_hdr10plus_json(EbConfig *cfg, const char *token, const char *value) {
-    printf("Svt[info]: Parsing HDR10+ JSON file...\n");
+    (void)token;
+    SVT_INFO("Parsing HDR10+ JSON file...\n");
     Hdr10PlusRsJsonOpaque *hdr10plus_json = hdr10plus_rs_parse_json(value);
     const char            *error          = hdr10plus_rs_json_get_error(hdr10plus_json);
     if (error) {
@@ -473,7 +476,7 @@ static EbErrorType set_cfg_hdr10plus_json(EbConfig *cfg, const char *token, cons
         hdr10plus_rs_json_free(hdr10plus_json);
         return validate_error(EB_ErrorBadParameter, token, value);
     }
-    printf("Svt[info]: Loaded HDR10+ JSON file\n");
+    SVT_INFO("Loaded HDR10+ JSON file\n");
     cfg->hdr10plus_json = hdr10plus_json;
     return EB_ErrorNone;
 }
@@ -2098,8 +2101,7 @@ uint32_t get_number_of_channels(int32_t argc, char *const argv[]) {
         // Set the input file
         uint32_t channel_number = strtol(config_string, NULL, 0);
         if ((channel_number > MAX_CHANNEL_NUMBER) || channel_number == 0) {
-            fprintf(
-                stderr, "[SVT-Error]: The number of channels has to be within the range [1,%u]\n", MAX_CHANNEL_NUMBER);
+            fprintf(stderr, "[SVT-Error]: The number of channels has to be within the range [1,%u]\n", MAX_CHANNEL_NUMBER);
             return 0;
         }
         return channel_number;
