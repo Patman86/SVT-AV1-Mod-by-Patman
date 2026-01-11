@@ -152,6 +152,12 @@ typedef struct RateControlContext {
     EbFifo* picture_decision_results_output_fifo_ptr;
 } RateControlContext;
 
+typedef struct QualityZones {
+    QualityZone *zones;
+    int      num_zones;
+    bool     enabled;
+} QualityZones;
+
 EbErrorType svt_aom_rate_control_coded_frames_stats_context_ctor(coded_frames_stats_entry* entry_ptr,
                                                                  uint64_t                  picture_number) {
     entry_ptr->picture_number         = picture_number;
@@ -838,7 +844,6 @@ void* svt_aom_rate_control_kernel(void* input_ptr) {
             } else {
                 if (scs->enc_ctx->rc_cfg.mode == AOM_Q) {
                     svt_av1_rc_calc_qindex_crf_cqp(pcs, scs);
-                    svt_aom_setup_segmentation(pcs, scs);
                 } else {
                     if (!is_superres_recode_task) {
                         svt_av1_rc_process_rate_allocation(pcs, scs);
