@@ -240,8 +240,12 @@ EbErrorType svt_aom_picture_decision_context_ctor(
         EB_CALLOC_2D(pd_ctx->ahd_running_avg, MAX_NUMBER_OF_REGIONS_IN_WIDTH * sizeof(uint32_t), MAX_NUMBER_OF_REGIONS_IN_HEIGHT * sizeof(uint32_t));
     }
     pd_ctx->reset_running_avg = true;
+#if CLN_REMOVE_INSTANCE_IDX
+    pd_ctx->me_fifo_ptr = svt_system_resource_get_producer_fifo(enc_handle_ptr->me_pool_ptr, 0);
+#else
     pd_ctx->me_fifo_ptr = svt_system_resource_get_producer_fifo(
             enc_handle_ptr->me_pool_ptr_array[0], 0);
+#endif
 
 
     pd_ctx->mg_progress_id = 0;
@@ -1635,6 +1639,11 @@ static void  av1_generate_rps_info(
     const uint8_t hierarchical_levels = pcs->hierarchical_levels;
     const uint8_t temporal_layer = pcs->temporal_layer_index;
     const uint8_t more_5L_refs = pcs->scs->mrp_ctrls.more_5L_refs;
+#if OPT_OPERATIONS
+    if (scs->allintra)
+        pcs->is_ref = false;
+    else
+#endif
     pcs->is_ref = scs->use_flat_ipp ? true :
         svt_aom_is_pic_used_as_ref(hierarchical_levels,
             temporal_layer,
@@ -5169,6 +5178,9 @@ void* svt_aom_picture_decision_kernel(void *input_ptr) {
             bool window_avail, eos_reached;
             check_window_availability(scs, enc_ctx, pcs, queue_entry_ptr, &window_avail, &eos_reached);
 
+#if OPT_OPERATIONS
+            if (!allintra) {
+#endif
             pcs->ahd_error = (uint32_t) ~0;
             if (window_avail == true && queue_entry_ptr->picture_number > 0 && scs->calc_hist) {
                 pcs->ahd_error = calc_ahd_pd(scs, pcs, ctx);
@@ -5177,6 +5189,9 @@ void* svt_aom_picture_decision_kernel(void *input_ptr) {
             if (window_avail == true && queue_entry_ptr->picture_number > 0) {
                 perform_scene_change_detection(scs, pcs, ctx);
             }
+#if OPT_OPERATIONS
+            }
+#endif
 
             // If the required lookahead frames aren't available, and we haven't reached EOS, must wait for more frames before continuing
             if (!window_avail && !eos_reached)

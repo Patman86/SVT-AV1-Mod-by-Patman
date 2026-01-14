@@ -1177,8 +1177,10 @@ typedef enum ATTRIBUTE_PACKED {
     INTRA_INVALID           = MB_MODE_COUNT, // For uv_mode in inter blocks
 } PredictionMode;
 #if OPT_MD_SIGNALS
+#if !OPT_INTRA_MODE_PRUNE
 #define MAX_INTRA_LEVEL 8
 static const uint8_t angular_pred_level[MAX_INTRA_LEVEL] = {0, 1, 2, 2, 3, 4, 4, 0};
+#endif
 #endif
 #define MAX_UPSAMPLE_SZ 16
 
@@ -1430,8 +1432,6 @@ typedef enum ATTRIBUTE_PACKED {
 #define FRAME_CONTEXT_DEFAULTS (FRAME_CONTEXTS - 1)
 #define PRIMARY_REF_BITS 3
 #define PRIMARY_REF_NONE 7
-
-#define NUM_PING_PONG_BUFFERS 2
 
 #define MAX_NUM_TEMPORAL_LAYERS 8
 #define MAX_NUM_SPATIAL_LAYERS 4
@@ -1972,7 +1972,13 @@ typedef enum Tune {
     TUNE_VQ   = 0, // Visual Quality (video)
     TUNE_PSNR = 1, // Average of (PSNR, SSIM, VMAF)
     TUNE_SSIM = 2, // SSIM-optimized
-    TUNE_IQ   = 3 // Image Quality
+#if FTR_TUNE_4
+    TUNE_IQ   = 3, // Image Quality
+    TUNE_MS_SSIM = 4 // MS_SSIM and SSIMULACRA2 optimized
+#else
+    TUNE_IQ   = 3
+#endif
+
 } Tune;
 
 /*

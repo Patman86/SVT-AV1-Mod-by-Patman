@@ -735,6 +735,7 @@ static const vector<EbCpuFlags> valid_use_cpu_flags = {
 };
 static const vector<EbCpuFlags> invalid_use_cpu_flags = {EB_CPU_FLAGS_INVALID};
 
+#if !CLN_REMOVE_CHANNELS
 // Application Specific parameters
 /**
  * @brief API signal for the library to know the channel ID (used for pinning to
@@ -778,6 +779,7 @@ static const vector<uint32_t> invalid_active_channel_count = {
     0,
     */
 };
+#endif
 
 /* Flag to enable the Speed Control functionality to achieve the real-time
  * encoding speed defined by dynamically changing the encoding preset to meet
@@ -824,6 +826,7 @@ static const vector<uint32_t> invalid_level_of_parallelism = {
     // ...
 };
 
+#if !CLN_REMOVE_SS_PIN
 /* Target socket to run on. For dual socket systems, this can specify which
  * socket the encoder runs on.
  *
@@ -843,6 +846,7 @@ static const vector<int32_t> valid_target_socket = {
 static const vector<int32_t> invalid_target_socket = {
     2,
 };
+#endif
 
 // Debug tools
 

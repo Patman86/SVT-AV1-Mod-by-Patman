@@ -19,6 +19,7 @@ extern "C" {
 #include <stdint.h>
 #include "EbSvtAv1.h"
 #include <stdlib.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdbool.h>
 
@@ -187,9 +188,15 @@ typedef enum SvtAv1PredStructure {
 } SvtAv1PredStructure;
 #endif
 
+#if CLN_AQ_MODE
+/* Indicates what rate control mode is used.
+ * Currently, cqp is distinguised by setting aq_mode to 0
+ */
+#else
 /* Indicates what rate control mode is used.
  * Currently, cqp is distinguised by setting enable_adaptive_quantization to 0
  */
+#endif
 typedef enum SvtAv1RcMode {
     SVT_AV1_RC_MODE_CQP_OR_CRF = 0, // constant quantization parameter/constant rate factor
     SVT_AV1_RC_MODE_VBR        = 1, // variable bit rate
@@ -629,11 +636,21 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * Default depends on rate control mode.*/
     uint32_t look_ahead_distance;
 
+#if CLN_REMOVE_TPL_SIG
+#if !SVT_AV1_CHECK_VERSION(4, 0, 0) // to be deprecated in v4.0
     /* Enable TPL in look ahead
      * 0 = disable TPL in look ahead
      * 1 = enable TPL in look ahead
      * Default is 0  */
     uint8_t enable_tpl_la;
+#endif
+#else
+    /* Enable TPL in look ahead
+     * 0 = disable TPL in look ahead
+     * 1 = enable TPL in look ahead
+     * Default is 0  */
+    uint8_t enable_tpl_la;
+#endif
 
     /* recode_loop indicates the recode levels,
      * DISALLOW_RECODE = 0, No recode.
@@ -651,11 +668,29 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     * Default is 0. */
     uint32_t screen_content_mode;
 
+#if CLN_AQ_MODE
+#if SVT_AV1_CHECK_VERSION(4, 0, 0)
+    /* Adaptive quantization used within a frame.
+     *
+     * For rc_mode 0, setting this to:
+     * 0: use CQP mode
+     * 1: variance-based segmentation
+     * 2: CRF (per-frame QPs and per-SB delta-QPs derived using TPL) */
+    uint8_t aq_mode;
+#else
     /* Enable adaptive quantization within a frame using segmentation.
      *
      * For rate control mode 0, setting this to 0 will use CQP mode, else CRF mode will be used.
      * Default is 2. */
     uint8_t enable_adaptive_quantization;
+#endif
+#else
+    /* Enable adaptive quantization within a frame using segmentation.
+     *
+     * For rate control mode 0, setting this to 0 will use CQP mode, else CRF mode will be used.
+     * Default is 2. */
+    uint8_t enable_adaptive_quantization;
+#endif
 
     /**
      * @brief Enable use of ALT-REF (temporally filtered) frames.
@@ -706,6 +741,8 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
 
     // End of individual tuning flags
 
+#if CLN_REMOVE_CHANNELS
+#if !SVT_AV1_CHECK_VERSION(4, 0, 0) // to be deprecated in v4.0
     // Application Specific parameters
 
     /**
@@ -725,7 +762,28 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * Default is 1.
      */
     uint32_t active_channel_count;
+#endif
+#else
+    // Application Specific parameters
 
+    /**
+     * @brief API signal for the library to know the channel ID (used for pinning to cores).
+     *
+     * Min value is 0.
+     * Max value is 0xFFFFFFFF.
+     * Default is 0.
+     */
+    uint32_t channel_id;
+
+    /**
+     * @brief API signal for the library to know the active number of channels being encoded simultaneously.
+     *
+     * Min value is 1.
+     * Max value is 0xFFFFFFFF.
+     * Default is 1.
+     */
+    uint32_t active_channel_count;
+#endif
     // Threads management
 
     /* The level of parallelism refers to how much parallelization the encoder will perform
@@ -736,6 +794,8 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      */
     uint32_t level_of_parallelism;
 
+#if CLN_REMOVE_SS_PIN
+#if !SVT_AV1_CHECK_VERSION(4, 0, 0) // to be deprecated in v4.0
     /* Pin the execution of threads to the first N logical processors.
      * 0: unpinned
      * N: Pin threads to socket's first N processors
@@ -751,6 +811,24 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      *
      * Default is -1. */
     int32_t target_socket;
+#endif
+#else
+    /* Pin the execution of threads to the first N logical processors.
+     * 0: unpinned
+     * N: Pin threads to socket's first N processors
+     * default 0 */
+    uint32_t pin_threads;
+
+    /* Target socket to run on. For dual socket systems, this can specify which
+     * socket the encoder runs on.
+     *
+     * -1 = Both Sockets.
+     *  0 = Socket 0.
+     *  1 = Socket 1.
+     *
+     * Default is -1. */
+    int32_t target_socket;
+#endif
 
     /* CPU FLAGS to limit assembly instruction set used by encoder.
     * Default is EB_CPU_FLAGS_ALL. */
@@ -1003,9 +1081,15 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     bool adaptive_film_grain;
 
     /* @brief Limit transform sizes to the specified size
-     * 32: use transform sizes up to 64x64 pixels
-     * 64: use transform sizes up to 32x32 pixels
+     * 32: use transform sizes up to 32x32 pixels
+     * 64: use transform sizes up to 64x64 pixels
      * Default is 64
+     * Note: Setting the max transform size to 32 can be useful under some circumstances (e.g. still image coding),
+     * as it's the largest transform where all coefficients can be coded into the bitstream.
+     * In AV1, the transform size of 64 drops the highest 32 AC coefficients by design, effectively zeroing them upon
+     * decoding, which can cause certain visual features to look blurry.
+     * Forcing smaller tx sizes (i.e. 16, 8, 4) doesn't hold an inherent visual quality advantage over 32, so those
+     * aren't exposed as options.
      */
     uint8_t max_tx_size;
 
@@ -1038,6 +1122,47 @@ EB_API const char *svt_av1_get_version(void);
  * specified by the SVT_LOG_FILE environment variable or stderr
  */
 EB_API void svt_av1_print_version(void);
+
+/**
+ * @brief Log levels
+ *
+ * Defines the severity levels for logging messages.
+ */
+typedef enum {
+    SVT_AV1_LOG_ALL   = -1, /**< Log all messages */
+    SVT_AV1_LOG_FATAL = 0, /**< Fatal errors */
+    SVT_AV1_LOG_ERROR = 1, /**< Errors */
+    SVT_AV1_LOG_WARN  = 2, /**< Warnings */
+    SVT_AV1_LOG_INFO  = 3, /**< Informational messages */
+    SVT_AV1_LOG_DEBUG = 4, /**< Debug messages */
+} SvtAv1LogLevel;
+
+/**
+ * @brief Log callback function signature
+ *
+ * Applications can register a callback to intercept log messages from the encoder.
+ *
+ * @param[in] level   Severity level of the log message
+ * @param[in] context Opaque user-provided context pointer (may be NULL)
+ * @param[in] tag     Optional log tag (may be NULL)
+ * @param[in] fmt     printf-style format string
+ * @param[in] args    Variable argument list corresponding to the format string
+ */
+typedef void (*SvtAv1LogCallback)(void *context, SvtAv1LogLevel level, const char *tag, const char *fmt, va_list args);
+
+/**
+ * Register a callback for intercepting log messages.
+ *
+ * Applications can use this function to redirect log output to custom handlers. When a callback is registered, all log
+ * messages will be dispatched to the callback instead of the default stderr/file output. This will affect all
+ * instances and is a global setting. This should be called before svt_av1_enc_init_handle() as any calls to
+ * svt_av1_enc_init_handle() will finalize logging.
+ *
+ * @param[in] callback  Callback function pointer. Has no effect if NULL.
+ * @param[in] context   Opaque context pointer passed back to the callback. Typically application state or logging context.
+ *                      Ignored if callback is NULL.
+ */
+EB_API void svt_av1_set_log_callback(SvtAv1LogCallback callback, void *context);
 
 /* STEP 1: Call the library to construct a Component Handle.
      *

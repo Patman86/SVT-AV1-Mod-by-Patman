@@ -114,6 +114,51 @@ extern "C" {
 #define TUNE_RTC_FLAT               1 // Preset tuning flat for RTC
 #define TUNE_RTC_3L                 1 // Preset tuning 3L for RTC
 
+#define CLN_REMOVE_SS_PIN           1 // Remove options to pin execution to certain cores/sockets (--ss/--pin)
+#define CLN_REMOVE_TPL_SIG          1 // Remove enable_tpl_la signal (it is not used)
+#define CLN_AQ_MODE                 1 // Rename enable_adaptive_quantization to aq_mode to reflect that it has more than 2 levels
+#define CLN_REMOVE_CHANNELS         1 // Remove multiple channels from app since each channel invokes separate library call anyway
+#define FIX_PIC_MGR_HANG            1 // Fix a hang in the picture manager process related to pic processing order
+
+#define OPT_OPERATIONS              1 // Remove useless operations
+#define OPT_LOW_FRQ_CAP             1 // Limit rdoq to a fixed low-frequency cut-off (DC + first AC coefficients) and skip rdoq on all higher frequencies (the cut-off skips the tail, but not the first AC ring + EOB logic)
+#define OPT_INTRA_MODE_PRUNE        1 // Skip H when V outperforms DC, and skip Smooth when DC is better than both H and V
+#define OPT_DEPTH_REMOVAL           1 // Use a QP-dependent variance threshold for depth-removal thresholds
+#define OPT_CAP_MAX_BLOCK_SIZE      1 // Capped the max block size to 32 using a QP-dependent variance threshold
+#define OPT_LPD0_PER_BLK            1 // Skip sub-depth processing when the block is classified as non-edge
+#define OPT_PD0_SRC_SAMPLES         1 // Use source samples instead of reconstructed samples for INTRA prediction of PD0 in I_SLICE to avoid inverse transform and neighbor array updates for reconstructed samples
+#define TUNE_STILL_IMAGE            1 // Tune still image presets
+#define TUNE_M7_M8_STILL_IMAGE      1 // Tune M7 and M8 for still image
+#define OPT_FD1_FD2_STILL_IMAGE     1 // optimize M10, M11, and M12 FD1 and FD2 in still-image mode
+#define DIS_SC_ALL_INTRA            1 // Force screen-content detection OFF when allintra
+#define OPT_CHROMA_CFL_LVLS         1 // reverse chroma and cfl levels for M4/M5 and M7-M9 to match v3.1.2 levels.
+#define TUNE_M9_M10_STILL_IMAGE     1 // Tune M9 and M10 for still image
+#define TUNE_M12_M4_STILL_IMAGE     1 // Tune M12 to M4 for still image
+#define TUNE_M1_STILL_IMAGE         1 // Tune M1 for still image
+#define CLN_DLF_LVL                 1 // Cleaning the dlf_level kernels by seperating it into 3 sections: RTC FLAT/RTC Non-FLAT/Else
+#define CLN_NIC_LVL                 1 // Cleaning the dlf_level kernels by seperating it into 3 sections: RTC FLAT/RTC Non-FLAT/Else
+#define TUNE_M7_RA_FIX_REG          1 // Reversing adoptions to fix M7 RA regression compared to v3.1.0
+#define TUNE_M8_RA_FIX_REG          1 // Reversing adoptions to fix M8 RA regression compared to v3.1.0
+#define TUNE_M9_RA_FIX_REG          1 // Reversing adoptions to fix M9 RA regression compared to v3.1.0
+#define OPT_REVERSE_6L_TO_5L        1 // Reversing OPT_DEFAULT_6L macro
+#define TUNE_RA_M7_ME_SA            1 // Adopting the M6 me_sa level in M7 RA
+#define TUNE_M12_M11_STILL_IMAGE    1 // Tune M12 and M11 for still-image
+#define TUNE_DLF_FIX_ONION_RING     1 // Fix onion ring in DLF
+#define TUNE_M10_CFL_RA             1 // Tune M10 cfl level for RA to minimize chroma loss
+#define TUNE_TXS_M8_VMAF_OPT        1 // VMAF-oriented TXS tuning for M8
+#define TUNE_INTRABC_FIX_SC_REG     1 // Reversing adoptions in intraBC to fix SC RA regression in M2-M5 compared to v3.1.2
+#define CLN_TXS_LVL                 1 // Cleaning the dlf_level kernels by seperating it into 2 sections: RTC/Else
+#define TUNE_INTRABC_LVL            1 // Tuning the intrabc_level to match the v3.1.0 levels
+#define CLN_I_SLICE_LOOPING         1 // Removing the no-longer used is_islice looping.
+#define TUNE_INTRABC_M6             1 // Adopt the M5 intrabc_level in M6.
+#define TUNE_M11_M10_RA             1 // Tune M11 and M10 for RA
+#define FTR_TUNE_4                  1 // New Tune mode towards MS-SSIM and SSIMULACRA2 Gains
+#define OPT_TUNE_SSIM_DELTA_QP      1 // Don't force SB-based delta-QP for tune SSIM (or tune IQ and tune MS_SSIM, although
+                                      // that has no effect because delta QP is enabled through variance boost anyway).
+#define FIX_M10_M11                 1 // Fix the M10/M11 settings for RA
+#define CLN_VAR_FUNC                1 // cleanup compute_block_mean_compute_variance
+#define CLN_REMOVE_INSTANCE_IDX     1 // Remove encode_instance_total_count which is always 1
+
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one
 #define DEBUG_TPL               0 // Prints to debug TPL

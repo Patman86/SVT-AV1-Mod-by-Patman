@@ -67,6 +67,7 @@ static void *dummy_func(void *arg) {
     return NULL;
 }
 
+// These can stay with pthread_once_t since this is specific to pthreads implementation
 static pthread_once_t checked_once = PTHREAD_ONCE_INIT;
 static bool           can_use_prio = false;
 
@@ -107,6 +108,7 @@ static void check_set_prio(void) {
         goto end;
     }
     can_use_prio = true;
+    pthread_join(th, NULL);
 end:
     if ((ret = pthread_attr_destroy(&attr))) {
         SVT_WARN("Failed to destroy thread attributes: %s\n", strerror(ret));
@@ -471,4 +473,12 @@ EbErrorType svt_wait_cond_var(CondVar *cond_var, int32_t input) {
     return_error = pthread_mutex_unlock(&cond_var->m_mutex);
 #endif
     return return_error;
+}
+
+void svt_run_once(OnceType *once_control, OnceFn init_routine) {
+#ifdef _WIN32
+    InitOnceExecuteOnce(once_control, init_routine, NULL, NULL);
+#else
+    pthread_once(once_control, init_routine);
+#endif
 }

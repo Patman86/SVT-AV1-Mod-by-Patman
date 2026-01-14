@@ -3693,7 +3693,15 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
             if (pcs->ppcs->r0_gen)
                 svt_aom_generate_r0beta(pcs->ppcs);
 
+#if CLN_AQ_MODE
+#if SVT_AV1_CHECK_VERSION(4, 0, 0)
+            if (scs->static_config.aq_mode && scs->super_block_size == 64 &&
+#else
             if (scs->static_config.enable_adaptive_quantization && scs->super_block_size == 64 &&
+#endif
+#else
+            if (scs->static_config.enable_adaptive_quantization && scs->super_block_size == 64 &&
+#endif
                 scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR) {
                 svt_aom_cyclic_refresh_init(pcs->ppcs);
             }
@@ -4033,19 +4041,34 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
                 svt_variance_adjust_qp(pcs);
             }
             // QPM with tpl_la
+#if CLN_AQ_MODE
+#if SVT_AV1_CHECK_VERSION(4, 0, 0)
+            if (scs->static_config.aq_mode == 2 && pcs->ppcs->tpl_ctrls.enable &&
+#else
             if (scs->static_config.enable_adaptive_quantization == 2 && pcs->ppcs->tpl_ctrls.enable &&
+#endif
+#else
+            if (scs->static_config.enable_adaptive_quantization == 2 && pcs->ppcs->tpl_ctrls.enable &&
+#endif
                 pcs->ppcs->r0 != 0) {
                 svt_aom_sb_qp_derivation_tpl_la(pcs);
             }
             if (pcs->ppcs->cyclic_refresh.apply_cyclic_refresh) {
                 cyclic_sb_qp_derivation(pcs);
             }
-
+#if !OPT_TUNE_SSIM_DELTA_QP
+#if FTR_TUNE_4
+            if ((pcs->scs->static_config.tune == TUNE_SSIM || pcs->scs->static_config.tune == TUNE_IQ ||
+                 pcs->scs->static_config.tune == TUNE_MS_SSIM) &&
+                !pcs->ppcs->frm_hdr.delta_q_params.delta_q_present) {
+#else
             if ((pcs->scs->static_config.tune == TUNE_SSIM || pcs->scs->static_config.tune == TUNE_IQ) &&
                 !pcs->ppcs->frm_hdr.delta_q_params.delta_q_present) {
+#endif
                 // enable sb level qindex when tune SSIM or IQ
                 pcs->ppcs->frm_hdr.delta_q_params.delta_q_present = 1;
             }
+#endif
 
             if (pcs->ppcs->frm_hdr.delta_q_params.delta_q_present &&
                 pcs->ppcs->frm_hdr.delta_q_params.delta_q_res != 1) {

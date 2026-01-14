@@ -291,6 +291,7 @@ PARAM_TEST(EncParamLevelTest);
 DEFINE_PARAM_TEST_CLASS(EncParamOplLevelTest, use_cpu_flags);
 PARAM_TEST(EncParamOplLevelTest);
 
+#if !CLN_REMOVE_CHANNELS
 /** Test case for channel_id*/
 DEFINE_PARAM_TEST_CLASS(EncParamChIdTest, channel_id);
 PARAM_TEST(EncParamChIdTest);
@@ -298,14 +299,16 @@ PARAM_TEST(EncParamChIdTest);
 /** Test case for active_channel_count*/
 DEFINE_PARAM_TEST_CLASS(EncParamActiveChCountTest, active_channel_count);
 PARAM_TEST(EncParamActiveChCountTest);
-
+#endif
 /** Test case for logical_processors*/
 DEFINE_PARAM_TEST_CLASS(EncParamLevelOfParallelismTest, level_of_parallelism);
 PARAM_TEST(EncParamLevelOfParallelismTest);
 
+#if !CLN_REMOVE_SS_PIN
 /** Test case for target_socket*/
 DEFINE_PARAM_TEST_CLASS(EncParamTargetSocketTest, target_socket);
 PARAM_TEST(EncParamTargetSocketTest);
+#endif
 
 /** Test case for recon_enabled*/
 DEFINE_PARAM_TEST_CLASS(EncParamReconEnabledTest, recon_enabled);

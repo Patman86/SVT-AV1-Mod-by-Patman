@@ -66,9 +66,20 @@ static void enc_dec_context_dctor(EbPtr p) {
  * Enc Dec Context Constructor
  ******************************************************/
 EbErrorType svt_aom_enc_dec_context_ctor(EbThreadContext *thread_ctx, const EbEncHandle *enc_handle_ptr, int index,
-                                         int tasks_index)
+                                         int tasks_index) {
+#if CLN_REMOVE_INSTANCE_IDX
+    SequenceControlSet             *scs                      = enc_handle_ptr->scs_instance->scs;
+    const EbSvtAv1EncConfiguration *static_config            = &scs->static_config;
+    EbColorFormat                   color_format             = static_config->encoder_color_format;
+    int8_t                          enable_hbd_mode_decision = scs->enable_hbd_mode_decision;
 
-{
+    EncDecContext *ed_ctx;
+    EB_CALLOC_ARRAY(ed_ctx, 1);
+    thread_ctx->priv  = ed_ctx;
+    thread_ctx->dctor = enc_dec_context_dctor;
+
+    ed_ctx->is_16bit = scs->is_16bit_pipeline;
+#else
     SequenceControlSet             *scs           = enc_handle_ptr->scs_instance_array[0]->scs;
     const EbSvtAv1EncConfiguration *static_config = &scs->static_config;
     EbColorFormat                   color_format  = static_config->encoder_color_format;
@@ -80,6 +91,7 @@ EbErrorType svt_aom_enc_dec_context_ctor(EbThreadContext *thread_ctx, const EbEn
     thread_ctx->dctor = enc_dec_context_dctor;
 
     ed_ctx->is_16bit = enc_handle_ptr->scs_instance_array[0]->scs->is_16bit_pipeline;
+#endif
 
     // Input/Output System Resource Manager FIFOs
     ed_ctx->mode_decision_input_fifo_ptr = svt_system_resource_get_consumer_fifo(
@@ -107,6 +119,20 @@ EbErrorType svt_aom_enc_dec_context_ctor(EbThreadContext *thread_ctx, const EbEn
                    .color_format       = color_format,
                });
     // Mode Decision Context
+#if CLN_REMOVE_INSTANCE_IDX
+    EB_NEW(ed_ctx->md_ctx,
+           svt_aom_mode_decision_context_ctor,
+           scs,
+           color_format,
+           scs->super_block_size,
+           static_config->enc_mode,
+           scs->max_block_cnt,
+           static_config->encoder_bit_depth,
+           0,
+           0,
+           enable_hbd_mode_decision == DEFAULT ? 2 : enable_hbd_mode_decision,
+           scs->seq_qp_mod);
+#else
     EB_NEW(ed_ctx->md_ctx,
            svt_aom_mode_decision_context_ctor,
            enc_handle_ptr->scs_instance_array[0]->scs,
@@ -119,6 +145,7 @@ EbErrorType svt_aom_enc_dec_context_ctor(EbThreadContext *thread_ctx, const EbEn
            0,
            enable_hbd_mode_decision == DEFAULT ? 2 : enable_hbd_mode_decision,
            enc_handle_ptr->scs_instance_array[0]->scs->seq_qp_mod);
+#endif
 
     if (enable_hbd_mode_decision)
         ed_ctx->md_ctx->input_sample16bit_buffer = ed_ctx->input_sample16bit_buffer;
@@ -1554,11 +1581,18 @@ static void build_cand_block_array(SequenceControlSet *scs, PictureControlSet *p
         ? 16
         : ctx->disallow_4x4 ? 8
                             : 4;
+#if OPT_CAP_MAX_BLOCK_SIZE
+    int32_t max_sq_size = ctx->max_block_size;
+    if (scs->static_config.max_tx_size == 32)
+        max_sq_size = MIN(max_sq_size, 32);
+#endif
     // Safety check: Restrict min sq size so mode decision can always find at least one valid partition scheme
     min_sq_size = MIN(min_sq_size, scs->static_config.max_tx_size);
     while (blk_index < max_block_cnt) {
-        const BlockGeom *blk_geom    = get_blk_geom_mds(blk_index);
-        int32_t          max_sq_size = scs->static_config.max_tx_size == 32 ? 32 : blk_geom->sq_size;
+        const BlockGeom *blk_geom = get_blk_geom_mds(blk_index);
+#if !OPT_CAP_MAX_BLOCK_SIZE
+        int32_t max_sq_size = scs->static_config.max_tx_size == 32 ? 32 : blk_geom->sq_size;
+#endif
 
         assert(min_sq_size <= max_sq_size);
 
@@ -1974,6 +2008,16 @@ static void perform_pred_depth_refinement(SequenceControlSet *scs, PictureContro
                                                                     : e_depth;
                             }
                         }
+#if OPT_CAP_MAX_BLOCK_SIZE
+                        int32_t max_sq_size = ctx->max_block_size;
+                        if (scs->static_config.max_tx_size == 32)
+                            max_sq_size = MIN(max_sq_size, 32);
+
+                        if (blk_geom->sq_size == max_sq_size)
+                            s_depth = 0;
+                        else if (s_depth == -2 && blk_geom->sq_size << 1 == max_sq_size)
+                            s_depth = -1;
+#endif
                         uint8_t sq_size_idx      = 7 - (uint8_t)svt_log2f((uint8_t)blk_geom->sq_size);
                         uint8_t add_parent_depth = 1;
                         uint8_t add_sub_depth    = 1;
@@ -2004,6 +2048,7 @@ static void perform_pred_depth_refinement(SequenceControlSet *scs, PictureContro
                                 }
                             }
 
+#if !OPT_CAP_MAX_BLOCK_SIZE
                             if (scs->static_config.max_tx_size == 32) {
                                 // Don't test depths that result in blocks greater than 32x32
                                 switch (blk_geom->sq_size) {
@@ -2013,6 +2058,7 @@ static void perform_pred_depth_refinement(SequenceControlSet *scs, PictureContro
                                 case 32: s_depth = MAX(0, s_depth); break;
                                 }
                             }
+#endif
 
                             int64_t s_th_offset = 0;
                             int64_t e_th_offset = 0;
@@ -2139,7 +2185,15 @@ static void recode_loop_decision_maker(PictureControlSet *pcs, SequenceControlSe
         }
 
         // 2pass QPM with tpl_la
+#if CLN_AQ_MODE
+#if SVT_AV1_CHECK_VERSION(4, 0, 0)
+        if (scs->static_config.aq_mode == 2 && ppcs->tpl_ctrls.enable && ppcs->r0 != 0)
+#else
         if (scs->static_config.enable_adaptive_quantization == 2 && ppcs->tpl_ctrls.enable && ppcs->r0 != 0)
+#endif
+#else
+        if (scs->static_config.enable_adaptive_quantization == 2 && ppcs->tpl_ctrls.enable && ppcs->r0 != 0)
+#endif
             svt_aom_sb_qp_derivation_tpl_la(pcs);
 
         if (pcs->ppcs->frm_hdr.delta_q_params.delta_q_present && pcs->ppcs->frm_hdr.delta_q_params.delta_q_res != 1) {
@@ -3048,10 +3102,17 @@ void *svt_aom_mode_decision_kernel(void *input_ptr) {
                         ed_ctx->md_ctx->is_subres_safe = (uint8_t)~0;
                         // Signal initialized here; if needed, will be set in md_encode_block before MDS3
                         md_ctx->need_hbd_comp_mds3 = 0;
-                        uint8_t skip_pd_pass_0     = (scs->super_block_size == 64 &&
+#if OPT_CAP_MAX_BLOCK_SIZE
+                        bool skip_pd_pass_0 = (ed_ctx->md_ctx->depth_removal_ctrls.disallow_below_64x64 &&
+                                               (scs->super_block_size == 64 || ed_ctx->md_ctx->max_block_size == 64)) ||
+                            (ed_ctx->md_ctx->depth_removal_ctrls.disallow_below_32x32 &&
+                             ed_ctx->md_ctx->max_block_size == 32);
+#else
+                        uint8_t skip_pd_pass_0 = (scs->super_block_size == 64 &&
                                                   ed_ctx->md_ctx->depth_removal_ctrls.disallow_below_64x64)
-                                ? 1
-                                : 0;
+                            ? 1
+                            : 0;
+#endif
 
                         // If LPD0 is used, a more conservative level can be set for complex SBs
 #if OPT_LPD0_RTC
