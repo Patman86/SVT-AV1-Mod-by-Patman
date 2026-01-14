@@ -232,6 +232,7 @@
 #define COMPLEX_HVS_TOKEN "--complex-hvs"
 #define NOISE_ADAPTIVE_FILTERING_TOKEN "--noise-adaptive-filtering"
 #define ZONES_TOKEN "--zones"
+#define CDEF_SCALING_TOKEN "--cdef-scaling"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -936,7 +937,7 @@ ConfigDescription config_entry_specific[] = {
      "Number of tile columns to use, `TileCol == log2(x)`, default changes per resolution but is 1 [0-4]"},
 
     // DLF
-    {LOOP_FILTER_ENABLE, "Deblocking loop filter control, default is 1 [0-1]"},
+    {LOOP_FILTER_ENABLE, "Deblocking loop filter control, default is 1 [0-2]"},
     // CDEF
     {CDEF_ENABLE_TOKEN, "Enable Constrained Directional Enhancement Filter, default is 1 [0-1]"},
     // RESTORATION
@@ -1096,6 +1097,8 @@ ConfigDescription config_entry_psychovisual[] = {
     {NOISE_ADAPTIVE_FILTERING_TOKEN,
      "Control noise detection for CDEF/restoration filtering, default is 2 [0: off, 1: both CDEF and restoration are "
      "on 2: default tune behavior, 3: CDEF only, 4: restoration only)]"},
+    {CDEF_SCALING_TOKEN,
+     "Controls scaling of the CDEF strength computation, default is 15 (1x scaling) [1: minimum, 8: ~0.5x, 30: 2x]"},
     // Termination
     {NULL, NULL}};
 
@@ -1349,6 +1352,9 @@ ConfigEntry config_entry[] = {
 
     // Zones
     {ZONES_TOKEN, "Zones", set_cfg_quality_zones},
+    // CDEF scaling
+
+    {CDEF_SCALING_TOKEN, "CDEFScaling", set_cfg_generic_token},
 
 #ifdef LIBDOVI_FOUND
     {DOLBY_VISION_RPU_TOKEN, "DolbyVisionRpu", set_cfg_dovi_rpu},
@@ -1356,7 +1362,6 @@ ConfigEntry config_entry[] = {
 #ifdef LIBHDR10PLUS_RS_FOUND
     {HDR10PLUS_JSON_TOKEN, "Hdr10PlusJson", set_cfg_hdr10plus_json},
 #endif
-
     // Termination
     {NULL, NULL, NULL}};
 
@@ -1782,9 +1787,9 @@ static EbErrorType app_verify_config(EbConfig *app_cfg, uint32_t channel_number)
         return_error = EB_ErrorBadParameter;
     }
 
-    if (app_cfg->injector_frame_rate > 240 && app_cfg->injector) {
+    if (app_cfg->injector_frame_rate > 480 && app_cfg->injector) {
         fprintf(app_cfg->error_log_file,
-                "Error Instance %u: The maximum allowed injector_frame_rate is 240 fps\n",
+                "Error Instance %u: The maximum allowed injector_frame_rate is 480 fps\n",
                 channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
@@ -1801,9 +1806,9 @@ static EbErrorType app_verify_config(EbConfig *app_cfg, uint32_t channel_number)
                 "greater than 0\n",
                 channel_number + 1);
         return_error = EB_ErrorBadParameter;
-    } else if (app_cfg->config.frame_rate_numerator / app_cfg->config.frame_rate_denominator > 240) {
+    } else if (app_cfg->config.frame_rate_numerator / app_cfg->config.frame_rate_denominator > 480) {
         fprintf(app_cfg->error_log_file,
-                "Error Instance %u: The maximum allowed frame_rate is 240 fps\n",
+                "Error Instance %u: The maximum allowed frame_rate is 480 fps\n",
                 channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }

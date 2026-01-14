@@ -1145,6 +1145,13 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     QualityZone* parsed_zones;
     uint16_t num_zones;
 
+     /* @brief Controls scaling of the CDEF strength computation
+      *  1: minimum CDEF scaling
+      *  8: ~0.5x CDEF scaling
+      *  30: 2x CDEF scaling
+      *  Default is 15 (1x scaling). */
+     uint8_t cdef_scaling;
+
 } EbSvtAv1EncConfiguration;
 
 /**
