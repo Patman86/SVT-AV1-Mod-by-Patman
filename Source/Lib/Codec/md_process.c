@@ -313,6 +313,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext *ctx, Sequenc
         ctx->md_blk_arr_nsq[0].neigh_left_recon_16bit[i] = NULL;
         ctx->md_blk_arr_nsq[0].neigh_top_recon_16bit[i]  = NULL;
     }
+    uint32_t coded_leaf_index;
     uint16_t sz = sizeof(uint16_t);
     if (ctx->hbd_md > EB_8_BIT_MD) {
         EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq[0].neigh_left_recon_16bit[0], block_max_count_sb * sb_size * sz);
@@ -321,6 +322,23 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext *ctx, Sequenc
         EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq[0].neigh_top_recon_16bit[1], block_max_count_sb * sb_size * sz >> 1);
         EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq[0].neigh_left_recon_16bit[2], block_max_count_sb * sb_size * sz >> 1);
         EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq[0].neigh_top_recon_16bit[2], block_max_count_sb * sb_size * sz >> 1);
+
+        for (coded_leaf_index = 0; coded_leaf_index < block_max_count_sb; ++coded_leaf_index) {
+            size_t offset = coded_leaf_index * sb_size * sz;
+            ctx->md_blk_arr_nsq[coded_leaf_index].neigh_left_recon_16bit[0] =
+                ctx->md_blk_arr_nsq[0].neigh_left_recon_16bit[0] + offset;
+            ctx->md_blk_arr_nsq[coded_leaf_index].neigh_top_recon_16bit[0] =
+                ctx->md_blk_arr_nsq[0].neigh_top_recon_16bit[0] + offset;
+            offset >>= 1;
+            ctx->md_blk_arr_nsq[coded_leaf_index].neigh_left_recon_16bit[1] =
+                ctx->md_blk_arr_nsq[0].neigh_left_recon_16bit[1] + offset;
+            ctx->md_blk_arr_nsq[coded_leaf_index].neigh_top_recon_16bit[1] =
+                ctx->md_blk_arr_nsq[0].neigh_top_recon_16bit[1] + offset;
+            ctx->md_blk_arr_nsq[coded_leaf_index].neigh_left_recon_16bit[2] =
+                ctx->md_blk_arr_nsq[0].neigh_left_recon_16bit[2] + offset;
+            ctx->md_blk_arr_nsq[coded_leaf_index].neigh_top_recon_16bit[2] =
+                ctx->md_blk_arr_nsq[0].neigh_top_recon_16bit[2] + offset;
+        }
     }
     if (ctx->hbd_md != EB_10_BIT_MD) {
         EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq[0].neigh_left_recon[0], block_max_count_sb * sb_size);
@@ -329,32 +347,23 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext *ctx, Sequenc
         EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq[0].neigh_top_recon[1], block_max_count_sb * sb_size >> 1);
         EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq[0].neigh_left_recon[2], block_max_count_sb * sb_size >> 1);
         EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq[0].neigh_top_recon[2], block_max_count_sb * sb_size >> 1);
-    }
-    uint32_t coded_leaf_index;
-    for (coded_leaf_index = 0; coded_leaf_index < block_max_count_sb; ++coded_leaf_index) {
-        size_t offset = coded_leaf_index * sb_size * sz;
-        ctx->md_blk_arr_nsq[coded_leaf_index].neigh_left_recon_16bit[0] =
-            ctx->md_blk_arr_nsq[0].neigh_left_recon_16bit[0] + offset;
-        ctx->md_blk_arr_nsq[coded_leaf_index].neigh_top_recon_16bit[0] =
-            ctx->md_blk_arr_nsq[0].neigh_top_recon_16bit[0] + offset;
-        offset >>= 1;
-        ctx->md_blk_arr_nsq[coded_leaf_index].neigh_left_recon_16bit[1] =
-            ctx->md_blk_arr_nsq[0].neigh_left_recon_16bit[1] + offset;
-        ctx->md_blk_arr_nsq[coded_leaf_index].neigh_top_recon_16bit[1] =
-            ctx->md_blk_arr_nsq[0].neigh_top_recon_16bit[1] + offset;
-        ctx->md_blk_arr_nsq[coded_leaf_index].neigh_left_recon_16bit[2] =
-            ctx->md_blk_arr_nsq[0].neigh_left_recon_16bit[2] + offset;
-        ctx->md_blk_arr_nsq[coded_leaf_index].neigh_top_recon_16bit[2] =
-            ctx->md_blk_arr_nsq[0].neigh_top_recon_16bit[2] + offset;
 
-        offset                                                    = coded_leaf_index * sb_size;
-        ctx->md_blk_arr_nsq[coded_leaf_index].neigh_left_recon[0] = ctx->md_blk_arr_nsq[0].neigh_left_recon[0] + offset;
-        ctx->md_blk_arr_nsq[coded_leaf_index].neigh_top_recon[0]  = ctx->md_blk_arr_nsq[0].neigh_top_recon[0] + offset;
-        offset >>= 1;
-        ctx->md_blk_arr_nsq[coded_leaf_index].neigh_left_recon[1] = ctx->md_blk_arr_nsq[0].neigh_left_recon[1] + offset;
-        ctx->md_blk_arr_nsq[coded_leaf_index].neigh_top_recon[1]  = ctx->md_blk_arr_nsq[0].neigh_top_recon[1] + offset;
-        ctx->md_blk_arr_nsq[coded_leaf_index].neigh_left_recon[2] = ctx->md_blk_arr_nsq[0].neigh_left_recon[2] + offset;
-        ctx->md_blk_arr_nsq[coded_leaf_index].neigh_top_recon[2]  = ctx->md_blk_arr_nsq[0].neigh_top_recon[2] + offset;
+        for (coded_leaf_index = 0; coded_leaf_index < block_max_count_sb; ++coded_leaf_index) {
+            size_t offset                                             = coded_leaf_index * sb_size;
+            ctx->md_blk_arr_nsq[coded_leaf_index].neigh_left_recon[0] = ctx->md_blk_arr_nsq[0].neigh_left_recon[0] +
+                offset;
+            ctx->md_blk_arr_nsq[coded_leaf_index].neigh_top_recon[0] = ctx->md_blk_arr_nsq[0].neigh_top_recon[0] +
+                offset;
+            offset >>= 1;
+            ctx->md_blk_arr_nsq[coded_leaf_index].neigh_left_recon[1] = ctx->md_blk_arr_nsq[0].neigh_left_recon[1] +
+                offset;
+            ctx->md_blk_arr_nsq[coded_leaf_index].neigh_top_recon[1] = ctx->md_blk_arr_nsq[0].neigh_top_recon[1] +
+                offset;
+            ctx->md_blk_arr_nsq[coded_leaf_index].neigh_left_recon[2] = ctx->md_blk_arr_nsq[0].neigh_left_recon[2] +
+                offset;
+            ctx->md_blk_arr_nsq[coded_leaf_index].neigh_top_recon[2] = ctx->md_blk_arr_nsq[0].neigh_top_recon[2] +
+                offset;
+        }
     }
     ctx->md_blk_arr_nsq[0].av1xd = NULL;
     EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq[0].av1xd, block_max_count_sb);
@@ -424,6 +433,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext *ctx, Sequenc
     picture_buffer_desc_init_data.top_padding        = 0;
     picture_buffer_desc_init_data.bot_padding        = 0;
     picture_buffer_desc_init_data.split_mode         = false;
+    picture_buffer_desc_init_data.is_16bit_pipeline  = false;
 
     thirty_two_width_picture_buffer_desc_init_data.max_width          = sb_size;
     thirty_two_width_picture_buffer_desc_init_data.max_height         = sb_size;
@@ -435,6 +445,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext *ctx, Sequenc
     thirty_two_width_picture_buffer_desc_init_data.top_padding        = 0;
     thirty_two_width_picture_buffer_desc_init_data.bot_padding        = 0;
     thirty_two_width_picture_buffer_desc_init_data.split_mode         = false;
+    thirty_two_width_picture_buffer_desc_init_data.is_16bit_pipeline  = false;
     for (uint32_t txt_itr = 0; txt_itr < TX_TYPES; ++txt_itr) {
         EB_NEW(ctx->recon_coeff_ptr[txt_itr],
                svt_picture_buffer_desc_ctor,
@@ -457,6 +468,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext *ctx, Sequenc
     double_width_picture_buffer_desc_init_data.top_padding        = 0;
     double_width_picture_buffer_desc_init_data.bot_padding        = 0;
     double_width_picture_buffer_desc_init_data.split_mode         = false;
+    double_width_picture_buffer_desc_init_data.is_16bit_pipeline  = false;
 
     // The temp_recon_ptr and temp_residual will be shared by all candidates
     // If you want to do something with residual or recon, you need to create one
