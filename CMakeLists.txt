@@ -180,21 +180,39 @@ include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
 # if(PROJECT_IS_TOP_LEVEL) requires CMake 3.21
-if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        set(CMAKE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/Bin/GNU/${CMAKE_BUILD_TYPE}/" CACHE PATH "Location to write the resulting binaries to")
-    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-        set(CMAKE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/Bin/MSVC/${CMAKE_BUILD_TYPE}/" CACHE PATH "Location to write the resulting binaries to")
-    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        set(CMAKE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/Bin/Clang/${CMAKE_BUILD_TYPE}/" CACHE PATH "Location to write the resulting binaries to")
-    else()
-        set(CMAKE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/Bin/${CMAKE_BUILD_TYPE}/" CACHE PATH "Location to write the resulting binaries to")
-    endif()
+set(_compiler_dir "Unknown")
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(_compiler_dir "GNU")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    set(_compiler_dir "MSVC")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(_compiler_dir "Clang")
+endif()
+
+# Optional: differentiate between generators (Ninja vs. VS)
+set(_gen_dir "")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_GENERATOR MATCHES "Ninja")
+    set(_gen_dir "Ninja")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_GENERATOR MATCHES "Visual Studio")
+    set(_gen_dir "VS")
+endif()
+
+# Build type (for single-config generators)
+if (NOT CMAKE_CONFIGURATION_TYPES)
+    set(_cfg_dir "${CMAKE_BUILD_TYPE}")
+else()
+    set(_cfg_dir "$<CONFIG>")
+endif()
+
+set(CMAKE_OUTPUT_DIRECTORY
+    "${PROJECT_SOURCE_DIR}/Bin/${_compiler_dir}/${_gen_dir}/${_cfg_dir}"
+    CACHE PATH "Output directory" FORCE
+)
 
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
-endif()
 
 set(PC_LIBS_PRIVATE)
 set(PC_REQUIRES_PRIVATE)
