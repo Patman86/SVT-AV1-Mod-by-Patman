@@ -30,7 +30,7 @@ The SQ_WEIGHT is a scaling factor of the square shape cost, and can be made more
 The SQ_WEIGHT is derived as follows:
 
 where Base is a function of the encoder preset.
-The offset is set in ```signal_derivation_mode_decision_config_kernel_oq()``` and is a function of the non-square shape
+The offset is set in ```svt_aom_sig_deriv_mode_decision_config()``` and is a function of the non-square shape
 being considered and the transform coefficient information as follows:
 
 ```
@@ -55,7 +55,7 @@ skipped. The NSQ shapes are skipped as follows:
 ## Notes
 
 The feature settings that are described in this document were compiled at
-v3.1.2 of the code and may not reflect the current status of the code. The
+v4.0.1 of the code and may not reflect the current status of the code. The
 description in this document represents an example showing how features would
 interact with the SVT architecture. For the most up-to-date settings, it's
 recommended to review the section of the code implementing this feature.

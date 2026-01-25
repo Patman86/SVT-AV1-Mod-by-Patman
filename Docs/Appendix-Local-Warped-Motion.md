@@ -336,16 +336,15 @@ enabled.
 
 ## 4. Signaling
 
-The configuration flag ```enable_local_warp_flag``` controls the encoder use of
-LW at the sequence level. At the frame level, the use of LW is controlled by
-```allow_warped_motion```. At the block level, the use of LW is signaled by the
-syntax element ```motion_mode```, which indicates the type of motion for a
-block: simple translation, OBMC, or warped motion.
+At the frame level, the use of LW is controlled by ```allow_warped_motion```.
+At the block level, the use of LW is signaled by the syntax element
+```motion_mode```, which indicates the type of motion for a block: simple
+translation, OBMC, or warped motion.
 
 ## Notes
 
 The feature settings that are described in this document were compiled at
-v3.1.2 of the code and may not reflect the current status of the code. The
+v4.0.1 of the code and may not reflect the current status of the code. The
 description in this document represents an example showing how features would
 interact with the SVT architecture. For the most up-to-date settings, it's
 recommended to review the section of the code implementing this feature.

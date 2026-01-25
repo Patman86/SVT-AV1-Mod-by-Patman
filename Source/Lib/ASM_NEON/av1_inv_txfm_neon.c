@@ -12,10 +12,11 @@
 #include "definitions.h"
 #include "common_dsp_rtcd.h"
 
-#include "inv_transforms.h"
-#include "transpose_neon.h"
-#include "itx_lbd_neon.h"
 #include "av1_inv_txfm_neon.h"
+#include "inv_transforms.h"
+#include "itx_lbd_neon.h"
+#include "mem_neon.h"
+#include "transpose_neon.h"
 
 static inline void pack_and_load_buffer_4x4(const int32_t *input, int16x4_t *in) {
     for (int i = 0; i < 4; ++i) { in[i] = vmovn_s32(vld1q_s32(input + i * 4)); }
@@ -961,8 +962,9 @@ static inline void idct8_low1_neon(int16x8_t *in, int16x8_t *out, int8_t cos_bit
 
 static inline void av1_round_shift_array_16_neon(int16x8_t *arr, int32_t size, int32_t bit) {
     assert(!(size % 4));
-    if (!bit)
+    if (!bit) {
         return;
+    }
     const int16x8_t dup_bits_n_16x8 = vdupq_n_s16((int16_t)(-bit));
     for (int32_t i = 0; i < size; i++) { arr[i] = vrshlq_s16(arr[i], dup_bits_n_16x8); }
 }
@@ -4258,23 +4260,26 @@ void svt_dav1d_inv_txfm_add_neon(const TranLow *dqcoeff, uint8_t *dst_r, int32_t
         case TX_4X4:
         case TX_4X8:
         case TX_4X16:
-            for (int32_t i = 0; i < tx_size_high[tx_size]; i++)
-                ((uint32_t *)(dst_w + i * stride_w))[0] = ((uint32_t *)(dst_r + i * stride_r))[0];
+            for (int32_t i = 0; i < tx_size_high[tx_size]; i++) {
+                memcpy(dst_w + i * stride_w, dst_r + i * stride_r, 4);
+            }
             break;
         case TX_8X4:
         case TX_8X8:
         case TX_8X16:
         case TX_8X32:
-            for (int32_t i = 0; i < tx_size_high[tx_size]; i++)
-                ((uint64_t *)(dst_w + i * stride_w))[0] = ((uint64_t *)(dst_r + i * stride_r))[0];
+            for (int32_t i = 0; i < tx_size_high[tx_size]; i++) {
+                vst1_u8(dst_w + i * stride_w, vld1_u8(dst_r + i * stride_r));
+            }
             break;
         case TX_16X4:
         case TX_16X8:
         case TX_16X16:
         case TX_16X32:
         case TX_16X64:
-            for (int32_t i = 0; i < tx_size_high[tx_size]; i++)
+            for (int32_t i = 0; i < tx_size_high[tx_size]; i++) {
                 vst1q_u8(dst_w + i * stride_w, vld1q_u8(dst_r + i * stride_r));
+            }
             break;
         case TX_32X8:
         case TX_32X16:
