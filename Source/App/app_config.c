@@ -9,6 +9,10 @@
 * PATENTS file, you can obtain it at https://www.aomedia.org/license/patent-license.
 */
 
+//for fscanf on windows
+#if defined(_WIN32) && !defined(_CRT_SECURE_NO_WARNINGS)
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +33,6 @@
 #endif
 
 #include "app_output_ivf.h"
-
 #if !defined(_WIN32) || !defined(HAVE_STRNLEN_S)
 #include "third_party/safestringlib/safe_str_lib.h"
 #endif
@@ -411,12 +414,7 @@ static EbErrorType set_cfg_fgs_table_path(EbConfig *cfg, const char *token, cons
         return ret;
     fclose(file);
 
-    cfg->fgs_table_path = malloc(strlen(value) + 1);
-    if (cfg->fgs_table_path != NULL) {
-        memcpy(cfg->fgs_table_path, value, strlen(value) + 1);
-    }
-
-    return EB_ErrorNone;
+    return str_to_str(value, &cfg->fgs_table_path, token);
 }
 #endif
 static EbErrorType set_two_pass_stats(EbConfig *cfg, const char *token, const char *value) {
@@ -782,7 +780,7 @@ ConfigDescription config_entry_rc[] = {
 #endif
     {ROI_MAP_FILE_TOKEN, "Enable Region Of Interest and specify a picture based QP Offset map file, default is off"},
     // TF Strength
-    {TF_STRENGTH_FILTER_TOKEN, "[PSY] Adjust temporal filtering strength, default is 1 [0-4]"},
+    {TF_STRENGTH_FILTER_TOKEN, "Adjust temporal filtering strength, default is 3 [0-4]"},
     // Frame-level luminance-based QP bias
     {LUMINANCE_QP_BIAS_TOKEN, "Adjusts a frame's QP based on its average luma value, default is 0 [0-100]"},
     // Sharpness
@@ -916,7 +914,7 @@ ConfigDescription config_entry_specific[] = {
 
 ConfigDescription config_entry_color_description[] = {
     // Color description help
-    {COLORH_TOKEN, "[PSY] Metadata help from user guide Appendix A.2"},
+    {COLORH_TOKEN, "Metadata help from user guide Appendix A.2"},
     // Color description
     {COLOR_PRIMARIES_NEW_TOKEN, "Color primaries, refer to --color-help. Default is 2 [0-12, 22]"},
     {TRANSFER_CHARACTERISTICS_NEW_TOKEN, "Transfer characteristics, refer to --color-help. Default is 2 [0-22]"},

@@ -8,12 +8,12 @@
 * Media Patent License 1.0 was not distributed with this source code in the
 * PATENTS file, you can obtain it at https://www.aomedia.org/license/patent-license.
 */
-#include "svt_log.h"
-#include "svt_threads.h"
-//for getenv and fopen on windows
+//for getenv on windows
 #if defined(_WIN32) && !defined(_CRT_SECURE_NO_WARNINGS)
 #define _CRT_SECURE_NO_WARNINGS
 #endif
+#include "svt_log.h"
+#include "svt_threads.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -95,6 +95,7 @@ static ONCE_ROUTINE(logger_create) {
         g_logger = NULL;
         ONCE_ROUTINE_EPILOG;
     }
+
     const char* log = getenv("SVT_LOG");
     ctx->level      = SVT_AV1_LOG_INFO;
     if (log) {
@@ -105,7 +106,7 @@ static ONCE_ROUTINE(logger_create) {
 
     const char* file = getenv("SVT_LOG_FILE");
     if (file)
-        ctx->file = fopen(file, "w+");
+        FOPEN(ctx->file, file, "w+");
     // If the file couldn't be opened, fall back to stderr
     if (!ctx->file)
         ctx->file = stderr;

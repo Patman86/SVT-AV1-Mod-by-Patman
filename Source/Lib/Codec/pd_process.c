@@ -3791,9 +3791,7 @@ static void low_delay_store_tf_pictures(
 {
     const uint32_t mg_size = 1 << (IS_SFRAME_FLEXIBLE_INSERT(scs->static_config.sframe_mode) ? (uint32_t)ctx->sframe_hier_lvls : scs->static_config.hierarchical_levels);
     const uint32_t tot_past = scs->tf_params_per_type[1].max_num_past_pics;
-    if (pcs->temporal_layer_index != 0 && pcs->pic_idx_in_mg + 1 + tot_past >= mg_size)
-    {
-        //printf("Store:%lld \n", pcs->picture_number);
+    if (pcs->temporal_layer_index != 0 && pcs->pic_idx_in_mg + 1 + tot_past >= mg_size) {
         //store this picture to be used for TF-ing upcoming base
         ctx->tf_pic_array[ctx->tf_pic_arr_cnt++] = pcs;
 
@@ -3815,7 +3813,6 @@ static void low_delay_release_tf_pictures(
     for (uint32_t pic_it = 0; pic_it < ctx->tf_pic_arr_cnt; pic_it++) {
 
         PictureParentControlSet *past_pcs = ctx->tf_pic_array[pic_it];
-        //printf("                   Release:%lld \n", past_pcs->picture_number);
 
         svt_release_object(past_pcs->input_pic_wrapper);
 
@@ -3949,7 +3946,6 @@ static void send_picture_out(
             pcs->me_data_wrapper = me_wrapper;
             pcs->pa_me_data = (MotionEstimationData *)me_wrapper->object_ptr;
             me_update_param(pcs->pa_me_data, scs);
-            //printf("[%ld]: Got me data [NORMAL] %p\n", pcs->picture_number, pcs->pa_me_data);
         }
 
 
@@ -4158,7 +4154,7 @@ static void update_sframe_ref_order_hint(PictureParentControlSet *ppcs, PictureD
     if (ppcs->pred_structure == LOW_DELAY) {
         for (int32_t i = 0; i < REF_FRAMES; i++) {
             // dpd_order_hint should be updated with relative postion of key frame
-            ppcs->dpb_order_hint[i] = pd_ctx->ref_order_hint[i] - pd_ctx->key_poc;
+            ppcs->dpb_order_hint[i] = (uint32_t)(pd_ctx->ref_order_hint[i] - pd_ctx->key_poc);
         }
     }
     else {
@@ -4520,7 +4516,7 @@ static uint32_t get_pic_idx_in_mg(SequenceControlSet* scs, PictureParentControlS
         // In S-Frame flexible insertion mode, hierarchical levels are adjusted based on the S-Frame position.
         // Picture indices in the low-delay mini-GOP are calculated from the last saved ARF.
         if (IS_SFRAME_FLEXIBLE_INSERT(scs->static_config.sframe_mode)) {
-            pic_idx_in_mg = distance_to_last_idr > ctx->sframe_last_arf ? distance_to_last_idr - ctx->sframe_last_arf - 1 : 0;
+            pic_idx_in_mg = distance_to_last_idr > ctx->sframe_last_arf ? (uint32_t)(distance_to_last_idr - ctx->sframe_last_arf - 1) : 0;
         }
         pcs->frame_offset = distance_to_last_idr;
     }
