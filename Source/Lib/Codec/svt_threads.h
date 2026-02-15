@@ -54,24 +54,7 @@ extern EbHandle    svt_create_mutex(void);
 extern EbErrorType svt_release_mutex(EbHandle mutex_handle);
 extern EbErrorType svt_block_on_mutex(EbHandle mutex_handle);
 extern EbErrorType svt_destroy_mutex(EbHandle mutex_handle);
-#ifdef _WIN32
-
-#define EB_CREATE_THREAD(pointer, thread_function, thread_context)               \
-    do {                                                                         \
-        pointer = svt_create_thread(thread_function, thread_context);            \
-        EB_ADD_MEM(pointer, 1, EB_THREAD);                                       \
-        if (svt_aom_group_affinity_enabled) {                                    \
-            if (num_groups == 1)                                                 \
-                SetThreadAffinityMask(pointer, svt_aom_group_affinity.Mask);     \
-            else if (num_groups == 2 && alternate_groups) {                      \
-                svt_aom_group_affinity.Group = 1 - svt_aom_group_affinity.Group; \
-                SetThreadGroupAffinity(pointer, &svt_aom_group_affinity, NULL);  \
-            } else if (num_groups == 2 && !alternate_groups)                     \
-                SetThreadGroupAffinity(pointer, &svt_aom_group_affinity, NULL);  \
-        }                                                                        \
-    } while (0)
-
-#else
+#ifndef _WIN32
 #ifndef __USE_GNU
 #define __USE_GNU
 #endif
@@ -80,21 +63,12 @@ extern EbErrorType svt_destroy_mutex(EbHandle mutex_handle);
 #endif
 #include <sched.h>
 #include <pthread.h>
-#if defined(__linux__) && !defined(__ANDROID__)
-#define EB_CREATE_THREAD(pointer, thread_function, thread_context)                                   \
-    do {                                                                                             \
-        pointer = svt_create_thread(thread_function, thread_context);                                \
-        EB_ADD_MEM(pointer, 1, EB_THREAD);                                                           \
-        pthread_setaffinity_np(*((pthread_t *)pointer), sizeof(cpu_set_t), &svt_aom_group_affinity); \
-    } while (0)
-#else
+#endif
 #define EB_CREATE_THREAD(pointer, thread_function, thread_context)    \
     do {                                                              \
         pointer = svt_create_thread(thread_function, thread_context); \
         EB_ADD_MEM(pointer, 1, EB_THREAD);                            \
     } while (0)
-#endif
-#endif
 #define EB_DESTROY_THREAD(pointer)                   \
     do {                                             \
         if (pointer) {                               \
@@ -137,6 +111,39 @@ typedef struct CondVar {
 EbErrorType svt_set_cond_var(CondVar *cond_var, int32_t newval);
 EbErrorType svt_wait_cond_var(CondVar *cond_var, int32_t input);
 EbErrorType svt_create_cond_var(CondVar *cond_var);
+
+// once related functions and macros
+#ifdef _WIN32
+typedef INIT_ONCE OnceType;
+#define ONCE_INIT INIT_ONCE_STATIC_INIT
+#define ONCE_ROUTINE(name) BOOL CALLBACK name(PINIT_ONCE InitOnce, PVOID Parameter, PVOID *lpContext)
+#define ONCE_ROUTINE_EPILOG \
+    do { return TRUE; } while (0)
+typedef PINIT_ONCE_FN OnceFn;
+#else
+typedef pthread_once_t OnceType;
+#define ONCE_INIT PTHREAD_ONCE_INIT
+#define ONCE_ROUTINE(name) void name(void)
+#define ONCE_ROUTINE_EPILOG \
+    do { return; } while (0)
+typedef void (*OnceFn)(void);
+#endif
+#define DEFINE_ONCE(once_control) static OnceType once_control = ONCE_INIT
+
+// Macro to define a lazily-initialized mutex with once control
+// Usage: DEFINE_ONCE_MUTEX(my_mutex)
+// Then call: RUN_ONCE_MUTEX(my_mutex) before using svt_block_on_mutex(my_mutex)
+#define DEFINE_ONCE_MUTEX(mutex_name)    \
+    static EbHandle mutex_name = NULL;   \
+    ONCE_ROUTINE(init_##mutex_name) {    \
+        mutex_name = svt_create_mutex(); \
+        ONCE_ROUTINE_EPILOG;             \
+    }                                    \
+    DEFINE_ONCE(mutex_name##_once)
+
+#define RUN_ONCE_MUTEX(mutex_name) svt_run_once(&mutex_name##_once, init_##mutex_name)
+
+void svt_run_once(OnceType *once_control, OnceFn init_routine);
 
 #ifdef __cplusplus
 }

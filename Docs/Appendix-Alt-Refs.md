@@ -190,8 +190,8 @@ structure. For example, the list of pictures is stored in the
 ```temp_filt_pcs_list``` pointer array.
 
 For purposes of quality metrics computation, the original source picture
-is stored in ```save_enhanced_picture_ptr``` and
-```save_enhanced_picture_bit_inc_ptr``` (for high bit-depth content)
+is stored in ```save_source_picture_ptr``` and
+```save_source_picture_bit_inc_ptr``` (for high bit-depth content)
 located in the PCS.
 
 Due to the fact that HME is open-loop, which means it operates on the
@@ -304,7 +304,7 @@ The ALTREF and Overlay picture settings are shown in Table 3.
 ## Notes
 
 The feature settings that are described in this document were compiled at
-v3.1.2 of the code and may not reflect the current status of the code. The
+v4.0.1 of the code and may not reflect the current status of the code. The
 description in this document represents an example showing how features would
 interact with the SVT architecture. For the most up-to-date settings, it's
 recommended to review the section of the code implementing this feature.

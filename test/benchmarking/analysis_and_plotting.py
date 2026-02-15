@@ -610,7 +610,8 @@ def _create_unified_csv_files(
             index=["encoder", "speed"], columns=["quality_metric"], values="avg_bd_rate"
         )
         summary_avg_bd_rates_df["avg"] = summary_avg_bd_rates_df.drop(
-            columns=["psnr_cb", "psnr_cr"]
+            columns=["psnr_cb", "psnr_cr"],
+            errors="ignore",
         ).mean(axis=1)
         cols = ["encoder", "speed", "avg_encoding_time", "avg_decoding_time"]
         summary_avg_perf_df = unified_avg_bd_rates_df.drop_duplicates(
@@ -650,9 +651,7 @@ def run_bd_rate_analysis(
     anchor_encoder, anchor_speed = _get_anchor_settings(per_image_df, settings)
 
     # Determine available quality metrics
-    available_metrics = [
-        metric for metric in quality_metrics if metric in per_image_df.columns
-    ]
+    available_metrics = _validate_rd_plot_data(per_image_df, quality_metrics)
 
     if not available_metrics:
         print("No quality metrics found in per-image data for BD-rate analysis")

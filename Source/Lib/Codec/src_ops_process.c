@@ -343,10 +343,6 @@ double svt_av1_convert_qindex_to_q(int32_t qindex, EbBitDepth bit_depth);
 
 int32_t svt_av1_compute_qdelta(double qstart, double qtarget, EbBitDepth bit_depth);
 
-extern void filter_intra_edge(OisMbResults *ois_mb_results_ptr, uint8_t mode, uint16_t max_frame_width,
-                              uint16_t max_frame_height, int32_t p_angle, int32_t cu_origin_x, int32_t cu_origin_y,
-                              uint8_t *above_row, uint8_t *left_col);
-
 /*
     TPL Dispenser SB based (sz 64x64)
 */
@@ -611,148 +607,134 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext *enc_ctx, SequenceCon
             int64_t best_inter_cost = INT64_MAX;
             int64_t best_intra_cost = INT64_MAX;
             if (!disable_intra_pred) {
-                if (scs->in_loop_ois == 0) {
-                    uint32_t      picture_width_in_mb = (pcs->enhanced_pic->width + size - 1) / size;
-                    OisMbResults *ois_mb_results_ptr =
-                        pcs->pa_me_data
-                            ->ois_mb_results[(mb_origin_y / size) * picture_width_in_mb + (mb_origin_x / size)];
-                    best_mode       = ois_mb_results_ptr->intra_mode;
-                    best_intra_mode = ois_mb_results_ptr->intra_mode;
-                    best_intra_cost = ois_mb_results_ptr->intra_cost;
-                } else {
-                    // ois always process as block16x16 even bsize or tx_size is 8x8
-                    // fast (DC only + sad ) path
-                    if (intra_dc_sad_path) {
-                        DECLARE_ALIGNED(MAX_TPL_SIZE, uint8_t, above0_data[MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2]);
-                        DECLARE_ALIGNED(MAX_TPL_SIZE, uint8_t, left0_data[MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2]);
-                        uint8_t *above0_row = above0_data + MAX_TPL_SIZE;
-                        uint8_t *left0_col  = left0_data + MAX_TPL_SIZE;
+                // ois always process as block16x16 even bsize or tx_size is 8x8
+                // fast (DC only + sad ) path
+                if (intra_dc_sad_path) {
+                    DECLARE_ALIGNED(MAX_TPL_SIZE, uint8_t, above0_data[MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2]);
+                    DECLARE_ALIGNED(MAX_TPL_SIZE, uint8_t, left0_data[MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2]);
+                    uint8_t *above0_row = above0_data + MAX_TPL_SIZE;
+                    uint8_t *left0_col  = left0_data + MAX_TPL_SIZE;
 
-                        const uint8_t mb_inside = (mb_origin_x + size <= pcs->enhanced_pic->width) &&
-                            (mb_origin_y + size <= pcs->enhanced_pic->height);
-                        if (mb_origin_x > 0 && mb_origin_y > 0 && mb_inside)
+                    const uint8_t mb_inside = (mb_origin_x + size <= pcs->enhanced_pic->width) &&
+                        (mb_origin_y + size <= pcs->enhanced_pic->height);
+                    if (mb_origin_x > 0 && mb_origin_y > 0 && mb_inside)
 
-                            get_neighbor_samples_dc(src_mb, src_stride, above0_row, left0_col, bsize);
-                        else
-                            svt_aom_update_neighbor_samples_array_open_loop_mb(1,
-                                                                               1,
-                                                                               above0_row - 1,
-                                                                               left0_col - 1,
-                                                                               input_pic,
-                                                                               src_stride,
-                                                                               mb_origin_x,
-                                                                               mb_origin_y,
-                                                                               bsize,
-                                                                               bsize);
-
-                        //TODO: combine dc prediction+sad into one kernel
-                        svt_aom_intra_prediction_open_loop_mb(
-                            0,
-                            DC_PRED,
-                            mb_origin_x,
-                            mb_origin_y,
-                            tx_size_array[dispenser_search_level], // use full block for prediction
-                            above0_row,
-                            left0_col,
-                            predictor,
-                            size);
-
-                        best_intra_cost = svt_nxm_sad_kernel(src_mb, src_stride, predictor, size, size, size);
-
-                    } else {
-                        DECLARE_ALIGNED(MAX_TPL_SIZE, uint8_t, left0_data[MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2]);
-                        DECLARE_ALIGNED(MAX_TPL_SIZE, uint8_t, above0_data[MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2]);
-                        DECLARE_ALIGNED(MAX_TPL_SIZE, uint8_t, left_data[MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2]);
-                        DECLARE_ALIGNED(MAX_TPL_SIZE, uint8_t, above_data[MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2]);
-
-                        uint8_t *above_row;
-                        uint8_t *left_col;
-                        uint8_t *above0_row;
-                        uint8_t *left0_col;
-                        above0_row = above0_data + MAX_TPL_SIZE;
-                        left0_col  = left0_data + MAX_TPL_SIZE;
-                        above_row  = above_data + MAX_TPL_SIZE;
-                        left_col   = left_data + MAX_TPL_SIZE;
-
-                        // Fill Neighbor Arrays
+                        get_neighbor_samples_dc(src_mb, src_stride, above0_row, left0_col, bsize);
+                    else
                         svt_aom_update_neighbor_samples_array_open_loop_mb(1,
                                                                            1,
                                                                            above0_row - 1,
                                                                            left0_col - 1,
                                                                            input_pic,
-                                                                           input_pic->stride_y,
+                                                                           src_stride,
                                                                            mb_origin_x,
                                                                            mb_origin_y,
                                                                            bsize,
                                                                            bsize);
-                        uint8_t intra_mode_end = pcs->tpl_ctrls.intra_mode_end;
 
-                        for (uint8_t ois_intra_mode = DC_PRED; ois_intra_mode <= intra_mode_end; ++ois_intra_mode) {
-                            int32_t p_angle = av1_is_directional_mode((PredictionMode)ois_intra_mode)
-                                ? mode_to_angle_map[(PredictionMode)ois_intra_mode]
-                                : 0;
+                    //TODO: combine dc prediction+sad into one kernel
+                    svt_aom_intra_prediction_open_loop_mb(
+                        0,
+                        DC_PRED,
+                        mb_origin_x,
+                        mb_origin_y,
+                        tx_size_array[dispenser_search_level], // use full block for prediction
+                        above0_row,
+                        left0_col,
+                        predictor,
+                        size);
 
-                            // Edge filter
-                            if (av1_is_directional_mode((PredictionMode)ois_intra_mode)) {
-                                svt_memcpy(
-                                    left_data, left0_data, sizeof(uint8_t) * (MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2));
-                                svt_memcpy(
-                                    above_data, above0_data, sizeof(uint8_t) * (MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2));
-                                above_row = above_data + MAX_TPL_SIZE;
-                                left_col  = left_data + MAX_TPL_SIZE;
-                                filter_intra_edge(NULL,
-                                                  ois_intra_mode,
-                                                  scs->max_input_luma_width,
-                                                  scs->max_input_luma_height,
-                                                  p_angle,
-                                                  (int32_t)mb_origin_x,
-                                                  (int32_t)mb_origin_y,
-                                                  above_row,
-                                                  left_col);
-                            } else {
-                                above_row = above0_row;
-                                left_col  = left0_col;
-                            }
-                            // PRED
-                            svt_aom_intra_prediction_open_loop_mb(
-                                p_angle,
-                                ois_intra_mode,
-                                mb_origin_x,
-                                mb_origin_y,
-                                tx_size_array[dispenser_search_level], // use full block for prediction
-                                above_row,
-                                left_col,
-                                predictor,
-                                size);
+                    best_intra_cost = svt_nxm_sad_kernel(src_mb, src_stride, predictor, size, size, size);
 
-                            // Distortion
-                            int64_t intra_cost;
-                            if (pcs->tpl_ctrls.use_sad_in_src_search) {
-                                intra_cost = svt_nxm_sad_kernel(
-                                    src_mb, input_pic->stride_y, predictor, size, size, size);
-                            } else {
-                                svt_aom_subtract_block(size >> tpl_ctrls->subsample_tx,
-                                                       size,
-                                                       src_diff,
-                                                       size << tpl_ctrls->subsample_tx,
-                                                       src_mb,
-                                                       input_pic->stride_y << tpl_ctrls->subsample_tx,
-                                                       predictor,
-                                                       size << tpl_ctrls->subsample_tx);
+                } else {
+                    DECLARE_ALIGNED(MAX_TPL_SIZE, uint8_t, left0_data[MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2]);
+                    DECLARE_ALIGNED(MAX_TPL_SIZE, uint8_t, above0_data[MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2]);
+                    DECLARE_ALIGNED(MAX_TPL_SIZE, uint8_t, left_data[MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2]);
+                    DECLARE_ALIGNED(MAX_TPL_SIZE, uint8_t, above_data[MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2]);
 
-                                EB_TRANS_COEFF_SHAPE pf_shape = pcs->tpl_ctrls.pf_shape;
-                                svt_av1_wht_fwd_txfm(
-                                    src_diff, size << tpl_ctrls->subsample_tx, coeff, tx_size, pf_shape, 8, 0);
+                    uint8_t *above_row;
+                    uint8_t *left_col;
+                    uint8_t *above0_row;
+                    uint8_t *left0_col;
+                    above0_row = above0_data + MAX_TPL_SIZE;
+                    left0_col  = left0_data + MAX_TPL_SIZE;
+                    above_row  = above_data + MAX_TPL_SIZE;
+                    left_col   = left_data + MAX_TPL_SIZE;
 
-                                intra_cost = svt_aom_satd(coeff, (size * size) >> tpl_ctrls->subsample_tx)
-                                    << tpl_ctrls->subsample_tx;
-                            }
+                    // Fill Neighbor Arrays
+                    svt_aom_update_neighbor_samples_array_open_loop_mb(1,
+                                                                       1,
+                                                                       above0_row - 1,
+                                                                       left0_col - 1,
+                                                                       input_pic,
+                                                                       input_pic->stride_y,
+                                                                       mb_origin_x,
+                                                                       mb_origin_y,
+                                                                       bsize,
+                                                                       bsize);
+                    uint8_t intra_mode_end = pcs->tpl_ctrls.intra_mode_end;
 
-                            if (intra_cost < best_intra_cost) {
-                                best_mode       = ois_intra_mode;
-                                best_intra_cost = intra_cost;
-                                best_intra_mode = ois_intra_mode;
-                            }
+                    for (uint8_t ois_intra_mode = DC_PRED; ois_intra_mode <= intra_mode_end; ++ois_intra_mode) {
+                        int32_t p_angle = av1_is_directional_mode((PredictionMode)ois_intra_mode)
+                            ? mode_to_angle_map[(PredictionMode)ois_intra_mode]
+                            : 0;
+
+                        // Edge filter
+                        if (av1_is_directional_mode((PredictionMode)ois_intra_mode)) {
+                            svt_memcpy(left_data, left0_data, sizeof(uint8_t) * (MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2));
+                            svt_memcpy(above_data, above0_data, sizeof(uint8_t) * (MAX_TX_SIZE * 2 + MAX_TPL_SIZE * 2));
+                            above_row = above_data + MAX_TPL_SIZE;
+                            left_col  = left_data + MAX_TPL_SIZE;
+                            svt_aom_filter_intra_edge(ois_intra_mode,
+                                                      scs->max_input_luma_width,
+                                                      scs->max_input_luma_height,
+                                                      p_angle,
+                                                      (int32_t)mb_origin_x,
+                                                      (int32_t)mb_origin_y,
+                                                      above_row,
+                                                      left_col);
+                        } else {
+                            above_row = above0_row;
+                            left_col  = left0_col;
+                        }
+                        // PRED
+                        svt_aom_intra_prediction_open_loop_mb(
+                            p_angle,
+                            ois_intra_mode,
+                            mb_origin_x,
+                            mb_origin_y,
+                            tx_size_array[dispenser_search_level], // use full block for prediction
+                            above_row,
+                            left_col,
+                            predictor,
+                            size);
+
+                        // Distortion
+                        int64_t intra_cost;
+                        if (pcs->tpl_ctrls.use_sad_in_src_search) {
+                            intra_cost = svt_nxm_sad_kernel(src_mb, input_pic->stride_y, predictor, size, size, size);
+                        } else {
+                            svt_aom_subtract_block(size >> tpl_ctrls->subsample_tx,
+                                                   size,
+                                                   src_diff,
+                                                   size << tpl_ctrls->subsample_tx,
+                                                   src_mb,
+                                                   input_pic->stride_y << tpl_ctrls->subsample_tx,
+                                                   predictor,
+                                                   size << tpl_ctrls->subsample_tx);
+
+                            EB_TRANS_COEFF_SHAPE pf_shape = pcs->tpl_ctrls.pf_shape;
+                            svt_av1_wht_fwd_txfm(
+                                src_diff, size << tpl_ctrls->subsample_tx, coeff, tx_size, pf_shape, 8, 0);
+
+                            intra_cost = svt_aom_satd(coeff, (size * size) >> tpl_ctrls->subsample_tx)
+                                << tpl_ctrls->subsample_tx;
+                        }
+
+                        if (intra_cost < best_intra_cost) {
+                            best_mode       = ois_intra_mode;
+                            best_intra_cost = intra_cost;
+                            best_intra_mode = ois_intra_mode;
                         }
                     }
                 }
@@ -1111,15 +1093,14 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext *enc_ctx, SequenceCon
                            : 0;
                 // Edge filter
                 if (av1_is_directional_mode((PredictionMode)ois_intra_mode)) {
-                    filter_intra_edge(NULL,
-                                      ois_intra_mode,
-                                      scs->max_input_luma_width,
-                                      scs->max_input_luma_height,
-                                      p_angle,
-                                      mb_origin_x,
-                                      mb_origin_y,
-                                      above_row,
-                                      left_col);
+                    svt_aom_filter_intra_edge(ois_intra_mode,
+                                              scs->max_input_luma_width,
+                                              scs->max_input_luma_height,
+                                              p_angle,
+                                              mb_origin_x,
+                                              mb_origin_y,
+                                              above_row,
+                                              left_col);
                 }
                 // PRED
                 svt_aom_intra_prediction_open_loop_mb(
@@ -1244,28 +1225,14 @@ static bool assign_tpl_segments(EncDecSegments *segmentPtr, uint16_t *segmentInO
         taskPtr->input_type = TPL_TASKS_CONTINUE;
         ++segmentPtr->row_array[0].current_seg_index;
         continue_processing_flag = true;
-
-        // fprintf(trace, "Start  Pic: %u Seg: %u\n",
-        //     (unsigned) ((PictureControlSet*) taskPtr->pcs_wrapper->object_ptr)->picture_number,
-        //     *segmentInOutIndex);
-
         break;
 
     case TPL_TASKS_ENCDEC_INPUT:
-
-        // Setup row_segment_index to release the in_progress token
-        //row_segment_index = taskPtr->encDecSegmentRowArray[0];
-
         // Start on the assigned row immediately
         *segmentInOutIndex  = segmentPtr->row_array[taskPtr->enc_dec_segment_row].current_seg_index;
         taskPtr->input_type = TPL_TASKS_CONTINUE;
         ++segmentPtr->row_array[taskPtr->enc_dec_segment_row].current_seg_index;
         continue_processing_flag = true;
-
-        // fprintf(trace, "Start  Pic: %u Seg: %u\n",
-        //     (unsigned) ((PictureControlSet*) taskPtr->pcs_wrapper->object_ptr)->picture_number,
-        //     *segmentInOutIndex);
-
         break;
 
     case TPL_TASKS_CONTINUE:
@@ -1288,10 +1255,6 @@ static bool assign_tpl_segments(EncDecSegments *segmentPtr, uint16_t *segmentInO
                 ++segmentPtr->row_array[row_segment_index].current_seg_index;
                 self_assigned            = true;
                 continue_processing_flag = true;
-
-                // fprintf(trace, "Start  Pic: %u Seg: %u\n",
-                //     (unsigned) ((PictureControlSet*)
-                //     taskPtr->pcs_wrapper->object_ptr)->picture_number, *segmentInOutIndex);
             }
 
             svt_release_mutex(segmentPtr->row_array[row_segment_index].assignment_mutex);
@@ -1311,10 +1274,6 @@ static bool assign_tpl_segments(EncDecSegments *segmentPtr, uint16_t *segmentInO
                     *segmentInOutIndex = segmentPtr->row_array[row_segment_index + 1].current_seg_index;
                     ++segmentPtr->row_array[row_segment_index + 1].current_seg_index;
                     continue_processing_flag = true;
-
-                    // fprintf(trace, "Start  Pic: %u Seg: %u\n",
-                    //     (unsigned) ((PictureControlSet*)
-                    //     taskPtr->pcs_wrapper->object_ptr)->picture_number, *segmentInOutIndex);
                 }
             }
             svt_release_mutex(segmentPtr->row_array[row_segment_index + 1].assignment_mutex);
@@ -2181,12 +2140,11 @@ unsigned int svt_aom_get_perceptual_perpixel_variance(const uint8_t *buf, uint32
     return perceptual_var;
 }
 static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
-    if (!pcs->scs->static_config.enable_tpl_la) // tuning rdmult with SSIM requires TPL ME data
-        return;
     Av1Common *cm       = pcs->av1_cm;
     const int  y_stride = pcs->enhanced_pic->stride_y;
     uint8_t   *y_buffer = pcs->enhanced_pic->buffer_y + pcs->enhanced_pic->org_x + pcs->enhanced_pic->org_y * y_stride;
-    const int  block_size = BLOCK_16X16;
+
+    const int block_size = BLOCK_16X16;
 
     const int num_mi_w = mi_size_wide[block_size];
     const int num_mi_h = mi_size_high[block_size];
@@ -2195,16 +2153,11 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
     double    log_sum  = 0.0;
 
     const double factor_a = 67.035434;
-    const double factor_b = pcs->scs->input_resolution < INPUT_SIZE_720p_RANGE ? -0.0004489
-        : pcs->scs->input_resolution < INPUT_SIZE_1080p_RANGE                  ? -0.0011489
-                                                                               : -0.0022489;
-    const double factor_c = pcs->scs->input_resolution < INPUT_SIZE_720p_RANGE ? 17.492222
-        : pcs->scs->input_resolution < INPUT_SIZE_1080p_RANGE                  ? 37.492222
-                                                                               : 35.492222;
-
-    const bool do_print = false;
+    const double factor_b = -0.0021489;
+    const double factor_c = 17.492222;
+    const bool   do_print = false;
     if (do_print) {
-        fprintf(stdout, "16x16 block variance");
+        fprintf(stderr, "16x16 block variance");
     }
 
     // Loop through each 16x16 block.
@@ -2270,44 +2223,39 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
 
             // Curve fitting with an exponential model on all 16x16 blocks from the
             // midres dataset.
-            double var_backup                                   = var;
-            var                                                 = factor_a * (1 - exp(factor_b * var)) + factor_c;
+            double var_backup = var;
+            var               = factor_a * (1 - exp(factor_b * var)) + factor_c;
+            // As per the above computation, var will be in the range of
+            // [17.492222, 84.527656], assuming the data type is of infinite
+            // precision. The following assert conservatively checks if var is in
+            // the range of [17.0, 85.0] to avoid any issues due to the precision of
+            // the relevant data type.
+            assert(var > 17.0 && var < 85.0);
             pcs->pa_me_data->ssim_rdmult_scaling_factors[index] = var;
             log_sum += log(var);
             if (do_print) {
                 if (col == 0) {
-                    fprintf(stdout, "\n");
+                    fprintf(stderr, "\n");
                 }
-                fprintf(stdout, "%.4f\t", var_backup);
+                fprintf(stderr, "%.4f\t", var_backup);
             }
         }
     }
     if (!pcs->scs->static_config.alt_ssim_tuning) {
         log_sum = exp(log_sum / (double)(num_rows * num_cols));
         if (do_print) {
-            fprintf(stdout, "\nlog_sum %.4f\n", log_sum);
+            fprintf(stderr, "\nlog_sum %.4f\n", log_sum);
+            fprintf(stderr, "16x16 block rdmult scaling factors");
         }
-
-        if (do_print) {
-            fprintf(stdout, "16x16 block rdmult scaling factors");
-        }
-        double min = 0xfffffff;
-        double max = 0;
         for (int row = 0; row < num_rows; ++row) {
             for (int col = 0; col < num_cols; ++col) {
                 const int index = row * num_cols + col;
                 pcs->pa_me_data->ssim_rdmult_scaling_factors[index] /= log_sum;
-                if (pcs->pa_me_data->ssim_rdmult_scaling_factors[index] < min) {
-                    min = pcs->pa_me_data->ssim_rdmult_scaling_factors[index];
-                }
-                if (pcs->pa_me_data->ssim_rdmult_scaling_factors[index] > max) {
-                    max = pcs->pa_me_data->ssim_rdmult_scaling_factors[index];
-                }
                 if (do_print) {
                     if (col == 0) {
-                        fprintf(stdout, "\n");
+                        fprintf(stderr, "\n");
                     }
-                    fprintf(stdout, "%.4f\t", pcs->pa_me_data->ssim_rdmult_scaling_factors[index]);
+                    fprintf(stderr, "%.4f\t", pcs->pa_me_data->ssim_rdmult_scaling_factors[index]);
                 }
             }
         }
@@ -2384,7 +2332,8 @@ void *svt_aom_source_based_operations_kernel(void *input_ptr) {
             }
         }
         /*********************************************Picture-based operations**********************************************************/
-        if (scs->static_config.tune == TUNE_SSIM) {
+        if (scs->static_config.tune == TUNE_SSIM || scs->static_config.tune == TUNE_IQ ||
+            scs->static_config.tune == TUNE_MS_SSIM) {
             aom_av1_set_mb_ssim_rdmult_scaling(pcs);
         }
         sbo_send_picture_out(context_ptr, pcs, false);

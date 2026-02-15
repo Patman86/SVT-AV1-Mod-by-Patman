@@ -23,6 +23,7 @@
 #include "pic_operators.h"
 #include "pack_unpack_c.h"
 #include "utility.h"
+#include "svt_threads.h"
 
 #if defined ARCH_X86_64
 #define AOM_ARCH_X86_64 ARCH_X86_64
@@ -448,7 +449,13 @@ EbCpuFlags svt_aom_get_cpu_flags_to_use() { return 0; }
 #define SET_NEON_SVE2(ptr, c, neon, sve2)                       SET_FUNCTIONS_NEON(ptr, c, neon, 0, 0, 0, sve2)
 #endif
 
+// Thread-safe RTCD initialization using lazily-initialized mutex
+DEFINE_ONCE_MUTEX(common_rtcd_init_mutex);
+
 void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
+    RUN_ONCE_MUTEX(common_rtcd_init_mutex);
+    svt_block_on_mutex(common_rtcd_init_mutex);
+
     /* Avoid check that pointer is set double, after first setup. */
     static bool first_call_setup = true;
     bool        check_pointer_was_set = first_call_setup;
@@ -1122,7 +1129,7 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     SET_NEON_NEON_DOTPROD_NEON_I8MM(svt_av1_jnt_convolve_2d, svt_av1_jnt_convolve_2d_c, svt_av1_jnt_convolve_2d_neon, svt_av1_jnt_convolve_2d_neon_dotprod, svt_av1_jnt_convolve_2d_neon_i8mm);
     SET_NEON(svt_av1_jnt_convolve_2d_copy, svt_av1_jnt_convolve_2d_copy_c, svt_av1_jnt_convolve_2d_copy_neon);
     SET_NEON_NEON_DOTPROD_NEON_I8MM(svt_av1_jnt_convolve_x, svt_av1_jnt_convolve_x_c, svt_av1_jnt_convolve_x_neon, svt_av1_jnt_convolve_x_neon_dotprod, svt_av1_jnt_convolve_x_neon_i8mm);
-    SET_NEON(svt_av1_jnt_convolve_y, svt_av1_jnt_convolve_y_c, svt_av1_jnt_convolve_y_neon);
+    SET_NEON_NEON_DOTPROD_NEON_I8MM(svt_av1_jnt_convolve_y, svt_av1_jnt_convolve_y_c, svt_av1_jnt_convolve_y_neon, svt_av1_jnt_convolve_y_neon_dotprod, svt_av1_jnt_convolve_y_neon_i8mm);
     SET_NEON_NEON_DOTPROD_NEON_I8MM(svt_aom_convolve8_horiz, svt_aom_convolve8_horiz_c, svt_aom_convolve8_horiz_neon, svt_aom_convolve8_horiz_neon_dotprod, svt_aom_convolve8_horiz_neon_i8mm);
     SET_NEON_NEON_DOTPROD_NEON_I8MM(svt_aom_convolve8_vert, svt_aom_convolve8_vert_c, svt_aom_convolve8_vert_neon, svt_aom_convolve8_vert_neon_dotprod, svt_aom_convolve8_vert_neon_i8mm);
     SET_NEON(svt_av1_build_compound_diffwtd_mask, svt_av1_build_compound_diffwtd_mask_c, svt_av1_build_compound_diffwtd_mask_neon);
@@ -2153,5 +2160,6 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     }
     (void)flags;
 
+    svt_release_mutex(common_rtcd_init_mutex);
 }
 // clang-format on

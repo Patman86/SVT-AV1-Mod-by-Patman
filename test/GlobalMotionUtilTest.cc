@@ -43,7 +43,6 @@ namespace {
 using Point = struct {
     double x;
     double y;
-    bool is_inlier;
 };
 using AffineMat = struct {
     /* clang-format off */
@@ -86,10 +85,7 @@ static const int PointCountMin = 15; /**< 3*MINPTS_MULTIPLIER */
 template <typename Sample>
 class RansacTest : public ::testing::TestWithParam<TransformationType> {
   protected:
-    RansacTest() : rnd_(0, CoordinateMax) {
-        data_.clear();
-        ref_.clear();
-        memset(&mat_, 0, sizeof(mat_));
+    RansacTest() : rnd_(0, CoordinateMax), data_(), ref_(), mat_() {
     }
 
     void generate_data(int count, int &inliers) {
@@ -98,8 +94,7 @@ class RansacTest : public ::testing::TestWithParam<TransformationType> {
         inliers = rnd_.random() % count;
         inliers = inliers < 10 ? 10 : inliers;
         for (int i = 0; i < inliers; i++)
-            data_.push_back(
-                {(double)rnd_.random(), (double)rnd_.random(), true});
+            data_.push_back({(double)rnd_.random(), (double)rnd_.random()});
 
         TransDataFunc trans_func = get_trans_data_func(GetParam());
         ASSERT_NE(trans_func, nullptr);
@@ -112,9 +107,9 @@ class RansacTest : public ::testing::TestWithParam<TransformationType> {
         for (int i = 0; i < noise_count; i++) {
             size_t insert_pos = rnd_.random() % data_.size();
             data_.insert(data_.begin() + insert_pos,
-                         {(double)rnd_.random(), (double)rnd_.random(), false});
+                         {(double)rnd_.random(), (double)rnd_.random()});
             ref_.insert(ref_.begin() + insert_pos,
-                        {(double)rnd_.random(), (double)rnd_.random(), false});
+                        {(double)rnd_.random(), (double)rnd_.random()});
         }
     }
 
@@ -135,29 +130,22 @@ class RansacTest : public ::testing::TestWithParam<TransformationType> {
 
     void do_ransac_check() {
         const int npoints = (int)data_.size();
-        Sample *points = new Sample[npoints * 4];
-        ASSERT_NE(points, nullptr);
-        prepare_input(points, npoints);
+        std::vector<Sample> points(npoints * 4);
+        prepare_input(points.data(), npoints);
 
         const int num_motions = RANSAC_NUM_MOTIONS;
-        int *num_inliers_by_motion = new int[num_motions];
-        ASSERT_NE(num_inliers_by_motion, nullptr);
-        memset(num_inliers_by_motion, 0, sizeof(*num_inliers_by_motion));
-
-        MotionModel *motions = new MotionModel[num_motions];
-        ASSERT_NE(motions, nullptr);
+        std::vector<std::vector<int>> inliers_storage(
+            num_motions, std::vector<int>(2 * MAX_CORNERS, 0));
+        std::vector<MotionModel> motions(num_motions, MotionModel());
         for (int i = 0; i < num_motions; i++) {
-            memset(&motions[i], 0, sizeof(MotionModel));
-            motions[i].inliers = new int[2 * MAX_CORNERS];
-            ASSERT_NE(motions[i].inliers, nullptr);
-            memset(motions[i].inliers, 0, sizeof(int) * 2 * npoints);
+            motions[i].inliers = inliers_storage[i].data();
         }
 
         bool mem_alloc_failed = false;
-        bool ret = svt_aom_ransac((Correspondence *)points,
+        bool ret = svt_aom_ransac((Correspondence *)points.data(),
                                   npoints,
                                   GetParam(),
-                                  motions,
+                                  motions.data(),
                                   num_motions,
                                   &mem_alloc_failed);
         ASSERT_EQ(ret, true);
@@ -167,16 +155,6 @@ class RansacTest : public ::testing::TestWithParam<TransformationType> {
 
         /** check for the transform matrix of motion */
         check_transform_matrix(mat_, motions[0].params);
-
-        if (points)
-            delete[] points;
-        if (num_inliers_by_motion)
-            delete[] num_inliers_by_motion;
-        for (int i = 0; i < num_motions; i++) {
-            if (motions[i].inliers)
-                delete[] motions[i].inliers;
-        }
-        delete[] motions;
     }
 
     /* clang-format off */
@@ -228,9 +206,7 @@ class RansacTest : public ::testing::TestWithParam<TransformationType> {
         const double zoom_scale =
             (double)(rnd.random() % 1000) / 1000.0f + 0.5f;
         const double theta = PI * (rnd.random() % 360) / 360;
-        AffineMat mat_zoom, mat_rotate;
-        memset(&mat_zoom, 0, sizeof(mat_zoom));
-        memset(&mat_rotate, 0, sizeof(mat_rotate));
+        AffineMat mat_zoom{}, mat_rotate{};
         for (vector<Point>::iterator it = data.begin(); it != data.end();
              ++it) {
             Point point = zoom(*it, zoom_scale, mat_zoom);
@@ -313,11 +289,11 @@ class RansacTest : public ::testing::TestWithParam<TransformationType> {
      * | 1 |   |  0   0   1 |   |         1        |
      */
     /* clang-format on */
-    static Point affine(const Point &pt, AffineMat mat) {
-        Point dst;
-        dst.x = (pt.x * mat.m0) + (pt.y * mat.m1) + mat.m2;
-        dst.y = (pt.x * mat.m3) + (pt.y * mat.m4) + mat.m5;
-        return dst;
+    static Point affine(const Point &pt, const AffineMat &mat) {
+        return {
+            (pt.x * mat.m0) + (pt.y * mat.m1) + mat.m2,
+            (pt.x * mat.m3) + (pt.y * mat.m4) + mat.m5,
+        };
     }
 
   protected:

@@ -15,7 +15,6 @@ cmake_minimum_required(VERSION 3.5...3.28)
 
 # Include Subdirectories
 include_directories(${PROJECT_SOURCE_DIR}/Source/API/)
-
 # ---------------------------------------------------------------
 # Optional static link for external libs
 # ---------------------------------------------------------------

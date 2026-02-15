@@ -242,7 +242,7 @@ static EbErrorType parse_rio_map_file(EbConfig *app_cfg) {
                 // no new value parsed
                 break;
             }
-            if (picture_number == ULLONG_MAX || end == NULL) {
+            if (picture_number == ULLONG_MAX) {
                 ret = EB_ErrorBadParameter;
                 break;
             }
@@ -406,8 +406,7 @@ static void deallocate_buffers(EbConfig *app_cfg) {
 /***********************************
  * Initialize Core & Component
  ***********************************/
-EbErrorType init_encoder(EbConfig *app_cfg, uint32_t instance_idx) {
-    app_cfg->instance_idx = (uint8_t)instance_idx;
+EbErrorType init_encoder(EbConfig *app_cfg) {
     // Initialize Port Activity Flags
     app_cfg->output_stream_port_active = APP_PortActive;
 
@@ -461,9 +460,8 @@ EbErrorType init_encoder(EbConfig *app_cfg, uint32_t instance_idx) {
 /***********************************
  * Deinit Components
  ***********************************/
-EbErrorType de_init_encoder(EbConfig *app_cfg, uint32_t instance_index) {
+EbErrorType de_init_encoder(EbConfig *app_cfg) {
     EbErrorType return_error = EB_ErrorNone;
-    (void)instance_index;
 
     deallocate_buffers(app_cfg);
 

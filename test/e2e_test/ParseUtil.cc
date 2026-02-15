@@ -185,42 +185,29 @@ static void read_color_config(Bitstrm *bs, EbColorConfig *color_info,
         color_info->chroma_sample_position = EB_CSP_UNKNOWN;
         color_info->separate_uv_delta_q = 0;
         return;
-    } else if (color_info->color_primaries == EB_CICP_CP_BT_709 &&
-               color_info->transfer_characteristics == EB_CICP_TC_SRGB &&
-               color_info->matrix_coefficients == EB_CICP_MC_IDENTITY) {
-        color_info->subsampling_x = color_info->subsampling_y = 0;
-        color_info->color_range = EB_CR_FULL_RANGE;  // assume full color-range
-        if (!(seq_header->seq_profile == HIGH_PROFILE ||
-              (seq_header->seq_profile == PROFESSIONAL_PROFILE &&
-               color_info->bit_depth == EB_TWELVE_BIT)))
-            return;  // EB_DecUnsupportedBitstream;
-    } else {
-        color_info->color_range = (EbColorRange)svt_aom_dec_get_bits(bs, 1);
-        if (seq_header->seq_profile == MAIN_PROFILE)
-            color_info->subsampling_x = color_info->subsampling_y =
-                1;  // 420 only
-        else if (seq_header->seq_profile == HIGH_PROFILE)
-            color_info->subsampling_x = color_info->subsampling_y =
-                0;  // 444 only
-        else {
-            if (color_info->bit_depth == EB_TWELVE_BIT) {
-                color_info->subsampling_x = svt_aom_dec_get_bits(bs, 1);
-                if (color_info->subsampling_x) {
-                    color_info->subsampling_y = svt_aom_dec_get_bits(bs, 1);
-                } else
-                    color_info->subsampling_y = 0;
-            } else {  // 422
-                color_info->subsampling_x = 1;
-                color_info->subsampling_y = 0;
-            }
-        }
-        if (color_info->matrix_coefficients == EB_CICP_MC_IDENTITY &&
-            (color_info->subsampling_x || color_info->subsampling_y))
-            return;  // EB_DecUnsupportedBitstream;
-        if (color_info->subsampling_x && color_info->subsampling_y)
-            color_info->chroma_sample_position =
-                (EbChromaSamplePosition)svt_aom_dec_get_bits(bs, 2);
     }
+
+    color_info->color_range = (EbColorRange)svt_aom_dec_get_bits(bs, 1);
+    if (seq_header->seq_profile == MAIN_PROFILE)
+        color_info->subsampling_x = color_info->subsampling_y = 1;  // 420 only
+    else if (seq_header->seq_profile == HIGH_PROFILE)
+        color_info->subsampling_x = color_info->subsampling_y = 0;  // 444 only
+    else {
+        if (color_info->bit_depth == EB_TWELVE_BIT) {
+            color_info->subsampling_x = svt_aom_dec_get_bits(bs, 1);
+            if (color_info->subsampling_x) {
+                color_info->subsampling_y = svt_aom_dec_get_bits(bs, 1);
+            } else
+                color_info->subsampling_y = 0;
+        } else {  // 422
+            color_info->subsampling_x = 1;
+            color_info->subsampling_y = 0;
+        }
+    }
+    if (color_info->subsampling_x && color_info->subsampling_y)
+        color_info->chroma_sample_position =
+            (EbChromaSamplePosition)svt_aom_dec_get_bits(bs, 2);
+
     color_info->separate_uv_delta_q = svt_aom_dec_get_bits(bs, 1);
 }
 
@@ -455,6 +442,7 @@ void SequenceHeaderParser::input_obu_data(const uint8_t *obu_data,
     seg_header.enable_masked_compound = 0;
     seg_header.enable_intra_edge_filter = 0;
     seg_header.filter_intra_level = 0;
+    seg_header.decoder_model_info.buffer_delay_length_minus_1 = 0;
 
     if (svt_get_sequence_info(obu_data, size, &seg_header) == EB_ErrorNone) {
         profile_ = seg_header.seq_profile;

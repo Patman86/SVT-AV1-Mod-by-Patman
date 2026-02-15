@@ -97,7 +97,7 @@ static void av1_make_masked_scaled_inter_predictor(
         // for reference scaling, it might be 4x since both width and height is scaled 2x
         // should pack enough buffer for scaled reference
         DECLARE_ALIGNED(16, uint16_t, src16[PACKED_BUFFER_SIZE * 4]);
-        uint16_t *src_ptr_10b = src16;
+        uint16_t *src_ptr_10b;
         int32_t   src_stride16;
         if (src_ptr_2b) {
             // pack the reference into temp 16bit buffer
@@ -460,8 +460,6 @@ static void pick_wedge(PictureControlSet *pcs, ModeDecisionContext *ctx, const B
             model_rd_with_curvfit(pcs, bsize, sse, N, &rate, &dist, ctx, full_lambda);
 
             rd = RDCOST(full_lambda, rate, dist);
-        } else {
-            rd = sse;
         }
         if (rd < best_rd) {
             *best_wedge_index = wedge_index;
@@ -1699,6 +1697,7 @@ static void av1_make_masked_warp_inter_predictor(uint8_t *src_ptr, uint8_t *src_
                                            conv_params,
                                            bitdepth,
                                            is16bit);
+    conv_params->dst = NULL; // null out the pointer to avoid misuse
 }
 
 // This function has a structure similar to av1_build_obmc_inter_prediction
@@ -2581,15 +2580,13 @@ static void enc_make_inter_predictor_light_pd0(uint8_t *src, uint8_t *dst, Subpe
                                                int32_t src_stride, int32_t dst_stride) {
     svt_inter_predictor_light_pd0(src, src_stride, dst, dst_stride, blk_width, blk_height, subpel_params, conv_params);
 }
-void svt_aom_enc_make_inter_predictor(SequenceControlSet *scs, uint8_t *src_ptr, uint8_t *src_ptr_2b, uint8_t *dst_ptr,
-                                      int16_t pre_y, int16_t pre_x, Mv mv, const struct ScaleFactors *const sf,
-                                      ConvolveParams *conv_params, InterpFilters interp_filters,
-                                      const InterInterCompoundData *const interinter_comp, uint8_t *seg_mask,
-                                      uint16_t frame_width, uint16_t frame_height, uint8_t blk_width,
-                                      uint8_t blk_height, BlockSize bsize, MacroBlockD *av1xd, int32_t src_stride,
-                                      int32_t dst_stride, uint8_t plane, const uint32_t ss_y, const uint32_t ss_x,
-                                      uint8_t bit_depth, uint8_t use_intrabc, uint8_t is_masked_compound,
-                                      uint8_t is16bit, bool is_wm, WarpedMotionParams *wm_params) {
+void NOINLINE svt_aom_enc_make_inter_predictor(
+    SequenceControlSet *scs, uint8_t *src_ptr, uint8_t *src_ptr_2b, uint8_t *dst_ptr, int16_t pre_y, int16_t pre_x,
+    Mv mv, const struct ScaleFactors *const sf, ConvolveParams *conv_params, InterpFilters interp_filters,
+    const InterInterCompoundData *const interinter_comp, uint8_t *seg_mask, uint16_t frame_width, uint16_t frame_height,
+    uint8_t blk_width, uint8_t blk_height, BlockSize bsize, MacroBlockD *av1xd, int32_t src_stride, int32_t dst_stride,
+    uint8_t plane, const uint32_t ss_y, const uint32_t ss_x, uint8_t bit_depth, uint8_t use_intrabc,
+    uint8_t is_masked_compound, uint8_t is16bit, bool is_wm, WarpedMotionParams *wm_params) {
     if (is_wm) {
         if (is_masked_compound) {
             conv_params->do_average = 0;
@@ -2686,7 +2683,7 @@ void svt_aom_enc_make_inter_predictor(SequenceControlSet *scs, uint8_t *src_ptr,
             // for reference scaling, it might be 4x since both width and height is scaled 2x
             // should pack enough buffer for scaled reference
             DECLARE_ALIGNED(16, uint16_t, src16[PACKED_BUFFER_SIZE * 4]);
-            uint16_t *src16_ptr = src16;
+            uint16_t *src16_ptr;
             int32_t   src_stride16;
             if (src_ptr_2b) {
                 // pack the reference into temp 16bit buffer
@@ -3009,7 +3006,7 @@ static void av1_inter_prediction_obmc(PictureControlSet *pcs, BlkStruct *blk_ptr
                                       uint32_t component_mask, uint8_t bit_depth, uint8_t is_16bit_pipeline) {
     uint8_t is16bit = bit_depth > EB_EIGHT_BIT || is_16bit_pipeline;
 
-    const BlockGeom *blk_geom = get_blk_geom_mds(blk_ptr->mds_idx);
+    const BlockGeom *blk_geom = get_blk_geom_mds(pcs->scs->blk_geom_mds, blk_ptr->mds_idx);
 
     // cppcheck-suppress unassignedVariable
     DECLARE_ALIGNED(16, uint8_t, obmc_buff_0[2 * MAX_MB_PLANE * MAX_SB_SQUARE]);
@@ -3139,7 +3136,7 @@ static uint8_t inter_chroma_4xn_pred(PictureControlSet *pcs, MacroBlockD *xd, Bl
     const int32_t row_start = (block_size_high[bsize] == 4) && ss_y ? -1 : 0;
     const int32_t col_start = (block_size_wide[bsize] == 4) && ss_x ? -1 : 0;
 
-    for (int32_t row = row_start; row <= 0 && sub8x8_inter; ++row) {
+    for (int32_t row = row_start; row <= 0; ++row) {
         for (int32_t col = col_start; col <= 0; ++col) {
             const MbModeInfo *this_mbmi = xd->mi[row * xd->mi_stride + col];
             if (!is_inter_block(&this_mbmi->block_mi))
@@ -3314,7 +3311,6 @@ EbErrorType svt_aom_inter_prediction(SequenceControlSet *scs, PictureControlSet 
 
     int32_t fwd_offset = 0, bck_offset = 0, use_dist_wtd_comp_avg = 0;
 
-    //const BlockGeom *blk_geom = get_blk_geom_mds(blk_ptr->mds_idx);
     const uint8_t bwidth      = blk_geom->bwidth;
     const uint8_t bheight     = blk_geom->bheight;
     ScaleFactors  sf_identity = scs->sf_identity;

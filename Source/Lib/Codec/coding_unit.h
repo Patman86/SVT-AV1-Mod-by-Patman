@@ -136,7 +136,7 @@ typedef struct IntraBcContext {
     Mv           second_best_mv;
     MacroBlockD *xd;
     int         *nmv_vec_cost;
-    int        **mv_cost_stack;
+    const int  **mv_cost_stack;
     // buffer for hash value calculation of a block
     // used only in svt_av1_get_block_hash_value()
     // [two buffers used ping-pong]
@@ -282,12 +282,10 @@ typedef struct SuperBlock {
     TileInfo       tile_info;
     uint16_t       final_blk_cnt; // number of block(s) posted from EncDec to EC
 } SuperBlock;
-
-extern EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock *larget_coding_unit_ptr, uint8_t sb_size,
-                                                    uint16_t sb_origin_x, uint16_t sb_origin_y, uint16_t sb_index,
-                                                    EncMode enc_mode, bool rtc, uint32_t screen_content_mode,
-                                                    uint16_t                  max_block_cnt,
-                                                    struct PictureControlSet *picture_control_set);
+EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock *larget_coding_unit_ptr, uint8_t sb_size, uint16_t sb_origin_x,
+                                             uint16_t sb_origin_y, uint16_t sb_index, EncMode enc_mode, bool rtc,
+                                             uint16_t max_block_cnt, bool allintra, ResolutionRange input_resolution,
+                                             struct PictureControlSet *picture_control_set);
 
 #ifdef __cplusplus
 }

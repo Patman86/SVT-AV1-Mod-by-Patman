@@ -591,70 +591,6 @@ void svt_av1_highbd_quantize_fp_qm_c(const TranLow *coeff_ptr, intptr_t count, c
                                 iqm_ptr,
                                 log_scale);
 }
-
-// Hsan: code clean up; from static to extern as now used @ more than 1 file
-
-static const int8_t eob_to_pos_small[33] = {
-    0, 1, 2, // 0-2
-    3, 3, // 3-4
-    4, 4, 4, 4, // 5-8
-    5, 5, 5, 5, 5, 5, 5, 5, // 9-16
-    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6 // 17-32
-};
-
-static const int8_t eob_to_pos_large[17] = {
-    6, // place holder
-    7, // 33-64
-    8,
-    8, // 65-128
-    9,
-    9,
-    9,
-    9, // 129-256
-    10,
-    10,
-    10,
-    10,
-    10,
-    10,
-    10,
-    10, // 257-512
-    11 // 513-
-};
-
-static INLINE int32_t get_eob_pos_token(const int32_t eob, int32_t *const extra) {
-    int32_t t;
-
-    if (eob < 33)
-        t = eob_to_pos_small[eob];
-    else {
-        const int32_t e = AOMMIN((eob - 1) >> 5, 16);
-        t               = eob_to_pos_large[e];
-    }
-
-    *extra = eob - eb_k_eob_group_start[t];
-
-    return t;
-}
-// Transform end of block bit estimation
-static int get_eob_cost(int eob, const LvMapEobCost *txb_eob_costs, const LvMapCoeffCost *txb_costs, TxClass tx_class) {
-    int       eob_extra;
-    const int eob_pt        = get_eob_pos_token(eob, &eob_extra);
-    int       eob_cost      = 0;
-    const int eob_multi_ctx = (tx_class == TX_CLASS_2D) ? 0 : 1;
-    eob_cost                = txb_eob_costs->eob_cost[eob_multi_ctx][eob_pt - 1];
-
-    if (eb_k_eob_offset_bits[eob_pt] > 0) {
-        const int eob_ctx   = eob_pt - 3;
-        const int eob_shift = eb_k_eob_offset_bits[eob_pt] - 1;
-        const int bit       = (eob_extra & (1 << eob_shift)) ? 1 : 0;
-        eob_cost += txb_costs->eob_extra_cost[eob_ctx][bit];
-        const int offset_bits = eb_k_eob_offset_bits[eob_pt];
-        if (offset_bits > 1)
-            eob_cost += av1_cost_literal(offset_bits - 1);
-    }
-    return eob_cost;
-}
 static INLINE int get_lower_levels_ctx_general(int is_last, int scan_idx, int bwl, int height, const uint8_t *levels,
                                                int coeff_idx, TxSize tx_size, TxClass tx_class) {
     if (is_last) {
@@ -1020,15 +956,22 @@ enum {
 } UENUM1BYTE(DELTAQ_MODE);
 
 // These numbers are empirically obtained.
-static const int plane_rd_mult[REF_TYPES][PLANE_TYPES] = {
 #if TUNE_CHROMA_SSIM
-    {17, 13},
-    {16, 10},
+static const int plane_rd_mult[2][REF_TYPES][PLANE_TYPES] = {{
+                                                                 {17, 13},
+                                                                 {16, 10},
+                                                             },
+                                                             {
+                                                                 {17, 13},
+                                                                 {16, 10},
+                                                             }};
 #else
-    {17, 20},
-    {16, 20},
+static const int plane_rd_mult[2][REF_TYPES][PLANE_TYPES] = {{{17, 20}, {16, 20}},
+                                                             {
+                                                                 {17, 13},
+                                                                 {16, 10},
+                                                             }};
 #endif
-};
 
 /*
  * Reduce the number of non-zero quantized coefficients before getting to the main/complex RDOQ stage
@@ -1076,6 +1019,9 @@ static void svt_av1_optimize_b(PictureControlSet *pcs, ModeDecisionContext *ctx,
                                TxSize tx_size, TxType tx_type, bool is_inter, uint8_t use_sharpness,
                                uint8_t delta_q_present, uint8_t picture_qp, uint32_t lambda, int plane,
                                bool light_rdoq) {
+    SequenceControlSet    *scs        = pcs->scs;
+    bool                   allintra   = scs->allintra;
+    bool                   rtc        = scs->static_config.rtc;
     int                    sharpness  = 0; // No Sharpness
     int                    fast_mode  = (ctx->rdoq_ctrls.eob_fast_y_inter && is_inter && !plane) ||
             (ctx->rdoq_ctrls.eob_fast_y_intra && !is_inter && !plane) ||
@@ -1130,8 +1076,8 @@ static void svt_av1_optimize_b(PictureControlSet *pcs, ModeDecisionContext *ctx,
         rweight = 10;
     }
 
-    const int64_t rdmult = (((((int64_t)lambda * plane_rd_mult[is_inter][plane_type]) * rweight) / 100) + 2) >> rshift;
-
+    const int64_t rdmult =
+        (((((int64_t)lambda * plane_rd_mult[allintra || rtc][is_inter][plane_type]) * rweight) / 100) + 2) >> rshift;
     uint8_t        levels_buf[TX_PAD_2D];
     uint8_t *const levels = set_levels(levels_buf, width);
 
@@ -1232,9 +1178,14 @@ static void svt_av1_optimize_b(PictureControlSet *pcs, ModeDecisionContext *ctx,
                     sharpness);
     }
 
+    int si_end = 1; // default: full RDOQ
+    if (ctx->rdoq_ctrls.cut_off_div) {
+        int area = (width * height) / ctx->rdoq_ctrls.cut_off_div;
+        si_end   = AOMMAX(1, *eob - area);
+    }
 #define UPDATE_COEFF_SIMPLE_CASE(tx_class_literal) \
     case tx_class_literal:                         \
-        for (; si >= 1; --si) {                    \
+        for (; si >= si_end; --si) {               \
             update_coeff_simple(&accu_rate,        \
                                 si,                \
                                 *eob,              \
@@ -1638,7 +1589,7 @@ uint8_t svt_aom_quantize_inv_quantize(PictureControlSet *pcs, ModeDecisionContex
 
     // If rdoq_level is specified in the command line instruction, set perform_rdoq accordingly.
     perform_rdoq = !svt_av1_is_lossless_segment(pcs, ctx->blk_ptr->segment_id) &&
-        ((ctx->mds_do_rdoq || is_encode_pass) && ctx->rdoq_level);
+        ((ctx->mds_do_rdoq || is_encode_pass) && ctx->rdoq_ctrls.enabled);
     const int dequant_shift = ctx->hbd_md ? pcs->ppcs->enhanced_pic->bit_depth - 5 : 3;
     const int qstep         = candidate_plane.dequant_qtx[1] /*[AC]*/ >> dequant_shift;
     if (!is_encode_pass) {
@@ -2590,14 +2541,43 @@ void svt_aom_full_loop_uv(PictureControlSet *pcs, ModeDecisionContext *ctx, Mode
         ++txb_itr;
     } while (txb_itr < tu_count);
 }
+/*
+  check if we need to do inverse transform and recon
+*/
+uint8_t svt_aom_do_md_recon(PictureParentControlSet *pcs, ModeDecisionContext *ctx) {
+    const uint8_t encdec_bypass = ctx->bypass_encdec &&
+        (ctx->pd_pass == PD_PASS_1); // if enc dec is bypassed MD has to produce the final recon
+    const uint8_t need_md_rec_for_intra_pred = !ctx->skip_intra ||
+        ctx->inter_intra_comp_ctrls.enabled; // for intra prediction of current frame
+    const uint8_t need_md_rec_for_ref = (pcs->is_ref || pcs->scs->static_config.recon_enabled) &&
+        encdec_bypass; // for inter prediction of future frame or if recon is being output
+    const uint8_t need_md_rec_for_dlf_search  = pcs->dlf_ctrls.enabled; // for DLF levels
+    const uint8_t need_md_rec_for_cdef_search = pcs->cdef_search_ctrls.enabled &&
+        !pcs->cdef_search_ctrls.use_reference_cdef_fs; // CDEF search levels needing the recon samples
+    const uint8_t need_md_rec_for_restoration_search = pcs->enable_restoration; // any resoration search level
+    const uint8_t need_md_rec_for_quality            = (pcs->compute_psnr || pcs->compute_ssim) &&
+        (ctx->pd_pass == PD_PASS_1); // stat report needs recon samples for metrics
+    uint8_t do_recon;
+    if (need_md_rec_for_intra_pred || need_md_rec_for_ref || need_md_rec_for_dlf_search ||
+        need_md_rec_for_cdef_search || need_md_rec_for_restoration_search || need_md_rec_for_quality)
+        do_recon = 1;
+    else
+        do_recon = 0;
+
+    return do_recon;
+}
 uint64_t svt_aom_d1_non_square_block_decision(PictureControlSet *pcs, ModeDecisionContext *ctx, uint32_t d1_block_itr) {
     //compute total cost for the whole block partition
     uint64_t tot_cost      = 0;
     uint32_t first_blk_idx = ctx->blk_ptr->mds_idx -
         (ctx->blk_geom->totns - 1); //index of first block in this partition
     uint32_t blk_it;
-    uint32_t full_lambda    = ctx->hbd_md ? ctx->full_sb_lambda_md[EB_10_BIT_MD] : ctx->full_sb_lambda_md[EB_8_BIT_MD];
-    uint8_t  nsq_cost_avail = 1;
+    // if hbd_md is 0, we may still use 10bit lambda to generate final costs if we are bypassing encdec for 10bit content.
+    const bool     used_10bit_at_mds3 = (ctx->encoder_bit_depth > EB_EIGHT_BIT && ctx->bypass_encdec &&
+                                     ctx->pd_pass == PD_PASS_1 && svt_aom_do_md_recon(pcs->ppcs, ctx));
+    const uint32_t full_lambda        = ctx->hbd_md || used_10bit_at_mds3 ? ctx->full_sb_lambda_md[EB_10_BIT_MD]
+                                                                          : ctx->full_sb_lambda_md[EB_8_BIT_MD];
+    uint8_t        nsq_cost_avail     = 1;
     for (blk_it = 0; blk_it < ctx->blk_geom->totns; blk_it++) {
         // Don't apply check to first block because nsq_cost_avail must be set to 0 for disallowed blocks
         if (!pcs->ppcs->sb_geom[ctx->sb_index].block_is_allowed[first_blk_idx + blk_it] && blk_it)
@@ -2631,6 +2611,7 @@ uint64_t svt_aom_d1_non_square_block_decision(PictureControlSet *pcs, ModeDecisi
 static void compute_depth_costs(ModeDecisionContext *ctx, PictureParentControlSet *pcs, uint32_t curr_depth_mds,
                                 uint32_t above_depth_mds, uint32_t step, uint64_t *above_depth_cost,
                                 uint64_t *curr_depth_cost) {
+    SequenceControlSet *scs = pcs->scs;
     /*
     ___________
     |     |     |
@@ -2649,16 +2630,16 @@ static void compute_depth_costs(ModeDecisionContext *ctx, PictureParentControlSe
     * anyway (as they are completely outside the picture).  If the block does have area inside the picture, it will have
     * a cost, and if the cost is not valid, that partition scheme cannot be selected.
     */
-    const BlockGeom *curr_blk_geom = get_blk_geom_mds(curr_depth_blk0_mds);
+    const BlockGeom *curr_blk_geom = get_blk_geom_mds(scs->blk_geom_mds, curr_depth_blk0_mds);
     const bool blk0_within_pic     = (pcs->sb_geom[ctx->sb_index].org_x + curr_blk_geom->org_x < pcs->aligned_width) &&
         (pcs->sb_geom[ctx->sb_index].org_y + curr_blk_geom->org_y < pcs->aligned_height);
-    curr_blk_geom              = get_blk_geom_mds(curr_depth_blk1_mds);
+    curr_blk_geom              = get_blk_geom_mds(scs->blk_geom_mds, curr_depth_blk1_mds);
     const bool blk1_within_pic = (pcs->sb_geom[ctx->sb_index].org_x + curr_blk_geom->org_x < pcs->aligned_width) &&
         (pcs->sb_geom[ctx->sb_index].org_y + curr_blk_geom->org_y < pcs->aligned_height);
-    curr_blk_geom              = get_blk_geom_mds(curr_depth_blk2_mds);
+    curr_blk_geom              = get_blk_geom_mds(scs->blk_geom_mds, curr_depth_blk2_mds);
     const bool blk2_within_pic = (pcs->sb_geom[ctx->sb_index].org_x + curr_blk_geom->org_x < pcs->aligned_width) &&
         (pcs->sb_geom[ctx->sb_index].org_y + curr_blk_geom->org_y < pcs->aligned_height);
-    curr_blk_geom              = get_blk_geom_mds(curr_depth_blk3_mds);
+    curr_blk_geom              = get_blk_geom_mds(scs->blk_geom_mds, curr_depth_blk3_mds);
     const bool blk3_within_pic = (pcs->sb_geom[ctx->sb_index].org_x + curr_blk_geom->org_x < pcs->aligned_width) &&
         (pcs->sb_geom[ctx->sb_index].org_y + curr_blk_geom->org_y < pcs->aligned_height);
 
@@ -2680,8 +2661,12 @@ static void compute_depth_costs(ModeDecisionContext *ctx, PictureParentControlSe
             ctx->md_blk_arr_nsq[curr_depth_blk0_mds].left_neighbor_partition;
         ctx->md_blk_arr_nsq[above_depth_mds].above_neighbor_partition =
             ctx->md_blk_arr_nsq[curr_depth_blk0_mds].above_neighbor_partition;
-        uint32_t full_lambda = ctx->hbd_md ? ctx->full_sb_lambda_md[EB_10_BIT_MD] : ctx->full_sb_lambda_md[EB_8_BIT_MD];
-        const uint64_t above_split_rate = svt_aom_partition_rate_cost(
+        // if hbd_md is 0, we may still use 10bit lambda to generate final costs if we are bypassing encdec for 10bit content.
+        const bool     used_10bit_at_mds3 = (ctx->encoder_bit_depth > EB_EIGHT_BIT && ctx->bypass_encdec &&
+                                         ctx->pd_pass == PD_PASS_1 && svt_aom_do_md_recon(pcs, ctx));
+        const uint32_t full_lambda        = ctx->hbd_md || used_10bit_at_mds3 ? ctx->full_sb_lambda_md[EB_10_BIT_MD]
+                                                                              : ctx->full_sb_lambda_md[EB_8_BIT_MD];
+        const uint64_t above_split_rate   = svt_aom_partition_rate_cost(
             pcs, ctx, above_depth_mds, PARTITION_SPLIT, full_lambda, pcs->use_accurate_part_ctx, ctx->md_rate_est_ctx);
 
         *curr_depth_cost = blk0_cost + blk1_cost + blk2_cost + blk3_cost + above_split_rate;
@@ -2707,7 +2692,7 @@ uint32_t svt_aom_d2_inter_depth_block_decision(PictureControlSet *pcs, ModeDecis
     uint64_t         parent_depth_cost = 0, current_depth_cost = 0;
     bool             last_depth_flag = (ctx->md_blk_arr_nsq[blk_mds].split_flag == false);
     uint32_t         last_blk_index = blk_mds, current_depth_idx_mds = blk_mds;
-    const BlockGeom *blk_geom = get_blk_geom_mds(blk_mds);
+    const BlockGeom *blk_geom = get_blk_geom_mds(pcs->scs->blk_geom_mds, blk_mds);
     if (last_depth_flag) {
         while (blk_geom->is_last_quadrant) {
             //get parent idx
@@ -2742,7 +2727,7 @@ uint32_t svt_aom_d2_inter_depth_block_decision(PictureControlSet *pcs, ModeDecis
             }
 
             //setup next parent inter depth
-            blk_geom              = get_blk_geom_mds(parent_depth_idx_mds);
+            blk_geom              = get_blk_geom_mds(pcs->scs->blk_geom_mds, parent_depth_idx_mds);
             current_depth_idx_mds = parent_depth_idx_mds;
         }
     }
@@ -2758,7 +2743,8 @@ void svt_aom_compute_depth_costs_md_skip_light_pd0(PictureParentControlSet *pcs,
         *curr_depth_cost  = 0;
         return;
     }
-    uint32_t full_lambda = ctx->hbd_md ? ctx->full_sb_lambda_md[EB_10_BIT_MD] : ctx->full_sb_lambda_md[EB_8_BIT_MD];
+    // 8bit only for LPD0
+    uint32_t full_lambda = ctx->full_sb_lambda_md[EB_8_BIT_MD];
 
     *curr_depth_cost = 0;
     // sum the previous ones
@@ -2790,7 +2776,11 @@ void svt_aom_compute_depth_costs_md_skip(ModeDecisionContext *ctx, PictureParent
         *curr_depth_cost  = 0;
         return;
     }
-    uint32_t full_lambda = ctx->hbd_md ? ctx->full_sb_lambda_md[EB_10_BIT_MD] : ctx->full_sb_lambda_md[EB_8_BIT_MD];
+    // if hbd_md is 0, we may still use 10bit lambda to generate final costs if we are bypassing encdec for 10bit content.
+    const bool     used_10bit_at_mds3 = (ctx->encoder_bit_depth > EB_EIGHT_BIT && ctx->bypass_encdec &&
+                                     ctx->pd_pass == PD_PASS_1 && svt_aom_do_md_recon(pcs, ctx));
+    const uint32_t full_lambda        = ctx->hbd_md || used_10bit_at_mds3 ? ctx->full_sb_lambda_md[EB_10_BIT_MD]
+                                                                          : ctx->full_sb_lambda_md[EB_8_BIT_MD];
 
     uint64_t above_split_rate = 0;
     *curr_depth_cost          = 0;

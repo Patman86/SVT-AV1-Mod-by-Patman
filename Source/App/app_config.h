@@ -14,6 +14,12 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#ifdef LIBDOVI_FOUND
+#include <libdovi/rpu_parser.h>
+#endif
+#ifdef LIBHDR10PLUS_RS_FOUND
+#include <libhdr10plus-rs/hdr10plus.h>
+#endif
 
 #ifdef _MSC_VER
 #pragma comment(lib, "ntdll.lib")
@@ -61,7 +67,6 @@ typedef enum EncPass {
 
 #define WARNING_LENGTH 100
 
-#define MAX_CHANNEL_NUMBER 6U
 #define MAX_NUM_TOKENS 210
 
 #ifdef _WIN32
@@ -103,6 +108,11 @@ typedef struct EbPerformanceContext {
     double sum_cb_ssim;
 
     uint64_t sum_qp;
+
+    double vbv_buffer_bits;
+    double vbv_delay_max_s;
+    double vbv_delay_sum_s;
+    int    vbv_delay_violations;
 
 } EbPerformanceContext;
 
@@ -198,8 +208,6 @@ typedef struct EbConfig {
     FILE         *roi_map_file;
     SvtAv1RoiMap *roi_map;
 
-    // Instance Index
-    uint8_t instance_idx;
 #ifdef LIBDOVI_FOUND
     const DoviRpuOpaqueList *dovi_rpus;
 #endif
@@ -232,13 +240,11 @@ EbConfig *svt_config_ctor();
 void      svt_config_dtor(EbConfig *app_cfg);
 
 EbErrorType     enc_channel_ctor(EncChannel *c);
-void            enc_channel_dctor(EncChannel *c, uint32_t inst_cnt);
-EbErrorType     read_command_line(int32_t argc, char *const argv[], EncChannel *channels, uint32_t num_channels);
-int             get_version(int argc, char *argv[]);
+void            enc_channel_dctor(EncChannel *c);
+EbErrorType     read_command_line(int32_t argc, char *const argv[], EncChannel *channel);
+int             get_version(int argc, char *const argv[]);
 extern uint32_t get_help(int32_t argc, char *const argv[]);
 extern uint32_t get_color_help(int32_t argc, char *const argv[]);
-extern uint32_t get_number_of_channels(int32_t argc, char *const argv[]);
 uint32_t        get_passes(int32_t argc, char *const argv[], EncPass enc_pass[MAX_ENC_PASS]);
-EbErrorType     handle_stats_file(EbConfig *app_cfg, EncPass pass, const SvtAv1FixedBuf *rc_stats_buffer,
-                                  uint32_t channel_number);
+EbErrorType     handle_stats_file(EbConfig *app_cfg, EncPass pass, const SvtAv1FixedBuf *rc_stats_buffer);
 #endif //EbAppConfig_h

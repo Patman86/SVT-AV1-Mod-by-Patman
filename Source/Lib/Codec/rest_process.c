@@ -67,12 +67,12 @@ static void rest_context_dctor(EbPtr p) {
 /******************************************************
  * Rest Context Constructor
  ******************************************************/
-EbErrorType svt_aom_rest_context_ctor(EbThreadContext *thread_ctx, const EbEncHandle *enc_handle_ptr,
-                                      EbPtr object_init_data_ptr, int index, int demux_index) {
-    const SequenceControlSet       *scs           = enc_handle_ptr->scs_instance_array[0]->scs;
-    const EbSvtAv1EncConfiguration *config        = &scs->static_config;
-    EbPictureBufferDescInitData    *init_data_ptr = (EbPictureBufferDescInitData *)object_init_data_ptr;
+EbErrorType svt_aom_rest_context_ctor(EbThreadContext *thread_ctx, const EbEncHandle *enc_handle_ptr, int index,
+                                      int demux_index) {
+    const SequenceControlSet       *scs    = enc_handle_ptr->scs_instance->scs;
+    const EbSvtAv1EncConfiguration *config = &scs->static_config;
     RestContext                    *context_ptr;
+    const bool                      allintra = scs->allintra;
     EB_CALLOC_ARRAY(context_ptr, 1);
     thread_ctx->priv  = context_ptr;
     thread_ctx->dctor = rest_context_dctor;
@@ -86,13 +86,12 @@ EbErrorType svt_aom_rest_context_ctor(EbThreadContext *thread_ctx, const EbEncHa
         enc_handle_ptr->picture_demux_results_resource_ptr, demux_index);
 
     bool is_16bit = scs->is_16bit_pipeline;
-    if (svt_aom_get_enable_restoration(init_data_ptr->enc_mode,
+    if (svt_aom_get_enable_restoration(config->enc_mode,
                                        config->enable_restoration_filtering,
                                        scs->input_resolution,
                                        config->fast_decode,
-                                       config->avif,
-                                       scs->allintra,
-                                       scs->static_config.rtc)) {
+                                       allintra,
+                                       config->rtc)) {
         EbPictureBufferDescInitData init_data;
 
         init_data.buffer_enable_mask = PICTURE_BUFFER_DESC_FULL_MASK;
@@ -118,7 +117,7 @@ EbErrorType svt_aom_rest_context_ctor(EbThreadContext *thread_ctx, const EbEncHa
                 context_ptr->org_rec_frame->bit_depth = EB_EIGHT_BIT;
         }
         context_ptr->rst_tmpbuf = NULL;
-        if (svt_aom_get_enable_sg(init_data_ptr->enc_mode, scs->input_resolution, config->fast_decode, config->avif))
+        if (svt_aom_get_enable_sg(config->enc_mode, scs->input_resolution, config->fast_decode, allintra))
             EB_MALLOC_ALIGNED(context_ptr->rst_tmpbuf, RESTORATION_TMPBUF_SIZE);
     }
 
@@ -189,6 +188,7 @@ static void copy_statistics_to_ref_obj_ect(PictureControlSet *pcs, SequenceContr
     pcs->intra_coded_area = (100 * pcs->intra_coded_area) / (ppcs->aligned_width * ppcs->aligned_height);
     pcs->skip_coded_area  = (100 * pcs->skip_coded_area) / (ppcs->aligned_width * ppcs->aligned_height);
     pcs->hp_coded_area    = (100 * pcs->hp_coded_area) / (ppcs->aligned_width * ppcs->aligned_height);
+    pcs->avg_cnt_zeromv   = (100 * pcs->avg_cnt_zeromv) / (ppcs->aligned_width * ppcs->aligned_height);
     if (pcs->slice_type == I_SLICE)
         pcs->intra_coded_area = 0;
     obj->intra_coded_area = (uint8_t)pcs->intra_coded_area;
@@ -221,8 +221,7 @@ static void copy_statistics_to_ref_obj_ect(PictureControlSet *pcs, SequenceContr
     obj->tmp_layer_idx   = pcs->temporal_layer_index;
     obj->is_scene_change = ppcs->scene_change_flag;
 
-    Av1Common *cm    = ppcs->av1_cm;
-    obj->sg_frame_ep = cm->sg_frame_ep;
+    Av1Common *cm = ppcs->av1_cm;
     if (scs->mfmv_enabled || !ppcs->is_not_scaled) {
         obj->frame_type = frm_hdr->frame_type;
         obj->order_hint = ppcs->cur_order_hint;
@@ -333,18 +332,6 @@ void *svt_aom_rest_kernel(void *input_ptr) {
                         pcs->rst_info[2].frame_restoration_type != RESTORE_NONE) {
                         svt_av1_loop_restoration_filter_frame(context_ptr->rst_tmpbuf, cm->frame_to_show, cm, 0);
                     }
-                }
-
-                if (cm->sg_filter_ctrls.enabled) {
-                    uint8_t best_ep_cnt = 0;
-                    uint8_t best_ep     = 0;
-                    for (uint8_t i = 0; i < SGRPROJ_PARAMS; i++) {
-                        if (cm->sg_frame_ep_cnt[i] > best_ep_cnt) {
-                            best_ep     = i;
-                            best_ep_cnt = cm->sg_frame_ep_cnt[i];
-                        }
-                    }
-                    cm->sg_frame_ep = best_ep;
                 }
             } else {
                 pcs->rst_info[0].frame_restoration_type = RESTORE_NONE;

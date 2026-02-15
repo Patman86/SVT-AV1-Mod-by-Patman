@@ -118,7 +118,6 @@ EbErrorType svt_reference_param_update(EbReferenceObject *ref_object, SequenceCo
     picture_buffer_desc_init_data_ptr.is_16bit_pipeline = scs->is_16bit_pipeline;
 
     picture_buffer_desc_init_data_ptr.split_mode = false;
-    picture_buffer_desc_init_data_ptr.enc_mode   = scs->static_config.enc_mode;
     if (is_16bit)
         picture_buffer_desc_init_data_ptr.bit_depth = EB_TEN_BIT;
 
@@ -266,7 +265,6 @@ EbErrorType svt_pa_reference_param_update(EbPaReferenceObject *pa_ref_obj, Seque
     ref_pic_buf_desc_init_data.rest_units_per_tile = scs->rest_units_per_tile;
     ref_pic_buf_desc_init_data.mfmv                = 0;
     ref_pic_buf_desc_init_data.is_16bit_pipeline   = false;
-    ref_pic_buf_desc_init_data.enc_mode            = scs->static_config.enc_mode;
 
     quart_pic_buf_desc_init_data.max_width           = scs->max_input_luma_width >> 1;
     quart_pic_buf_desc_init_data.max_height          = scs->max_input_luma_height >> 1;
@@ -281,7 +279,6 @@ EbErrorType svt_pa_reference_param_update(EbPaReferenceObject *pa_ref_obj, Seque
     quart_pic_buf_desc_init_data.rest_units_per_tile = scs->rest_units_per_tile;
     quart_pic_buf_desc_init_data.mfmv                = 0;
     quart_pic_buf_desc_init_data.is_16bit_pipeline   = false;
-    quart_pic_buf_desc_init_data.enc_mode            = scs->static_config.enc_mode;
 
     sixteenth_pic_buf_desc_init_data.max_width           = scs->max_input_luma_width >> 2;
     sixteenth_pic_buf_desc_init_data.max_height          = scs->max_input_luma_height >> 2;
@@ -296,7 +293,6 @@ EbErrorType svt_pa_reference_param_update(EbPaReferenceObject *pa_ref_obj, Seque
     sixteenth_pic_buf_desc_init_data.rest_units_per_tile = scs->rest_units_per_tile;
     sixteenth_pic_buf_desc_init_data.mfmv                = 0;
     sixteenth_pic_buf_desc_init_data.is_16bit_pipeline   = false;
-    sixteenth_pic_buf_desc_init_data.enc_mode            = scs->static_config.enc_mode;
 
     // Reference picture constructor
     svt_picture_buffer_desc_update(pa_ref_obj->input_padded_pic, (EbPtr)&ref_pic_buf_desc_init_data);
@@ -321,12 +317,14 @@ EbErrorType svt_pa_reference_object_ctor(EbPaReferenceObject *pa_ref_obj_, EbPtr
     // Reference picture constructor
     EB_NEW(pa_ref_obj_->input_padded_pic, svt_picture_buffer_desc_ctor, (EbPtr)picture_buffer_desc_init_data_ptr);
     // Downsampled reference picture constructor
-    EB_NEW(pa_ref_obj_->quarter_downsampled_picture_ptr,
-           svt_picture_buffer_desc_ctor,
-           (EbPtr)(picture_buffer_desc_init_data_ptr + 1));
-    EB_NEW(pa_ref_obj_->sixteenth_downsampled_picture_ptr,
-           svt_picture_buffer_desc_ctor,
-           (EbPtr)(picture_buffer_desc_init_data_ptr + 2));
+    if (picture_buffer_desc_init_data_ptr[1].buffer_enable_mask)
+        EB_NEW(pa_ref_obj_->quarter_downsampled_picture_ptr,
+               svt_picture_buffer_desc_ctor,
+               (EbPtr)(picture_buffer_desc_init_data_ptr + 1));
+    if (picture_buffer_desc_init_data_ptr[2].buffer_enable_mask)
+        EB_NEW(pa_ref_obj_->sixteenth_downsampled_picture_ptr,
+               svt_picture_buffer_desc_ctor,
+               (EbPtr)(picture_buffer_desc_init_data_ptr + 2));
     // set all supplemental downscaled reference picture pointers to NULL
     for (uint8_t sr_down_idx = 0; sr_down_idx < NUM_SR_SCALES + 1; sr_down_idx++) {
         for (uint8_t resize_down_idx = 0; resize_down_idx < NUM_RESIZE_SCALES + 1; resize_down_idx++) {
@@ -371,7 +369,6 @@ EbErrorType svt_tpl_reference_param_update(EbTplReferenceObject *tpl_ref_obj, Se
     ref_pic_buf_desc_init_data.split_mode        = false;
     ref_pic_buf_desc_init_data.mfmv              = 0;
     ref_pic_buf_desc_init_data.is_16bit_pipeline = false;
-    ref_pic_buf_desc_init_data.enc_mode          = scs->static_config.enc_mode;
 
     ref_pic_buf_desc_init_data.rest_units_per_tile = 0;
     ref_pic_buf_desc_init_data.sb_total_count      = scs->sb_total_count;

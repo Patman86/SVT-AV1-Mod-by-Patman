@@ -149,6 +149,8 @@ typedef struct MrpCtrls {
     // 2: on; when each ref list uses <=1 refs, further reduce the number of ref frame buffers because only
     // one base and one layer1 pic are added to the dpb at a time.
     uint8_t ld_reduce_ref_buffs;
+    // When flat rtc structure is used, this is the number of refs to use (from previous consecutive frames)
+    uint8_t flat_max_refs;
 
 } MrpCtrls;
 typedef struct TfControls {
@@ -479,7 +481,7 @@ typedef int16_t InterpKernel[SUBPEL_TAPS];
 #define ROUND_POWER_OF_TWO_SIGNED_64(value, n) \
     (((value) < 0) ? -ROUND_POWER_OF_TWO_64(-(value), (n)) : ROUND_POWER_OF_TWO_64((value), (n)))
 
-#define IS_POWER_OF_TWO(x) (((x) & ((x)-1)) == 0)
+#define IS_POWER_OF_TWO(x) (((x) & ((x) - 1)) == 0)
 
 #ifdef __cplusplus
 #define EB_EXTERN extern "C"
@@ -1172,7 +1174,6 @@ typedef enum ATTRIBUTE_PACKED {
     INTRA_MODES             = PAETH_PRED + 1, // PAETH_PRED has to be the last intra mode.
     INTRA_INVALID           = MB_MODE_COUNT, // For uv_mode in inter blocks
 } PredictionMode;
-
 #define MAX_UPSAMPLE_SZ 16
 
 typedef enum ATTRIBUTE_PACKED {
@@ -1424,8 +1425,6 @@ typedef enum ATTRIBUTE_PACKED {
 #define PRIMARY_REF_BITS 3
 #define PRIMARY_REF_NONE 7
 
-#define NUM_PING_PONG_BUFFERS 2
-
 #define MAX_NUM_TEMPORAL_LAYERS 8
 #define MAX_NUM_SPATIAL_LAYERS 4
 /* clang-format off */
@@ -1435,7 +1434,14 @@ typedef enum ATTRIBUTE_PACKED {
 MAX_NUM_TEMPORAL_LAYERS * MAX_NUM_SPATIAL_LAYERS
 
 static INLINE int32_t is_valid_seq_level_idx(uint8_t seq_level_idx) {
-    return seq_level_idx < 24 || seq_level_idx == 31;
+    return seq_level_idx == 31 ||
+        (seq_level_idx < 24 &&
+        // The following levels are currently undefined.
+        seq_level_idx != 2 && seq_level_idx != 3 &&
+        seq_level_idx != 6 && seq_level_idx != 7 &&
+        seq_level_idx != 10 && seq_level_idx != 11 &&
+        seq_level_idx != 20 && seq_level_idx != 21 &&
+        seq_level_idx != 22 && seq_level_idx != 23);
 }
 
 typedef enum
@@ -1966,7 +1972,8 @@ typedef enum Tune {
     TUNE_PSNR = 1, // Average of (PSNR, SSIM, VMAF)
     TUNE_SSIM = 2, // SSIM-optimized
     TUNE_IQ   = 3, // Image Quality
-    TUNE_FILM_GRAIN = 4 // Film Grain optimized
+    TUNE_MS_SSIM = 4, // MS_SSIM and SSIMULACRA2 optimized
+    TUNE_FILM_GRAIN = 5 // Film Grain optimized
 } Tune;
 
 /*

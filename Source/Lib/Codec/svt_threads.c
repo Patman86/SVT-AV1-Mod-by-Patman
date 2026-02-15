@@ -67,6 +67,7 @@ static void *dummy_func(void *arg) {
     return NULL;
 }
 
+// These can stay with pthread_once_t since this is specific to pthreads implementation
 static pthread_once_t checked_once = PTHREAD_ONCE_INIT;
 static bool           can_use_prio = false;
 
@@ -107,6 +108,7 @@ static void check_set_prio(void) {
         goto end;
     }
     can_use_prio = true;
+    pthread_join(th, NULL);
 end:
     if ((ret = pthread_attr_destroy(&attr))) {
         SVT_WARN("Failed to destroy thread attributes: %s\n", strerror(ret));
@@ -235,7 +237,7 @@ EbErrorType svt_destroy_thread(EbHandle thread_handle) {
     WaitForSingleObject(thread_handle, INFINITE);
     error_return = CloseHandle(thread_handle) ? EB_ErrorNone : EB_ErrorDestroyThreadFailed;
 #else
-    error_return  = pthread_join(*((pthread_t *)thread_handle), NULL) ? EB_ErrorDestroyThreadFailed : EB_ErrorNone;
+    error_return = pthread_join(*((pthread_t *)thread_handle), NULL) ? EB_ErrorDestroyThreadFailed : EB_ErrorNone;
     free(thread_handle);
 #endif // _WIN32
 
@@ -427,7 +429,7 @@ EbErrorType svt_create_cond_var(CondVar *cond_var) {
     return_error = EB_ErrorNone;
 #else
     pthread_mutex_init(&cond_var->m_mutex, NULL);
-    return_error  = pthread_cond_init(&cond_var->m_cond, NULL);
+    return_error = pthread_cond_init(&cond_var->m_cond, NULL);
 
 #endif
     return return_error;
@@ -471,4 +473,12 @@ EbErrorType svt_wait_cond_var(CondVar *cond_var, int32_t input) {
     return_error = pthread_mutex_unlock(&cond_var->m_mutex);
 #endif
     return return_error;
+}
+
+void svt_run_once(OnceType *once_control, OnceFn init_routine) {
+#ifdef _WIN32
+    InitOnceExecuteOnce(once_control, init_routine, NULL, NULL);
+#else
+    pthread_once(once_control, init_routine);
+#endif
 }

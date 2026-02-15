@@ -39,7 +39,6 @@ typedef enum GeomIndex {
     GEOM_10, //128x128->8x8    NSQ:ON (only H, V, H4, V4 shapes)
     GEOM_TOT
 } GeomIndex;
-void svt_aom_build_blk_geom(GeomIndex geom);
 
 typedef struct BlockGeom {
     Part    shape; // P_N..P_V4 . P_S is not used.
@@ -76,7 +75,6 @@ typedef struct BlockGeom {
     uint8_t     totns;
     uint8_t     nsi; // non square index within a partition  0..totns-1
     uint8_t     quadi; // parent square is in which quadrant 0..3
-    GeomIndex   svt_aom_geom_idx; //type of geom this block belongs
     uint8_t     depth; // depth of the block
     uint16_t    d1_depth_offset; // offset to the next d1 sq block
     uint16_t    ns_depth_offset; // offset to the next nsq block (skip remaining d2 blocks)
@@ -84,6 +82,8 @@ typedef struct BlockGeom {
     uint8_t     redund; // 1: means that this block is redundant to another
     BlockList_t redund_list; // the list where the block is redundant
 } BlockGeom;
+
+void svt_aom_build_blk_geom(GeomIndex geom, BlockGeom* blk_geom_table);
 
 static const BlockSize ss_size_lookup[BlockSizeS_ALL][2][2] = {
     //  ss_x == 0    ss_x == 0        ss_x == 1      ss_x == 1
@@ -179,13 +179,13 @@ static const uint32_t blk32_idx_tab[GEOM_TOT - 1][4] = {{1, 22, 43, 64},
                                                         {5, 174, 343, 512},
                                                         {13, 222, 431, 640},
                                                         {25, 294, 563, 832}};
-#ifdef MINIMAL_BUILD
-extern BlockGeom* svt_aom_blk_geom_mds;
-#else
-extern BlockGeom svt_aom_blk_geom_mds[MAX_NUM_BLOCKS_ALLOC];
-#endif
 
-static INLINE const BlockGeom* get_blk_geom_mds(uint32_t bidx_mds) { return &svt_aom_blk_geom_mds[bidx_mds]; }
+static INLINE const BlockGeom* get_blk_geom_mds(const BlockGeom* blk_geom_table, uint32_t bidx_mds) {
+    return &blk_geom_table[bidx_mds];
+}
+uint32_t svt_aom_get_mds_idx(const BlockGeom* blk_geom_table, uint32_t max_block_count, uint32_t orgx, uint32_t orgy,
+                             uint32_t size);
+
 // CU Stats Helper Functions
 typedef struct CodedBlockStats {
     uint8_t depth;
@@ -218,7 +218,7 @@ extern const CodedBlockStats* svt_aom_get_coded_blk_stats(const uint32_t cu_idx)
 #define MEDIAN(a, b, c)                   ((a)>(b)?(a)>?(b)>?(b)::(a):(b)>?(a)>?(a)::(b))
 #define CLIP3(min_val, max_val, a) (((a) < (min_val)) ? (min_val) : (((a) > (max_val)) ? (max_val) : (a)))
 #define CLIP3EQ(min_val, max_val, a) (((a) <= (min_val)) ? (min_val) : (((a) >= (max_val)) ? (max_val) : (a)))
-#define BITDEPTH_MIDRANGE_VALUE(precision) (1 << ((precision)-1))
+#define BITDEPTH_MIDRANGE_VALUE(precision) (1 << ((precision) - 1))
 #define SWAP(a, b)                    \
     MULTI_LINE_MACRO_BEGIN(a) ^= (b); \
     (b) ^= (a);                       \
@@ -231,15 +231,15 @@ extern const CodedBlockStats* svt_aom_get_coded_blk_stats(const uint32_t cu_idx)
 #define POW2(x) (1 << (x))
 #define SIGN(a, b) (((a - b) < 0) ? (-1) : ((a - b) > 0) ? (1) : 0)
 #define ROUND(a) (a >= 0) ? (a + 1 / 2) : (a - 1 / 2);
-#define UNSIGNED_DEC(x)                                    \
-    MULTI_LINE_MACRO_BEGIN(x) = (((x) > 0) ? ((x)-1) : 0); \
+#define UNSIGNED_DEC(x)                                      \
+    MULTI_LINE_MACRO_BEGIN(x) = (((x) > 0) ? ((x) - 1) : 0); \
     MULTI_LINE_MACRO_END
 #define CIRCULAR_ADD(x, max) (((x) >= (max)) ? ((x) - (max)) : ((x) < 0) ? ((max) + (x)) : (x))
 #define CIRCULAR_ADD_UNSIGNED(x, max) (((x) >= (max)) ? ((x) - (max)) : (x))
-#define CEILING(x, base) ((((x) + (base)-1) / (base)) * (base))
+#define CEILING(x, base) ((((x) + (base) - 1) / (base)) * (base))
 #define POW2_CHECK(x) ((x) == ((x) & (-((int32_t)(x)))))
-#define ROUND_UP_MUL_8(x) ((x) + ((8 - ((x)&0x7)) & 0x7))
-#define ROUND_UP_MULT(x, mult) ((x) + (((mult) - ((x) & ((mult)-1))) & ((mult)-1)))
+#define ROUND_UP_MUL_8(x) ((x) + ((8 - ((x) & 0x7)) & 0x7))
+#define ROUND_UP_MULT(x, mult) ((x) + (((mult) - ((x) & ((mult) - 1))) & ((mult) - 1)))
 
 // rounds down to the next power of two
 #define FLOOR_POW2(x)                        \

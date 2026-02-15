@@ -163,7 +163,8 @@ class EncParamTestBase : public ::testing::Test {
 #define DEFINE_PARAM_TEST_CLASS(test_name, param_name)                        \
     class test_name : public EncParamTestBase {                               \
       public:                                                                 \
-        test_name() : EncParamTestBase(#param_name) {}                        \
+        test_name() : EncParamTestBase(#param_name) {                         \
+        }                                                                     \
         virtual void run_default_param_check() override {                     \
             EncParamTestBase::SetUp();                                        \
             ASSERT_EQ(ctxt_.enc_params.param_name,                            \
@@ -291,21 +292,9 @@ PARAM_TEST(EncParamLevelTest);
 DEFINE_PARAM_TEST_CLASS(EncParamOplLevelTest, use_cpu_flags);
 PARAM_TEST(EncParamOplLevelTest);
 
-/** Test case for channel_id*/
-DEFINE_PARAM_TEST_CLASS(EncParamChIdTest, channel_id);
-PARAM_TEST(EncParamChIdTest);
-
-/** Test case for active_channel_count*/
-DEFINE_PARAM_TEST_CLASS(EncParamActiveChCountTest, active_channel_count);
-PARAM_TEST(EncParamActiveChCountTest);
-
 /** Test case for logical_processors*/
 DEFINE_PARAM_TEST_CLASS(EncParamLevelOfParallelismTest, level_of_parallelism);
 PARAM_TEST(EncParamLevelOfParallelismTest);
-
-/** Test case for target_socket*/
-DEFINE_PARAM_TEST_CLASS(EncParamTargetSocketTest, target_socket);
-PARAM_TEST(EncParamTargetSocketTest);
 
 /** Test case for recon_enabled*/
 DEFINE_PARAM_TEST_CLASS(EncParamReconEnabledTest, recon_enabled);

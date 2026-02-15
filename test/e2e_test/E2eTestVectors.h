@@ -131,30 +131,28 @@ typedef struct EncTestSetting {
     std::vector<TestVideoVector> test_vectors;
     std::vector<TestFrameEvent> event_vector;
 
-    EncTestSetting(std::string name_str, EncSetting settings,
-                   std::vector<TestVideoVector> videos) {
-        name = name_str;
-        setting = settings;
-        test_vectors = videos;
+    EncTestSetting(const std::string& name_str, const EncSetting& settings,
+                   const std::vector<TestVideoVector>& videos)
+        : name(name_str), setting(settings), test_vectors(videos) {
     }
 
-    EncTestSetting(std::string name_str, EncSetting settings,
-                   std::vector<TestVideoVector> videos,
-                   std::vector<TestFrameEvent> events) {
-        name = name_str;
-        setting = settings;
-        test_vectors = videos;
-        event_vector = events;
+    EncTestSetting(const std::string& name_str, const EncSetting& settings,
+                   const std::vector<TestVideoVector>& videos,
+                   const std::vector<TestFrameEvent>& events)
+        : name(name_str),
+          setting(settings),
+          test_vectors(videos),
+          event_vector(events) {
     }
 
-    std::string to_string(std::string& fn) const {
+    std::string to_string(const std::string& fn) const {
         std::string str = get_setting_str();
         str += "test vector: ";
         str += fn;
         return str;
     }
 
-    std::string to_cli(TestVideoVector& vector) const {
+    std::string to_cli(const TestVideoVector& vector) const {
         std::string str = "SvtAv1EncApp";
         str += get_vector_cli(vector);
         str += get_setting_cli();
@@ -190,7 +188,7 @@ typedef struct EncTestSetting {
         return -1;
     }
 
-    std::string get_vector_cli(TestVideoVector& vector) const {
+    std::string get_vector_cli(const TestVideoVector& vector) const {
         std::string str;
         append_token(str, "InputFile");
         str += std::get<0>(vector);
@@ -222,7 +220,7 @@ typedef struct EncTestSetting {
         return str;
     }
 
-    std::string get_setting_name() const {
+    const std::string& get_setting_name() const {
         return name;
     }
 
@@ -276,7 +274,7 @@ static inline const std::vector<EncTestSetting> generate_vector_from_config(
             uint32_t frame_count;
 
             sscanf(line,
-                   "%s %d %s %d %d %d %d %d %d",
+                   "%1023s %u %9s %u %u %u %u %u %u",
                    vector_fn,
                    &y4m,
                    color_fmt,

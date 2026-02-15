@@ -33,12 +33,8 @@ Tasks & Questions
 */
 EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock *larget_coding_unit_ptr, uint8_t sb_size_pix,
                                              uint16_t sb_origin_x, uint16_t sb_origin_y, uint16_t sb_index,
-                                             EncMode enc_mode, bool rtc, uint32_t screen_content_mode,
-                                             uint16_t max_block_cnt,
-
-                                             PictureControlSet *picture_control_set)
-
-{
+                                             EncMode enc_mode, bool rtc, uint16_t max_block_cnt, bool allintra,
+                                             ResolutionRange input_resolution, PictureControlSet *picture_control_set) {
     larget_coding_unit_ptr->dctor = svt_aom_largest_coding_unit_dctor;
 
     // ************ SB ***************
@@ -53,34 +49,21 @@ EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock *larget_coding_unit_ptr,
     larget_coding_unit_ptr->index = sb_index;
     bool disallow_sub_8x8_nsq     = true;
     bool disallow_sub_16x16_nsq   = true;
-    for (uint8_t is_base = 0; is_base <= 1; is_base++) {
-        for (uint8_t is_islice = 0; is_islice <= 1; is_islice++) {
-            for (uint8_t coeff_lvl = 0; coeff_lvl <= HIGH_LVL + 1; coeff_lvl++) {
-                const uint8_t nsq_geom_lvl = svt_aom_get_nsq_geom_level(enc_mode, is_base, coeff_lvl, rtc);
-                // nsq_geom_lvl level 0 means NSQ shapes are disallowed so don't adjust based on the level
-                if (nsq_geom_lvl) {
-                    uint8_t allow_HVA_HVB, allow_HV4, min_nsq_bsize;
-                    svt_aom_set_nsq_geom_ctrls(NULL, nsq_geom_lvl, &allow_HVA_HVB, &allow_HV4, &min_nsq_bsize);
-                    if (min_nsq_bsize < 8)
-                        disallow_sub_8x8_nsq = false;
-                    if (min_nsq_bsize < 16)
-                        disallow_sub_16x16_nsq = false;
-                }
-            }
+    for (uint8_t coeff_lvl = 0; coeff_lvl <= HIGH_LVL + 1; coeff_lvl++) {
+        const uint8_t nsq_geom_lvl = svt_aom_get_nsq_geom_level(allintra, input_resolution, enc_mode, coeff_lvl, rtc);
+        // nsq_geom_lvl level 0 means NSQ shapes are disallowed so don't adjust based on the level
+        if (nsq_geom_lvl) {
+            uint8_t allow_HVA_HVB, allow_HV4, min_nsq_bsize;
+            svt_aom_set_nsq_geom_ctrls(NULL, nsq_geom_lvl, &allow_HVA_HVB, &allow_HV4, &min_nsq_bsize);
+            if (min_nsq_bsize < 8)
+                disallow_sub_8x8_nsq = false;
+            if (min_nsq_bsize < 16)
+                disallow_sub_16x16_nsq = false;
         }
     }
-    bool disallow_4x4 = true;
-    for (uint8_t is_islice = 0; is_islice <= 1; is_islice++) {
-        for (uint8_t is_base = 0; is_base <= 1; is_base++) {
-            disallow_4x4 = MIN(disallow_4x4, svt_aom_get_disallow_4x4(enc_mode, is_base));
-        }
-    }
-    bool     disallow_8x8 = svt_aom_get_disallow_8x8(enc_mode,
-                                                 rtc,
-                                                 screen_content_mode,
-                                                 sb_size_pix,
-                                                 picture_control_set->frame_width,
-                                                 picture_control_set->frame_height);
+    bool disallow_4x4 = svt_aom_get_disallow_4x4(enc_mode);
+    bool disallow_8x8 = svt_aom_get_disallow_8x8(
+        enc_mode, allintra, rtc, picture_control_set->frame_width, picture_control_set->frame_height);
     uint32_t tot_blk_num;
     if (sb_size_pix == 128)
         if (disallow_8x8 && disallow_sub_16x16_nsq)

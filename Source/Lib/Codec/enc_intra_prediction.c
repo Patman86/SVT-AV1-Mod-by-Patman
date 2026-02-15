@@ -725,7 +725,7 @@ void svt_av1_predict_intra_block_16bit(
 /** IntraPrediction()
 is the main function to compute intra prediction for a PU
 */
-EbErrorType svt_av1_intra_prediction_cl(
+EbErrorType svt_av1_intra_prediction(
         uint8_t                              hbd_md,
         ModeDecisionContext                  *ctx,
         PictureControlSet                    *pcs,

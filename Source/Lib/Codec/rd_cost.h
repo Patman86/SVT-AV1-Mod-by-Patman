@@ -62,8 +62,9 @@ uint64_t svt_aom_get_tx_size_bits(ModeDecisionCandidateBuffer *candidateBuffer, 
                                   PictureControlSet *pcs, uint8_t tx_depth, bool block_has_coeff);
 
 MvJointType svt_av1_get_mv_joint(const Mv *mv);
-int32_t svt_av1_mv_bit_cost(const Mv *mv, const Mv *ref, const int32_t *mvjcost, int32_t *mvcost[2], int32_t weight);
-int32_t svt_av1_mv_bit_cost_light(const Mv *mv, const Mv *ref);
+int32_t     svt_av1_mv_bit_cost(const Mv *mv, const Mv *ref, const int32_t *mvjcost, const int32_t *const mvcost[2],
+                                int32_t weight);
+int32_t     svt_av1_mv_bit_cost_light(const Mv *mv, const Mv *ref);
 int32_t svt_aom_get_switchable_rate(BlockModeInfo *block_mi, const FrameHeader *const frm_hdr, ModeDecisionContext *ctx,
                                     const bool enable_dual_filter);
 
@@ -84,6 +85,8 @@ static INLINE uint8_t av1_drl_ctx(const CandidateMv *ref_mv_stack, int32_t ref_i
         : ref_mv_stack[ref_idx + 1].weight < REF_CAT_LEVEL ? 2
                                                            : 0;
 }
+// Transform end of block bit estimation
+int get_eob_cost(int eob, const LvMapEobCost *txb_eob_costs, const LvMapCoeffCost *txb_costs, TxClass tx_class);
 #ifdef __cplusplus
 }
 #endif

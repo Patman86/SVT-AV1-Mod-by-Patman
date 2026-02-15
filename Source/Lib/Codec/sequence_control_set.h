@@ -52,7 +52,14 @@ typedef struct QpBasedThScaling {
     bool nic_pruning_qp_based_th_scaling;
     bool pme_qp_based_th_scaling;
     bool txt_qp_based_th_scaling;
+    bool i_depth_removal_qp_based_th_scaling;
+    bool cap_max_size_qp_based_th_scaling;
+    bool var_skip_sub_depth_qp_based_th_scaling;
 } QpBasedThScaling;
+
+// Forward declaration for block geometry
+struct BlockGeom;
+
 /************************************
      * Sequence Control Set
      ************************************/
@@ -103,9 +110,6 @@ typedef struct SequenceControlSet {
     uint8_t use_boundaries_in_rest_search;
     uint8_t enable_pic_mgr_dec_order; // if enabled: pic mgr starts pictures in dec order
     uint8_t enable_dec_order; // if enabled: encoding are in dec order
-    /*!< Use in loop motion OIS
-         Default is 1. */
-    uint8_t in_loop_ois;
     /*!< Allow the usage of motion field motion vector in the stream
         (The signal changes per preset; 0: Enabled, 1: Disabled) Default is 1. */
     uint8_t mfmv_enabled;
@@ -139,11 +143,7 @@ typedef struct SequenceControlSet {
     uint16_t          top_padding;
     uint16_t          right_padding;
     uint16_t          bot_padding;
-#if FIX_FPS_CALC
-    double frame_rate;
-#else
-    uint32_t frame_rate; //stored in Q16
-#endif
+    double            frame_rate;
     uint32_t          encoder_bit_depth;
     EbInputResolution input_resolution;
 
@@ -157,6 +157,8 @@ typedef struct SequenceControlSet {
     uint16_t picture_height_in_sb;
     uint16_t sb_total_count;
     uint16_t max_block_cnt;
+    // Pointer to block geometry table (owned by EbEncHandle)
+    struct BlockGeom *blk_geom_mds;
     /*!< Restoration Unit parameters set for the stream */
     int32_t rest_units_per_tile;
     /*!< Sub picture reagions for picture analysis */
@@ -218,29 +220,25 @@ typedef struct SequenceControlSet {
     uint32_t rest_fifo_init_count;
 
     /*!< Thread count for each process */
-    uint32_t     picture_analysis_process_init_count;
-    uint32_t     motion_estimation_process_init_count;
-    uint32_t     source_based_operations_process_init_count;
-    uint32_t     mode_decision_configuration_process_init_count;
-    uint32_t     enc_dec_process_init_count;
-    uint32_t     entropy_coding_process_init_count;
-    uint32_t     dlf_process_init_count;
-    uint32_t     cdef_process_init_count;
-    uint32_t     rest_process_init_count;
-    uint32_t     tpl_disp_process_init_count;
-    uint32_t     total_process_init_count;
-    int32_t      lap_rc;
-    TWO_PASS     twopass;
-#if FIX_FPS_CALC
+    uint32_t picture_analysis_process_init_count;
+    uint32_t motion_estimation_process_init_count;
+    uint32_t source_based_operations_process_init_count;
+    uint32_t mode_decision_configuration_process_init_count;
+    uint32_t enc_dec_process_init_count;
+    uint32_t entropy_coding_process_init_count;
+    uint32_t dlf_process_init_count;
+    uint32_t cdef_process_init_count;
+    uint32_t rest_process_init_count;
+    uint32_t tpl_disp_process_init_count;
+    uint32_t total_process_init_count;
+    int32_t  lap_rc;
+    TWO_PASS twopass;
     /*!
     * Updated framerate for the current parallel frame.
     * cpi->framerate is updated with new_framerate during
     * post encode updates for parallel frames.
     */
-    double new_framerate;
-#else
-    double double_frame_rate;
-#endif
+    double       new_framerate;
     ScaleFactors sf_identity;
     VqCtrls      vq_ctrls;
     uint8_t      calc_hist;

@@ -56,10 +56,6 @@ extern "C" {
         PictureParentControlSet   *pcs,
         MotionEstimationContext_t *me_context_ptr,
         EbPictureBufferDesc       *input_ptr);
-    extern EbErrorType svt_aom_open_loop_intra_search_mb(
-        PictureParentControlSet *pcs,
-        uint32_t                   b64_index,
-        EbPictureBufferDesc       *input_ptr);
 #define a_b_c  0
 #define a_c_b  1
 #define b_a_c  2
@@ -176,7 +172,7 @@ extern "C" {
     the best SAD+MV
     *******************************************/
     extern void svt_ext_eight_sad_calculation_32x32_64x64_c(
-        uint32_t p_sad16x16[16][8],
+        const uint32_t p_sad16x16[16][8],
         uint32_t *p_best_sad_32x32,
         uint32_t *p_best_sad_64x64,
         uint32_t *p_best_mv32x32,

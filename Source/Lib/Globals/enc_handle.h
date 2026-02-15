@@ -29,33 +29,30 @@ struct _EbThreadContext {
  **************************************/
 struct _EbEncHandle {
     EbDctor dctor;
-    // Encode Instances & Compute Segments
-    uint32_t encode_instance_total_count;
-    uint32_t compute_segments_total_count_array;
     // Full Results Count
     uint32_t scs_pool_total_count;
     // Picture Buffer Count
     uint32_t ref_pic_pool_total_count;
 
     // Config Set Pool & Active Array
-    EbSystemResource             **scs_pool_ptr_array; //*scs_pool_ptr
-    EbSequenceControlSetInstance **scs_instance_array;
+    EbSystemResource             *scs_pool_ptr;
+    EbSequenceControlSetInstance *scs_instance;
 
     // Full Results
-    EbSystemResource **picture_control_set_pool_ptr_array;
+    EbSystemResource *picture_control_set_pool_ptr;
 
-    EbSystemResource **enc_dec_pool_ptr_array;
+    EbSystemResource *enc_dec_pool_ptr;
 
     //ParentControlSet
-    EbSystemResource **picture_parent_control_set_pool_ptr_array;
-    EbSystemResource **me_pool_ptr_array;
+    EbSystemResource *picture_parent_control_set_pool_ptr;
+    EbSystemResource *me_pool_ptr;
     // Picture Buffers
-    EbSystemResource **reference_picture_pool_ptr_array;
-    EbSystemResource **tpl_reference_picture_pool_ptr_array;
-    EbSystemResource **pa_reference_picture_pool_ptr_array;
+    EbSystemResource *reference_picture_pool_ptr;
+    EbSystemResource *tpl_reference_picture_pool_ptr;
+    EbSystemResource *pa_reference_picture_pool_ptr;
 
     // Overlay input picture
-    EbSystemResource **overlay_input_picture_pool_ptr_array;
+    EbSystemResource *overlay_input_picture_pool_ptr;
 
     // Thread Handles
     EbHandle  resource_coordination_thread_handle;
@@ -95,30 +92,29 @@ struct _EbEncHandle {
     EbThreadContext  *packetization_context_ptr;
 
     // System Resource Managers
-    EbSystemResource  *input_buffer_resource_ptr;
-    EbSystemResource  *input_y8b_buffer_resource_ptr;
-    EbSystemResource  *input_cmd_resource_ptr;
-    EbSystemResource **output_stream_buffer_resource_ptr_array;
-    EbSystemResource **output_recon_buffer_resource_ptr_array;
-    EbSystemResource **output_statistics_buffer_resource_ptr_array;
-    EbSystemResource  *resource_coordination_results_resource_ptr;
-    EbSystemResource  *picture_analysis_results_resource_ptr;
-    EbSystemResource  *picture_decision_results_resource_ptr;
-    EbSystemResource  *motion_estimation_results_resource_ptr;
-    EbSystemResource  *initial_rate_control_results_resource_ptr;
-    EbSystemResource  *picture_demux_results_resource_ptr;
-    EbSystemResource  *tpl_disp_res_srm;
-    EbSystemResource  *rate_control_tasks_resource_ptr;
-    EbSystemResource  *rate_control_results_resource_ptr;
-    EbSystemResource  *enc_dec_tasks_resource_ptr;
-    EbSystemResource  *enc_dec_results_resource_ptr;
-    EbSystemResource  *entropy_coding_results_resource_ptr;
-    EbSystemResource  *dlf_results_resource_ptr;
-    EbSystemResource  *cdef_results_resource_ptr;
-    EbSystemResource  *rest_results_resource_ptr;
+    EbSystemResource *input_buffer_resource_ptr;
+    EbSystemResource *input_y8b_buffer_resource_ptr;
+    EbSystemResource *input_cmd_resource_ptr;
+    EbSystemResource *output_stream_buffer_resource_ptr;
+    EbSystemResource *output_recon_buffer_resource_ptr;
+    EbSystemResource *resource_coordination_results_resource_ptr;
+    EbSystemResource *picture_analysis_results_resource_ptr;
+    EbSystemResource *picture_decision_results_resource_ptr;
+    EbSystemResource *motion_estimation_results_resource_ptr;
+    EbSystemResource *initial_rate_control_results_resource_ptr;
+    EbSystemResource *picture_demux_results_resource_ptr;
+    EbSystemResource *tpl_disp_res_srm;
+    EbSystemResource *rate_control_tasks_resource_ptr;
+    EbSystemResource *rate_control_results_resource_ptr;
+    EbSystemResource *enc_dec_tasks_resource_ptr;
+    EbSystemResource *enc_dec_results_resource_ptr;
+    EbSystemResource *entropy_coding_results_resource_ptr;
+    EbSystemResource *dlf_results_resource_ptr;
+    EbSystemResource *cdef_results_resource_ptr;
+    EbSystemResource *rest_results_resource_ptr;
 
     // Callbacks
-    EbCallback **app_callback_ptr_array;
+    EbCallback *app_callback_ptr;
 
     EbFifo *input_buffer_producer_fifo_ptr;
     EbFifo *input_cmd_producer_fifo_ptr;

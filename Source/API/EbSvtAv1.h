@@ -25,9 +25,9 @@ extern "C" {
 struct SvtMetadataArray;
 
 // API Version
-#define SVT_AV1_VERSION_MAJOR 3
-#define SVT_AV1_VERSION_MINOR 1
-#define SVT_AV1_VERSION_PATCHLEVEL 3
+#define SVT_AV1_VERSION_MAJOR 4
+#define SVT_AV1_VERSION_MINOR 0
+#define SVT_AV1_VERSION_PATCHLEVEL 1
 
 #define SVT_AV1_CHECK_VERSION(major, minor, patch)                                                               \
     (SVT_AV1_VERSION_MAJOR > (major) || (SVT_AV1_VERSION_MAJOR == (major) && SVT_AV1_VERSION_MINOR > (minor)) || \
@@ -231,29 +231,6 @@ typedef struct EbColorConfig {
     bool separate_uv_delta_q;
 } EbColorConfig;
 
-typedef struct EbTimingInfo {
-    /*!< Timing info present flag */
-    bool timing_info_present;
-
-    /*!< Number of time units of a clock operating at the frequency time_scale
-     * Hz that corresponds to one increment of a clock tick counter*/
-    uint32_t num_units_in_display_tick;
-
-    /*!< Number of time units that pass in one second*/
-    uint32_t time_scale;
-
-    /*!< Equal to 1 indicates that pictures should be displayed according to
-     * their output order with the number of ticks between two consecutive
-     * pictures specified by num_ticks_per_picture.*/
-    uint8_t equal_picture_interval;
-
-    /*!< Specifies the number of clock ticks corresponding to output time
-     * between two consecutive pictures in the output order.
-     * Range - [0 to (1 << 32) - 2]*/
-    uint32_t num_ticks_per_picture;
-
-} EbTimingInfo;
-
 // structure to be allocated at the sample application and passed to the library
 // on a per picture basis through the p_app_private field in the EbBufferHeaderType structure
 // this structure and the data inside would be casted, validated, then copied at the
@@ -264,17 +241,9 @@ typedef enum {
     REF_FRAME_SCALING_EVENT, // reference frame scaling data per picture
     ROI_MAP_EVENT, // ROI map data per picture
     RES_CHANGE_EVENT, // resolution change data per picture (KF only)
-#if OPT_RATE_ON_THE_FLY_NO_KF
     RATE_CHANGE_EVENT, // Rate change data per picture
-#else
-    RATE_CHANGE_EVENT, // Rate change data per picture (KF only)
-#endif
-#if FTR_FRAME_RATE_ON_THE_FLY
     FRAME_RATE_CHANGE_EVENT, // Frame rate change data per picture
-#endif
-#if FTR_PER_FRAME_QUALITY
     COMPUTE_QUALITY_EVENT, // Compute quality per frame
-#endif
     PRIVATE_DATA_TYPES // end of private data types
 } PrivDataType;
 typedef struct EbPrivDataNode {
@@ -314,20 +283,16 @@ typedef struct SvtAv1RateInfo {
     uint32_t seq_qp;
     uint32_t target_bit_rate;
 } SvtAv1RateInfo;
-#if FTR_FRAME_RATE_ON_THE_FLY
 typedef struct SvtAv1FrameRateInfo {
     // Sequence frame rate which over writes the sequence frame rate.
     uint32_t frame_rate_numerator;
     uint32_t frame_rate_denominator;
 } SvtAv1FrameRateInfo;
-#endif
 
-#if FTR_PER_FRAME_QUALITY
 typedef struct SvtAv1ComputeQualityInfo {
     bool compute_psnr;
     bool compute_ssim;
 } SvtAv1ComputeQualityInfo;
-#endif
 
 /*!\brief Structure containing film grain synthesis parameters for a frame
      *
@@ -426,11 +391,6 @@ typedef uint64_t EbCpuFlags;
 #define EB_CPU_FLAGS_AVX512F (1 << 9)
 #define EB_CPU_FLAGS_AVX512CD (1 << 10)
 #define EB_CPU_FLAGS_AVX512DQ (1 << 11)
-#if !SVT_AV1_CHECK_VERSION(4, 0, 0)
-// Deprecated as they were never used.
-#define EB_CPU_FLAGS_AVX512ER (1 << 12)
-#define EB_CPU_FLAGS_AVX512PF (1 << 13)
-#endif
 #define EB_CPU_FLAGS_AVX512BW (1 << 14)
 #define EB_CPU_FLAGS_AVX512VL (1 << 15)
 // AVX512 extensions supported on Icelake and later (Zen 4 and later on AMD)

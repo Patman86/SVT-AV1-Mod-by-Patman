@@ -34,24 +34,6 @@
 extern "C" {
 #endif // __cplusplus
 
-#define FTR_FRAME_RATE_ON_THE_FLY   1 // Add ability to change frame rate on the fly (without inserting keyframe)
-#define OPT_RATE_ON_THE_FLY_NO_KF   1 // Add ability to change bitrate on the fly without inserting keyframe
-#define FTR_PER_FRAME_QUALITY       1 // Add ability to compute quality for specific frame
-#define FTR_SFRAME_FLEX             1 // Add S-Frame Flexible ARF Mode
-#if FTR_SFRAME_FLEX
-#define FTR_SFRAME_POSI             1 // Add parameter to allow user insert S-Frames by picture number
-#if FTR_SFRAME_POSI
-#define FTR_SFRAME_QP               1 // Add parameter to allow user set QP of S-Frame
-#define FTR_SFRAME_DEC_POSI         1 // New S-Frame mode to insert S-Frames at specific position in decode order
-#endif // FTR_SFRAME_POSI
-#endif // FTR_SFRAME_FLEX
-#define FIX_TUNE_SSIM               1 // Fix SSIM mode
-#define RFCTR_PARSE_LIST            1 // Refactor parameter parsing list and support the range of int8 and uint8
-#define FIX_QUEUE_DEADLOCK          1 // Use min-heap instead of queue to manage out-of-order decode orders
-#define FIX_INTRA_BLUR_QP62         1 // Intra lambda-weight tuning for INTRA frames at high QPs (>=62) to reduce blurriness
-#define FIX_FPS_CALC                1 // Fix frame-rate derivation to handle < 1 fps
-#define FIX_PIC_MGR_HANG            1 // Fix a hang in the picture manager process related to pic processing order
-
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one
 #define DEBUG_TPL               0 // Prints to debug TPL
@@ -69,12 +51,8 @@ extern "C" {
 #define FTR_KF_ON_FLY_SAMPLE         0 // Sample code to signal KF
 #define FTR_RES_ON_FLY_SAMPLE        0 // Sample functions to change the resolution on the fly
 #define FTR_RATE_ON_FLY_SAMPLE       0 // Sample functions to change bit rate
-#if FTR_FRAME_RATE_ON_THE_FLY
 #define FTR_FRAME_RATE_ON_FLY_SAMPLE 0 // Sample functions to change frame rate
-#endif
-#if FTR_PER_FRAME_QUALITY
 #define FTR_PER_FRAME_QUALITY_SAMPLE 0 // Sample functions to compute PSNR per frame
-#endif
 #endif
 // Super-resolution debugging code
 #define DEBUG_SCALING           0

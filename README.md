@@ -19,7 +19,7 @@ Some popular use case examples:
 - Prioritize even further detail retention over artifact prevention (tune VQ):  
   `--tune 0 --crf xx (any, start with 35) --preset x (2 to 6 recommended)`
 - Prioritize film grain retention (tune Film Grain):  
-  `--tune 4 --crf xx (20 to 40 recommended, start with 30) --preset x (2 *HIGHLY* recommended)`
+  `--tune 5 --crf xx (20 to 40 recommended, start with 30) --preset x (2 *HIGHLY* recommended)`
 - Still image coding (tune IQ + AVIF):  
   `--tune 3 --crf xx (any, start with 30) --preset x (2 to 6 recommended) --avif 1`
 
@@ -34,7 +34,7 @@ Unlike its predecesor (SVT-AV1-PSY), SVT-AV1-HDR features a more relaxed develop
 - New versions are only used for source code tagging purposes -- no first-party binaries will be provided
 - Rebases onto SVT-AV1 are only guaranteed on **major** version changes (e.g. 4.0, 5.0, etc.)
 - However, minor or patch version releases might still happen in practice
-- Rebases onto SVT-AV1 don't have any set dates to ensure the integration of SVT-AV1-HDR's features with the mainline code is solid
+- Major releases don't have any set dates to ensure the integration of SVT-AV1-HDR's features with the rebased mainline code is solid
 
 For additional docs (build instructions, documentation, usage, etc.), see the [SVT-AV1 README](README_mainline.md).
 
@@ -46,11 +46,11 @@ For additional docs (build instructions, documentation, usage, etc.), see the [S
 
 A custom curve specifically designed for HDR video and images with a Perceptual Quantizer (PQ) transfer. It can manually be turned on by setting `--variance-boost-curve 3`, or automatically by setting the corresponding CICP value `--transfer-characteristics 16`.
 
-- `Film Grain tune (tune 4)`
+- `Film Grain tune (tune 5)`
 
-An opinionated tune optimized for film grain retention and temporal consistency. The recommended CRF range to use tune 4 is 20 to 40.
+An opinionated tune optimized for film grain retention and temporal consistency. The recommended CRF range to use tune 5 is 20 to 40.
 
-Tune 4 is equivalent to setting these parameters: `--tune 0 --enable-tf 0 --enable-restoration 0 --enable-cdef 0 --complex-hvs 1 --tx-bias 1 --ac-bias 4.00`.
+Tune 5 is equivalent to setting these parameters: `--tune 0 --enable-tf 0 --enable-restoration 0 --enable-cdef 0 --complex-hvs 1 --tx-bias 1 --ac-bias 4.00`.
 
 - `--cdef-scaling` *1 (0.06x) to 30 (2x)*
 
@@ -105,6 +105,12 @@ A new tune, optimized for still images based on SSIMULACRA2 performance on the C
 - `Extended CRF` (**[Merged to Mainline: quarter-step](https://gitlab.com/AOMediaCodec/SVT-AV1/-/merge_requests/2503)**, **[extension to 70](https://gitlab.com/AOMediaCodec/SVT-AV1/-/merge_requests/2522)**)
 
 Provides a more versatile and granular way to set CRF. Range has been extended to 70 (from 63) to help with ultra-low bitrate encodes, and can now be set in quarter-step (0.25) increments.
+
+- `--hbd-mds` *0 to 2*
+
+This setting is short for High Bit Depth - Mode DecisionS. It controls the bit-depth at which internal operations are performed at.
+
+0 follows the default preset behavior, 1 forces 10-bit mode decision for everything, 2 is adaptive 8/10-bit mode decision based on the scenario. Default is 0, following default preset behavior.
 
 - `Presets -2 & -3`
 
@@ -178,6 +184,7 @@ Controls noise detection which disables CDEF/restoration when noise level is hig
 
 SVT-AV1-HDR has different defaults than mainline SVT-AV1 in order to provide better visual fidelity out of the box. They include:
 
+- Set default encoding preset to 4.
 - Default 10-bit color depth when given a 10-bit input.
 - Disable film grain denoising by default, as it often harms visual fidelity. (**[Merged to Mainline](https://gitlab.com/AOMediaCodec/SVT-AV1/-/commit/8b39b41df9e07bbcdbd19ea618762c5db3353c03)**)
 - Enable quantization matrices by default.

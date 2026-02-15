@@ -18,8 +18,7 @@
 /********************************
  * External Function
  ********************************/
-EbErrorType init_encoder(EbConfig *app_cfg, uint32_t instance_idx);
-
-EbErrorType de_init_encoder(EbConfig *app_cfg, uint32_t instance_index);
+EbErrorType init_encoder(EbConfig* app_cfg);
+EbErrorType de_init_encoder(EbConfig* app_cfg);
 
 #endif // EbAppContext_h

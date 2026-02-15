@@ -81,11 +81,11 @@ extern "C" {
         uint32_t   recon_stride,
         uint32_t   area_width,
         uint32_t   area_height);
-    int64_t svt_av1_lowbd_pixel_proj_error_c(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, int32_t xq[2], const SgrParamsType *params);
-    RTCD_EXTERN int64_t(*svt_av1_lowbd_pixel_proj_error)(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, int32_t xq[2], const SgrParamsType *params);
+    int64_t svt_av1_lowbd_pixel_proj_error_c(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, const int32_t xq[2], const SgrParamsType *params);
+    RTCD_EXTERN int64_t(*svt_av1_lowbd_pixel_proj_error)(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, const int32_t xq[2], const SgrParamsType *params);
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
-    int64_t svt_av1_highbd_pixel_proj_error_c(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, int32_t xq[2], const SgrParamsType *params);
-    RTCD_EXTERN int64_t(*svt_av1_highbd_pixel_proj_error)(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, int32_t xq[2], const SgrParamsType *params);
+    int64_t svt_av1_highbd_pixel_proj_error_c(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, const int32_t xq[2], const SgrParamsType *params);
+    RTCD_EXTERN int64_t(*svt_av1_highbd_pixel_proj_error)(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, const int32_t xq[2], const SgrParamsType *params);
 #endif
     void svt_subtract_average_c(int16_t *pred_buf_q3, int32_t width, int32_t height, int32_t round_offset, int32_t num_pel_log2);
     RTCD_EXTERN void(*svt_subtract_average)(int16_t *pred_buf_q3, int32_t width, int32_t height, int32_t round_offset, int32_t num_pel_log2);
@@ -597,10 +597,6 @@ extern "C" {
     RTCD_EXTERN void (*svt_av1_calc_target_weighted_pred_left)(uint8_t is16bit, MacroBlockD* xd, int rel_mi_row, uint8_t nb_mi_height, MbModeInfo* nb_mi, void* fun_ctxt);
     void svt_av1_calc_target_weighted_pred_left_c(uint8_t is16bit, MacroBlockD* xd, int rel_mi_row, uint8_t nb_mi_height, MbModeInfo* nb_mi, void* fun_ctxt);
 #endif // CONFIG_ENABLE_OBMC
-
-    uint32_t hadamard_path_c(Buf2D residualBuf, Buf2D coeffBuf, Buf2D inputBuf, Buf2D predBuf, BlockSize bsize);
-    RTCD_EXTERN uint32_t (*hadamard_path)(Buf2D residual, Buf2D coeff, Buf2D input, Buf2D pred, BlockSize bsize);
-
 #ifdef ARCH_X86_64
     uint32_t svt_aom_sub_pixel_variance128x128_sse2(const uint8_t *src_ptr, int source_stride, int xoffset, int  yoffset, const uint8_t *ref_ptr, int ref_stride, uint32_t *sse);
     uint32_t svt_aom_sub_pixel_variance128x128_ssse3(const uint8_t *src_ptr, int source_stride, int xoffset, int  yoffset, const uint8_t *ref_ptr, int ref_stride, uint32_t *sse);
@@ -875,7 +871,7 @@ extern "C" {
         uint32_t *p_best_mv64x64, uint32_t mv, uint32_t *p_sad32x32);
 
     RTCD_EXTERN void(*svt_ext_all_sad_calculation_8x8_16x16)(uint8_t* src, uint32_t src_stride, uint8_t* ref, uint32_t ref_stride, uint32_t mv, uint32_t* p_best_sad_8x8, uint32_t* p_best_sad_16x16, uint32_t* p_best_mv8x8, uint32_t* p_best_mv16x16, uint32_t p_eight_sad16x16[16][8], uint32_t p_eight_sad8x8[64][8], bool sub_sad);
-    RTCD_EXTERN void(*svt_ext_eight_sad_calculation_32x32_64x64)(uint32_t p_sad16x16[16][8], uint32_t *p_best_sad_32x32, uint32_t *p_best_sad_64x64, uint32_t *p_best_mv32x32, uint32_t *p_best_mv64x64, uint32_t mv, uint32_t p_sad32x32[4][8]);
+    RTCD_EXTERN void(*svt_ext_eight_sad_calculation_32x32_64x64)(const uint32_t p_sad16x16[16][8], uint32_t *p_best_sad_32x32, uint32_t *p_best_sad_64x64, uint32_t *p_best_mv32x32, uint32_t *p_best_mv64x64, uint32_t mv, uint32_t p_sad32x32[4][8]);
     RTCD_EXTERN void(*svt_initialize_buffer_32bits)(uint32_t* pointer, uint32_t count128, uint32_t count32, uint32_t value);
     RTCD_EXTERN uint32_t(*svt_nxm_sad_kernel)(const uint8_t *src, uint32_t src_stride, const uint8_t *ref, uint32_t ref_stride, uint32_t height, uint32_t width);
     RTCD_EXTERN uint32_t(*nxm_sad_avg_kernel)(uint8_t *src, uint32_t src_stride, uint8_t *ref1, uint32_t ref1_stride, uint8_t *ref2, uint32_t ref2_stride, uint32_t height, uint32_t width);
@@ -1289,11 +1285,11 @@ extern "C" {
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
     void svt_aom_highbd_quantize_b_neon(const TranLow *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, TranLow *qcoeff_ptr, TranLow *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan, const QmVal *qm_ptr, const QmVal *iqm_ptr, const int32_t log_scale);
     void svt_av1_highbd_quantize_fp_neon(const TranLow *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, TranLow *qcoeff_ptr, TranLow *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan, int16_t log_scale);
-    int64_t svt_av1_highbd_pixel_proj_error_neon(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, int32_t xq[2], const SgrParamsType *params);
-    int64_t svt_av1_highbd_pixel_proj_error_sve(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, int32_t xq[2], const SgrParamsType *params);
+    int64_t svt_av1_highbd_pixel_proj_error_neon(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, const int32_t xq[2], const SgrParamsType *params);
+    int64_t svt_av1_highbd_pixel_proj_error_sve(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, const int32_t xq[2], const SgrParamsType *params);
 #endif
-    int64_t svt_av1_lowbd_pixel_proj_error_neon(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, int32_t xq[2], const SgrParamsType *params);
-    int64_t svt_av1_lowbd_pixel_proj_error_sve(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, int32_t xq[2], const SgrParamsType *params);
+    int64_t svt_av1_lowbd_pixel_proj_error_neon(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, const int32_t xq[2], const SgrParamsType *params);
+    int64_t svt_av1_lowbd_pixel_proj_error_sve(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, const int32_t xq[2], const SgrParamsType *params);
 
     void svt_subtract_average_neon(int16_t *pred_buf_q3, int32_t width, int32_t height, int32_t round_offset, int32_t num_pel_log2);
 
@@ -1374,7 +1370,7 @@ extern "C" {
     void svt_ext_sad_calculation_32x32_64x64_neon(uint32_t *p_sad16x16, uint32_t *p_best_sad_32x32,
                                                   uint32_t *p_best_sad_64x64, uint32_t *p_best_mv32x32,
                                                   uint32_t *p_best_mv64x64, uint32_t mv, uint32_t *p_sad32x32);
-    void svt_ext_eight_sad_calculation_32x32_64x64_neon(uint32_t p_sad16x16[16][8], uint32_t *p_best_sad_32x32,
+    void svt_ext_eight_sad_calculation_32x32_64x64_neon(const uint32_t p_sad16x16[16][8], uint32_t *p_best_sad_32x32,
                                                         uint32_t *p_best_sad_64x64, uint32_t *p_best_mv32x32,
                                                         uint32_t *p_best_mv64x64, uint32_t mv, uint32_t p_sad32x32[4][8]);
 
@@ -1405,8 +1401,6 @@ extern "C" {
     int8_t svt_av1_wedge_sign_from_residuals_neon(const int16_t *ds, const uint8_t *m, int N, int64_t limit);
     int8_t svt_av1_wedge_sign_from_residuals_sve(const int16_t *ds, const uint8_t *m, int N, int64_t limit);
     void svt_av1_wedge_compute_delta_squares_neon(int16_t *d, const int16_t *a, const int16_t *b, int N);
-    uint32_t hadamard_path_neon(Buf2D residualBuf, Buf2D coeffBuf, Buf2D inputBuf, Buf2D predBuf, BlockSize bsize);
-
     void svt_aom_get_final_filtered_pixels_neon(struct MeContext *me_ctx, EbByte *src_center_ptr_start, uint16_t **altref_buffer_highbd_start, uint32_t **accum, uint16_t **count, const uint32_t *stride, int blk_y_src_offset, int blk_ch_src_offset, uint16_t blk_width_ch, uint16_t blk_height_ch, bool is_highbd);
     void svt_aom_get_final_filtered_pixels_sve(struct MeContext *me_ctx, EbByte *src_center_ptr_start, uint16_t **altref_buffer_highbd_start, uint32_t **accum, uint16_t **count, const uint32_t *stride, int blk_y_src_offset, int blk_ch_src_offset, uint16_t blk_width_ch, uint16_t blk_height_ch, bool is_highbd);
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
@@ -1459,13 +1453,13 @@ extern "C" {
     void svt_av1_compute_stats_highbd_avx512(int32_t wiener_win, const uint8_t *dgd8, const uint8_t *src8, int32_t h_start, int32_t h_end, int32_t v_start, int32_t v_end, int32_t dgd_stride, int32_t src_stride, int64_t *M, int64_t *H, EbBitDepth bit_depth);
 #endif
 
-    int64_t svt_av1_lowbd_pixel_proj_error_sse4_1(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, int32_t xq[2], const SgrParamsType *params);
-    int64_t svt_av1_lowbd_pixel_proj_error_avx2(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, int32_t xq[2], const SgrParamsType *params);
-    int64_t svt_av1_lowbd_pixel_proj_error_avx512(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, int32_t xq[2], const SgrParamsType *params);
+    int64_t svt_av1_lowbd_pixel_proj_error_sse4_1(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, const int32_t xq[2], const SgrParamsType *params);
+    int64_t svt_av1_lowbd_pixel_proj_error_avx2(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, const int32_t xq[2], const SgrParamsType *params);
+    int64_t svt_av1_lowbd_pixel_proj_error_avx512(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, const int32_t xq[2], const SgrParamsType *params);
 
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
-    int64_t svt_av1_highbd_pixel_proj_error_sse4_1(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, int32_t xq[2], const SgrParamsType *params);
-    int64_t svt_av1_highbd_pixel_proj_error_avx2(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, int32_t xq[2], const SgrParamsType *params);
+    int64_t svt_av1_highbd_pixel_proj_error_sse4_1(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, const int32_t xq[2], const SgrParamsType *params);
+    int64_t svt_av1_highbd_pixel_proj_error_avx2(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride, const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, const int32_t xq[2], const SgrParamsType *params);
 #endif
 
     void svt_subtract_average_avx2(int16_t *pred_buf_q3, int32_t width, int32_t height, int32_t round_offset, int32_t num_pel_log2);
@@ -2152,12 +2146,12 @@ void svt_aom_ifft16x16_float_avx2(const float *input, float *temp, float *output
         uint32_t* p_best_mv8x8, uint32_t* p_best_mv16x16,
         uint32_t p_eight_sad16x16[16][8],
         uint32_t p_eight_sad8x8[64][8], bool sub_sad);
-    void svt_ext_eight_sad_calculation_32x32_64x64_sse4_1(uint32_t  p_sad16x16[16][8],
+    void svt_ext_eight_sad_calculation_32x32_64x64_sse4_1(const uint32_t  p_sad16x16[16][8],
         uint32_t *p_best_sad_32x32,
         uint32_t *p_best_sad_64x64,
         uint32_t *p_best_mv32x32, uint32_t *p_best_mv64x64,
         uint32_t mv, uint32_t p_sad32x32[4][8]);
-    void svt_ext_eight_sad_calculation_32x32_64x64_avx2(uint32_t  p_sad16x16[16][8],
+    void svt_ext_eight_sad_calculation_32x32_64x64_avx2(const uint32_t  p_sad16x16[16][8],
         uint32_t *p_best_sad_32x32,
         uint32_t *p_best_sad_64x64,
         uint32_t *p_best_mv32x32, uint32_t *p_best_mv64x64,

@@ -27,9 +27,8 @@ The encoder parameters are listed in this table below along with their
 | **PredStructFile**                 | --pred-struct-file   | any string   | None          | Manual prediction structure file path                                                                             |
 | **Progress**                       | --progress           | [0-2]        | 1             | Verbosity of the output [0: no progress is printed, 1: default output, 2: detailed output]                        |
 | **NoProgress**                     | --no-progress        | [0-1]        | 0             | Do not print out progress [1: `--progress 0`, 0: `--progress 1`]                                                  |
-| **EncoderMode**                    | --preset             | [-1-13]      | 8             | Encoder preset, presets < 0 are for debugging. Higher presets means faster encodes, but with a quality tradeoff   |
+| **EncoderMode**                    | --preset             | [-3-13]      | 4             | Encoder preset, presets < 0 are for research purposes. Higher presets means faster encodes, but with a quality tradeoff |
 | **SvtAv1Params**                   | --svtav1-params      | any string   | None          | Colon-separated list of `key=value` pairs of parameters with keys based on command line options without `--`      |
-|                                    | --nch                | [1-6]        | 1             | Number of channels (library instance) that will be instantiated                                                   |
 
 #### Usage of **SvtAv1Params**
 
@@ -73,10 +72,8 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **StatReport**                   | --enable-stat-report        | [0-1]                          | 0           | Calculates and outputs PSNR SSIM metrics at the end of encoding                                               |
 | **Asm**                          | --asm                       | [0-11, c-max]                  | max         | Limit assembly instruction set [c, mmx, sse, sse2, sse3, ssse3, sse4_1, sse4_2, avx, avx2, avx512, avx512icl, max] for x86 platforms, [c, neon, crc32, neon_dotprod, neon_i8mm, sve, sve2] for Arm platforms. |
 | **LevelOfParallelism**           | --lp                        | [0, 6]                         | 0           | Controls the number of threads to create and the number of picture buffers to allocate (higher level means more parallelism). 0 means choose level based on machine core count. Refer to Appendix A.1 |
-| **PinnedExecution**              | --pin                       | [0-core count of the machine]  | 0           | Pin the execution to the first N cores. [0: no pinning, N: number of cores to pin to]. Refer to Appendix A.1  |
-| **TargetSocket**                 | --ss                        | [-1,1]                         | -1          | Specifies which socket to run on, assumes a max of two equally-sized sockets. Refer to Appendix A.1           |
 | **FastDecode**                   | --fast-decode               | [0,2]                          | 0           | Tune settings to output bitstreams that can be decoded faster, [0 = OFF, 1,2 = levels for decode-targeted optimization (2 yields faster decoder speed)]. Defaults to 5 temporal layers structure but may override with --hierarchical-levels|
-| **Tune**                         | --tune                      | [0-3]                          | 1           | Optimize the encoding process for different desired outcomes [0 = VQ, 1 = PSNR, 2 = SSIM, 3 = IQ (Image Quality), 4 = Film Grain]  |
+| **Tune**                         | --tune                      | [0-5]                          | 1           | Optimize the encoding process for different desired outcomes [0 = VQ, 1 = PSNR, 2 = SSIM, 3 = IQ (Image Quality), 4 = MS_SSIM, 5 = Film Grain] |
 | **AdaptiveFilmGrain**            | --adaptive-film-grain       | [0,1]                          | 1           | Allows film grain synthesis to be sourced from different block sizes depending on resolution                  |
 | **MaxTxSize**                    | --max-tx-size               | [32,64]                        | 64          | Restricts use of block transform sizes to the specified value                                                 |
 | **AltSSIMTuning**                | --alt-ssim-tuning           | [0-1]                          | 0           | Enables the usage of VQ optimizations and an alternative SSIM calculation pathway (Only operates with tune 2) |
@@ -286,7 +283,6 @@ SvtAv1EncApp -i in.y4m -b out.ivf --roi-map-file roi_map.txt
 | **CDEFLevel**                    | --enable-cdef          | [0-1]          | 1           | Enable Constrained Directional Enhancement Filter                                                                                                                     |
 | **CDEFScaling**                  | --cdef-scaling         | [1-30]         | 15          | Controls scaling of the CDEF strength computation                                                                                                                     |
 | **EnableRestoration**            | --enable-restoration   | [0-1]          | 1           | Enable loop restoration filter                                                                                                                                        |
-| **EnableTPLModel**               | --enable-tpl-la        | [0-1]          | 1           | Temporal Dependency model control, currently forced on library side, only applicable for CRF/CQP                                                                      |
 | **Mfmv**                         | --enable-mfmv          | [-1-1]         | -1          | Motion Field Motion Vector control [-1: auto]                                                                                                                         |
 | **EnableTF**                     | --enable-tf            | [0-2]          | 1           | Enable ALT-REF (temporally filtered) frames [0: off, 1: on, 2: adaptive]                                                                                              |
 | **EnableOverlays**               | --enable-overlays      | [0-1]          | 0           | Enable the insertion of overlayer pictures which will be used as an additional reference frame for the base layer picture                                             |
@@ -386,25 +382,19 @@ Other options such as updating the Bitrate and resolution during the encoding se
 
 ### 1. Thread management parameters
 
-`PinnedExecution` (`--pin`) and `TargetSocket` (`--ss`) parameters are used to
-manage thread affinity on Windows and Ubuntu OS. `LogicalProcessors` (`LogicalProcessors`
-is deprecated in v3.0 and replaced with `LevelOfParallelism`; henceforth, the
-documentation will refer to 'LevelOfParallelsim` instead) is used
-to specify how much parallelism is desired; higher levels will create more threads
-and process more pictures in parallel, leading to greater fps but larger memory use.
-These are some examples how you use them together.
-
-If `PinnedExecution` and `TargetSocket` are not set, threads are managed by
-OS thread scheduler. If `LevelOfParallelism` is not set, the amount of parallelism
-(threads/memory) will be decided by the encoder based on the machine's core count.
+`LevelOfParallelism` (previously `LogicalProcessors`, which was deprecated in v3.0
+and replaced with `LevelOfParallelism`) is used to specify how much parallelism is
+desired; higher levels will create more threads and process more pictures in
+parallel, leading to greater fps but larger memory use. If `LevelOfParallelism` is not
+set, the amount of parallelism (threads/memory) will be decided by the encoder based
+on the machine's core count.
 
 `SvtAv1EncApp.exe -i in.yuv -w 3840 -h 2160 --lp 4`
 
-If only `LevelOfParallelism` is set, the OS will determine which processors the job
-will run on. Threads may run on dual sockets. The --lp level does not indicate the
-number of threads targeted, nor does it constrain the encoder to run on a certain number of
-logical processors. The number of threads created and memory used is determined
-by settings in the code (see `load_default_buffer_configuration_settings`).
+The --lp level does not indicate the number of threads targeted, nor does it
+constrain the encoder to run on a certain number of logical processors. The
+number of threads created and memory used is determined by settings in the
+code (see `load_default_buffer_configuration_settings`).
 
 Parallelism is achieved in two ways:
 1. By creating new threads to process pictures and sub-picture blocks (e.g. superblocks)
@@ -416,35 +406,14 @@ and memory at each level. In CRF mode, levels 4 and higher will process extra mi
 as well, leading to higher speed, but much higher memory.  In low-delay mode, only one picture can be
 processed at once, so no extra pictures will be allocated.
 
-`SvtAv1EncApp.exe -i in.yuv -w 3840 -h 2160 --ss 1`
-
-If only `TargetSocket` is set, threads run on all the logical processors of
-socket 1. If '--lp' is not specified with '--ss' the number of threads would
-be decided by the encoder based on the number of available cores on the socket.
-
-`SvtAv1EncApp.exe -i in.yuv -w 3840 -h 2160 --lp 4 --ss 0`
-
-If both `LevelOfParallelism` and `TargetSocket` are set, threads run on socket 0. The number
-of threads created is set in the library, based on the desired level of parallelism.
 
 The `--pin` option allows the user to pin the execution to a specific number of cores, specifically,
 the first N cores, where N is the value passed with `--pin`. If '--lp' is not specified, the default
 parallelism will be based on the N cores available for the process to run, rather than all the cores
 on the machine. If '--lp' is specified, that level of parallelism will be used, regardless of N.
 
-This is an example on how to use `--lp` and `--pin` together.
-
-Setting `--lp 4` with `--pin 4` would restrict the encoder to work on cpu 0-3 and set
-the resource allocation to the amount of threads/memory associated with `--lp 4`. Using
-`--pin 0` with `--lp 4` would result in the same allocation of threads/memory but not
-restrict the encoder to run on cpu 0-3; in this case the encoder may use more than 4 cores
-due to the multi-threading nature of the encoder, but would at least allow for more multiple
-`--lp 4` encodes to run on the same machine without them being all restricted to run on
-cpu 0-3 or overflow the memory usage.
-
-To set cpu affinity beyond the first `--pin` cores, a cpu affinity
-utility such as `taskset` or `numactl` to control could be used to pin execution to
-desired threads.
+To set cpu affinity a cpu affinity utility such as `taskset` or `numactl` to control could be used
+to pin execution to desired threads.
 
 Example:
 
@@ -571,3 +540,48 @@ ffmpeg -y -i in.mp4 \
   out.mp4
 # chroma-sample-position needs to be repeated because it currently isn't set ffmpeg's side
 ```
+
+## Appendix B Psychovisual Parameters
+
+### `--max-tx-size [32,64]`
+`--max-tx-size` allows the encoder to restrict selection of blocks transform sizes up to a maximum size. Valid values are 32 and 64.
+In the AV1 standard, 64-pt transforms have the last 32 highest-frequency coefficients zeroed out during encoding, which means coded blocks can look visually blurry, especially when encoding fine noise-like textures.
+PSNR and SSIM-based RDO metrics don't seem to detect this blurriness, so this setting combats this issue by not allowing 64-pt transforms to be considered in the first place. The result is an overall increase in output quality consistency, especially for still images in the medium to high quality range.
+
+### `--qp-scale-compress-strength [0-3]`
+`--qp-scale-compress-strength` is meant to improve spatio-temporal quality and by design, overall quality consistency. Of course, you trade off mean (average quality) to stddev (consistency).
+The stronger the algorithm strength, the more consistent quality is from keyframe to reference/bidirectional reference frames and other frame types.
+In exchange however, the fewer the opportunities frames can be used as references because they're relatively lower quality than the child frames. Thus, it brings down average performance in most cases (except for one case described further below).
+This parameter allows advanced users to switch between four levels of quantizer compression, compressing quantizer values across all hierarchical/temporal layers inside of a mini GOP.
+
+- **0** disables the feature, the default value.
+
+- **1** is `--qp-scale-compress-strength`, conservatively reducing the QP range used by the encoder. Useful for increasing visual consistency at almost all quality levels with next to no cost.
+
+- **2** is `--qp-scale-compress-strength`, reducing the QP range used by the encoder further. This is useful at higher quality levels where restricting the QP range across layers is more important.
+
+- **3** is `--qp-scale-compress-strength`, is the upper limit that was found useful for general-purpose (not Target Quality) encoding. This is useful at maximum fidelity expectations or when the set CRF/QP is very low. In the latter scenario, the feature can actually improve fidelity.
+
+### `--adaptive-film-grain [0,1]`
+When enabled, the `--adaptive-film-grain` parameter adaptively varies the film grain blocksize based on the resolution of the input video. This often greatly improves the consistency of film grain in the output video, reducing grain patterns.
+Adaptive film grain is enabled by default.
+
+### `--tf-strength [0-4]`
+`--tf-strength` is a parameter that allows users to configure the strength of temporal filtering on alternate reference frames, with an offset for keyframes if using Tune 0 (VQ). Based on the material, this can be perceptually salient.
+
+### `--enable-tf 2`
+`--enable-tf 2` enables experimental adaptive TF strength modulation based on 64x64 block error. This is not always perceptually or metrically salient, but it should provide feature parity with aomenc.
+
+### `--ac-bias [0.0-8.0]`
+`--ac-bias` is an energy-preserving psycho-visual metric that helps increase subjective quality of video. This metric is based on the difference of the "energy" (SATD - SAD) of the source and reconstituted encoded blocks, similar to x264 and x265's implementation. Alternatively, a more lightweight rate adjustment mechanism based on total block "energy" (sum of transformed AC block coefficients) used by the Fast-PD0 and Fast-PD1 code paths is provided.
+
+- **Moderate values** (1.0-1.5) help retain sharpness and acuity of textures and scenes with complex motion.
+
+- **High values** (4.0-6.0, together with disabling temporal filtering and CDEF) can dramatically improve film grain and noise retention.
+
+### `--luminance-qp-bias [0-100]`
+When enabled, the `--luminance-qp-bias` parameter enables frame-level luma bias to improve quality in dark scenes by adjusting frame-level QP based on average luminance across each frame.
+
+### `--sharpness [-7-7]`
+The `--sharpness` parameter allows users to manually configure deblocking loop filter sharpness, and it also affects rate control. It is used in Tune 3 (IQ) and Tune 4 (MS_SSIM), which is designed for still image compression; that being said, it still may be useful for perceptual fidelity in video.
+By default, sharpness is set to 0.

@@ -17,6 +17,10 @@ import time
 from multiprocessing import cpu_count
 
 
+# read spec from very end of file name
+src_re = r"(?P<name>.+)_(?P<width>\d+)x(?P<height>\d+)(?:_(?P<fps>\d+))?"
+
+
 def create_logger(name, path):
     import logging
 
@@ -37,6 +41,10 @@ def create_logger(name, path):
     return logger
 
 
+def delete_file(fpath):
+    if os.path.exists(fpath):
+        os.remove(fpath)
+
 def clean_directory(directory):
     # purge entire dir
     if os.path.isdir(directory):
@@ -50,7 +58,7 @@ def clean_directory(directory):
 
 
 def get_file_desc(fn):
-    pattern = re.compile(r"_(?P<width>\d+)x(?P<height>\d+)(?:_(?P<fps>\d+))?")
+    pattern = re.compile(src_re)
     match = pattern.search(fn)
     if match:
         width = int(match.group("width"))
@@ -60,11 +68,16 @@ def get_file_desc(fn):
     return None, None, None
 
 
+def quality_to_kbps(width, height, fps, quality):
+    if width and height and fps:
+        return int(width * height * fps * 1.5 * 8 / (quality * 1000))
+
+    return 0
+
+
 def get_original_file_name(filename):
     fn, ext = os.path.splitext(filename)
-    pattern = re.compile(
-        r"(?P<name>.+)_(?P<width>\d+)x(?P<height>\d+)(?:_(?P<fps>\d+))?"
-    )
+    pattern = re.compile(src_re)
     match = pattern.search(fn)
     if match:
         name = match.group("name")

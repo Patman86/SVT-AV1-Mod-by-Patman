@@ -22,6 +22,7 @@
 #include "compute_mean.h"
 #include "me_sad_calculation.h"
 #include "pack_unpack_c.h"
+#include "svt_threads.h"
 
 /**************************************
  * Instruction Set Support
@@ -174,7 +175,13 @@
 #define SET_NEON_SVE(ptr, c, neon, sve)                               SET_FUNCTIONS_NEON(ptr, c, neon, 0, sve, 0)
 #endif
 
+// Thread-safe RTCD initialization using lazily-initialized mutex
+DEFINE_ONCE_MUTEX(rtcd_init_mutex);
+
 void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
+    RUN_ONCE_MUTEX(rtcd_init_mutex);
+    svt_block_on_mutex(rtcd_init_mutex);
+
     /* Avoid check that pointer is set double, after first setup. */
     static bool first_call_setup = true;
     bool        check_pointer_was_set = first_call_setup;
@@ -189,7 +196,6 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
 #endif
 
 #if defined ARCH_X86_64
-    SET_ONLY_C(hadamard_path, hadamard_path_c);
     SET_AVX2(svt_aom_sse, svt_aom_sse_c, svt_aom_sse_avx2);
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
     SET_AVX2(svt_aom_highbd_sse, svt_aom_highbd_sse_c, svt_aom_highbd_sse_avx2);
@@ -569,7 +575,6 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
     SET_AVX2(svt_ssim_8x8_hbd, svt_ssim_8x8_hbd_c, svt_ssim_8x8_hbd_avx2);
     SET_AVX2(svt_ssim_4x4_hbd, svt_ssim_4x4_hbd_c, svt_ssim_4x4_hbd_avx2);
 #elif defined ARCH_AARCH64
-    SET_NEON(hadamard_path, hadamard_path_c, hadamard_path_neon);
     SET_NEON_NEON_DOTPROD(svt_aom_sse, svt_aom_sse_c, svt_aom_sse_neon, svt_aom_sse_neon_dotprod);
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
     SET_NEON_SVE(svt_aom_highbd_sse, svt_aom_highbd_sse_c, svt_aom_highbd_sse_neon, svt_aom_highbd_sse_sve);
@@ -951,7 +956,6 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
     SET_ONLY_C(svt_ssim_8x8_hbd, svt_ssim_8x8_hbd_c);
     SET_ONLY_C(svt_ssim_4x4_hbd, svt_ssim_4x4_hbd_c);
 #else
-    SET_ONLY_C(hadamard_path, hadamard_path_c);
     SET_ONLY_C(svt_aom_sse, svt_aom_sse_c);
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
     SET_ONLY_C(svt_aom_highbd_sse, svt_aom_highbd_sse_c);
@@ -1338,5 +1342,6 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
     }
     (void)flags;
 
+    svt_release_mutex(rtcd_init_mutex);
 }
 // clang-format on

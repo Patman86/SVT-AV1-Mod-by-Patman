@@ -55,7 +55,6 @@ static EbErrorType rtime_alloc_palette_tokens(SequenceControlSet *scs, PictureCo
     }
     return EB_ErrorNone;
 }
-#if FIX_QUEUE_DEADLOCK
 // Min-Heap Utilities
 
 // Swap two elements in the heap
@@ -119,7 +118,6 @@ static inline bool heap_push(uint64_t *heap, int *count_io, int capacity, uint64
     *count_io = count + 1;
     return true;
 }
-#endif
 
 extern MvReferenceFrame svt_get_ref_frame_type(uint8_t list, uint8_t ref_idx);
 
@@ -148,19 +146,14 @@ EbErrorType svt_aom_picture_manager_context_ctor(EbThreadContext *thread_ctx, co
     context_ptr->picture_manager_output_fifo_ptr = svt_system_resource_get_producer_fifo(
         enc_handle_ptr->rate_control_tasks_resource_ptr, rate_control_index);
     context_ptr->picture_control_set_fifo_ptr = svt_system_resource_get_producer_fifo(
-        enc_handle_ptr->picture_control_set_pool_ptr_array[0], 0); //The Child PCS Pool here
-    context_ptr->recon_coef_fifo_ptr = svt_system_resource_get_producer_fifo(enc_handle_ptr->enc_dec_pool_ptr_array[0],
+        enc_handle_ptr->picture_control_set_pool_ptr, 0); //The Child PCS Pool here
+    context_ptr->recon_coef_fifo_ptr = svt_system_resource_get_producer_fifo(enc_handle_ptr->enc_dec_pool_ptr,
                                                                              0); //The Child PCS Pool here
 
     context_ptr->consecutive_dec_order = 0;
     EB_MALLOC_ARRAY(context_ptr->started_pics_dec_order, ppcs_count);
-    context_ptr->started_pics_dec_order_size = ppcs_count;
-#if FIX_QUEUE_DEADLOCK
+    context_ptr->started_pics_dec_order_size  = ppcs_count;
     context_ptr->started_pics_dec_order_count = 0;
-#else
-    context_ptr->started_pics_dec_order_head_idx = 0;
-    context_ptr->started_pics_dec_order_tail_idx = 0;
-#endif
     return EB_ErrorNone;
 }
 
@@ -291,8 +284,9 @@ void superres_setup_child_pcs(SequenceControlSet *entry_scs_ptr, PictureParentCo
                                              (uint16_t)sb_index,
                                              child_pcs->enc_mode,
                                              entry_scs_ptr->static_config.rtc,
-                                             entry_scs_ptr->static_config.screen_content_mode,
                                              entry_scs_ptr->max_block_cnt,
+                                             entry_scs_ptr->allintra,
+                                             entry_scs_ptr->input_resolution,
                                              child_pcs);
             // Increment the Order in coding order (Raster Scan Order)
             sb_origin_y = (sb_origin_x == pic_width_in_sb - 1) ? sb_origin_y + 1 : sb_origin_y;
@@ -451,7 +445,7 @@ void *svt_aom_picture_manager_kernel(void *input_ptr) {
                 ref_entry->is_ref                        = pcs->is_ref;
                 ref_entry->decode_order                  = pcs->decode_order;
                 ref_entry->refresh_frame_mask            = pcs->av1_ref_signal.refresh_frame_mask;
-                ref_entry->dec_order_of_last_ref         = pcs->is_ref ? UINT64_MAX : 0;
+                ref_entry->dec_order_of_last_ref         = UINT64_MAX;
                 ref_entry->frame_end_cdf_update_required = pcs->frame_end_cdf_update_mode;
 
                 CHECK_REPORT_ERROR(
@@ -528,9 +522,14 @@ void *svt_aom_picture_manager_kernel(void *input_ptr) {
             continue;
         }
 
+        // When consecutive decode order is updated, we should recheck all available pictures to see if they
+        // can be started. Rechecking all pictures avoids a hang.
+        bool restart_list = false;
         // Check all pics in the input queue and start all ready pictures.  Mark entry as null (invalid) after started.
-        for (uint32_t input_list_idx = 0; input_list_idx < enc_ctx->pic_mgr_input_pic_list_size; input_list_idx++) {
-            input_entry = enc_ctx->pic_mgr_input_pic_list[input_list_idx];
+        for (uint32_t input_list_idx = 0; input_list_idx < enc_ctx->pic_mgr_input_pic_list_size;
+             input_list_idx          = restart_list ? 0 : input_list_idx + 1) {
+            restart_list = false;
+            input_entry  = enc_ctx->pic_mgr_input_pic_list[input_list_idx];
 
             // If list entry invalid/unavailable, check next entry
             if (input_entry->input_object_ptr == NULL)
@@ -570,13 +569,12 @@ void *svt_aom_picture_manager_kernel(void *input_ptr) {
                     ref_entry = search_ref_in_ref_queue(enc_ctx, ref_poc);
 
                     refs_available = (ref_entry == NULL) ? false
-                        : (scs->static_config.rate_control_mode && entry_ppcs->slice_type != I_SLICE &&
-                           entry_ppcs->temporal_layer_index == 0 && !ref_entry->feedback_arrived &&
-                           !enc_ctx->terminating_sequence_flag_received)
+                        : (scs->static_config.rate_control_mode && entry_ppcs->temporal_layer_index == 0 &&
+                           !ref_entry->feedback_arrived && !enc_ctx->terminating_sequence_flag_received)
                         ? false
-                        : (entry_ppcs->frame_end_cdf_update_mode && !ref_entry->frame_context_updated) ? false
-                        : (ref_entry->reference_available) ? true // The Reference has been completed
-                                                           : false; // The Reference has not been completed
+                        : (entry_ppcs->frame_end_cdf_update_mode && !ref_entry->frame_context_updated)
+                        ? false
+                        : ref_entry->reference_available;
                     svt_release_mutex(enc_ctx->ref_pic_list_mutex);
                 }
             }
@@ -662,7 +660,6 @@ void *svt_aom_picture_manager_kernel(void *input_ptr) {
             child_pcs->enc_dec_coded_sb_count = 0;
             child_pcs->hbd_md                 = entry_ppcs->hbd_md;
             context_ptr->pmgr_dec_order       = child_pcs->ppcs->decode_order;
-#if FIX_QUEUE_DEADLOCK
             // Update consecutive_dec_order using the min-heap of pending decode orders.
             // When the next expected picture arrives, consecutive_dec_order is advanced
             // and any immediately following orders are popped from the heap.
@@ -673,7 +670,6 @@ void *svt_aom_picture_manager_kernel(void *input_ptr) {
             if (entry_ppcs->decode_order == context_ptr->consecutive_dec_order + 1) {
                 // Next expected picture arrived
                 context_ptr->consecutive_dec_order++;
-#if FIX_PIC_MGR_HANG
                 // If we update the consecutive_dec_order, then we should check all pictures in the pic_mgr_input_pic_list
                 // to see if they can be started. This is necessary to avoid a hang. Consider the case where picture B is
                 // stored in pic_mgr_input_pic_list in a spot after picture A. It is possible that picture B could be started
@@ -683,8 +679,7 @@ void *svt_aom_picture_manager_kernel(void *input_ptr) {
                 // required by picture A to start. An alternative solution to prevent the hang would be to order pic_mgr_input_pic_list
                 // based on decode order, in which case re-iterating through the list would not be necessary, as the previously
                 // described scenario could not happen.
-                input_list_idx = 0;
-#endif
+                restart_list = true;
                 // Consume consecutive values already waiting in the heap
                 while (*heap_n > 0 && heap_min(decode_order_heap, *heap_n) == context_ptr->consecutive_dec_order + 1) {
                     heap_pop_min(decode_order_heap, heap_n);
@@ -695,44 +690,6 @@ void *svt_aom_picture_manager_kernel(void *input_ptr) {
                 heap_push(
                     decode_order_heap, heap_n, context_ptr->started_pics_dec_order_size, entry_ppcs->decode_order);
             }
-#else
-            // Update the consecutive decode order count, if this picture is the next
-            // picture in decode order. Otherwise, add the picture to the
-            // started_pics_dec_order list so the consecutive decode order count can be
-            // properly updated later.
-            if (entry_ppcs->decode_order == context_ptr->consecutive_dec_order + 1) {
-                context_ptr->consecutive_dec_order++;
-
-                if (context_ptr->started_pics_dec_order_head_idx != context_ptr->started_pics_dec_order_tail_idx) {
-                    for (int idx = context_ptr->started_pics_dec_order_head_idx;
-                         idx != context_ptr->started_pics_dec_order_tail_idx;) {
-                        if (context_ptr->started_pics_dec_order[idx] == context_ptr->consecutive_dec_order + 1) {
-                            context_ptr->consecutive_dec_order++;
-                            idx = context_ptr->started_pics_dec_order_head_idx;
-                        } else {
-                            idx = (idx == context_ptr->started_pics_dec_order_size - 1) ? 0 : idx + 1;
-                        }
-                    }
-
-                    /* clang-format off */
-                    while (context_ptr->started_pics_dec_order_head_idx != context_ptr->started_pics_dec_order_tail_idx &&
-                        context_ptr->started_pics_dec_order[context_ptr->started_pics_dec_order_head_idx] <= context_ptr->consecutive_dec_order) {
-                        context_ptr->started_pics_dec_order_head_idx =
-                            (context_ptr->started_pics_dec_order_head_idx == context_ptr->started_pics_dec_order_size - 1)
-                            ? 0
-                            : context_ptr->started_pics_dec_order_head_idx + 1;
-                    }
-                    /* clang-format on */
-                }
-            } else if (entry_ppcs->decode_order > 0) {
-                context_ptr->started_pics_dec_order[context_ptr->started_pics_dec_order_tail_idx] =
-                    entry_ppcs->decode_order;
-                context_ptr->started_pics_dec_order_tail_idx = (context_ptr->started_pics_dec_order_tail_idx ==
-                                                                context_ptr->started_pics_dec_order_size - 1)
-                    ? 0
-                    : context_ptr->started_pics_dec_order_tail_idx + 1;
-            }
-#endif
             // 3.make all  init for ChildPCS
             uint16_t pic_width_in_sb = (entry_ppcs->aligned_width + entry_scs_ptr->sb_size - 1) /
                 entry_scs_ptr->sb_size;
@@ -768,8 +725,9 @@ void *svt_aom_picture_manager_kernel(void *input_ptr) {
                                                      (uint16_t)sb_index,
                                                      child_pcs->enc_mode,
                                                      scs->static_config.rtc,
-                                                     scs->static_config.screen_content_mode,
                                                      scs->max_block_cnt,
+                                                     scs->allintra,
+                                                     scs->input_resolution,
                                                      child_pcs);
                     // Increment the Order in coding order (Raster Scan Order)
                     sb_origin_y = (sb_origin_x == pic_width_in_sb - 1) ? sb_origin_y + 1 : sb_origin_y;
@@ -915,8 +873,6 @@ void *svt_aom_picture_manager_kernel(void *input_ptr) {
             RateControlTasks *rc_tasks = (RateControlTasks *)out_results_wrapper->object_ptr;
             rc_tasks->pcs_wrapper      = child_pcs->c_pcs_wrapper_ptr;
             rc_tasks->task_type        = RC_INPUT;
-
-            // printf("picMgr sending:%x \n", rc_tasks->pcs_wrapper);
 
             // Post the Full Results Object
             svt_post_full_object(out_results_wrapper);
