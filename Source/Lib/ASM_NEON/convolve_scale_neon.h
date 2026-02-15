@@ -70,8 +70,8 @@ static inline int16x8_t compound_convolve8_8_v(const int16x8_t s0, const int16x8
     return vcombine_s16(res0, res1);
 }
 
-static inline void compound_convolve_vert_scale_8tap_neon(const int16_t *src, int src_stride, uint16_t *dst,
-                                                          int dst_stride, int w, int h, const int16_t *y_filter,
+static inline void compound_convolve_vert_scale_8tap_neon(const int16_t* src, int src_stride, uint16_t* dst,
+                                                          int dst_stride, int w, int h, const int16_t* y_filter,
                                                           int subpel_y_qn, int y_step_qn) {
     const int bd          = 8;
     const int offset_bits = bd + 2 * FILTER_BITS - ROUND0_BITS;
@@ -83,7 +83,7 @@ static inline void compound_convolve_vert_scale_8tap_neon(const int16_t *src, in
 
     if (w == 4) {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
@@ -100,13 +100,13 @@ static inline void compound_convolve_vert_scale_8tap_neon(const int16_t *src, in
         } while (--h != 0);
     } else {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
 
             int       width = w;
-            uint16_t *d     = dst;
+            uint16_t* d     = dst;
 
             do {
                 int16x8_t s0, s1, s2, s3, s4, s5, s6, s7;
@@ -127,9 +127,9 @@ static inline void compound_convolve_vert_scale_8tap_neon(const int16_t *src, in
     }
 }
 
-static inline void compound_avg_convolve_vert_scale_8tap_neon(const int16_t *src, int src_stride, uint8_t *dst8,
-                                                              int dst8_stride, uint16_t *dst16, int dst16_stride, int w,
-                                                              int h, const int16_t *y_filter, int subpel_y_qn,
+static inline void compound_avg_convolve_vert_scale_8tap_neon(const int16_t* src, int src_stride, uint8_t* dst8,
+                                                              int dst8_stride, uint16_t* dst16, int dst16_stride, int w,
+                                                              int h, const int16_t* y_filter, int subpel_y_qn,
                                                               int y_step_qn) {
     const int bd          = 8;
     const int offset_bits = bd + 2 * FILTER_BITS - ROUND0_BITS;
@@ -144,7 +144,7 @@ static inline void compound_avg_convolve_vert_scale_8tap_neon(const int16_t *src
 
     if (w == 4) {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
@@ -169,14 +169,14 @@ static inline void compound_avg_convolve_vert_scale_8tap_neon(const int16_t *src
         } while (--h != 0);
     } else {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
 
             int       width     = w;
-            uint8_t  *dst8_ptr  = dst8;
-            uint16_t *dst16_ptr = dst16;
+            uint8_t*  dst8_ptr  = dst8;
+            uint16_t* dst16_ptr = dst16;
 
             do {
                 int16x8_t s0, s1, s2, s3, s4, s5, s6, s7;
@@ -205,10 +205,10 @@ static inline void compound_avg_convolve_vert_scale_8tap_neon(const int16_t *src
     }
 }
 
-static inline void compound_dist_wtd_convolve_vert_scale_8tap_neon(const int16_t *src, int src_stride, uint8_t *dst8,
-                                                                   int dst8_stride, uint16_t *dst16, int dst16_stride,
-                                                                   int w, int h, const int16_t *y_filter,
-                                                                   ConvolveParams *conv_params, int subpel_y_qn,
+static inline void compound_dist_wtd_convolve_vert_scale_8tap_neon(const int16_t* src, int src_stride, uint8_t* dst8,
+                                                                   int dst8_stride, uint16_t* dst16, int dst16_stride,
+                                                                   int w, int h, const int16_t* y_filter,
+                                                                   ConvolveParams* conv_params, int subpel_y_qn,
                                                                    int y_step_qn) {
     const int bd          = 8;
     const int offset_bits = bd + 2 * FILTER_BITS - ROUND0_BITS;
@@ -229,7 +229,7 @@ static inline void compound_dist_wtd_convolve_vert_scale_8tap_neon(const int16_t
 
     if (w == 4) {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
@@ -257,14 +257,14 @@ static inline void compound_dist_wtd_convolve_vert_scale_8tap_neon(const int16_t
         } while (--h != 0);
     } else {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
 
             int       width     = w;
-            uint8_t  *dst8_ptr  = dst8;
-            uint16_t *dst16_ptr = dst16;
+            uint8_t*  dst8_ptr  = dst8;
+            uint16_t* dst16_ptr = dst16;
 
             do {
                 int16x8_t s0, s1, s2, s3, s4, s5, s6, s7;
@@ -355,8 +355,8 @@ static inline uint8x8_t convolve8_8_v(const int16x8_t s0, const int16x8_t s1, co
     return vqmovun_s16(vcombine_s16(res0, res1));
 }
 
-static inline void convolve_vert_scale_8tap_neon(const int16_t *src, int src_stride, uint8_t *dst, int dst_stride,
-                                                 int w, int h, const int16_t *y_filter, int subpel_y_qn,
+static inline void convolve_vert_scale_8tap_neon(const int16_t* src, int src_stride, uint8_t* dst, int dst_stride,
+                                                 int w, int h, const int16_t* y_filter, int subpel_y_qn,
                                                  int y_step_qn) {
     const int bd          = 8;
     const int offset_bits = bd + 2 * FILTER_BITS - ROUND0_BITS;
@@ -367,7 +367,7 @@ static inline void convolve_vert_scale_8tap_neon(const int16_t *src, int src_str
     int y_qn = subpel_y_qn;
     if (w == 4) {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
@@ -384,7 +384,7 @@ static inline void convolve_vert_scale_8tap_neon(const int16_t *src, int src_str
         } while (--h != 0);
     } else if (w == 8) {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
@@ -401,8 +401,8 @@ static inline void convolve_vert_scale_8tap_neon(const int16_t *src, int src_str
         } while (--h != 0);
     } else {
         do {
-            const int16_t *s     = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
-            uint8_t       *d     = dst;
+            const int16_t* s     = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            uint8_t*       d     = dst;
             int            width = w;
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
@@ -478,8 +478,8 @@ static inline int16x8_t compound_convolve6_8_v(const int16x8_t s0, const int16x8
     return vcombine_s16(res0, res1);
 }
 
-static inline void compound_convolve_vert_scale_6tap_neon(const int16_t *src, int src_stride, uint16_t *dst,
-                                                          int dst_stride, int w, int h, const int16_t *y_filter,
+static inline void compound_convolve_vert_scale_6tap_neon(const int16_t* src, int src_stride, uint16_t* dst,
+                                                          int dst_stride, int w, int h, const int16_t* y_filter,
                                                           int subpel_y_qn, int y_step_qn) {
     const int bd          = 8;
     const int offset_bits = bd + 2 * FILTER_BITS - ROUND0_BITS;
@@ -491,7 +491,7 @@ static inline void compound_convolve_vert_scale_6tap_neon(const int16_t *src, in
 
     if (w == 4) {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
@@ -508,13 +508,13 @@ static inline void compound_convolve_vert_scale_6tap_neon(const int16_t *src, in
         } while (--h != 0);
     } else {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
 
             int       width = w;
-            uint16_t *d     = dst;
+            uint16_t* d     = dst;
 
             do {
                 int16x8_t s0, s1, s2, s3, s4, s5;
@@ -535,9 +535,9 @@ static inline void compound_convolve_vert_scale_6tap_neon(const int16_t *src, in
     }
 }
 
-static inline void compound_avg_convolve_vert_scale_6tap_neon(const int16_t *src, int src_stride, uint8_t *dst8,
-                                                              int dst8_stride, uint16_t *dst16, int dst16_stride, int w,
-                                                              int h, const int16_t *y_filter, int subpel_y_qn,
+static inline void compound_avg_convolve_vert_scale_6tap_neon(const int16_t* src, int src_stride, uint8_t* dst8,
+                                                              int dst8_stride, uint16_t* dst16, int dst16_stride, int w,
+                                                              int h, const int16_t* y_filter, int subpel_y_qn,
                                                               int y_step_qn) {
     const int bd          = 8;
     const int offset_bits = bd + 2 * FILTER_BITS - ROUND0_BITS;
@@ -552,7 +552,7 @@ static inline void compound_avg_convolve_vert_scale_6tap_neon(const int16_t *src
 
     if (w == 4) {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
@@ -577,14 +577,14 @@ static inline void compound_avg_convolve_vert_scale_6tap_neon(const int16_t *src
         } while (--h != 0);
     } else {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
 
             int       width     = w;
-            uint8_t  *dst8_ptr  = dst8;
-            uint16_t *dst16_ptr = dst16;
+            uint8_t*  dst8_ptr  = dst8;
+            uint16_t* dst16_ptr = dst16;
 
             do {
                 int16x8_t s0, s1, s2, s3, s4, s5;
@@ -613,10 +613,10 @@ static inline void compound_avg_convolve_vert_scale_6tap_neon(const int16_t *src
     }
 }
 
-static inline void compound_dist_wtd_convolve_vert_scale_6tap_neon(const int16_t *src, int src_stride, uint8_t *dst8,
-                                                                   int dst8_stride, uint16_t *dst16, int dst16_stride,
-                                                                   int w, int h, const int16_t *y_filter,
-                                                                   ConvolveParams *conv_params, int subpel_y_qn,
+static inline void compound_dist_wtd_convolve_vert_scale_6tap_neon(const int16_t* src, int src_stride, uint8_t* dst8,
+                                                                   int dst8_stride, uint16_t* dst16, int dst16_stride,
+                                                                   int w, int h, const int16_t* y_filter,
+                                                                   ConvolveParams* conv_params, int subpel_y_qn,
                                                                    int y_step_qn) {
     const int bd          = 8;
     const int offset_bits = bd + 2 * FILTER_BITS - ROUND0_BITS;
@@ -637,7 +637,7 @@ static inline void compound_dist_wtd_convolve_vert_scale_6tap_neon(const int16_t
 
     if (w == 4) {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
@@ -665,14 +665,14 @@ static inline void compound_dist_wtd_convolve_vert_scale_6tap_neon(const int16_t
         } while (--h != 0);
     } else {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
 
             int       width     = w;
-            uint8_t  *dst8_ptr  = dst8;
-            uint16_t *dst16_ptr = dst16;
+            uint8_t*  dst8_ptr  = dst8;
+            uint16_t* dst16_ptr = dst16;
 
             do {
                 int16x8_t s0, s1, s2, s3, s4, s5;
@@ -759,8 +759,8 @@ static inline uint8x8_t convolve6_8_v(const int16x8_t s0, const int16x8_t s1, co
     return vqmovun_s16(vcombine_s16(res0, res1));
 }
 
-static inline void convolve_vert_scale_6tap_neon(const int16_t *src, int src_stride, uint8_t *dst, int dst_stride,
-                                                 int w, int h, const int16_t *y_filter, int subpel_y_qn,
+static inline void convolve_vert_scale_6tap_neon(const int16_t* src, int src_stride, uint8_t* dst, int dst_stride,
+                                                 int w, int h, const int16_t* y_filter, int subpel_y_qn,
                                                  int y_step_qn) {
     const int bd          = 8;
     const int offset_bits = bd + 2 * FILTER_BITS - ROUND0_BITS;
@@ -771,7 +771,7 @@ static inline void convolve_vert_scale_6tap_neon(const int16_t *src, int src_str
     int y_qn = subpel_y_qn;
     if (w == 4) {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
@@ -788,7 +788,7 @@ static inline void convolve_vert_scale_6tap_neon(const int16_t *src, int src_str
         } while (--h != 0);
     } else if (w == 8) {
         do {
-            const int16_t *s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            const int16_t* s = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
             const int16x8_t filter        = vld1q_s16(y_filter + filter_offset);
@@ -805,8 +805,8 @@ static inline void convolve_vert_scale_6tap_neon(const int16_t *src, int src_str
         } while (--h != 0);
     } else {
         do {
-            const int16_t *s     = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
-            uint8_t       *d     = dst;
+            const int16_t* s     = &src[(y_qn >> SCALE_SUBPEL_BITS) * src_stride];
+            uint8_t*       d     = dst;
             int            width = w;
 
             const ptrdiff_t filter_offset = SUBPEL_TAPS * ((y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);

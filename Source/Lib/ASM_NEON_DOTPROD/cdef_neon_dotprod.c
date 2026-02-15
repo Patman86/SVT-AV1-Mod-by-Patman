@@ -17,8 +17,8 @@
 #include "definitions.h"
 #include "mem_neon.h"
 
-static inline void mse_4xn_8bit_neon_dotprod(const uint8_t *src, const uint8_t *dst, const int32_t dstride,
-                                             uint32x4_t *sse, uint8_t height, uint8_t subsampling_factor) {
+static inline void mse_4xn_8bit_neon_dotprod(const uint8_t* src, const uint8_t* dst, const int32_t dstride,
+                                             uint32x4_t* sse, uint8_t height, uint8_t subsampling_factor) {
     do {
         const uint8x16_t s = load_u8_4x4(src, 4 * subsampling_factor);
         const uint8x16_t d = load_u8_4x4(dst, dstride * subsampling_factor);
@@ -32,8 +32,8 @@ static inline void mse_4xn_8bit_neon_dotprod(const uint8_t *src, const uint8_t *
     } while (height != 0);
 }
 
-static inline void mse_8xn_8bit_neon_dotprod(const uint8_t *src, const uint8_t *dst, const int32_t dstride,
-                                             uint32x4_t *sse, uint8_t height, uint8_t subsampling_factor) {
+static inline void mse_8xn_8bit_neon_dotprod(const uint8_t* src, const uint8_t* dst, const int32_t dstride,
+                                             uint32x4_t* sse, uint8_t height, uint8_t subsampling_factor) {
     do {
         const uint8x16_t s = vcombine_u8(vld1_u8(src), vld1_u8(src + subsampling_factor * 8));
         const uint8x16_t d = vcombine_u8(vld1_u8(dst), vld1_u8(dst + subsampling_factor * dstride));
@@ -47,8 +47,8 @@ static inline void mse_8xn_8bit_neon_dotprod(const uint8_t *src, const uint8_t *
     } while (height != 0);
 }
 
-uint64_t svt_aom_compute_cdef_dist_8bit_neon_dotprod(const uint8_t *dst8, int32_t dstride, const uint8_t *src8,
-                                                     const CdefList *dlist, int32_t cdef_count, BlockSize bsize,
+uint64_t svt_aom_compute_cdef_dist_8bit_neon_dotprod(const uint8_t* dst8, int32_t dstride, const uint8_t* src8,
+                                                     const CdefList* dlist, int32_t cdef_count, BlockSize bsize,
                                                      int32_t coeff_shift, uint8_t subsampling_factor) {
     uint64_t sum;
     int32_t  bi, bx, by;

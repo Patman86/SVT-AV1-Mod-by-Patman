@@ -25,7 +25,7 @@ typedef struct _CRC32C {
 } CRC32C;
 
 /* Construct table for software CRC-32C calculation. */
-void svt_av1_crc32c_calculator_init(CRC32C *p_crc32c);
+void svt_av1_crc32c_calculator_init(CRC32C* p_crc32c);
 
 // Number of 2x2 pixel blocks per superblock
 // The biggest superblock supported by AV1 is 128x128, therefore there can be

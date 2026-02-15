@@ -21,30 +21,18 @@
 
 #define MINQ_ADJ_LIMIT 48
 #define HIGH_UNDERSHOOT_RATIO 2
-#define CCOEFF_INIT_FACT 2
-#define SAD_CLIP_COEFF 5
-// 88 + 3*16*8
-#define SLICE_HEADER_BITS_NUM 104
-#define RC_PRINTS 0
-#define ADAPTIVE_PERCENTAGE 1
 
-#define RC_QPMOD_MAXQP 54
+// Bits Per MB at different Q (Multiplied by 512)
+#define BPER_MB_NORMBITS 9
+
+#define FRAME_OVERHEAD_BITS 200
 
 // Threshold used to define if a KF group is static (e.g. a slide show).
 // Essentially, this means that no frame in the group has more than 1% of MBs
 // that are not marked as coded with 0,0 motion in the first pass.
 #define STATIC_KF_GROUP_THRESH 99
-#define STATIC_KF_GROUP_FLOAT_THRESH 0.99
 
-// Minimum and maximum height for the new pyramid structure.
-// (Old structure supports height = 1, but does NOT support height = 4).
-#define MIN_PYRAMID_LVL 0
-#define MAX_PYRAMID_LVL 4
-
-#define MIN_GF_INTERVAL 4
 #define MAX_GF_INTERVAL 32
-#define FIXED_GF_INTERVAL 8 // Used in some testing modes only
-#define MAX_GF_LENGTH_LAP 16
 #define MAX_ARF_LAYERS 6
 
 typedef enum rate_factor_level {
@@ -56,11 +44,13 @@ typedef enum rate_factor_level {
     KF_STD             = 5,
     RATE_FACTOR_LEVELS = 6
 } rate_factor_level;
+
 #define CODED_FRAMES_STAT_QUEUE_MAX_DEPTH 2000
 // max bit rate average period
 #define MAX_RATE_AVG_PERIOD (CODED_FRAMES_STAT_QUEUE_MAX_DEPTH >> 1)
 #define CRITICAL_BUFFER_LEVEL 15
 #define OPTIMAL_BUFFER_LEVEL 70
+
 /**************************************
  * Coded Frames Stats
  **************************************/
@@ -93,8 +83,9 @@ typedef struct {
     uint8_t      resize_denom;
 } ResizePendingParams;
 
-extern EbErrorType svt_aom_rate_control_coded_frames_stats_context_ctor(coded_frames_stats_entry *entry_ptr,
-                                                                        uint64_t                  picture_number);
+EbErrorType svt_aom_rate_control_coded_frames_stats_context_ctor(coded_frames_stats_entry* entry_ptr,
+                                                                 uint64_t                  picture_number);
+
 typedef struct {
     int     last_boosted_qindex; // Last boosted GF/KF/ARF q
     int     gfu_boost;
@@ -158,12 +149,8 @@ typedef struct {
 
     // gop bit budget
     int64_t gf_group_bits;
-    // Total number of stats used only for gfu_boost calculation.
-    int num_stats_used_for_gfu_boost;
-    // Total number of stats required by gfu_boost calculation.
-    int num_stats_required_for_gfu_boost;
     // Rate Control stat Queue
-    coded_frames_stats_entry **coded_frames_stat_queue;
+    coded_frames_stats_entry** coded_frames_stat_queue;
     uint32_t                   coded_frames_stat_queue_head_index;
     uint32_t                   coded_frames_stat_queue_tail_index;
 
@@ -212,10 +199,12 @@ typedef enum PicMgrInputPortTypes {
     PIC_MGR_INPUT_PORT_TOTAL_COUNT   = 3,
     PIC_MGR_INPUT_PORT_INVALID       = ~0,
 } PicMgrInputPortTypes;
+
 typedef struct PicMgrPorts {
     PicMgrInputPortTypes type;
     uint32_t             count;
 } PicMgrPorts;
+
 /**************************************
  * Context
  **************************************/
@@ -226,22 +215,22 @@ typedef struct PicMgrPorts {
 int32_t svt_av1_convert_qindex_to_q_fp8(int32_t qindex, EbBitDepth bit_depth);
 double  svt_av1_convert_qindex_to_q(int32_t qindex, EbBitDepth bit_depth);
 double  svt_av1_get_gfu_boost_projection_factor(double min_factor, double max_factor, int frame_count);
-void    svt_av1_normalize_sb_delta_q(struct PictureControlSet *pcs);
+void    svt_av1_normalize_sb_delta_q(struct PictureControlSet* pcs);
 
-EbErrorType svt_aom_rate_control_context_ctor(EbThreadContext *thread_ctx, const EbEncHandle *enc_handle_ptr,
+EbErrorType svt_aom_rate_control_context_ctor(EbThreadContext* thread_ctx, const EbEncHandle* enc_handle_ptr,
                                               int me_port_index);
 
-extern void *svt_aom_rate_control_kernel(void *input_ptr);
-int svt_aom_compute_rd_mult_based_on_qindex(EbBitDepth bit_depth, SvtAv1FrameUpdateType update_type, int qindex);
+void* svt_aom_rate_control_kernel(void* input_ptr);
+int   svt_aom_compute_rd_mult_based_on_qindex(EbBitDepth bit_depth, SvtAv1FrameUpdateType update_type, int qindex);
 struct PictureControlSet;
-int  svt_aom_compute_rd_mult(struct PictureControlSet *pcs, uint8_t q_index, uint8_t me_q_index, uint8_t bit_depth);
-int  svt_aom_compute_fast_lambda(struct PictureControlSet *pcs, uint8_t q_index, uint8_t me_q_index, uint8_t bit_depth);
-void svt_aom_lambda_assign(struct PictureControlSet *pcs, uint32_t *fast_lambda, uint32_t *full_lambda,
+int  svt_aom_compute_rd_mult(struct PictureControlSet* pcs, uint8_t q_index, uint8_t me_q_index, uint8_t bit_depth);
+int  svt_aom_compute_fast_lambda(struct PictureControlSet* pcs, uint8_t q_index, uint8_t me_q_index, uint8_t bit_depth);
+void svt_aom_lambda_assign(struct PictureControlSet* pcs, uint32_t* fast_lambda, uint32_t* full_lambda,
                            uint8_t bit_depth, uint16_t qp_index, bool multiply_lambda);
 struct PictureParentControlSet;
-void svt_aom_cyclic_refresh_init(struct PictureParentControlSet *ppcs);
-void recode_loop_update_q(struct PictureParentControlSet *ppcs, bool *const loop, int *const q, int *const q_low,
-                          int *const q_high, const int top_index, const int bottom_index, int *const undershoot_seen,
-                          int *const overshoot_seen, int *const low_cr_seen, const int loop_count);
+void svt_aom_cyclic_refresh_init(struct PictureParentControlSet* ppcs);
+void recode_loop_update_q(struct PictureParentControlSet* ppcs, bool* const loop, int* const q, int* const q_low,
+                          int* const q_high, const int top_index, const int bottom_index, int* const undershoot_seen,
+                          int* const overshoot_seen, int* const low_cr_seen, const int loop_count);
 
 #endif // EbRateControl_h

@@ -240,44 +240,44 @@ DECLARE_ALIGNED(16, static const int16_t, two_edge_neighbors_plus4[8]) = {NEIGHB
                                                                           NEIGHBOR_CONSTANT_13,
                                                                           NEIGHBOR_CONSTANT_10};
 
-static const int16_t *const luma_left_column_neighbors[2] = {left_corner_neighbors_plus2, left_edge_neighbors_plus2};
+static const int16_t* const luma_left_column_neighbors[2] = {left_corner_neighbors_plus2, left_edge_neighbors_plus2};
 
-static const int16_t *const luma_middle_column_neighbors[2] = {middle_edge_neighbors_plus2,
+static const int16_t* const luma_middle_column_neighbors[2] = {middle_edge_neighbors_plus2,
                                                                middle_center_neighbors_plus2};
 
-static const int16_t *const luma_right_column_neighbors[2] = {right_corner_neighbors_plus2, right_edge_neighbors_plus2};
+static const int16_t* const luma_right_column_neighbors[2] = {right_corner_neighbors_plus2, right_edge_neighbors_plus2};
 
-static const int16_t *const chroma_no_ss_left_column_neighbors[2] = {left_corner_neighbors_plus1,
+static const int16_t* const chroma_no_ss_left_column_neighbors[2] = {left_corner_neighbors_plus1,
                                                                      left_edge_neighbors_plus1};
 
-static const int16_t *const chroma_no_ss_middle_column_neighbors[2] = {middle_edge_neighbors_plus1,
+static const int16_t* const chroma_no_ss_middle_column_neighbors[2] = {middle_edge_neighbors_plus1,
                                                                        middle_center_neighbors_plus1};
 
-static const int16_t *const chroma_no_ss_right_column_neighbors[2] = {right_corner_neighbors_plus1,
+static const int16_t* const chroma_no_ss_right_column_neighbors[2] = {right_corner_neighbors_plus1,
                                                                       right_edge_neighbors_plus1};
 
-static const int16_t *const chroma_single_ss_left_column_neighbors[2] = {left_corner_neighbors_plus2,
+static const int16_t* const chroma_single_ss_left_column_neighbors[2] = {left_corner_neighbors_plus2,
                                                                          left_edge_neighbors_plus2};
 
-static const int16_t *const chroma_single_ss_middle_column_neighbors[2] = {middle_edge_neighbors_plus2,
+static const int16_t* const chroma_single_ss_middle_column_neighbors[2] = {middle_edge_neighbors_plus2,
                                                                            middle_center_neighbors_plus2};
 
-static const int16_t *const chroma_single_ss_right_column_neighbors[2] = {right_corner_neighbors_plus2,
+static const int16_t* const chroma_single_ss_right_column_neighbors[2] = {right_corner_neighbors_plus2,
                                                                           right_edge_neighbors_plus2};
 
-static const int16_t *const chroma_single_ss_single_column_neighbors[2] = {two_corner_neighbors_plus2,
+static const int16_t* const chroma_single_ss_single_column_neighbors[2] = {two_corner_neighbors_plus2,
                                                                            two_edge_neighbors_plus2};
 
-static const int16_t *const chroma_double_ss_left_column_neighbors[2] = {left_corner_neighbors_plus4,
+static const int16_t* const chroma_double_ss_left_column_neighbors[2] = {left_corner_neighbors_plus4,
                                                                          left_edge_neighbors_plus4};
 
-static const int16_t *const chroma_double_ss_middle_column_neighbors[2] = {middle_edge_neighbors_plus4,
+static const int16_t* const chroma_double_ss_middle_column_neighbors[2] = {middle_edge_neighbors_plus4,
                                                                            middle_center_neighbors_plus4};
 
-static const int16_t *const chroma_double_ss_right_column_neighbors[2] = {right_corner_neighbors_plus4,
+static const int16_t* const chroma_double_ss_right_column_neighbors[2] = {right_corner_neighbors_plus4,
                                                                           right_edge_neighbors_plus4};
 
-static const int16_t *const chroma_double_ss_single_column_neighbors[2] = {two_corner_neighbors_plus4,
+static const int16_t* const chroma_double_ss_single_column_neighbors[2] = {two_corner_neighbors_plus4,
                                                                            two_edge_neighbors_plus4};
 
 #define HIGHBD_NEIGHBOR_CONSTANT_4 (uint32_t)3221225472U
@@ -344,40 +344,40 @@ DECLARE_ALIGNED(16, static const uint32_t, high_middle_edge_neighbors_plus_4[4])
 DECLARE_ALIGNED(16, static const uint32_t, highbd_middle_center_neighbors_plus_4[4]) = {
     HIGHBD_NEIGHBOR_CONSTANT_13, HIGHBD_NEIGHBOR_CONSTANT_13, HIGHBD_NEIGHBOR_CONSTANT_13, HIGHBD_NEIGHBOR_CONSTANT_13};
 
-static const uint32_t *const highbd_luma_left_column_neighbors[2] = {highbd_left_corner_neighbours_plus_2,
+static const uint32_t* const highbd_luma_left_column_neighbors[2] = {highbd_left_corner_neighbours_plus_2,
                                                                      highbd_left_edge_neighbours_plus_2};
 
-static const uint32_t *const highbd_luma_middle_column_neighbors[2] = {high_middle_edge_neighbors_plus_2,
+static const uint32_t* const highbd_luma_middle_column_neighbors[2] = {high_middle_edge_neighbors_plus_2,
                                                                        highbd_middle_center_neighbors_plus_2};
 
-static const uint32_t *const highbd_luma_right_column_neighbors[2] = {highbd_right_corner_neighbors_plus_2,
+static const uint32_t* const highbd_luma_right_column_neighbors[2] = {highbd_right_corner_neighbors_plus_2,
                                                                       highbd_right_edge_neighbors_plus_2};
 
-static const uint32_t *const highbd_chroma_no_ss_left_column_neighbors[2] = {highbd_left_corner_neighbours_plus_1,
+static const uint32_t* const highbd_chroma_no_ss_left_column_neighbors[2] = {highbd_left_corner_neighbours_plus_1,
                                                                              highbd_left_edge_neighbours_plus_1};
 
-static const uint32_t *const highbd_chroma_no_ss_middle_column_neighbors[2] = {high_middle_edge_neighbors_plus_1,
+static const uint32_t* const highbd_chroma_no_ss_middle_column_neighbors[2] = {high_middle_edge_neighbors_plus_1,
                                                                                highbd_middle_center_neighbors_plus_1};
 
-static const uint32_t *const highbd_chroma_no_ss_right_column_neighbors[2] = {highbd_right_corner_neighbors_plus_1,
+static const uint32_t* const highbd_chroma_no_ss_right_column_neighbors[2] = {highbd_right_corner_neighbors_plus_1,
                                                                               highbd_right_edge_neighbors_plus_1};
 
-static const uint32_t *const highbd_chroma_single_ss_left_column_neighbors[2] = {highbd_left_corner_neighbours_plus_2,
+static const uint32_t* const highbd_chroma_single_ss_left_column_neighbors[2] = {highbd_left_corner_neighbours_plus_2,
                                                                                  highbd_left_edge_neighbours_plus_2};
 
-static const uint32_t *const highbd_chroma_single_ss_middle_column_neighbors[2] = {
+static const uint32_t* const highbd_chroma_single_ss_middle_column_neighbors[2] = {
     high_middle_edge_neighbors_plus_2, highbd_middle_center_neighbors_plus_2};
 
-static const uint32_t *const highbd_chroma_single_ss_right_column_neighbors[2] = {highbd_right_corner_neighbors_plus_2,
+static const uint32_t* const highbd_chroma_single_ss_right_column_neighbors[2] = {highbd_right_corner_neighbors_plus_2,
                                                                                   highbd_right_edge_neighbors_plus_2};
 
-static const uint32_t *const highbd_chroma_double_ss_left_column_neighbors[2] = {highbd_left_corner_neighbours_plus_4,
+static const uint32_t* const highbd_chroma_double_ss_left_column_neighbors[2] = {highbd_left_corner_neighbours_plus_4,
                                                                                  highbd_left_edge_neighbours_plus_4};
 
-static const uint32_t *const highbd_chroma_double_ss_middle_column_neighbors[2] = {
+static const uint32_t* const highbd_chroma_double_ss_middle_column_neighbors[2] = {
     high_middle_edge_neighbors_plus_4, highbd_middle_center_neighbors_plus_4};
 
-static const uint32_t *const highbd_chroma_double_ss_right_column_neighbors[2] = {highbd_right_corner_neighbors_plus_4,
+static const uint32_t* const highbd_chroma_double_ss_right_column_neighbors[2] = {highbd_right_corner_neighbors_plus_4,
                                                                                   highbd_right_edge_neighbors_plus_4};
 
 #define DIST_STRIDE ((BW) + 2)

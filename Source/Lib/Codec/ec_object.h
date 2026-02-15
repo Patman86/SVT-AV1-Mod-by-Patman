@@ -39,9 +39,9 @@ typedef struct EntropyTileInfo {
     bool          entropy_coding_tile_done;
 } EntropyTileInfo;
 
-extern EbErrorType svt_aom_entropy_tile_info_ctor(EntropyTileInfo* entropy_tile_info_ptr, uint32_t buf_size);
+EbErrorType svt_aom_entropy_tile_info_ctor(EntropyTileInfo* entropy_tile_info_ptr, uint32_t buf_size);
 
-extern EbErrorType svt_aom_bitstream_ctor(Bitstream* bitstream_ptr, uint32_t buffer_size);
+EbErrorType svt_aom_bitstream_ctor(Bitstream* bitstream_ptr, uint32_t buffer_size);
 
 void svt_aom_bitstream_reset(Bitstream* bitstream_ptr);
 
@@ -50,7 +50,7 @@ int svt_aom_bitstream_get_bytes_count(const Bitstream* bitstream_ptr);
 // copy size bytes from bistream_ptr to dst
 void svt_aom_bitstream_copy(const Bitstream* bitstream_ptr, void* dest, int size);
 
-extern EbErrorType svt_aom_entropy_coder_ctor(EntropyCoder* ec, uint32_t buffer_size);
+EbErrorType svt_aom_entropy_coder_ctor(EntropyCoder* ec, uint32_t buffer_size);
 
 #ifdef __cplusplus
 }

@@ -28,7 +28,7 @@ struct ReferenceQueueEntry; // empty struct definition
 
 typedef struct InputQueueEntry {
     EbDctor          dctor;
-    EbObjectWrapper *input_object_ptr;
+    EbObjectWrapper* input_object_ptr;
     uint32_t         use_count;
     bool             memory_mgmt_loop_done;
     bool             rate_control_loop_done;
@@ -43,7 +43,7 @@ typedef struct ReferenceQueueEntry {
 
     uint64_t         picture_number;
     uint64_t         decode_order;
-    EbObjectWrapper *reference_object_ptr;
+    EbObjectWrapper* reference_object_ptr;
     bool             release_enable;
     bool             reference_available;
     bool             is_ref;
@@ -61,9 +61,9 @@ typedef struct ReferenceQueueEntry {
     bool is_valid;
 } ReferenceQueueEntry;
 
-extern EbErrorType svt_aom_input_queue_entry_ctor(InputQueueEntry *entry_ptr);
+EbErrorType svt_aom_input_queue_entry_ctor(InputQueueEntry* entry_ptr);
 
-extern EbErrorType svt_aom_reference_queue_entry_ctor(ReferenceQueueEntry *entry_ptr);
+EbErrorType svt_aom_reference_queue_entry_ctor(ReferenceQueueEntry* entry_ptr);
 
 #ifdef __cplusplus
 }

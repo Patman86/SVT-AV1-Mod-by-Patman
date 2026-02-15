@@ -17,14 +17,14 @@
 #include "mem_neon.h"
 #include "motion_estimation.h" //svt_aom_downsample_2d_c()
 
-void svt_av1_txb_init_levels_neon(const TranLow *const coeff, const int32_t width, const int32_t height,
-                                  uint8_t *const levels) {
+void svt_av1_txb_init_levels_neon(const TranLow* const coeff, const int32_t width, const int32_t height,
+                                  uint8_t* const levels) {
     const int32_t   stride = width + TX_PAD_HOR;
     const int32x4_t zeros  = vdupq_n_s32(0);
     int32_t         i      = 0;
     int32_t         j      = 0;
-    uint8_t        *ls     = levels;
-    const TranLow  *cf     = coeff;
+    uint8_t*        ls     = levels;
+    const TranLow*  cf     = coeff;
 
     svt_memset(levels - TX_PAD_TOP * stride, 0, sizeof(*levels) * TX_PAD_TOP * stride);
     svt_memset(levels + stride * height, 0, sizeof(*levels) * (TX_PAD_BOTTOM * stride + TX_PAD_END));
@@ -73,7 +73,7 @@ void svt_av1_txb_init_levels_neon(const TranLow *const coeff, const int32_t widt
                 j += 16;
                 cf += 16;
             } while (j < width);
-            *(int32_t *)(ls + width) = 0;
+            *(int32_t*)(ls + width) = 0;
             ls += stride;
             i += 1;
         } while (i < height);
@@ -176,26 +176,28 @@ static const DECLARE_ALIGNED(16, uint8_t, c_16_po_ver[16]) = {SIG_COEF_CONTEXTS_
 
 /* end of coefficients declaration area */
 
-static inline uint8x16_t load_8bit_4x4_to_1_reg(const uint8_t *const src, const int byte_stride) {
-    uint32x4_t v_data = vld1q_u32((uint32_t *)src);
-    v_data            = vld1q_lane_u32((uint32_t *)(src + 1 * byte_stride), v_data, 1);
-    v_data            = vld1q_lane_u32((uint32_t *)(src + 2 * byte_stride), v_data, 2);
-    v_data            = vld1q_lane_u32((uint32_t *)(src + 3 * byte_stride), v_data, 3);
+static inline uint8x16_t load_8bit_4x4_to_1_reg(const uint8_t* const src, const int byte_stride) {
+    uint32x4_t v_data = vld1q_u32((uint32_t*)src);
+    v_data            = vld1q_lane_u32((uint32_t*)(src + 1 * byte_stride), v_data, 1);
+    v_data            = vld1q_lane_u32((uint32_t*)(src + 2 * byte_stride), v_data, 2);
+    v_data            = vld1q_lane_u32((uint32_t*)(src + 3 * byte_stride), v_data, 3);
 
     return vreinterpretq_u8_u32(v_data);
 }
 
-static inline uint8x16_t load_8bit_8x2_to_1_reg(const uint8_t *const src, const int byte_stride) {
-    uint64x2_t v_data = vld1q_u64((uint64_t *)src);
-    v_data            = vld1q_lane_u64((uint64_t *)(src + 1 * byte_stride), v_data, 1);
+static inline uint8x16_t load_8bit_8x2_to_1_reg(const uint8_t* const src, const int byte_stride) {
+    uint64x2_t v_data = vld1q_u64((uint64_t*)src);
+    v_data            = vld1q_lane_u64((uint64_t*)(src + 1 * byte_stride), v_data, 1);
 
     return vreinterpretq_u8_u64(v_data);
 }
 
-static inline uint8x16_t load_8bit_16x1_to_1_reg(const uint8_t *const src) { return vld1q_u8(src); }
+static inline uint8x16_t load_8bit_16x1_to_1_reg(const uint8_t* const src) {
+    return vld1q_u8(src);
+}
 
-static inline void load_levels_4x4x5(const uint8_t *const src, const int stride, const ptrdiff_t *const offsets,
-                                     uint8x16_t *const level) {
+static inline void load_levels_4x4x5(const uint8_t* const src, const int stride, const ptrdiff_t* const offsets,
+                                     uint8x16_t* const level) {
     level[0] = load_8bit_4x4_to_1_reg(&src[1], stride);
     level[1] = load_8bit_4x4_to_1_reg(&src[stride], stride);
     level[2] = load_8bit_4x4_to_1_reg(&src[offsets[0]], stride);
@@ -203,8 +205,8 @@ static inline void load_levels_4x4x5(const uint8_t *const src, const int stride,
     level[4] = load_8bit_4x4_to_1_reg(&src[offsets[2]], stride);
 }
 
-static inline void load_levels_8x2x5(const uint8_t *const src, const int stride, const ptrdiff_t *const offsets,
-                                     uint8x16_t *const level) {
+static inline void load_levels_8x2x5(const uint8_t* const src, const int stride, const ptrdiff_t* const offsets,
+                                     uint8x16_t* const level) {
     level[0] = load_8bit_8x2_to_1_reg(&src[1], stride);
     level[1] = load_8bit_8x2_to_1_reg(&src[stride], stride);
     level[2] = load_8bit_8x2_to_1_reg(&src[offsets[0]], stride);
@@ -212,8 +214,8 @@ static inline void load_levels_8x2x5(const uint8_t *const src, const int stride,
     level[4] = load_8bit_8x2_to_1_reg(&src[offsets[2]], stride);
 }
 
-static inline void load_levels_16x1x5(const uint8_t *const src, const int stride, const ptrdiff_t *const offsets,
-                                      uint8x16_t *const level) {
+static inline void load_levels_16x1x5(const uint8_t* const src, const int stride, const ptrdiff_t* const offsets,
+                                      uint8x16_t* const level) {
     level[0] = load_8bit_16x1_to_1_reg(&src[1]);
     level[1] = load_8bit_16x1_to_1_reg(&src[stride]);
     level[2] = load_8bit_16x1_to_1_reg(&src[offsets[0]]);
@@ -221,7 +223,7 @@ static inline void load_levels_16x1x5(const uint8_t *const src, const int stride
     level[4] = load_8bit_16x1_to_1_reg(&src[offsets[2]]);
 }
 
-static inline uint8x16_t get_coeff_contexts_kernel(uint8x16_t *const level) {
+static inline uint8x16_t get_coeff_contexts_kernel(uint8x16_t* const level) {
     const uint8x16_t const_3 = vdupq_n_u8(3);
     const uint8x16_t const_4 = vdupq_n_u8(4);
     uint8x16_t       count;
@@ -241,8 +243,8 @@ static inline uint8x16_t get_coeff_contexts_kernel(uint8x16_t *const level) {
     return count;
 }
 
-static inline void get_4_nz_map_contexts_2d(const uint8_t *levels, const int32_t height, const ptrdiff_t *const offsets,
-                                            uint8_t *const coeff_contexts) {
+static inline void get_4_nz_map_contexts_2d(const uint8_t* levels, const int32_t height, const ptrdiff_t* const offsets,
+                                            uint8_t* const coeff_contexts) {
     const int32_t    stride              = 4 + TX_PAD_HOR;
     const uint8x16_t pos_to_offset_large = vdupq_n_u8(21);
 
@@ -250,7 +252,7 @@ static inline void get_4_nz_map_contexts_2d(const uint8_t *levels, const int32_t
 
     uint8x16_t count;
     uint8x16_t level[5];
-    uint8_t   *cc  = coeff_contexts;
+    uint8_t*   cc  = coeff_contexts;
     int        row = height;
 
     assert(!(height % 4));
@@ -269,10 +271,10 @@ static inline void get_4_nz_map_contexts_2d(const uint8_t *levels, const int32_t
     coeff_contexts[0] = 0;
 }
 
-static inline void get_8_coeff_contexts_2d(const uint8_t *levels, const int32_t height, const ptrdiff_t *const offsets,
-                                           uint8_t *coeff_contexts) {
+static inline void get_8_coeff_contexts_2d(const uint8_t* levels, const int32_t height, const ptrdiff_t* const offsets,
+                                           uint8_t* coeff_contexts) {
     const int32_t stride = 8 + TX_PAD_HOR;
-    uint8_t      *cc     = coeff_contexts;
+    uint8_t*      cc     = coeff_contexts;
     uint8x16_t    count;
     uint8x16_t    level[5];
     uint8x16_t    pos_to_offset[3];
@@ -307,11 +309,11 @@ static inline void get_8_coeff_contexts_2d(const uint8_t *levels, const int32_t 
     coeff_contexts[0] = 0;
 }
 
-static inline void get_16n_coeff_contexts_2d(const uint8_t *levels, const int32_t real_width, const int32_t real_height,
-                                             const int32_t width, const int32_t height, const ptrdiff_t *const offsets,
-                                             uint8_t *coeff_contexts) {
+static inline void get_16n_coeff_contexts_2d(const uint8_t* levels, const int32_t real_width, const int32_t real_height,
+                                             const int32_t width, const int32_t height, const ptrdiff_t* const offsets,
+                                             uint8_t* coeff_contexts) {
     const int32_t stride = width + TX_PAD_HOR;
-    uint8_t      *cc     = coeff_contexts;
+    uint8_t*      cc     = coeff_contexts;
     int32_t       row    = height;
     uint8x16_t    pos_to_offset[5];
     uint8x16_t    pos_to_offset_large[3];
@@ -367,8 +369,8 @@ static inline void get_16n_coeff_contexts_2d(const uint8_t *levels, const int32_
     coeff_contexts[0] = 0;
 }
 
-static inline void get_4_nz_map_contexts_hor(const uint8_t *levels, const int32_t height,
-                                             const ptrdiff_t *const offsets, uint8_t *coeff_contexts) {
+static inline void get_4_nz_map_contexts_hor(const uint8_t* levels, const int32_t height,
+                                             const ptrdiff_t* const offsets, uint8_t* coeff_contexts) {
     const int32_t    stride                         = 4 + TX_PAD_HOR;
     const int32_t    sig_coef_contexts_2d_x4_051010 = (SIG_COEF_CONTEXTS_2D + ((SIG_COEF_CONTEXTS_2D + 5) << 8) +
                                                     ((SIG_COEF_CONTEXTS_2D + 10) << 16) +
@@ -392,8 +394,8 @@ static inline void get_4_nz_map_contexts_hor(const uint8_t *levels, const int32_
     } while (row);
 }
 
-static inline void get_4_nz_map_contexts_ver(const uint8_t *levels, const int32_t height,
-                                             const ptrdiff_t *const offsets, uint8_t *coeff_contexts) {
+static inline void get_4_nz_map_contexts_ver(const uint8_t* levels, const int32_t height,
+                                             const ptrdiff_t* const offsets, uint8_t* coeff_contexts) {
     const int32_t    stride              = 4 + TX_PAD_HOR;
     const uint8x16_t pos_to_offset_large = vdupq_n_u8(SIG_COEF_CONTEXTS_2D + 10);
 
@@ -417,8 +419,8 @@ static inline void get_4_nz_map_contexts_ver(const uint8_t *levels, const int32_
     } while (row);
 }
 
-static inline void get_8_coeff_contexts_hor(const uint8_t *levels, const int32_t height, const ptrdiff_t *const offsets,
-                                            uint8_t *coeff_contexts) {
+static inline void get_8_coeff_contexts_hor(const uint8_t* levels, const int32_t height, const ptrdiff_t* const offsets,
+                                            uint8_t* coeff_contexts) {
     const int32_t stride = 8 + TX_PAD_HOR;
 
     const uint8x16_t pos_to_offset = vld1q_u8(c_8_po_ver);
@@ -440,8 +442,8 @@ static inline void get_8_coeff_contexts_hor(const uint8_t *levels, const int32_t
     } while (row);
 }
 
-static inline void get_8_coeff_contexts_ver(const uint8_t *levels, const int32_t height, const ptrdiff_t *const offsets,
-                                            uint8_t *coeff_contexts) {
+static inline void get_8_coeff_contexts_ver(const uint8_t* levels, const int32_t height, const ptrdiff_t* const offsets,
+                                            uint8_t* coeff_contexts) {
     const int32_t    stride              = 8 + TX_PAD_HOR;
     const uint8x16_t pos_to_offset_large = vdupq_n_u8(SIG_COEF_CONTEXTS_2D + 10);
 
@@ -465,8 +467,8 @@ static inline void get_8_coeff_contexts_ver(const uint8_t *levels, const int32_t
     } while (row);
 }
 
-static inline void get_16n_coeff_contexts_hor(const uint8_t *levels, const int32_t width, const int32_t height,
-                                              const ptrdiff_t *const offsets, uint8_t *coeff_contexts) {
+static inline void get_16n_coeff_contexts_hor(const uint8_t* levels, const int32_t width, const int32_t height,
+                                              const ptrdiff_t* const offsets, uint8_t* coeff_contexts) {
     const int32_t stride = width + TX_PAD_HOR;
 
     const uint8x16_t pos_to_offset_large = vdupq_n_u8(SIG_COEF_CONTEXTS_2D + 10);
@@ -496,8 +498,8 @@ static inline void get_16n_coeff_contexts_hor(const uint8_t *levels, const int32
     } while (--row);
 }
 
-static inline void get_16n_coeff_contexts_ver(const uint8_t *levels, const int32_t width, const int32_t height,
-                                              const ptrdiff_t *const offsets, uint8_t *coeff_contexts) {
+static inline void get_16n_coeff_contexts_ver(const uint8_t* levels, const int32_t width, const int32_t height,
+                                              const ptrdiff_t* const offsets, uint8_t* coeff_contexts) {
     const int32_t stride = width + TX_PAD_HOR;
 
     uint8x16_t pos_to_offset[3];
@@ -529,14 +531,14 @@ static inline void get_16n_coeff_contexts_ver(const uint8_t *levels, const int32
     } while (--row);
 }
 
-void svt_av1_get_nz_map_contexts_neon(const uint8_t *const levels, const int16_t *const scan, const uint16_t eob,
-                                      TxSize tx_size, const TxClass tx_class, int8_t *const coeff_contexts) {
+void svt_av1_get_nz_map_contexts_neon(const uint8_t* const levels, const int16_t* const scan, const uint16_t eob,
+                                      TxSize tx_size, const TxClass tx_class, int8_t* const coeff_contexts) {
     const int32_t last_idx = eob - 1;
     if (!last_idx) {
         coeff_contexts[0] = 0;
         return;
     }
-    uint8_t *const coefficients = (uint8_t *const)coeff_contexts;
+    uint8_t* const coefficients = (uint8_t* const)coeff_contexts;
 
     const int32_t real_width  = tx_size_wide[tx_size];
     const int32_t real_height = tx_size_high[tx_size];
@@ -602,23 +604,23 @@ static inline uint8x8_t compute_sum(uint8x16_t in, uint8x16_t prev_in) {
     return vqrshrn_n_u16(sum, 2);
 }
 
-void svt_aom_downsample_2d_neon(uint8_t *input_samples, // input parameter, input samples Ptr
+void svt_aom_downsample_2d_neon(uint8_t* input_samples, // input parameter, input samples Ptr
                                 uint32_t input_stride, // input parameter, input stride
                                 uint32_t input_area_width, // input parameter, input area width
                                 uint32_t input_area_height, // input parameter, input area height
-                                uint8_t *decim_samples, // output parameter, decimated samples Ptr
+                                uint8_t* decim_samples, // output parameter, decimated samples Ptr
                                 uint32_t decim_stride, // input parameter, output stride
                                 uint32_t decim_step) // input parameter, decimation amount in pixels
 {
     uint32_t input_stripe_stride = input_stride * decim_step;
-    uint8_t *in_ptr              = input_samples;
-    uint8_t *out_ptr             = decim_samples;
+    uint8_t* in_ptr              = input_samples;
+    uint8_t* out_ptr             = decim_samples;
     uint32_t width_align16       = input_area_width - (input_area_width % 16);
 
     if (decim_step == 2) {
         in_ptr += input_stride;
         for (uint32_t vert_idx = 1; vert_idx < input_area_height; vert_idx += 2) {
-            uint8_t *prev_in_line           = in_ptr - input_stride;
+            uint8_t* prev_in_line           = in_ptr - input_stride;
             uint32_t decim_horizontal_index = 0;
 
             for (uint32_t horiz_idx = 1; horiz_idx < width_align16; horiz_idx += 16) {
@@ -646,7 +648,7 @@ void svt_aom_downsample_2d_neon(uint8_t *input_samples, // input parameter, inpu
     } else if (decim_step == 4) {
         in_ptr += 2 * input_stride;
         for (uint32_t vertical_index = 2; vertical_index < input_area_height; vertical_index += 4) {
-            uint8_t *prev_in_line           = in_ptr - input_stride;
+            uint8_t* prev_in_line           = in_ptr - input_stride;
             uint32_t decim_horizontal_index = 0;
 
             for (uint32_t horiz_idx = 2; horiz_idx < width_align16; horiz_idx += 16) {
@@ -679,8 +681,8 @@ void svt_aom_downsample_2d_neon(uint8_t *input_samples, // input parameter, inpu
     }
 }
 
-void svt_copy_mi_map_grid_neon(MbModeInfo **mi_grid_ptr, uint32_t mi_stride, uint8_t num_rows, uint8_t num_cols) {
-    MbModeInfo *target = mi_grid_ptr[0];
+void svt_copy_mi_map_grid_neon(MbModeInfo** mi_grid_ptr, uint32_t mi_stride, uint8_t num_rows, uint8_t num_cols) {
+    MbModeInfo* target = mi_grid_ptr[0];
     if (num_cols == 1) {
         for (uint8_t mi_y = 0; mi_y < num_rows; mi_y++) {
             const int32_t mi_idx = 0 + mi_y * mi_stride;
@@ -692,7 +694,7 @@ void svt_copy_mi_map_grid_neon(MbModeInfo **mi_grid_ptr, uint32_t mi_stride, uin
         for (uint8_t mi_y = 0; mi_y < num_rows; mi_y++) {
             const int32_t mi_idx = 0 + mi_y * mi_stride;
             // width is 2 blocks, so can copy 2 at once (corresponds to block width 8)
-            vst1q_u64((uint64_t *)&mi_grid_ptr[mi_idx], target_sse);
+            vst1q_u64((uint64_t*)&mi_grid_ptr[mi_idx], target_sse);
         }
     } else {
         const uint64x2_t target_avx = vdupq_n_u64((uint64_t)target);
@@ -701,8 +703,8 @@ void svt_copy_mi_map_grid_neon(MbModeInfo **mi_grid_ptr, uint32_t mi_stride, uin
                 const int32_t mi_idx = mi_x + mi_y * mi_stride;
                 // width is >=4 blocks, so can copy 4 at once; (corresponds to block width >=16).
                 // All blocks >= 16 have widths that are divisible by 16, so it is ok to copy 4 blocks at once
-                vst1q_u64((uint64_t *)&mi_grid_ptr[mi_idx + 0], target_avx);
-                vst1q_u64((uint64_t *)&mi_grid_ptr[mi_idx + 2], target_avx);
+                vst1q_u64((uint64_t*)&mi_grid_ptr[mi_idx + 0], target_avx);
+                vst1q_u64((uint64_t*)&mi_grid_ptr[mi_idx + 2], target_avx);
             }
         }
     }

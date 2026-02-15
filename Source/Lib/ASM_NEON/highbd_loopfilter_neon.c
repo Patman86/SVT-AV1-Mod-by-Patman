@@ -54,8 +54,8 @@ static inline uint16x4_t needs_filter4(const uint16x8_t abd_p0p1_q0q1, const uin
 }
 
 static inline void filter4_masks(const uint16x8_t p0q0, const uint16x8_t p1q1, const uint16_t hev_thresh,
-                                 const uint16x4_t outer_mask, const uint16_t inner_thresh, uint16x4_t *const hev_mask,
-                                 uint16x4_t *const needs_filter4_mask) {
+                                 const uint16x4_t outer_mask, const uint16_t inner_thresh, uint16x4_t* const hev_mask,
+                                 uint16x4_t* const needs_filter4_mask) {
     const uint16x8_t p0p1_q0q1 = vabdq_u16(p0q0, p1q1);
     // This includes cases where needs_filter4() is not true and so filter2
     // will not be applied.
@@ -68,8 +68,8 @@ static inline void filter4_masks(const uint16x8_t p0q0, const uint16x8_t p1q1, c
 }
 
 static inline void filter4(const uint16x8_t p0q0, const uint16x8_t p0q1, const uint16x8_t p1q1,
-                           const uint16x4_t hev_mask, int bitdepth, uint16x8_t *const p1q1_result,
-                           uint16x8_t *const p0q0_result) {
+                           const uint16x4_t hev_mask, int bitdepth, uint16x8_t* const p1q1_result,
+                           uint16x8_t* const p0q0_result) {
     const uint16x8_t q0p1 = vextq_u16(p0q0, p1q1, 4);
     // a = 3 * (q0 - p0) + Clip3(p1 - q1, min_signed_val, max_signed_val);
     // q0mp0 means "q0 minus p0".
@@ -107,8 +107,8 @@ static inline void filter4(const uint16x8_t p0q0, const uint16x8_t p0q1, const u
     *p0q0_result           = convert_to_unsigned_pixel_u16(p0q0_a, bitdepth);
 }
 
-void svt_aom_highbd_lpf_horizontal_4_neon(uint16_t *s, int pitch, const uint8_t *blimit, const uint8_t *limit,
-                                          const uint8_t *thresh, int bd) {
+void svt_aom_highbd_lpf_horizontal_4_neon(uint16_t* s, int pitch, const uint8_t* blimit, const uint8_t* limit,
+                                          const uint8_t* thresh, int bd) {
     uint16x4_t src[4];
     load_u16_4x4(s - 2 * pitch, pitch, &src[0], &src[1], &src[2], &src[3]);
 
@@ -152,8 +152,9 @@ void svt_aom_highbd_lpf_horizontal_4_neon(uint16_t *s, int pitch, const uint8_t 
                   vget_high_u16(p0q0_output),
                   vget_high_u16(p1q1_output));
 }
-void svt_aom_highbd_lpf_vertical_4_neon(uint16_t *s, int pitch, const uint8_t *blimit, const uint8_t *limit,
-                                        const uint8_t *thresh, int bd) {
+
+void svt_aom_highbd_lpf_vertical_4_neon(uint16_t* s, int pitch, const uint8_t* blimit, const uint8_t* limit,
+                                        const uint8_t* thresh, int bd) {
     // Offset by 2 uint16_t values to load from first p1 position.
     uint16x4_t src[4];
     load_u16_4x4(s - 2, pitch, &src[0], &src[1], &src[2], &src[3]);
@@ -226,8 +227,8 @@ static inline uint16x4_t needs_filter6(const uint16x8_t abd_p0p1_q0q1, const uin
 
 static inline void filter6_masks(const uint16x8_t p2q2, const uint16x8_t p1q1, const uint16x8_t p0q0,
                                  const uint16_t hev_thresh, const uint16x4_t outer_mask, const uint16_t inner_thresh,
-                                 const int bitdepth, uint16x4_t *const needs_filter6_mask,
-                                 uint16x4_t *const is_flat3_mask, uint16x4_t *const hev_mask) {
+                                 const int bitdepth, uint16x4_t* const needs_filter6_mask,
+                                 uint16x4_t* const is_flat3_mask, uint16x4_t* const hev_mask) {
     const uint16x8_t abd_p0p1_q0q1 = vabdq_u16(p0q0, p1q1);
     *hev_mask                      = hev(abd_p0p1_q0q1, hev_thresh);
     *is_flat3_mask                 = is_flat3(abd_p0p1_q0q1, vabdq_u16(p0q0, p2q2), bitdepth);
@@ -235,7 +236,7 @@ static inline void filter6_masks(const uint16x8_t p2q2, const uint16x8_t p1q1, c
 }
 
 static inline void filter6(const uint16x8_t p2q2, const uint16x8_t p1q1, const uint16x8_t p0q0,
-                           uint16x8_t *const p1q1_output, uint16x8_t *const p0q0_output) {
+                           uint16x8_t* const p1q1_output, uint16x8_t* const p0q0_output) {
     // Sum p1 and q1 output from opposite directions.
     // The formula is regrouped to allow 3 doubling operations to be combined.
     //
@@ -274,8 +275,8 @@ static inline void filter6(const uint16x8_t p2q2, const uint16x8_t p1q1, const u
     *p0q0_output = vrshrq_n_u16(sum, 3);
 }
 
-void svt_aom_highbd_lpf_horizontal_6_neon(uint16_t *s, int pitch, const uint8_t *blimit, const uint8_t *limit,
-                                          const uint8_t *thresh, int bd) {
+void svt_aom_highbd_lpf_horizontal_6_neon(uint16_t* s, int pitch, const uint8_t* blimit, const uint8_t* limit,
+                                          const uint8_t* thresh, int bd) {
     uint16x4_t src[6];
     load_u16_4x6(s - 3 * pitch, pitch, &src[0], &src[1], &src[2], &src[3], &src[4], &src[5]);
 
@@ -345,8 +346,8 @@ void svt_aom_highbd_lpf_horizontal_6_neon(uint16_t *s, int pitch, const uint8_t 
                   vget_high_u16(p1q1_output));
 }
 
-void svt_aom_highbd_lpf_vertical_6_neon(uint16_t *s, int pitch, const uint8_t *blimit, const uint8_t *limit,
-                                        const uint8_t *thresh, int bd) {
+void svt_aom_highbd_lpf_vertical_6_neon(uint16_t* s, int pitch, const uint8_t* blimit, const uint8_t* limit,
+                                        const uint8_t* thresh, int bd) {
     // Overread by 2 values. These overreads become the high halves of src_raw[2]
     // and src_raw[3] after transpose.
     uint16x8_t src_raw[4];
@@ -462,8 +463,8 @@ static inline uint16x4_t is_flat4(const uint16x8_t abd_pnp0_qnq0, const uint16x8
 
 static inline void filter8_masks(const uint16x8_t p3q3, const uint16x8_t p2q2, const uint16x8_t p1q1,
                                  const uint16x8_t p0q0, const uint16_t hev_thresh, const uint16x4_t outer_mask,
-                                 const uint16_t inner_thresh, const int bitdepth, uint16x4_t *const needs_filter8_mask,
-                                 uint16x4_t *const is_flat4_mask, uint16x4_t *const hev_mask) {
+                                 const uint16_t inner_thresh, const int bitdepth, uint16x4_t* const needs_filter8_mask,
+                                 uint16x4_t* const is_flat4_mask, uint16x4_t* const hev_mask) {
     const uint16x8_t abd_p0p1_q0q1 = vabdq_u16(p0q0, p1q1);
     *hev_mask                      = hev(abd_p0p1_q0q1, hev_thresh);
     const uint16x4_t v_is_flat4    = is_flat4(abd_p0p1_q0q1, vabdq_u16(p0q0, p2q2), vabdq_u16(p0q0, p3q3), bitdepth);
@@ -478,8 +479,8 @@ static inline void filter8_masks(const uint16x8_t p3q3, const uint16x8_t p2q2, c
 }
 
 static inline void filter8(const uint16x8_t p3q3, const uint16x8_t p2q2, const uint16x8_t p1q1, const uint16x8_t p0q0,
-                           uint16x8_t *const p2q2_output, uint16x8_t *const p1q1_output,
-                           uint16x8_t *const p0q0_output) {
+                           uint16x8_t* const p2q2_output, uint16x8_t* const p1q1_output,
+                           uint16x8_t* const p0q0_output) {
     // Sum p2 and q2 output from opposite directions.
     // The formula is regrouped to allow 2 doubling operations to be combined.
     // p2 = (3 * p3) + (2 * p2) + p1 + p0 + q0
@@ -529,8 +530,8 @@ static inline void filter8(const uint16x8_t p3q3, const uint16x8_t p2q2, const u
     *p0q0_output = vrshrq_n_u16(sum, 3);
 }
 
-void svt_aom_highbd_lpf_horizontal_8_neon(uint16_t *s, int pitch, const uint8_t *blimit, const uint8_t *limit,
-                                          const uint8_t *thresh, int bd) {
+void svt_aom_highbd_lpf_horizontal_8_neon(uint16_t* s, int pitch, const uint8_t* blimit, const uint8_t* limit,
+                                          const uint8_t* thresh, int bd) {
     uint16x4_t src[8];
     load_u16_4x8(s - 4 * pitch, pitch, &src[0], &src[1], &src[2], &src[3], &src[4], &src[5], &src[6], &src[7]);
 
@@ -621,8 +622,8 @@ static inline uint16x8_t reverse_low_half(const uint16x8_t a) {
     return vreinterpretq_u16_u8(vqtbl1q_u8(vreinterpretq_u8_u16(a), idx));
 }
 
-void svt_aom_highbd_lpf_vertical_8_neon(uint16_t *s, int pitch, const uint8_t *blimit, const uint8_t *limit,
-                                        const uint8_t *thresh, int bd) {
+void svt_aom_highbd_lpf_vertical_8_neon(uint16_t* s, int pitch, const uint8_t* blimit, const uint8_t* limit,
+                                        const uint8_t* thresh, int bd) {
     // src_raw[n] contains p3, p2, p1, p0, q0, q1, q2, q3 for row n.
     // To get desired pairs after transpose, one half should be reversed.
     uint16x8_t src[4];
@@ -722,9 +723,9 @@ void svt_aom_highbd_lpf_vertical_8_neon(uint16_t *s, int pitch, const uint8_t *b
 
 static inline void filter14(const uint16x8_t p6q6, const uint16x8_t p5q5, const uint16x8_t p4q4, const uint16x8_t p3q3,
                             const uint16x8_t p2q2, const uint16x8_t p1q1, const uint16x8_t p0q0,
-                            uint16x8_t *const p5q5_output, uint16x8_t *const p4q4_output, uint16x8_t *const p3q3_output,
-                            uint16x8_t *const p2q2_output, uint16x8_t *const p1q1_output,
-                            uint16x8_t *const p0q0_output) {
+                            uint16x8_t* const p5q5_output, uint16x8_t* const p4q4_output, uint16x8_t* const p3q3_output,
+                            uint16x8_t* const p2q2_output, uint16x8_t* const p1q1_output,
+                            uint16x8_t* const p0q0_output) {
     // Sum p5 and q5 output from opposite directions.
     // p5 = (7 * p6) + (2 * p5) + (2 * p4) + p3 + p2 + p1 + p0 + q0
     //      ^^^^^^^^
@@ -806,8 +807,8 @@ static inline void filter14(const uint16x8_t p6q6, const uint16x8_t p5q5, const 
     *p0q0_output = vrshrq_n_u16(sum, 4);
 }
 
-void svt_aom_highbd_lpf_horizontal_14_neon(uint16_t *s, int pitch, const uint8_t *blimit, const uint8_t *limit,
-                                           const uint8_t *thresh, int bd) {
+void svt_aom_highbd_lpf_horizontal_14_neon(uint16_t* s, int pitch, const uint8_t* blimit, const uint8_t* limit,
+                                           const uint8_t* thresh, int bd) {
     uint16x4_t src[14];
     load_u16_4x14(s - 7 * pitch,
                   pitch,
@@ -982,8 +983,8 @@ static inline uint16x8x2_t permute_acdb64(const uint16x8_t ab, const uint16x8_t 
     return acdb;
 }
 
-void svt_aom_highbd_lpf_vertical_14_neon(uint16_t *s, int pitch, const uint8_t *blimit, const uint8_t *limit,
-                                         const uint8_t *thresh, int bd) {
+void svt_aom_highbd_lpf_vertical_14_neon(uint16_t* s, int pitch, const uint8_t* blimit, const uint8_t* limit,
+                                         const uint8_t* thresh, int bd) {
     // Low halves:  p7 p6 p5 p4
     // High halves: p3 p2 p1 p0
     uint16x8_t src_p[4];

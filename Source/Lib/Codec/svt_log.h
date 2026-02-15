@@ -74,18 +74,30 @@ void svt_aom_log_set_callback(SvtAv1LogCallback callback, void* context);
                     CALL_MACRO_1,               \
                     CALL_MACRO_0)(__VA_ARGS__)
 
-#define SVT_LOG(format, ...) \
-    do { MAYBE_UNUSED_ARGS(__VA_ARGS__); } while (0)
-#define SVT_DEBUG(format, ...) \
-    do { MAYBE_UNUSED_ARGS(__VA_ARGS__); } while (0)
-#define SVT_INFO(format, ...) \
-    do { MAYBE_UNUSED_ARGS(__VA_ARGS__); } while (0)
-#define SVT_WARN(format, ...) \
-    do { MAYBE_UNUSED_ARGS(__VA_ARGS__); } while (0)
-#define SVT_ERROR(format, ...) \
-    do { MAYBE_UNUSED_ARGS(__VA_ARGS__); } while (0)
-#define SVT_FATAL(format, ...) \
-    do { MAYBE_UNUSED_ARGS(__VA_ARGS__); } while (0)
+#define SVT_LOG(format, ...)            \
+    do {                                \
+        MAYBE_UNUSED_ARGS(__VA_ARGS__); \
+    } while (0)
+#define SVT_DEBUG(format, ...)          \
+    do {                                \
+        MAYBE_UNUSED_ARGS(__VA_ARGS__); \
+    } while (0)
+#define SVT_INFO(format, ...)           \
+    do {                                \
+        MAYBE_UNUSED_ARGS(__VA_ARGS__); \
+    } while (0)
+#define SVT_WARN(format, ...)           \
+    do {                                \
+        MAYBE_UNUSED_ARGS(__VA_ARGS__); \
+    } while (0)
+#define SVT_ERROR(format, ...)          \
+    do {                                \
+        MAYBE_UNUSED_ARGS(__VA_ARGS__); \
+    } while (0)
+#define SVT_FATAL(format, ...)          \
+    do {                                \
+        MAYBE_UNUSED_ARGS(__VA_ARGS__); \
+    } while (0)
 
 #endif //CONFIG_LOG_QUIET
 

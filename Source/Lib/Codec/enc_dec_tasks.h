@@ -28,7 +28,7 @@ extern "C" {
  **************************************/
 typedef struct EncDecTasks {
     EbDctor          dctor;
-    EbObjectWrapper *pcs_wrapper;
+    EbObjectWrapper* pcs_wrapper;
     uint32_t         input_type;
     int16_t          enc_dec_segment_row;
     uint16_t         tile_group_index;
@@ -41,7 +41,7 @@ typedef struct EncDecTasksInitData {
 /**************************************
      * Extern Function Declarations
      **************************************/
-extern EbErrorType svt_aom_enc_dec_tasks_creator(EbPtr *object_dbl_ptr, EbPtr object_init_data_ptr);
+EbErrorType svt_aom_enc_dec_tasks_creator(EbPtr* object_dbl_ptr, EbPtr object_init_data_ptr);
 
 #ifdef __cplusplus
 }

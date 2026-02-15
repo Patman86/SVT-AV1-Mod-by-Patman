@@ -16,7 +16,7 @@
 #include "definitions.h"
 #include "mem_neon.h"
 
-static inline void mse_4xn_8bit_neon(const uint8_t *src, const uint8_t *dst, const int32_t dstride, uint32x4_t *sse,
+static inline void mse_4xn_8bit_neon(const uint8_t* src, const uint8_t* dst, const int32_t dstride, uint32x4_t* sse,
                                      uint8_t height, uint8_t subsampling_factor) {
     do {
         const uint8x8_t s = load_u8_4x2(src, 4 * subsampling_factor);
@@ -33,7 +33,7 @@ static inline void mse_4xn_8bit_neon(const uint8_t *src, const uint8_t *dst, con
     } while (height != 0);
 }
 
-static inline void mse_8xn_8bit_neon(const uint8_t *src, const uint8_t *dst, const int32_t dstride, uint32x4_t *sse,
+static inline void mse_8xn_8bit_neon(const uint8_t* src, const uint8_t* dst, const int32_t dstride, uint32x4_t* sse,
                                      uint8_t height, uint8_t subsampling_factor) {
     uint32x4_t mse0 = vdupq_n_u32(0);
     uint32x4_t mse1 = vdupq_n_u32(0);
@@ -60,8 +60,8 @@ static inline void mse_8xn_8bit_neon(const uint8_t *src, const uint8_t *dst, con
     *sse = vaddq_u32(*sse, mse1);
 }
 
-uint64_t svt_aom_compute_cdef_dist_8bit_neon(const uint8_t *dst8, int32_t dstride, const uint8_t *src8,
-                                             const CdefList *dlist, int32_t cdef_count, BlockSize bsize,
+uint64_t svt_aom_compute_cdef_dist_8bit_neon(const uint8_t* dst8, int32_t dstride, const uint8_t* src8,
+                                             const CdefList* dlist, int32_t cdef_count, BlockSize bsize,
                                              int32_t coeff_shift, uint8_t subsampling_factor) {
     uint64_t sum;
     int32_t  bi, bx, by;
@@ -103,7 +103,7 @@ uint64_t svt_aom_compute_cdef_dist_8bit_neon(const uint8_t *dst8, int32_t dstrid
     return sum >> 2 * coeff_shift;
 }
 
-static inline uint32x4_t mse_8xn_16bit_neon(const uint16_t *src, const uint16_t *dst, const int32_t dstride,
+static inline uint32x4_t mse_8xn_16bit_neon(const uint16_t* src, const uint16_t* dst, const int32_t dstride,
                                             uint8_t height, uint8_t subsampling_factor) {
     uint32x4_t sse0 = vdupq_n_u32(0);
     uint32x4_t sse1 = vdupq_n_u32(0);
@@ -130,7 +130,7 @@ static inline uint32x4_t mse_8xn_16bit_neon(const uint16_t *src, const uint16_t 
     return vaddq_u32(sse0, sse1);
 }
 
-static inline uint32x4_t mse_4xn_16bit_neon(const uint16_t *src, const uint16_t *dst, const int32_t dstride,
+static inline uint32x4_t mse_4xn_16bit_neon(const uint16_t* src, const uint16_t* dst, const int32_t dstride,
                                             uint8_t height, uint8_t subsampling_factor) {
     uint32x4_t sse = vdupq_n_u32(0);
 
@@ -151,8 +151,8 @@ static inline uint32x4_t mse_4xn_16bit_neon(const uint16_t *src, const uint16_t 
     return sse;
 }
 
-uint64_t svt_aom_compute_cdef_dist_16bit_neon(const uint16_t *dst, int32_t dstride, const uint16_t *src,
-                                              const CdefList *dlist, int32_t cdef_count, BlockSize bsize,
+uint64_t svt_aom_compute_cdef_dist_16bit_neon(const uint16_t* dst, int32_t dstride, const uint16_t* src,
+                                              const CdefList* dlist, int32_t cdef_count, BlockSize bsize,
                                               int32_t coeff_shift, uint8_t subsampling_factor) {
     uint64_t sum;
     int32_t  bi, bx, by;
@@ -202,13 +202,14 @@ uint64_t svt_aom_compute_cdef_dist_16bit_neon(const uint16_t *dst, int32_t dstri
 /* Loop over the already selected nb_strengths (Luma_strength,
    Chroma_strength) pairs, and find the pair that has the smallest mse
    (best_mse) for the current filter block. */
-static inline uint64_t find_best_mse(const uint64_t *mse0, const uint64_t *mse1, const int *lev0, const int *lev1,
+static inline uint64_t find_best_mse(const uint64_t* mse0, const uint64_t* mse1, const int* lev0, const int* lev1,
                                      int n) {
     uint64_t best_mse = (uint64_t)1 << 63;
     for (int i = 0; i < n; i++) {
         uint64_t curr = mse0[(uint32_t)lev0[i]] + mse1[(uint32_t)lev1[i]];
-        if (curr < best_mse)
+        if (curr < best_mse) {
             best_mse = curr;
+        }
     }
     return best_mse;
 }
@@ -221,7 +222,7 @@ static inline uint64x2_t add_select_best(uint64x2_t a, uint64x2_t b, uint64x2_t 
     return best;
 }
 
-uint64_t svt_search_one_dual_neon(int *lev0, int *lev1, int nb_strengths, uint64_t **mse[2], int sb_count, int start_gi,
+uint64_t svt_search_one_dual_neon(int* lev0, int* lev1, int nb_strengths, uint64_t** mse[2], int sb_count, int start_gi,
                                   int end_gi) {
     if (start_gi >= end_gi) {
         lev0[nb_strengths] = 0;
@@ -240,14 +241,14 @@ uint64_t svt_search_one_dual_neon(int *lev0, int *lev1, int nb_strengths, uint64
     size_t   start_idx = start_gi;
     size_t   end_idx   = end_gi;
 
-    const uint64_t *mse_0_ptr = mse[0][0];
-    const uint64_t *mse_1_ptr = mse[1][0];
+    const uint64_t* mse_0_ptr = mse[0][0];
+    const uint64_t* mse_1_ptr = mse[1][0];
 
     uint64x2_t best_mse0 = vdupq_n_u64(find_best_mse(mse_0_ptr, mse_1_ptr, lev0, lev1, nb_strengths));
 
     size_t j = start_idx;
     do {
-        uint64_t  *tot_mse_ptr = tot_mse + j * stride;
+        uint64_t*  tot_mse_ptr = tot_mse + j * stride;
         uint64x2_t mse0        = vld1q_dup_u64(&mse_0_ptr[j]);
 
         size_t k = start_idx;
@@ -266,10 +267,10 @@ uint64_t svt_search_one_dual_neon(int *lev0, int *lev1, int nb_strengths, uint64
 
     /* Loop over the filter blocks in the frame */
     for (size_t i = 1; i + 2 <= (size_t)sb_count; i += 2) {
-        const uint64_t *mse_0_0_ptr = mse[0][i + 0];
-        const uint64_t *mse_0_1_ptr = mse[0][i + 1];
-        const uint64_t *mse_1_0_ptr = mse[1][i + 0];
-        const uint64_t *mse_1_1_ptr = mse[1][i + 1];
+        const uint64_t* mse_0_0_ptr = mse[0][i + 0];
+        const uint64_t* mse_0_1_ptr = mse[0][i + 1];
+        const uint64_t* mse_1_0_ptr = mse[1][i + 0];
+        const uint64_t* mse_1_1_ptr = mse[1][i + 1];
 
         best_mse0            = vdupq_n_u64(find_best_mse(mse_0_0_ptr, mse_1_0_ptr, lev0, lev1, nb_strengths));
         uint64x2_t best_mse1 = vdupq_n_u64(find_best_mse(mse_0_1_ptr, mse_1_1_ptr, lev0, lev1, nb_strengths));
@@ -281,7 +282,7 @@ uint64_t svt_search_one_dual_neon(int *lev0, int *lev1, int nb_strengths, uint64
         /* Find best mse when adding each possible new option. */
         j = start_idx;
         do {
-            uint64_t  *tot_mse_ptr = tot_mse + j * stride;
+            uint64_t*  tot_mse_ptr = tot_mse + j * stride;
             uint64x2_t mse0_0      = vld1q_dup_u64(mse_0_0_ptr + j);
             uint64x2_t mse0_1      = vld1q_dup_u64(mse_0_1_ptr + j);
 
@@ -320,7 +321,7 @@ uint64_t svt_search_one_dual_neon(int *lev0, int *lev1, int nb_strengths, uint64
 
         j = start_idx;
         do {
-            uint64_t  *tot_mse_ptr = tot_mse + j * stride;
+            uint64_t*  tot_mse_ptr = tot_mse + j * stride;
             uint64x2_t mse0        = vld1q_dup_u64(&mse_0_ptr[j]);
 
             size_t k = start_idx;

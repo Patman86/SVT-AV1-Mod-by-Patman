@@ -30,10 +30,14 @@ static const int8_t fwd_cos_bit_col[MAX_TXWH_IDX /*txw_idx*/][MAX_TXWH_IDX /*txh
 static const int8_t fwd_cos_bit_row[MAX_TXWH_IDX /*txw_idx*/][MAX_TXWH_IDX /*txh_idx*/] = {
     {13, 13, 12, 0, 0}, {13, 13, 13, 12, 0}, {13, 13, 12, 13, 12}, {0, 12, 13, 12, 11}, {0, 0, 12, 11, 10}};
 
-extern const int8_t *fwd_txfm_shift_ls[TX_SIZES_ALL];
+extern const int8_t* fwd_txfm_shift_ls[TX_SIZES_ALL];
 
 #define BLOCK_SIZES_ALL 22
-static INLINE int is_rect_tx(TxSize tx_size) { return tx_size >= TX_SIZES; }
+
+static INLINE int is_rect_tx(TxSize tx_size) {
+    return tx_size >= TX_SIZES;
+}
+
 static INLINE int is_rect_tx_allowed_bsize(BlockSize bsize) {
     static const char lut[BLOCK_SIZES_ALL] = {
         0, // BLOCK_4X4
@@ -62,8 +66,9 @@ static INLINE int is_rect_tx_allowed_bsize(BlockSize bsize) {
 
     return lut[bsize];
 }
+
 static INLINE int is_rect_tx_allowed(/*const MacroBlockD *xd,*/
-                                     const MbModeInfo *mbmi) {
+                                     const MbModeInfo* mbmi) {
     return is_rect_tx_allowed_bsize(mbmi->bsize) /*&&
             !xd->lossless[mbmi->segment_id]*/
         ;
@@ -73,33 +78,33 @@ static INLINE int is_rect_tx_allowed(/*const MacroBlockD *xd,*/
 typedef struct QuantParam {
     int32_t      log_scale;
     TxSize       tx_size;
-    const QmVal *qmatrix;
-    const QmVal *iqmatrix;
+    const QmVal* qmatrix;
+    const QmVal* iqmatrix;
 } QuantParam;
 
 static const uint32_t q_func[] = {26214, 23302, 20560, 18396, 16384, 14564};
-extern EbErrorType    svt_aom_estimate_transform(PictureControlSet *pcs, ModeDecisionContext *ctx,
-                                                 int16_t *residual_buffer, uint32_t residual_stride, int32_t *coeff_buffer,
-                                                 uint32_t coeff_stride, TxSize transform_size, uint64_t *three_quad_energy,
-                                                 uint32_t bit_depth, TxType transform_type, PlaneType component_type,
-                                                 EB_TRANS_COEFF_SHAPE trans_coeff_shape);
+EbErrorType svt_aom_estimate_transform(PictureControlSet* pcs, ModeDecisionContext* ctx, int16_t* residual_buffer,
+                                       uint32_t residual_stride, int32_t* coeff_buffer, uint32_t coeff_stride,
+                                       TxSize transform_size, uint64_t* three_quad_energy, uint32_t bit_depth,
+                                       TxType transform_type, PlaneType component_type,
+                                       EB_TRANS_COEFF_SHAPE trans_coeff_shape);
 
-extern uint8_t svt_aom_quantize_inv_quantize(PictureControlSet *pcs, ModeDecisionContext *ctx, int32_t *coeff,
-                                             int32_t *quant_coeff, int32_t *recon_coeff, uint32_t qindex,
-                                             int32_t segmentation_qp_offset, TxSize txsize, uint16_t *eob,
-                                             uint32_t component_type, uint32_t bit_depth, TxType tx_type,
-                                             int16_t txb_skip_context, int16_t dc_sign_context,
-                                             PredictionMode pred_mode, uint32_t lambda, bool is_encode_pass);
+uint8_t svt_aom_quantize_inv_quantize(PictureControlSet* pcs, ModeDecisionContext* ctx, int32_t* coeff,
+                                      int32_t* quant_coeff, int32_t* recon_coeff, uint32_t qindex,
+                                      int32_t segmentation_qp_offset, TxSize txsize, uint16_t* eob,
+                                      uint32_t component_type, uint32_t bit_depth, TxType tx_type,
+                                      int16_t txb_skip_context, int16_t dc_sign_context, PredictionMode pred_mode,
+                                      uint32_t lambda, bool is_encode_pass);
 
-void svt_aom_quantize_inv_quantize_light(PictureControlSet *pcs, int32_t *coeff, int32_t *quant_coeff,
-                                         int32_t *recon_coeff, uint32_t qindex, TxSize txsize, uint16_t *eob,
+void svt_aom_quantize_inv_quantize_light(PictureControlSet* pcs, int32_t* coeff, int32_t* quant_coeff,
+                                         int32_t* recon_coeff, uint32_t qindex, TxSize txsize, uint16_t* eob,
                                          uint32_t bit_depth, TxType tx_type);
-void svt_av1_wht_fwd_txfm(int16_t *src_diff, int bw, int32_t *coeff, TxSize tx_size, EB_TRANS_COEFF_SHAPE pf_shape,
+void svt_av1_wht_fwd_txfm(int16_t* src_diff, int bw, int32_t* coeff, TxSize tx_size, EB_TRANS_COEFF_SHAPE pf_shape,
                           int bit_depth, int is_hbd);
 
 TxfmFunc svt_aom_fwd_txfm_type_to_func(TxfmType txfmtype);
 
-void av1_fwht4x4_c(int16_t *input, int32_t *output, uint32_t stride);
+void av1_fwht4x4_c(int16_t* input, int32_t* output, uint32_t stride);
 #ifdef __cplusplus
 }
 #endif

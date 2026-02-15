@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include "pic_demux_results.h"
 
-static EbErrorType picture_results_ctor(PictureDemuxResults *object_ptr, EbPtr object_init_data_ptr) {
+static EbErrorType picture_results_ctor(PictureDemuxResults* object_ptr, EbPtr object_init_data_ptr) {
     object_ptr->picture_type = EB_PIC_INVALID;
 
     (void)object_init_data_ptr;
@@ -20,8 +20,8 @@ static EbErrorType picture_results_ctor(PictureDemuxResults *object_ptr, EbPtr o
     return EB_ErrorNone;
 }
 
-EbErrorType svt_aom_picture_results_creator(EbPtr *object_dbl_ptr, EbPtr object_init_data_ptr) {
-    PictureDemuxResults *obj;
+EbErrorType svt_aom_picture_results_creator(EbPtr* object_dbl_ptr, EbPtr object_init_data_ptr) {
+    PictureDemuxResults* obj;
 
     *object_dbl_ptr = NULL;
     EB_NEW(obj, picture_results_ctor, object_init_data_ptr);

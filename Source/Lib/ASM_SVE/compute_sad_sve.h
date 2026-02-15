@@ -20,15 +20,15 @@
 #include "neon_sve_bridge.h"
 #include "utility.h"
 
-static inline uint32_t sad_anywxh_sve(const uint8_t *src, uint32_t src_stride, const uint8_t *ref, uint32_t ref_stride,
+static inline uint32_t sad_anywxh_sve(const uint8_t* src, uint32_t src_stride, const uint8_t* ref, uint32_t ref_stride,
                                       uint32_t width, uint32_t height) {
     uint32x4_t sum_u32 = vdupq_n_u32(0);
 
     do {
         int w = width;
 
-        const uint8_t *src_ptr = src;
-        const uint8_t *ref_ptr = ref;
+        const uint8_t* src_ptr = src;
+        const uint8_t* ref_ptr = ref;
 
         while (w >= 16) {
             const uint8x16_t s = vld1q_u8(src_ptr);

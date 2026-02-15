@@ -35,7 +35,7 @@ double svt_av1_compute_overall_elapsed_time_ms(const uint64_t start_seconds, con
     return (double)s_diff * 1000.0 + (double)u_diff / 1000.0 + 0.5;
 }
 
-void svt_av1_get_time(uint64_t *const seconds, uint64_t *const useconds) {
+void svt_av1_get_time(uint64_t* const seconds, uint64_t* const useconds) {
 #ifdef _WIN32
     struct _timeb curr_time;
     _ftime_s(&curr_time);

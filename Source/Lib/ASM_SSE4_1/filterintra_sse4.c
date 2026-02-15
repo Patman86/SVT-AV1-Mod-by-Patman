@@ -16,10 +16,12 @@
 extern const int8_t eb_av1_filter_intra_taps[FILTER_INTRA_MODES][8][8];
 #define FILTER_INTRA_SCALE_BITS 4
 
-static INLINE __m128i xx_load_128(const void *a) { return _mm_loadu_si128((const __m128i *)a); }
+static INLINE __m128i xx_load_128(const void* a) {
+    return _mm_loadu_si128((const __m128i*)a);
+}
 
-void svt_av1_filter_intra_predictor_sse4_1(uint8_t *dst, ptrdiff_t stride, TxSize tx_size, const uint8_t *above,
-                                           const uint8_t *left, int mode) {
+void svt_av1_filter_intra_predictor_sse4_1(uint8_t* dst, ptrdiff_t stride, TxSize tx_size, const uint8_t* above,
+                                           const uint8_t* left, int mode) {
     int       r, c;
     uint8_t   buffer[33][33];
     const int bw = tx_size_wide[tx_size];
@@ -28,9 +30,13 @@ void svt_av1_filter_intra_predictor_sse4_1(uint8_t *dst, ptrdiff_t stride, TxSiz
     assert(bw <= 32 && bh <= 32);
 
     // The initialization is just for silencing Jenkins static analysis warnings
-    for (r = 0; r < bh + 1; ++r) memset(buffer[r], 0, (bw + 1) * sizeof(buffer[0][0]));
+    for (r = 0; r < bh + 1; ++r) {
+        memset(buffer[r], 0, (bw + 1) * sizeof(buffer[0][0]));
+    }
 
-    for (r = 0; r < bh; ++r) buffer[r + 1][0] = left[r];
+    for (r = 0; r < bh; ++r) {
+        buffer[r + 1][0] = left[r];
+    }
     svt_memcpy_intrin_sse(buffer[0], &above[-1], (bw + 1) * sizeof(uint8_t));
 
     const __m128i f1f0                    = xx_load_128(eb_av1_filter_intra_taps[mode][0]);

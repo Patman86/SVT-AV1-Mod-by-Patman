@@ -104,8 +104,6 @@ set(all_files
         definitions.h
         dlf_process.c
         dlf_process.h
-        dwt.c
-        dwt.h
         enc_cdef.c
         enc_cdef.h
         enc_dec_process.c

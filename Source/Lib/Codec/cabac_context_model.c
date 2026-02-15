@@ -759,7 +759,7 @@ static const AomCdfProb default_switchable_interp_cdf[SWITCHABLE_FILTER_CONTEXTS
     {AOM_CDF3(601, 943)},
     {AOM_CDF3(14969, 21398)}};
 
-void svt_aom_init_mode_probs(FRAME_CONTEXT *fc) {
+void svt_aom_init_mode_probs(FRAME_CONTEXT* fc) {
     svt_memcpy(fc->palette_y_size_cdf, default_palette_y_size_cdf, sizeof(default_palette_y_size_cdf));
     svt_memcpy(fc->palette_uv_size_cdf, default_palette_uv_size_cdf, sizeof(default_palette_uv_size_cdf));
     svt_memcpy(
@@ -809,10 +809,11 @@ void svt_aom_init_mode_probs(FRAME_CONTEXT *fc) {
     svt_memcpy(fc->skip_mode_cdfs, default_skip_mode_cdfs, sizeof(default_skip_mode_cdfs));
     svt_memcpy(fc->skip_cdfs, default_skip_cdfs, sizeof(default_skip_cdfs));
     svt_memcpy(fc->intra_inter_cdf, default_intra_inter_cdf, sizeof(default_intra_inter_cdf));
-    for (uint32_t i = 0; i < SPATIAL_PREDICTION_PROBS; i++)
+    for (uint32_t i = 0; i < SPATIAL_PREDICTION_PROBS; i++) {
         svt_memcpy(fc->seg.spatial_pred_seg_cdf[i],
                    default_spatial_pred_seg_tree_cdf[i],
                    sizeof(default_spatial_pred_seg_tree_cdf[i]));
+    }
     svt_memcpy(fc->tx_size_cdf, default_tx_size_cdf, sizeof(default_tx_size_cdf));
     svt_memcpy(fc->delta_q_cdf, default_delta_q_cdf, sizeof(default_delta_q_cdf));
     svt_memcpy(fc->delta_lf_cdf, default_delta_lf_cdf, sizeof(default_delta_lf_cdf));
@@ -824,6 +825,7 @@ void svt_aom_init_mode_probs(FRAME_CONTEXT *fc) {
     fc->nmvc = default_nmv_context;
     fc->ndvc = default_nmv_context;
 }
+
 /********************************************************************************************************************************/
 // token_cdfs.h
 static const AomCdfProb av1_default_dc_sign_cdfs[TOKEN_CDF_Q_CTXS][PLANE_TYPES][DC_SIGN_CONTEXTS][CDF_SIZE(2)] = {
@@ -2563,16 +2565,19 @@ static const AomCdfProb
 /********************************************************************************************************************************/
 // entropy.c
 static int32_t get_q_ctx(int32_t q) {
-    if (q <= 20)
+    if (q <= 20) {
         return 0;
-    if (q <= 60)
+    }
+    if (q <= 60) {
         return 1;
-    if (q <= 120)
+    }
+    if (q <= 120) {
         return 2;
+    }
     return 3;
 }
 
-void svt_av1_default_coef_probs(FRAME_CONTEXT *fc, int32_t base_qindex) {
+void svt_av1_default_coef_probs(FRAME_CONTEXT* fc, int32_t base_qindex) {
     const int32_t index = get_q_ctx(base_qindex);
 
 #if CONFIG_ENTROPY_STATS
@@ -2633,21 +2638,23 @@ void svt_av1_default_coef_probs(FRAME_CONTEXT *fc, int32_t base_qindex) {
     }
 }
 
-static void reset_cdf_symbol_counter(AomCdfProb *cdf_ptr, int32_t num_cdfs, int32_t cdf_stride, int32_t nsymbs) {
-    for (int32_t i = 0; i < num_cdfs; i++) cdf_ptr[i * cdf_stride + nsymbs] = 0;
+static void reset_cdf_symbol_counter(AomCdfProb* cdf_ptr, int32_t num_cdfs, int32_t cdf_stride, int32_t nsymbs) {
+    for (int32_t i = 0; i < num_cdfs; i++) {
+        cdf_ptr[i * cdf_stride + nsymbs] = 0;
+    }
 }
 
 #define RESET_CDF_COUNTER(cname, nsymbs) RESET_CDF_COUNTER_STRIDE(cname, nsymbs, CDF_SIZE(nsymbs))
 
 #define RESET_CDF_COUNTER_STRIDE(cname, nsymbs, cdf_stride)                   \
     do {                                                                      \
-        AomCdfProb *cdf_ptr    = (AomCdfProb *)cname;                         \
+        AomCdfProb* cdf_ptr    = (AomCdfProb*)cname;                          \
         int32_t     array_size = (int32_t)sizeof(cname) / sizeof(AomCdfProb); \
         int32_t     num_cdfs   = array_size / cdf_stride;                     \
         reset_cdf_symbol_counter(cdf_ptr, num_cdfs, cdf_stride, nsymbs);      \
     } while (0)
 
-static void reset_nmv_counter(NmvContext *nmv) {
+static void reset_nmv_counter(NmvContext* nmv) {
     RESET_CDF_COUNTER(nmv->joints_cdf, 4);
     for (int32_t i = 0; i < 2; i++) {
         RESET_CDF_COUNTER(nmv->comps[i].classes_cdf, MV_CLASSES);
@@ -2661,7 +2668,7 @@ static void reset_nmv_counter(NmvContext *nmv) {
     }
 }
 
-void svt_av1_reset_cdf_symbol_counters(FRAME_CONTEXT *fc) {
+void svt_av1_reset_cdf_symbol_counters(FRAME_CONTEXT* fc) {
     RESET_CDF_COUNTER(fc->txb_skip_cdf, 2);
     RESET_CDF_COUNTER(fc->eob_extra_cdf, 2);
     RESET_CDF_COUNTER(fc->dc_sign_cdf, 2);
@@ -2723,12 +2730,13 @@ void svt_av1_reset_cdf_symbol_counters(FRAME_CONTEXT *fc) {
     RESET_CDF_COUNTER_STRIDE(fc->uv_mode_cdf[0], UV_INTRA_MODES - 1, CDF_SIZE(UV_INTRA_MODES));
     RESET_CDF_COUNTER(fc->uv_mode_cdf[1], UV_INTRA_MODES);
     for (int32_t i = 0; i < PARTITION_CONTEXTS; i++) {
-        if (i < 4)
+        if (i < 4) {
             RESET_CDF_COUNTER_STRIDE(fc->partition_cdf[i], 4, CDF_SIZE(10));
-        else if (i < 16)
+        } else if (i < 16) {
             RESET_CDF_COUNTER(fc->partition_cdf[i], 10);
-        else
+        } else {
             RESET_CDF_COUNTER_STRIDE(fc->partition_cdf[i], 8, CDF_SIZE(10));
+        }
     }
     RESET_CDF_COUNTER(fc->switchable_interp_cdf, SWITCHABLE_FILTERS);
     RESET_CDF_COUNTER(fc->kf_y_cdf, INTRA_MODES);
@@ -2739,7 +2747,9 @@ void svt_av1_reset_cdf_symbol_counters(FRAME_CONTEXT *fc) {
     RESET_CDF_COUNTER(fc->tx_size_cdf[3], MAX_TX_DEPTH + 1);
     RESET_CDF_COUNTER(fc->delta_q_cdf, DELTA_Q_PROBS + 1);
     RESET_CDF_COUNTER(fc->delta_lf_cdf, DELTA_LF_PROBS + 1);
-    for (int32_t i = 0; i < FRAME_LF_COUNT; i++) RESET_CDF_COUNTER(fc->delta_lf_multi_cdf[i], DELTA_LF_PROBS + 1);
+    for (int32_t i = 0; i < FRAME_LF_COUNT; i++) {
+        RESET_CDF_COUNTER(fc->delta_lf_multi_cdf[i], DELTA_LF_PROBS + 1);
+    }
     RESET_CDF_COUNTER_STRIDE(fc->intra_ext_tx_cdf[1], 7, CDF_SIZE(TX_TYPES));
     RESET_CDF_COUNTER_STRIDE(fc->intra_ext_tx_cdf[2], 5, CDF_SIZE(TX_TYPES));
     RESET_CDF_COUNTER_STRIDE(fc->inter_ext_tx_cdf[1], 16, CDF_SIZE(TX_TYPES));
@@ -2756,8 +2766,9 @@ void svt_av1_reset_cdf_symbol_counters(FRAME_CONTEXT *fc) {
 int svt_aom_palette_color_index_context_lookup[MAX_COLOR_CONTEXT_HASH + 1] = {-1, -1, 0, -1, -1, 4, 3, 2, 1};
 
 #define NUM_PALETTE_NEIGHBORS 3 // left, top-left and top.
-int svt_aom_get_palette_color_index_context_optimized(const uint8_t *color_map, int stride, int r, int c,
-                                                      int *color_idx) {
+
+int svt_aom_get_palette_color_index_context_optimized(const uint8_t* color_map, int stride, int r, int c,
+                                                      int* color_idx) {
     assert(r > 0 || c > 0);
 
     // This goes in the order of left, top, and top-left. This has the advantage
@@ -2858,6 +2869,7 @@ int svt_aom_get_palette_color_index_context_optimized(const uint8_t *color_map, 
     assert(color_index_ctx < PALETTE_COLOR_INDEX_CONTEXTS);
     return color_index_ctx;
 }
+
 #undef NUM_PALETTE_NEIGHBORS
 #undef MAX_COLOR_CONTEXT_HASH
 

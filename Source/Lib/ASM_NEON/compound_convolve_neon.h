@@ -23,7 +23,7 @@
 static inline void compute_dist_wtd_avg_4x4(uint16x4_t dd0, uint16x4_t dd1, uint16x4_t dd2, uint16x4_t dd3,
                                             uint16x4_t d0, uint16x4_t d1, uint16x4_t d2, uint16x4_t d3,
                                             const uint16_t fwd_offset, const uint16_t bck_offset,
-                                            const int16x8_t round_offset, uint8x8_t *d01_u8, uint8x8_t *d23_u8) {
+                                            const int16x8_t round_offset, uint8x8_t* d01_u8, uint8x8_t* d23_u8) {
     uint32x4_t blend0 = vmull_n_u16(dd0, fwd_offset);
     blend0            = vmlal_n_u16(blend0, d0, bck_offset);
     uint32x4_t blend1 = vmull_n_u16(dd1, fwd_offset);
@@ -49,7 +49,7 @@ static inline void compute_dist_wtd_avg_4x4(uint16x4_t dd0, uint16x4_t dd1, uint
 }
 
 static inline void compute_dist_wtd_avg_4x1(uint16x4_t dd0, uint16x4_t d0, const uint16_t fwd_offset,
-                                            const uint16_t bck_offset, const int16x4_t round_offset, uint8x8_t *d0_u8) {
+                                            const uint16_t bck_offset, const int16x4_t round_offset, uint8x8_t* d0_u8) {
     uint32x4_t blend0 = vmull_n_u16(dd0, fwd_offset);
     blend0            = vmlal_n_u16(blend0, d0, bck_offset);
 
@@ -63,7 +63,7 @@ static inline void compute_dist_wtd_avg_4x1(uint16x4_t dd0, uint16x4_t d0, const
 }
 
 static inline void compute_basic_avg_4x1(uint16x4_t dd0, uint16x4_t d0, const int16x4_t round_offset,
-                                         uint8x8_t *d0_u8) {
+                                         uint8x8_t* d0_u8) {
     uint16x4_t avg0 = vhadd_u16(dd0, d0);
 
     int16x4_t dst0 = vsub_s16(vreinterpret_s16_u16(avg0), round_offset);
@@ -74,7 +74,7 @@ static inline void compute_basic_avg_4x1(uint16x4_t dd0, uint16x4_t d0, const in
 }
 
 static inline void compute_dist_wtd_avg_8x1(uint16x8_t dd0, uint16x8_t d0, const uint16_t fwd_offset,
-                                            const uint16_t bck_offset, const int16x8_t round_offset, uint8x8_t *d0_u8) {
+                                            const uint16_t bck_offset, const int16x8_t round_offset, uint8x8_t* d0_u8) {
     uint32x4_t blend0_lo = vmull_n_u16(vget_low_u16(dd0), fwd_offset);
     blend0_lo            = vmlal_n_u16(blend0_lo, vget_low_u16(d0), bck_offset);
     uint32x4_t blend0_hi = vmull_n_u16(vget_high_u16(dd0), fwd_offset);
@@ -89,7 +89,7 @@ static inline void compute_dist_wtd_avg_8x1(uint16x8_t dd0, uint16x8_t d0, const
 }
 
 static inline void compute_basic_avg_8x1(uint16x8_t dd0, uint16x8_t d0, const int16x8_t round_offset,
-                                         uint8x8_t *d0_u8) {
+                                         uint8x8_t* d0_u8) {
     uint16x8_t avg0 = vhaddq_u16(dd0, d0);
 
     int16x8_t dst0 = vsubq_s16(vreinterpretq_s16_u16(avg0), round_offset);
@@ -99,7 +99,7 @@ static inline void compute_basic_avg_8x1(uint16x8_t dd0, uint16x8_t d0, const in
 
 static inline void compute_dist_wtd_avg_8x2(uint16x8_t dd0, uint16x8_t dd1, uint16x8_t d0, uint16x8_t d1,
                                             const uint16_t fwd_offset, const uint16_t bck_offset,
-                                            const int16x8_t round_offset, uint8x8_t *d0_u8, uint8x8_t *d1_u8) {
+                                            const int16x8_t round_offset, uint8x8_t* d0_u8, uint8x8_t* d1_u8) {
     uint32x4_t blend0_lo = vmull_n_u16(vget_low_u16(dd0), fwd_offset);
     blend0_lo            = vmlal_n_u16(blend0_lo, vget_low_u16(d0), bck_offset);
     uint32x4_t blend0_hi = vmull_n_u16(vget_high_u16(dd0), fwd_offset);
@@ -123,7 +123,7 @@ static inline void compute_dist_wtd_avg_8x2(uint16x8_t dd0, uint16x8_t dd1, uint
 }
 
 static inline void compute_basic_avg_8x2(uint16x8_t dd01, uint16x8_t dd23, uint16x8_t d01, uint16x8_t d23,
-                                         const int16x8_t round_offset, uint8x8_t *d0_u8, uint8x8_t *d1_u8) {
+                                         const int16x8_t round_offset, uint8x8_t* d0_u8, uint8x8_t* d1_u8) {
     uint16x8_t avg0 = vhaddq_u16(dd01, d01);
     uint16x8_t avg1 = vhaddq_u16(dd23, d23);
 
@@ -136,7 +136,7 @@ static inline void compute_basic_avg_8x2(uint16x8_t dd01, uint16x8_t dd23, uint1
 
 static inline void compute_basic_avg_4x4(uint16x4_t dd0, uint16x4_t dd1, uint16x4_t dd2, uint16x4_t dd3, uint16x4_t d0,
                                          uint16x4_t d1, uint16x4_t d2, uint16x4_t d3, const int16x8_t round_offset,
-                                         uint8x8_t *d01_u8, uint8x8_t *d23_u8) {
+                                         uint8x8_t* d01_u8, uint8x8_t* d23_u8) {
     uint16x4_t avg0 = vhadd_u16(dd0, d0);
     uint16x4_t avg1 = vhadd_u16(dd1, d1);
     uint16x4_t avg2 = vhadd_u16(dd2, d2);
@@ -155,8 +155,8 @@ static inline void compute_basic_avg_4x4(uint16x4_t dd0, uint16x4_t dd1, uint16x
 static inline void compute_dist_wtd_avg_8x4(uint16x8_t dd0, uint16x8_t dd1, uint16x8_t dd2, uint16x8_t dd3,
                                             uint16x8_t d0, uint16x8_t d1, uint16x8_t d2, uint16x8_t d3,
                                             const uint16_t fwd_offset, const uint16_t bck_offset,
-                                            const int16x8_t round_offset, uint8x8_t *d0_u8, uint8x8_t *d1_u8,
-                                            uint8x8_t *d2_u8, uint8x8_t *d3_u8) {
+                                            const int16x8_t round_offset, uint8x8_t* d0_u8, uint8x8_t* d1_u8,
+                                            uint8x8_t* d2_u8, uint8x8_t* d3_u8) {
     uint32x4_t blend0_lo = vmull_n_u16(vget_low_u16(dd0), fwd_offset);
     blend0_lo            = vmlal_n_u16(blend0_lo, vget_low_u16(d0), bck_offset);
     uint32x4_t blend0_hi = vmull_n_u16(vget_high_u16(dd0), fwd_offset);
@@ -199,7 +199,7 @@ static inline void compute_dist_wtd_avg_8x4(uint16x8_t dd0, uint16x8_t dd1, uint
 
 static inline void compute_basic_avg_8x4(uint16x8_t dd0, uint16x8_t dd1, uint16x8_t dd2, uint16x8_t dd3, uint16x8_t d0,
                                          uint16x8_t d1, uint16x8_t d2, uint16x8_t d3, const int16x8_t round_offset,
-                                         uint8x8_t *d0_u8, uint8x8_t *d1_u8, uint8x8_t *d2_u8, uint8x8_t *d3_u8) {
+                                         uint8x8_t* d0_u8, uint8x8_t* d1_u8, uint8x8_t* d2_u8, uint8x8_t* d3_u8) {
     uint16x8_t avg0 = vhaddq_u16(dd0, d0);
     uint16x8_t avg1 = vhaddq_u16(dd1, d1);
     uint16x8_t avg2 = vhaddq_u16(dd2, d2);
@@ -260,9 +260,9 @@ static inline uint16x8_t convolve6_8_2d_v(const int16x8_t s0, const int16x8_t s1
     return vcombine_u16(vqrshrun_n_s32(sum0, COMPOUND_ROUND1_BITS), vqrshrun_n_s32(sum1, COMPOUND_ROUND1_BITS));
 }
 
-static inline void dist_wtd_convolve_2d_vert_6tap_dist_wtd_avg_neon(int16_t *src_ptr, const int src_stride,
-                                                                    uint8_t *dst8_ptr, int dst8_stride,
-                                                                    ConvolveParams *conv_params,
+static inline void dist_wtd_convolve_2d_vert_6tap_dist_wtd_avg_neon(int16_t* src_ptr, const int src_stride,
+                                                                    uint8_t* dst8_ptr, int dst8_stride,
+                                                                    ConvolveParams* conv_params,
                                                                     const int16x8_t y_filter, int h, int w) {
     const int       bd           = 8;
     const int       offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
@@ -274,7 +274,7 @@ static inline void dist_wtd_convolve_2d_vert_6tap_dist_wtd_avg_neon(int16_t *src
     const uint16_t fwd_offset = conv_params->fwd_offset;
     const uint16_t bck_offset = conv_params->bck_offset;
 
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int      dst_stride = conv_params->dst_stride;
 
     if (w == 4) {
@@ -313,9 +313,9 @@ static inline void dist_wtd_convolve_2d_vert_6tap_dist_wtd_avg_neon(int16_t *src
         } while (h != 0);
     } else {
         do {
-            int16_t       *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
-            uint8_t       *d_u8   = dst8_ptr;
+            int16_t*       s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
+            uint8_t*       d_u8   = dst8_ptr;
             int            height = h;
 
             int16x8_t s0, s1, s2, s3, s4;
@@ -371,8 +371,8 @@ static inline void dist_wtd_convolve_2d_vert_6tap_dist_wtd_avg_neon(int16_t *src
     }
 }
 
-static inline void dist_wtd_convolve_2d_vert_6tap_avg_neon(int16_t *src_ptr, const int src_stride, uint8_t *dst8_ptr,
-                                                           int dst8_stride, ConvolveParams *conv_params,
+static inline void dist_wtd_convolve_2d_vert_6tap_avg_neon(int16_t* src_ptr, const int src_stride, uint8_t* dst8_ptr,
+                                                           int dst8_stride, ConvolveParams* conv_params,
                                                            const int16x8_t y_filter, int h, int w) {
     const int       bd           = 8;
     const int       offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
@@ -381,7 +381,7 @@ static inline void dist_wtd_convolve_2d_vert_6tap_avg_neon(int16_t *src_ptr, con
         (1 << (offset_bits - COMPOUND_ROUND1_BITS - 1));
     const int16x8_t round_offset_vec = vdupq_n_s16(round_offset);
 
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int      dst_stride = conv_params->dst_stride;
 
     if (w == 4) {
@@ -419,9 +419,9 @@ static inline void dist_wtd_convolve_2d_vert_6tap_avg_neon(int16_t *src_ptr, con
         } while (h != 0);
     } else {
         do {
-            int16_t       *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
-            uint8_t       *d_u8   = dst8_ptr;
+            int16_t*       s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
+            uint8_t*       d_u8   = dst8_ptr;
             int            height = h;
 
             int16x8_t s0, s1, s2, s3, s4;
@@ -464,14 +464,14 @@ static inline void dist_wtd_convolve_2d_vert_6tap_avg_neon(int16_t *src_ptr, con
     }
 }
 
-static inline void dist_wtd_convolve_2d_vert_6tap_neon(int16_t *src_ptr, const int src_stride,
-                                                       ConvolveParams *conv_params, const int16x8_t y_filter, int h,
+static inline void dist_wtd_convolve_2d_vert_6tap_neon(int16_t* src_ptr, const int src_stride,
+                                                       ConvolveParams* conv_params, const int16x8_t y_filter, int h,
                                                        int w) {
     const int       bd           = 8;
     const int       offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int32x4_t offset_const = vdupq_n_s32(1 << offset_bits);
 
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int      dst_stride = conv_params->dst_stride;
 
     if (w == 4) {
@@ -501,8 +501,8 @@ static inline void dist_wtd_convolve_2d_vert_6tap_neon(int16_t *src_ptr, const i
         } while (h != 0);
     } else {
         do {
-            int16_t       *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
+            int16_t*       s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
             int            height = h;
 
             int16x8_t s0, s1, s2, s3, s4;
@@ -586,9 +586,9 @@ static inline uint16x8_t convolve8_8_2d_v(const int16x8_t s0, const int16x8_t s1
     return vcombine_u16(vqrshrun_n_s32(sum0, COMPOUND_ROUND1_BITS), vqrshrun_n_s32(sum1, COMPOUND_ROUND1_BITS));
 }
 
-static inline void dist_wtd_convolve_2d_vert_8tap_dist_wtd_avg_neon(int16_t *src_ptr, const int src_stride,
-                                                                    uint8_t *dst8_ptr, int dst8_stride,
-                                                                    ConvolveParams *conv_params,
+static inline void dist_wtd_convolve_2d_vert_8tap_dist_wtd_avg_neon(int16_t* src_ptr, const int src_stride,
+                                                                    uint8_t* dst8_ptr, int dst8_stride,
+                                                                    ConvolveParams* conv_params,
                                                                     const int16x8_t y_filter, int h, int w) {
     const int       bd           = 8;
     const int       offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
@@ -600,7 +600,7 @@ static inline void dist_wtd_convolve_2d_vert_8tap_dist_wtd_avg_neon(int16_t *src
     const uint16_t fwd_offset = conv_params->fwd_offset;
     const uint16_t bck_offset = conv_params->bck_offset;
 
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int      dst_stride = conv_params->dst_stride;
 
     if (w == 4) {
@@ -641,9 +641,9 @@ static inline void dist_wtd_convolve_2d_vert_8tap_dist_wtd_avg_neon(int16_t *src
         } while (h != 0);
     } else {
         do {
-            int16_t       *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
-            uint8_t       *d_u8   = dst8_ptr;
+            int16_t*       s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
+            uint8_t*       d_u8   = dst8_ptr;
             int            height = h;
 
             int16x8_t s0, s1, s2, s3, s4, s5, s6;
@@ -701,8 +701,8 @@ static inline void dist_wtd_convolve_2d_vert_8tap_dist_wtd_avg_neon(int16_t *src
     }
 }
 
-static inline void dist_wtd_convolve_2d_vert_8tap_avg_neon(int16_t *src_ptr, const int src_stride, uint8_t *dst8_ptr,
-                                                           int dst8_stride, ConvolveParams *conv_params,
+static inline void dist_wtd_convolve_2d_vert_8tap_avg_neon(int16_t* src_ptr, const int src_stride, uint8_t* dst8_ptr,
+                                                           int dst8_stride, ConvolveParams* conv_params,
                                                            const int16x8_t y_filter, int h, int w) {
     const int       bd           = 8;
     const int       offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
@@ -711,7 +711,7 @@ static inline void dist_wtd_convolve_2d_vert_8tap_avg_neon(int16_t *src_ptr, con
         (1 << (offset_bits - COMPOUND_ROUND1_BITS - 1));
     const int16x8_t round_offset_vec = vdupq_n_s16(round_offset);
 
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int      dst_stride = conv_params->dst_stride;
 
     if (w == 4) {
@@ -751,9 +751,9 @@ static inline void dist_wtd_convolve_2d_vert_8tap_avg_neon(int16_t *src_ptr, con
         } while (h != 0);
     } else {
         do {
-            int16_t       *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
-            uint8_t       *d_u8   = dst8_ptr;
+            int16_t*       s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
+            uint8_t*       d_u8   = dst8_ptr;
             int            height = h;
 
             int16x8_t s0, s1, s2, s3, s4, s5, s6;
@@ -798,14 +798,14 @@ static inline void dist_wtd_convolve_2d_vert_8tap_avg_neon(int16_t *src_ptr, con
     }
 }
 
-static inline void dist_wtd_convolve_2d_vert_8tap_neon(int16_t *src_ptr, const int src_stride,
-                                                       ConvolveParams *conv_params, const int16x8_t y_filter, int h,
+static inline void dist_wtd_convolve_2d_vert_8tap_neon(int16_t* src_ptr, const int src_stride,
+                                                       ConvolveParams* conv_params, const int16x8_t y_filter, int h,
                                                        int w) {
     const int       bd           = 8;
     const int       offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int32x4_t offset_const = vdupq_n_s32(1 << offset_bits);
 
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int      dst_stride = conv_params->dst_stride;
 
     if (w == 4) {
@@ -837,8 +837,8 @@ static inline void dist_wtd_convolve_2d_vert_8tap_neon(int16_t *src_ptr, const i
         } while (h != 0);
     } else {
         do {
-            int16_t       *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
+            int16_t*       s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
             int            height = h;
 
             int16x8_t s0, s1, s2, s3, s4, s5, s6;

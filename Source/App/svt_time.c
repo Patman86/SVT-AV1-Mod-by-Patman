@@ -29,8 +29,9 @@
 #include "svt_time.h"
 
 void app_svt_av1_sleep(const unsigned milliseconds) {
-    if (!milliseconds)
+    if (!milliseconds) {
         return;
+    }
 #ifdef _WIN32
     Sleep(milliseconds);
 #else
@@ -45,7 +46,7 @@ double app_svt_av1_compute_overall_elapsed_time(const uint64_t start_seconds, co
     return ((double)s_diff * 1000.0 + (double)u_diff / 1000.0 + 0.5) / 1000.0;
 }
 
-void app_svt_av1_get_time(uint64_t *const seconds, uint64_t *const useconds) {
+void app_svt_av1_get_time(uint64_t* const seconds, uint64_t* const useconds) {
 #ifdef _WIN32
     struct _timeb curr_time;
     _ftime_s(&curr_time);

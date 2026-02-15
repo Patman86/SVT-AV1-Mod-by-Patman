@@ -154,7 +154,7 @@ typedef enum {
  * This structure is able to hold a reference to any fixed size buffer.
  */
 typedef struct SvtAv1FixedBuf {
-    void    *buf; /**< Pointer to the data. Does NOT own the data! */
+    void*    buf; /**< Pointer to the data. Does NOT own the data! */
     uint64_t sz; /**< Length of the buffer, in chars */
 } SvtAv1FixedBuf; /**< alias for struct aom_fixed_buf */
 
@@ -193,17 +193,17 @@ typedef enum SvtAv1FrameUpdateType {
 
 typedef struct SvtAv1FrameScaleEvts {
     uint32_t  evt_num;
-    uint64_t *start_frame_nums;
-    uint32_t *resize_kf_denoms;
-    uint32_t *resize_denoms;
+    uint64_t* start_frame_nums;
+    uint32_t* resize_kf_denoms;
+    uint32_t* resize_denoms;
 } SvtAv1FrameScaleEvts;
 
 typedef struct SvtAv1SFramePositions {
     uint32_t  sframe_num;
-    uint64_t *sframe_posis;
+    uint64_t* sframe_posis;
     uint32_t  sframe_qp_num;
-    uint8_t  *sframe_qps;
-    int8_t   *sframe_qp_offsets;
+    uint8_t*  sframe_qps;
+    int8_t*   sframe_qp_offsets;
 } SvtAv1SFramePositions;
 
 // Will contain the EbEncApi which will live in the EncHandle class
@@ -835,7 +835,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     uint8_t tf_strength;
 
     /* Stores the optional film grain synthesis info */
-    AomFilmGrain *fgs_table;
+    AomFilmGrain* fgs_table;
 
     /* New parameters can go in under this line. Also deduct the size of the parameter */
     /* from the padding array */
@@ -965,7 +965,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * 1.00: enable AC bias with a strength of 1.00
      * Default is 0.00.
      */
-     double ac_bias;
+    double ac_bias;
 
 } EbSvtAv1EncConfiguration;
 
@@ -973,7 +973,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
  * Returns a string containing "v$tag-$commit_count-g$hash${dirty:+-dirty}"
  * @param[out] SVT_AV1_CVS_VERSION
  */
-EB_API const char *svt_av1_get_version(void);
+EB_API const char* svt_av1_get_version(void);
 
 /**
  * Prints the version header and build information to the file
@@ -1006,7 +1006,7 @@ typedef enum {
  * @param[in] fmt     printf-style format string
  * @param[in] args    Variable argument list corresponding to the format string
  */
-typedef void (*SvtAv1LogCallback)(void *context, SvtAv1LogLevel level, const char *tag, const char *fmt, va_list args);
+typedef void (*SvtAv1LogCallback)(void* context, SvtAv1LogLevel level, const char* tag, const char* fmt, va_list args);
 
 /**
  * Register a callback for intercepting log messages.
@@ -1020,7 +1020,7 @@ typedef void (*SvtAv1LogCallback)(void *context, SvtAv1LogLevel level, const cha
  * @param[in] context   Opaque context pointer passed back to the callback. Typically application state or logging context.
  *                      Ignored if callback is NULL.
  */
-EB_API void svt_av1_set_log_callback(SvtAv1LogCallback callback, void *context);
+EB_API void svt_av1_set_log_callback(SvtAv1LogCallback callback, void* context);
 
 /* STEP 1: Call the library to construct a Component Handle.
      *
@@ -1031,8 +1031,8 @@ EB_API void svt_av1_set_log_callback(SvtAv1LogCallback callback, void *context);
      * @ *config_ptr     Pointer passed back to the client during callbacks, it will be
      *                  loaded with default params from the library. */
 EB_API EbErrorType svt_av1_enc_init_handle(
-    EbComponentType         **p_handle,
-    EbSvtAv1EncConfiguration *config_ptr); // config_ptr will be loaded with default params from the library
+    EbComponentType**         p_handle,
+    EbSvtAv1EncConfiguration* config_ptr); // config_ptr will be loaded with default params from the library
 
 /* STEP 2: Set all configuration parameters.
      *
@@ -1040,9 +1040,9 @@ EB_API EbErrorType svt_av1_enc_init_handle(
      * @ *svt_enc_component              Encoder handler.
      * @ *pComponentParameterStructure  Encoder and buffer configurations will be copied to the library. */
 EB_API EbErrorType svt_av1_enc_set_parameter(
-    EbComponentType *svt_enc_component,
-    EbSvtAv1EncConfiguration
-        *pComponentParameterStructure); // pComponentParameterStructure contents will be copied to the library
+    EbComponentType* svt_enc_component,
+    EbSvtAv1EncConfiguration*
+        pComponentParameterStructure); // pComponentParameterStructure contents will be copied to the library
 
 /* OPTIONAL: Set a single configuration parameter.
      *
@@ -1050,35 +1050,35 @@ EB_API EbErrorType svt_av1_enc_set_parameter(
      * @ *pComponentParameterStructure  Encoder parameters structure.
      * @ *name                          Null terminated string containing the parameter name
      * @ *value                         Null terminated string containing the parameter value */
-EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *pComponentParameterStructure, const char *name,
-                                               const char *value);
+EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* pComponentParameterStructure, const char* name,
+                                               const char* value);
 
 /* STEP 3: Initialize encoder and allocates memory to necessary buffers.
      *
      * Parameter:
      * @ *svt_enc_component  Encoder handler. */
-EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component);
+EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component);
 
 /* OPTIONAL: Get stream headers at init time.
      *
      * Parameter:
      * @ *svt_enc_component   Encoder handler.
      * @ **output_stream_ptr  Output buffer. */
-EB_API EbErrorType svt_av1_enc_stream_header(EbComponentType     *svt_enc_component,
-                                             EbBufferHeaderType **output_stream_ptr);
+EB_API EbErrorType svt_av1_enc_stream_header(EbComponentType*     svt_enc_component,
+                                             EbBufferHeaderType** output_stream_ptr);
 
 /* OPTIONAL: Release stream headers at init time.
      *
      * Parameter:
      * @ *stream_header_ptr  stream header buffer. */
-EB_API EbErrorType svt_av1_enc_stream_header_release(EbBufferHeaderType *stream_header_ptr);
+EB_API EbErrorType svt_av1_enc_stream_header_release(EbBufferHeaderType* stream_header_ptr);
 
 /* STEP 4: Send the picture.
      *
      * Parameter:
      * @ *svt_enc_component  Encoder handler.
      * @ *p_buffer           Header pointer, picture buffer. */
-EB_API EbErrorType svt_av1_enc_send_picture(EbComponentType *svt_enc_component, EbBufferHeaderType *p_buffer);
+EB_API EbErrorType svt_av1_enc_send_picture(EbComponentType* svt_enc_component, EbBufferHeaderType* p_buffer);
 
 /**
  * @brief Step 5: Receive packet.
@@ -1090,21 +1090,21 @@ EB_API EbErrorType svt_av1_enc_send_picture(EbComponentType *svt_enc_component, 
  * @param pic_send_done Flag to signal that all input pictures have been sent. Should be either 0 or 1.
  * @return EB_API Either EB_ErrorMax for an encode error or EB_NoErrorEmptyQueue if there are no available packets.
  */
-EB_API EbErrorType svt_av1_enc_get_packet(EbComponentType *svt_enc_component, EbBufferHeaderType **p_buffer,
+EB_API EbErrorType svt_av1_enc_get_packet(EbComponentType* svt_enc_component, EbBufferHeaderType** p_buffer,
                                           uint8_t pic_send_done);
 
 /* STEP 5-1: Release output buffer back into the pool.
      *
      * Parameter:
      * @ **p_buffer          Header pointer that contains the output packet to be released. */
-EB_API void svt_av1_enc_release_out_buffer(EbBufferHeaderType **p_buffer);
+EB_API void svt_av1_enc_release_out_buffer(EbBufferHeaderType** p_buffer);
 
 /* OPTIONAL: Fill buffer with reconstructed picture.
      *
      * Parameter:
      * @ *svt_enc_component  Encoder handler.
      * @ *p_buffer           Output buffer. */
-EB_API EbErrorType svt_av1_get_recon(EbComponentType *svt_enc_component, EbBufferHeaderType *p_buffer);
+EB_API EbErrorType svt_av1_get_recon(EbComponentType* svt_enc_component, EbBufferHeaderType* p_buffer);
 
 /* OPTIONAL: get stream information
      *
@@ -1112,19 +1112,19 @@ EB_API EbErrorType svt_av1_get_recon(EbComponentType *svt_enc_component, EbBuffe
      * @ *svt_enc_component  Encoder handler.
      * @ *stream_info_id SVT_AV1_STREAM_INFO_ID.
      * @ *info         output, the type depends on id */
-EB_API EbErrorType svt_av1_enc_get_stream_info(EbComponentType *svt_enc_component, uint32_t stream_info_id, void *info);
+EB_API EbErrorType svt_av1_enc_get_stream_info(EbComponentType* svt_enc_component, uint32_t stream_info_id, void* info);
 
 /* STEP 6: Deinitialize encoder library.
      *
      * Parameter:
      * @ *svt_enc_component  Encoder handler. */
-EB_API EbErrorType svt_av1_enc_deinit(EbComponentType *svt_enc_component);
+EB_API EbErrorType svt_av1_enc_deinit(EbComponentType* svt_enc_component);
 
 /* STEP 7: Deconstruct encoder handler.
      *
      * Parameter:
      * @ *svt_enc_component  Encoder handler. */
-EB_API EbErrorType svt_av1_enc_deinit_handle(EbComponentType *svt_enc_component);
+EB_API EbErrorType svt_av1_enc_deinit_handle(EbComponentType* svt_enc_component);
 
 #ifdef __cplusplus
 }

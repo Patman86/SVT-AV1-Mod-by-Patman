@@ -21,7 +21,7 @@ static int aom_count_signed_primitive_refsubexpfin(uint16_t n, uint16_t k, int16
     return svt_aom_count_primitive_refsubexpfin(scaled_n, k, ref, v);
 }
 
-int svt_aom_gm_get_params_cost(const WarpedMotionParams *gm, const WarpedMotionParams *ref_gm, int allow_hp) {
+int svt_aom_gm_get_params_cost(const WarpedMotionParams* gm, const WarpedMotionParams* ref_gm, int allow_hp) {
     int params_cost = 0;
     int trans_bits, trans_prec_diff;
     switch (gm->wmtype) {
@@ -60,8 +60,10 @@ int svt_aom_gm_get_params_cost(const WarpedMotionParams *gm, const WarpedMotionP
                                                                (ref_gm->wmmat[1] >> trans_prec_diff),
                                                                (gm->wmmat[1] >> trans_prec_diff));
         AOM_FALLTHROUGH_INTENDED;
-    case IDENTITY: break;
-    default: assert(0);
+    case IDENTITY:
+        break;
+    default:
+        assert(0);
     }
     return (params_cost << AV1_PROB_COST_SHIFT);
 }

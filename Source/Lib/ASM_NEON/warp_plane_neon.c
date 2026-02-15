@@ -100,7 +100,7 @@ static AOM_FORCE_INLINE int16x8_t horizontal_filter_4x1_f1_beta0(const uint8x16_
 }
 
 static AOM_FORCE_INLINE int16x8_t horizontal_filter_4x1_f1(const uint8x16_t in, int sx) {
-    int16x8_t f_s16 = vld1q_s16((int16_t *)(svt_aom_warped_filter + (sx >> WARPEDDIFF_PREC_BITS)));
+    int16x8_t f_s16 = vld1q_s16((int16_t*)(svt_aom_warped_filter + (sx >> WARPEDDIFF_PREC_BITS)));
     return horizontal_filter_4x1_f1_beta0(in, f_s16);
 }
 
@@ -133,11 +133,11 @@ static AOM_FORCE_INLINE int16x8_t horizontal_filter_8x1_f1_beta0(const uint8x16_
 }
 
 static AOM_FORCE_INLINE int16x8_t horizontal_filter_8x1_f1(const uint8x16_t in, int sx) {
-    int16x8_t f_s16 = vld1q_s16((int16_t *)(svt_aom_warped_filter + (sx >> WARPEDDIFF_PREC_BITS)));
+    int16x8_t f_s16 = vld1q_s16((int16_t*)(svt_aom_warped_filter + (sx >> WARPEDDIFF_PREC_BITS)));
     return horizontal_filter_8x1_f1_beta0(in, f_s16);
 }
 
-static inline void vertical_filter_4x1_f4(const int16x8_t *src, int32x4_t *res, int sy, int gamma) {
+static inline void vertical_filter_4x1_f4(const int16x8_t* src, int32x4_t* res, int sy, int gamma) {
     int16x8_t s0, s1, s2, s3;
     transpose_elems_s16_4x8(vget_low_s16(src[0]),
                             vget_low_s16(src[1]),
@@ -169,7 +169,7 @@ static inline void vertical_filter_4x1_f4(const int16x8_t *src, int32x4_t *res, 
     *res = horizontal_add_4d_s32x4(m0123_pairs);
 }
 
-static inline void vertical_filter_8x1_f8(const int16x8_t *src, int32x4_t *res_low, int32x4_t *res_high, int sy,
+static inline void vertical_filter_8x1_f8(const int16x8_t* src, int32x4_t* res_low, int32x4_t* res_high, int sy,
                                           int gamma) {
     int16x8_t s0 = src[0];
     int16x8_t s1 = src[1];
@@ -208,7 +208,7 @@ static inline void vertical_filter_8x1_f8(const int16x8_t *src, int32x4_t *res_l
     *res_high = horizontal_add_4d_s32x4(m4567_pairs);
 }
 
-static AOM_FORCE_INLINE void warp_affine_horizontal_neon(const uint8_t *ref, int width, int height, int stride,
+static AOM_FORCE_INLINE void warp_affine_horizontal_neon(const uint8_t* ref, int width, int height, int stride,
                                                          int p_width, int p_height, int16_t alpha, int16_t beta,
                                                          const int64_t x4, const int64_t y4, const int i,
                                                          int16x8_t tmp[]) {
@@ -264,14 +264,15 @@ static AOM_FORCE_INLINE void warp_affine_horizontal_neon(const uint8_t *ref, int
         }
     }
 }
-void svt_av1_warp_affine_neon(const int32_t *mat, const uint8_t *ref, int width, int height, int stride, uint8_t *pred,
+
+void svt_av1_warp_affine_neon(const int32_t* mat, const uint8_t* ref, int width, int height, int stride, uint8_t* pred,
                               int p_col, int p_row, int p_width, int p_height, int p_stride, int subsampling_x,
-                              int subsampling_y, ConvolveParams *conv_params, int16_t alpha, int16_t beta,
+                              int subsampling_y, ConvolveParams* conv_params, int16_t alpha, int16_t beta,
                               int16_t gamma, int16_t delta) {
     const int       w0                    = conv_params->fwd_offset;
     const int       w1                    = conv_params->bck_offset;
     const int       is_compound           = conv_params->is_compound;
-    uint16_t *const dst                   = conv_params->dst;
+    uint16_t* const dst                   = conv_params->dst;
     const int       dst_stride            = conv_params->dst_stride;
     const int       do_average            = conv_params->do_average;
     const int       use_dist_wtd_comp_avg = conv_params->use_dist_wtd_comp_avg;

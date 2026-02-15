@@ -62,24 +62,24 @@ qm_logger = utils.create_logger("qm_logger", QM_LOG_PATH)
 
 @dataclass
 class DecodeTask:
-    codec_type: str
-    codec_name: str
+    encoder_type: str
+    encoder_name: str
     speed: int
     quality: int
-    nthreads: int
+    threads: int
     input_file: str
 
 
 @dataclass
 class DecodeResult:
-    codec_type: str
-    codec_name: str
+    encoder_type: str
+    encoder_name: str
     speed: int
     quality: int
-    nthreads: int
+    threads: int
     decode_time: float
     input_file: str
-    output_file: str
+    decoded_file: str
     # Quality metrics
     ssimulacra2: float | None
     psnr_y: float | None
@@ -94,8 +94,8 @@ class DecodeResult:
 
 
 def decode_file(
-    codec_type: str,
-    codec_name: str,
+    encoder_type: str,
+    encoder_name: str,
     input_file: str,
     nthreads: int,
     output_dir: str,
@@ -103,14 +103,14 @@ def decode_file(
     """Decode a single file with the specified parameters"""
 
     filename_without_extension: str = os.path.basename(os.path.splitext(input_file)[0])
-    extension: str = COMMON_SETTINGS[codec_type]["decode_extension"]
+    extension: str = COMMON_SETTINGS[encoder_type]["decode_extension"]
 
     width, height, fps = utils.get_file_desc(filename_without_extension)
 
     output_file: str = f"{filename_without_extension}.{extension}"
     output_path = os.path.join(output_dir, output_file)
 
-    dec_settings = DECODER_SETTINGS[codec_type][codec_name]
+    dec_settings = DECODER_SETTINGS[encoder_type][encoder_name]
     decoder_bin_name = dec_settings["decoder"]
 
     command = dec_settings["command"].format(
@@ -126,13 +126,13 @@ def decode_file(
     dec_logger.info(command)
 
     if DRY_RUN_MODE:
-        return codec_name, input_file, nthreads, output_path, 0.0
+        return encoder_name, input_file, nthreads, output_path, 0.0
 
     # passes enables more accurate runtime measurements
-    passes = COMMON_SETTINGS[codec_type][codec_name].get("passes", 1)
+    passes = COMMON_SETTINGS[encoder_type][encoder_name].get("passes", 1)
     try:
         runtime = utils.get_cmd_times(command, passes)
-        return codec_name, input_file, nthreads, output_path, runtime
+        return encoder_name, input_file, nthreads, output_path, runtime
     except subprocess.CalledProcessError as e:
         if "Signals.SIGINT" in str(e):
             raise KeyboardInterrupt
@@ -271,8 +271,8 @@ def calculate_single_file_quality_metrics(
 
 
 def get_output_dir(
-    codec_type: str,
-    codec_name: str,
+    encoder_type: str,
+    encoder_name: str,
     speed: int,
     quality: int,
     nthreads: int,
@@ -280,7 +280,7 @@ def get_output_dir(
     """Get output directory path following the same pattern as encoding"""
     base_dir = DECODED_DIR
 
-    dir_format = COMMON_SETTINGS[codec_type].get("dir_format", {})
+    dir_format = COMMON_SETTINGS[encoder_type].get("dir_format", {})
 
     speed_suffix = dir_format.get("speed_suffix", "")
     if speed_suffix:
@@ -291,57 +291,57 @@ def get_output_dir(
     quality_param = dir_format.get("quality_param", "q")
     quality_str = f"{quality_param}{quality}"
 
-    base_output_dir = os.path.join(base_dir, f"{codec_name}{name_suffix}")
+    base_output_dir = os.path.join(base_dir, f"{encoder_name}{name_suffix}")
     output_dir = os.path.join(base_output_dir, f"{quality_str}_t{nthreads}")
     return output_dir
 
 
 def get_sub_dir_name(
-    codec_type: str,
-    codec_name: str,
+    encoder_type: str,
+    encoder_name: str,
     speed: int,
     quality: int,
     nthreads: int,
 ) -> str:
     """Get subdirectory name for organizing conversions"""
-    dir_format = COMMON_SETTINGS[codec_type].get("dir_format", {})
+    dir_format = COMMON_SETTINGS[encoder_type].get("dir_format", {})
 
     speed_suffix = f"_speed{speed}" if dir_format.get("speed_suffix") else ""
     quality_param = dir_format.get("quality_param", "q")
 
-    return f"{codec_name}{speed_suffix}/{quality_param}{quality}_t{nthreads}"
+    return f"{encoder_name}{speed_suffix}/{quality_param}{quality}_t{nthreads}"
 
 
 def execute_decode_job(task: DecodeTask) -> Tuple[DecodeTask, DecodeResult]:
     """Execute a single decode + quality metrics job and return the result"""
 
     output_dir = get_output_dir(
-        task.codec_type,
-        task.codec_name,
+        task.encoder_type,
+        task.encoder_name,
         task.speed,
         task.quality,
-        task.nthreads,
+        task.threads,
     )
 
     if not DRY_RUN_MODE:
         os.makedirs(output_dir, exist_ok=True)
 
     # Decode the file
-    codec_name, input_file, nthreads, decoded_path, decode_time = decode_file(
-        task.codec_type,
-        task.codec_name,
+    encoder_name, input_file, nthreads, decoded_path, decode_time = decode_file(
+        task.encoder_type,
+        task.encoder_name,
         task.input_file,
-        task.nthreads,
+        task.threads,
         output_dir,
     )
 
     # Calculate quality metrics for the decoded file
     sub_dir_name = get_sub_dir_name(
-        task.codec_type,
-        task.codec_name,
+        task.encoder_type,
+        task.encoder_name,
         task.speed,
         task.quality,
-        task.nthreads,
+        task.threads,
     )
 
     quality_metrics = {}
@@ -352,14 +352,14 @@ def execute_decode_job(task: DecodeTask) -> Tuple[DecodeTask, DecodeResult]:
 
     # Build result dictionary with all quality metrics as separate columns
     result = DecodeResult(
-        codec_type=task.codec_type,
-        codec_name=codec_name,
+        encoder_type=task.encoder_type,
+        encoder_name=encoder_name,
         speed=task.speed,
         quality=task.quality,
-        nthreads=nthreads,
+        threads=nthreads,
         decode_time=decode_time,
         input_file=os.path.basename(input_file),
-        output_file=os.path.basename(decoded_path),
+        decoded_file=os.path.basename(decoded_path),
         # Quality metrics
         ssimulacra2=quality_metrics.get("ssimulacra2", None),
         psnr_y=quality_metrics.get("psnr_y", None),
@@ -380,20 +380,20 @@ def create_decode_jobs() -> List[DecodeTask]:
     """Create all decode jobs for all combinations of parameters"""
     jobs = []
 
-    for codec_type, codecs in DECODER_SETTINGS.items():
-        for codec_name, _ in codecs.items():
-            if codec_name not in config_manager.get_codecs()["allowed_codecs"]:
+    for encoder_type, codecs in DECODER_SETTINGS.items():
+        for encoder_name, _ in codecs.items():
+            if encoder_name not in config_manager.get_codecs()["allowed_codecs"]:
                 continue
 
-            dir_format = COMMON_SETTINGS[codec_type].get("dir_format", {})
+            dir_format = COMMON_SETTINGS[encoder_type].get("dir_format", {})
             quality_param = dir_format.get("quality_param", "q")
             quality_values_key = f"{quality_param}_values"
 
-            quality_values = COMMON_SETTINGS[codec_type][codec_name].get(
+            quality_values = COMMON_SETTINGS[encoder_type][encoder_name].get(
                 quality_values_key, []
             )
-            speed_values = COMMON_SETTINGS[codec_type][codec_name]["speed_values"]
-            nthreads_list = ENCODER_SETTINGS[codec_type][codec_name]["nthreads"]
+            speed_values = COMMON_SETTINGS[encoder_type][encoder_name]["speed_values"]
+            nthreads_list = ENCODER_SETTINGS[encoder_type][encoder_name]["nthreads"]
 
             for speed in speed_values:
                 for quality in quality_values:
@@ -402,7 +402,7 @@ def create_decode_jobs() -> List[DecodeTask]:
                         speed_suffix = (
                             f"_speed{speed}" if dir_format.get("speed_suffix") else ""
                         )
-                        sub_dir_name = f"{codec_name}{speed_suffix}/{quality_param}{quality}_t{nthreads}"
+                        sub_dir_name = f"{encoder_name}{speed_suffix}/{quality_param}{quality}_t{nthreads}"
 
                         input_dir = os.path.join(ENCODED_DIR, sub_dir_name)
 
@@ -415,11 +415,11 @@ def create_decode_jobs() -> List[DecodeTask]:
                             if os.path.isfile(input_file):
                                 jobs.append(
                                     DecodeTask(
-                                        codec_type=codec_type,
-                                        codec_name=codec_name,
+                                        encoder_type=encoder_type,
+                                        encoder_name=encoder_name,
                                         speed=speed,
                                         quality=quality,
-                                        nthreads=nthreads,
+                                        threads=nthreads,
                                         input_file=input_file,
                                     )
                                 )
@@ -492,8 +492,8 @@ def main() -> None:
                 )
                 need_csv_header = False
                 log_msg = (
-                    f"Completed: {job.codec_name} speed={job.speed} "
-                    f"quality={job.quality} threads={job.nthreads} "
+                    f"Completed: {job.encoder_name} speed={job.speed} "
+                    f"quality={job.quality} threads={job.threads} "
                     f"file={os.path.basename(job.input_file)} -> ok"
                 )
             except Exception as e:

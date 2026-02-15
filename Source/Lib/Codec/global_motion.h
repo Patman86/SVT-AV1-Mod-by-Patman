@@ -41,6 +41,7 @@ typedef struct {
     int x, y;
     int rx, ry;
 } Correspondence;
+
 enum {
     GM_ERRORADV_TR_0,
     GM_ERRORADV_TR_1,

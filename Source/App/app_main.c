@@ -89,8 +89,9 @@ static void init_memory_file_map(EbConfig* app_cfg) {
         app_cfg->mmap.enable = app_cfg->buffered_input == -1 && !app_cfg->input_file_is_fifo;
     }
 
-    if (!app_cfg->mmap.enable)
+    if (!app_cfg->mmap.enable) {
         return;
+    }
     // app_cfg->mmap.y4m_seq_hdr   = 0; // already initialized to 0 or some value in read_y4m_header()
     app_cfg->mmap.y4m_frm_hdr   = 0;
     app_cfg->mmap.file_frame_it = 0;
@@ -124,8 +125,9 @@ static void init_memory_file_map(EbConfig* app_cfg) {
 }
 
 static void deinit_memory_file_map(EbConfig* app_cfg) {
-    if (!app_cfg->mmap.enable)
+    if (!app_cfg->mmap.enable) {
         return;
+    }
 #ifdef _WIN32
     CloseHandle(app_cfg->mmap.map_handle);
 #endif
@@ -148,8 +150,9 @@ static EbErrorType enc_context_ctor(EncApp* enc_app, EncContext* enc_context, in
     enc_context->passes   = passes;
 
     EbErrorType return_error = enc_channel_ctor(&enc_context->channel);
-    if (return_error != EB_ErrorNone)
+    if (return_error != EB_ErrorNone) {
         return return_error;
+    }
 
     char** warning = enc_context->warning;
 
@@ -185,10 +188,13 @@ static EbErrorType enc_context_ctor(EncApp* enc_app, EncContext* enc_context, in
                 double val = strtod(forced_keyframes->specifiers[i], &p);
                 switch (*p) {
                 case 'f':
-                case 'F': break;
+                case 'F':
+                    break;
                 case 's':
                 case 'S':
-                default: val *= fps; break;
+                default:
+                    val *= fps;
+                    break;
                 }
                 forced_keyframes->frames[i] = (uint64_t)val;
             }
@@ -209,8 +215,9 @@ static EbErrorType enc_context_ctor(EncApp* enc_app, EncContext* enc_context, in
             c->return_error = init_encoder(app_cfg);
         }
         return_error = (EbErrorType)(return_error | c->return_error);
-    } else
+    } else {
         c->active = false;
+    }
     return return_error;
 }
 
@@ -219,7 +226,9 @@ static void enc_context_dctor(EncContext* enc_context) {
     deinit_memory_file_map(enc_context->channel.app_cfg);
     enc_channel_dctor(&enc_context->channel);
 
-    for (uint32_t warning_id = 0; warning_id < MAX_NUM_TOKENS; warning_id++) free(enc_context->warning[warning_id]);
+    for (uint32_t warning_id = 0; warning_id < MAX_NUM_TOKENS; warning_id++) {
+        free(enc_context->warning[warning_id]);
+    }
 }
 
 double get_psnr(double sse, double max);
@@ -299,7 +308,7 @@ static void print_performance(const EncContext* const enc_context) {
         if (app_cfg->stop_encoder == false) {
             if ((app_cfg->config.pass == 0 ||
                  (app_cfg->config.pass == 2 && app_cfg->config.rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF) ||
-                 app_cfg->config.pass == 3))
+                 app_cfg->config.pass == 3)) {
                 fprintf(stderr,
                         "\nAverage Speed:\t\t%.3f fps\nTotal Encoding Time:\t%.0f "
                         "ms\nTotal Execution Time:\t%.0f ms\nAverage Latency:\t%.0f ms\nMax "
@@ -309,25 +318,31 @@ static void print_performance(const EncContext* const enc_context) {
                         app_cfg->performance_context.total_execution_time * 1000,
                         app_cfg->performance_context.average_latency,
                         (uint32_t)(app_cfg->performance_context.max_latency));
-        } else
+            }
+        } else {
             fprintf(stderr, "\nEncoding Interrupted\n");
-    } else if (c->return_error == EB_ErrorInsufficientResources)
+        }
+    } else if (c->return_error == EB_ErrorInsufficientResources) {
         fprintf(stderr, "Could not allocate enough memory\n");
-    else
+    } else {
         fprintf(stderr, "Error encoding! Check error log file for more details...\n");
+    }
 }
 
 static void print_warnnings(const EncContext* const enc_context) {
     char* const* warning = enc_context->warning;
     for (uint32_t warning_id = 0;; warning_id++) {
-        if (*warning[warning_id] == '-')
+        if (*warning[warning_id] == '-') {
             fprintf(stderr, "warning: %s\n", warning[warning_id]);
-        else if (*warning[warning_id + 1] != '-')
+        } else if (*warning[warning_id + 1] != '-') {
             break;
+        }
     }
 }
 
-static bool is_active(const EncChannel* c) { return c->active; }
+static bool is_active(const EncChannel* c) {
+    return c->active;
+}
 
 bool process_skip(EbConfig* app_cfg, EbBufferHeaderType* header_ptr);
 
@@ -355,19 +370,25 @@ static void enc_channel_step(EncChannel* c, EncApp* enc_app, EncContext* enc_con
         ((c->exit_cond_recon == APP_ExitConditionError && app_cfg->recon_file) ||
          c->exit_cond_output == APP_ExitConditionError || c->exit_cond_input == APP_ExitConditionError)) {
         c->active = false;
-        if (app_cfg->recon_file)
+        if (app_cfg->recon_file) {
             c->exit_cond = (AppExitConditionType)(c->exit_cond_recon | c->exit_cond_output | c->exit_cond_input);
-        else
+        } else {
             c->exit_cond = (AppExitConditionType)(c->exit_cond_output | c->exit_cond_input);
+        }
     }
 }
+
 static const char* get_pass_name(EncPass enc_pass) {
     switch (enc_pass) {
-    case ENC_FIRST_PASS: return "Pass 1/2 ";
-    case ENC_SECOND_PASS: return "Pass 2/2 ";
-    default: return "";
+    case ENC_FIRST_PASS:
+        return "Pass 1/2 ";
+    case ENC_SECOND_PASS:
+        return "Pass 2/2 ";
+    default:
+        return "";
     }
 }
+
 static void enc_channel_start(EncChannel* c) {
     if (c->return_error == EB_ErrorNone) {
         EbConfig* app_cfg   = c->app_cfg;
@@ -390,7 +411,9 @@ static EbErrorType encode(EncApp* enc_app, EncContext* enc_context) {
     print_warnnings(enc_context);
     fprintf(stderr, "%sEncoding          ", get_pass_name(enc_pass));
 
-    while (is_active(&enc_context->channel)) { enc_channel_step(&enc_context->channel, enc_app, enc_context); }
+    while (is_active(&enc_context->channel)) {
+        enc_channel_step(&enc_context->channel, enc_app, enc_context);
+    }
     print_summary(enc_context);
     print_performance(enc_context);
     return return_error;
@@ -401,7 +424,9 @@ EbErrorType enc_app_ctor(EncApp* enc_app) {
     return EB_ErrorNone;
 }
 
-void enc_app_dctor(EncApp* enc_app) { free(enc_app->rc_twopasses_stats.buf); }
+void enc_app_dctor(EncApp* enc_app) {
+    free(enc_app->rc_twopasses_stats.buf);
+}
 
 /***************************************
  * Encoder App Main
@@ -419,26 +444,31 @@ int main(int argc, char* argv[]) {
     EncContext  enc_context;
 
     signal(SIGINT, event_handler);
-    if (get_version(argc, argv))
+    if (get_version(argc, argv)) {
         return 0;
+    }
 
-    if (get_help(argc, argv))
+    if (get_help(argc, argv)) {
         return 0;
+    }
 
-    if (get_color_help(argc, argv))
+    if (get_color_help(argc, argv)) {
         return 0;
+    }
 
     enc_app_ctor(&enc_app);
     passes = get_passes(argc, argv, enc_pass);
     for (uint8_t pass_idx = 0; pass_idx < passes; pass_idx++) {
         return_error = enc_context_ctor(&enc_app, &enc_context, argc, argv, enc_pass[pass_idx], passes);
 
-        if (return_error == EB_ErrorNone)
+        if (return_error == EB_ErrorNone) {
             return_error = encode(&enc_app, &enc_context);
+        }
 
         enc_context_dctor(&enc_context);
-        if (return_error != EB_ErrorNone)
+        if (return_error != EB_ErrorNone) {
             break;
+        }
 
 #ifdef __GLIBC__
         malloc_trim(0);

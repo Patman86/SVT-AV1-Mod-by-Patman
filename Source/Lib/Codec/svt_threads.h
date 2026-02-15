@@ -28,32 +28,28 @@ extern "C" {
 /**************************************
      * Threads
      **************************************/
-extern EbHandle svt_create_thread(void *thread_function(void *), void *thread_context);
+EbHandle svt_create_thread(void* thread_function(void*), void* thread_context);
 
-extern EbErrorType svt_start_thread(EbHandle thread_handle);
-
-extern EbErrorType svt_stop_thread(EbHandle thread_handle);
-
-extern EbErrorType svt_destroy_thread(EbHandle thread_handle);
+EbErrorType svt_destroy_thread(EbHandle thread_handle);
 
 /**************************************
      * Semaphores
      **************************************/
-extern EbHandle svt_create_semaphore(uint32_t initial_count, uint32_t max_count);
+EbHandle svt_create_semaphore(uint32_t initial_count, uint32_t max_count);
 
-extern EbErrorType svt_post_semaphore(EbHandle semaphore_handle);
+EbErrorType svt_post_semaphore(EbHandle semaphore_handle);
 
-extern EbErrorType svt_block_on_semaphore(EbHandle semaphore_handle);
+EbErrorType svt_block_on_semaphore(EbHandle semaphore_handle);
 
-extern EbErrorType svt_destroy_semaphore(EbHandle semaphore_handle);
+EbErrorType svt_destroy_semaphore(EbHandle semaphore_handle);
 
 /**************************************
      * Mutex
      **************************************/
-extern EbHandle    svt_create_mutex(void);
-extern EbErrorType svt_release_mutex(EbHandle mutex_handle);
-extern EbErrorType svt_block_on_mutex(EbHandle mutex_handle);
-extern EbErrorType svt_destroy_mutex(EbHandle mutex_handle);
+EbHandle    svt_create_mutex(void);
+EbErrorType svt_release_mutex(EbHandle mutex_handle);
+EbErrorType svt_block_on_mutex(EbHandle mutex_handle);
+EbErrorType svt_destroy_mutex(EbHandle mutex_handle);
 #ifndef _WIN32
 #ifndef __USE_GNU
 #define __USE_GNU
@@ -78,21 +74,23 @@ extern EbErrorType svt_destroy_mutex(EbHandle mutex_handle);
         }                                            \
     } while (0);
 
-#define EB_CREATE_THREAD_ARRAY(pa, count, thread_function, thread_contexts)                                \
-    do {                                                                                                   \
-        EB_ALLOC_PTR_ARRAY(pa, count);                                                                     \
-        for (uint32_t i = 0; i < count; i++) EB_CREATE_THREAD(pa[i], thread_function, thread_contexts[i]); \
+#define EB_CREATE_THREAD_ARRAY(pa, count, thread_function, thread_contexts) \
+    do {                                                                    \
+        EB_ALLOC_PTR_ARRAY(pa, count);                                      \
+        for (uint32_t i = 0; i < count; i++)                                \
+            EB_CREATE_THREAD(pa[i], thread_function, thread_contexts[i]);   \
     } while (0)
 
-#define EB_DESTROY_THREAD_ARRAY(pa, count)                                 \
-    do {                                                                   \
-        if (pa) {                                                          \
-            for (uint32_t i = 0; i < count; i++) EB_DESTROY_THREAD(pa[i]); \
-            EB_FREE_PTR_ARRAY(pa, count);                                  \
-        }                                                                  \
+#define EB_DESTROY_THREAD_ARRAY(pa, count)       \
+    do {                                         \
+        if (pa) {                                \
+            for (uint32_t i = 0; i < count; i++) \
+                EB_DESTROY_THREAD(pa[i]);        \
+            EB_FREE_PTR_ARRAY(pa, count);        \
+        }                                        \
     } while (0)
 
-void svt_aom_atomic_set_u32(AtomicVarU32 *var, uint32_t in);
+void svt_aom_atomic_set_u32(AtomicVarU32* var, uint32_t in);
 
 /*
  Condition variable
@@ -108,29 +106,46 @@ typedef struct CondVar {
 #endif
 } CondVar;
 
-EbErrorType svt_set_cond_var(CondVar *cond_var, int32_t newval);
-EbErrorType svt_wait_cond_var(CondVar *cond_var, int32_t input);
-EbErrorType svt_create_cond_var(CondVar *cond_var);
+EbErrorType svt_set_cond_var(CondVar* cond_var, int32_t newval);
+EbErrorType svt_wait_cond_var(CondVar* cond_var, int32_t input);
+EbErrorType svt_create_cond_var(CondVar* cond_var);
 
 // once related functions and macros
 #ifdef _WIN32
 typedef INIT_ONCE OnceType;
 #define ONCE_INIT INIT_ONCE_STATIC_INIT
-#define ONCE_ROUTINE(name) BOOL CALLBACK name(PINIT_ONCE InitOnce, PVOID Parameter, PVOID *lpContext)
+#define ONCE_ROUTINE(name) BOOL CALLBACK name(PINIT_ONCE InitOnce, PVOID Parameter, PVOID* lpContext)
 #define ONCE_ROUTINE_EPILOG \
-    do { return TRUE; } while (0)
+    do {                    \
+        return TRUE;        \
+    } while (0)
 typedef PINIT_ONCE_FN OnceFn;
 #else
 typedef pthread_once_t OnceType;
 #define ONCE_INIT PTHREAD_ONCE_INIT
 #define ONCE_ROUTINE(name) void name(void)
 #define ONCE_ROUTINE_EPILOG \
-    do { return; } while (0)
+    do {                    \
+        return;             \
+    } while (0)
 typedef void (*OnceFn)(void);
 #endif
 #define DEFINE_ONCE(once_control) static OnceType once_control = ONCE_INIT
 
-void svt_run_once(OnceType *once_control, OnceFn init_routine);
+// Macro to define a lazily-initialized mutex with once control
+// Usage: DEFINE_ONCE_MUTEX(my_mutex)
+// Then call: RUN_ONCE_MUTEX(my_mutex) before using svt_block_on_mutex(my_mutex)
+#define DEFINE_ONCE_MUTEX(mutex_name)    \
+    static EbHandle mutex_name = NULL;   \
+    ONCE_ROUTINE(init_##mutex_name) {    \
+        mutex_name = svt_create_mutex(); \
+        ONCE_ROUTINE_EPILOG;             \
+    }                                    \
+    DEFINE_ONCE(mutex_name##_once)
+
+#define RUN_ONCE_MUTEX(mutex_name) svt_run_once(&mutex_name##_once, init_##mutex_name)
+
+void svt_run_once(OnceType* once_control, OnceFn init_routine);
 
 #ifdef __cplusplus
 }

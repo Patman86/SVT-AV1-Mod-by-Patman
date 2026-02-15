@@ -455,7 +455,7 @@ static PredictionStructureEntry six_level_hierarchical_pred_struct[] = {
      ************************************************/
 typedef struct PredictionStructureConfig {
     uint32_t                  entry_count;
-    PredictionStructureEntry *entry_array;
+    PredictionStructureEntry* entry_array;
 } PredictionStructureConfig;
 
 /************************************************
@@ -468,13 +468,13 @@ static const PredictionStructureConfig g_prediction_structure_config_array[] = {
     {8, four_level_hierarchical_pred_struct},
     {16, five_level_hierarchical_pred_struct},
     {32, six_level_hierarchical_pred_struct},
-    {0, (PredictionStructureEntry *)NULL} // Terminating Code, must always come last!
+    {0, (PredictionStructureEntry*)NULL} // Terminating Code, must always come last!
 };
 
 /************************************************
  * Get Prediction Structure
  ************************************************/
-PredictionStructure *svt_aom_get_prediction_structure(PredictionStructureGroup *pred_struct_group_ptr,
+PredictionStructure* svt_aom_get_prediction_structure(PredictionStructureGroup* pred_struct_group_ptr,
                                                       PredStructure pred_struct, uint32_t levels_of_hierarchy) {
     // Determine the Index value
     uint32_t pred_struct_index = PRED_STRUCT_INDEX(levels_of_hierarchy, pred_struct);
@@ -483,7 +483,7 @@ PredictionStructure *svt_aom_get_prediction_structure(PredictionStructureGroup *
 }
 
 static void prediction_structure_dctor(EbPtr p) {
-    PredictionStructure *obj = (PredictionStructure *)p;
+    PredictionStructure* obj = (PredictionStructure*)p;
     if (obj->pred_struct_entry_ptr_array) {
         EB_FREE_2D(obj->pred_struct_entry_ptr_array);
     }
@@ -665,8 +665,8 @@ static void prediction_structure_dctor(EbPtr p) {
  *
  *  The RPS Ctor code follows these construction steps.
  ******************************************************************************************/
-static EbErrorType prediction_structure_ctor(PredictionStructure             *pred_struct,
-                                             const PredictionStructureConfig *pred_struct_cfg,
+static EbErrorType prediction_structure_ctor(PredictionStructure*             pred_struct,
+                                             const PredictionStructureConfig* pred_struct_cfg,
                                              const PredStructure              pred_type) {
     pred_struct->dctor = prediction_structure_dctor;
 
@@ -686,8 +686,8 @@ static EbErrorType prediction_structure_ctor(PredictionStructure             *pr
     //   -Copy directly from the Config
     //----------------------------------------
     for (unsigned int entry_idx = 0; entry_idx < pred_struct->pred_struct_entry_count; ++entry_idx) {
-        PredictionStructureEntry *cfg_entry  = &pred_struct_cfg->entry_array[entry_idx];
-        PredictionStructureEntry *pred_entry = pred_struct->pred_struct_entry_ptr_array[entry_idx];
+        PredictionStructureEntry* cfg_entry  = &pred_struct_cfg->entry_array[entry_idx];
+        PredictionStructureEntry* pred_entry = pred_struct->pred_struct_entry_ptr_array[entry_idx];
 
         // Set the Temporal Layer Index
         pred_entry->temporal_layer_index = cfg_entry->temporal_layer_index;
@@ -700,9 +700,10 @@ static EbErrorType prediction_structure_ctor(PredictionStructure             *pr
 }
 
 static void prediction_structure_group_dctor(EbPtr p) {
-    PredictionStructureGroup *obj = (PredictionStructureGroup *)p;
+    PredictionStructureGroup* obj = (PredictionStructureGroup*)p;
     EB_DELETE_PTR_ARRAY(obj->prediction_structure_ptr_array, obj->prediction_structure_count);
 }
+
 /*************************************************
  * Prediction Structure Group Ctor
  *
@@ -722,7 +723,7 @@ static void prediction_structure_group_dctor(EbPtr p) {
  *      # Random Access
  *
  *************************************************/
-EbErrorType svt_aom_prediction_structure_group_ctor(PredictionStructureGroup *pred_struct_group_ptr) {
+EbErrorType svt_aom_prediction_structure_group_ctor(PredictionStructureGroup* pred_struct_group_ptr) {
     pred_struct_group_ptr->dctor = prediction_structure_group_dctor;
 
     pred_struct_group_ptr->prediction_structure_count = MAX_TEMPORAL_LAYERS * PRED_TOTAL_COUNT;

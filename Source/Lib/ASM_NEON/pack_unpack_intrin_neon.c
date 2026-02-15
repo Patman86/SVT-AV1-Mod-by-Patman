@@ -15,15 +15,15 @@
 #include "definitions.h"
 #include "mem_neon.h"
 
-void svt_enc_msb_un_pack2d_neon(uint16_t *in16_bit_buffer, uint32_t in_stride, uint8_t *out8_bit_buffer,
-                                uint8_t *outn_bit_buffer, uint32_t out8_stride, uint32_t outn_stride, uint32_t width,
+void svt_enc_msb_un_pack2d_neon(uint16_t* in16_bit_buffer, uint32_t in_stride, uint8_t* out8_bit_buffer,
+                                uint8_t* outn_bit_buffer, uint32_t out8_stride, uint32_t outn_stride, uint32_t width,
                                 uint32_t height) {
     if (width % 16 == 0) {
         do {
             int       w        = width;
-            uint16_t *in16_ptr = in16_bit_buffer;
-            uint8_t  *out8_ptr = out8_bit_buffer;
-            uint8_t  *outn_ptr = outn_bit_buffer;
+            uint16_t* in16_ptr = in16_bit_buffer;
+            uint8_t*  out8_ptr = out8_bit_buffer;
+            uint8_t*  outn_ptr = outn_bit_buffer;
 
             do {
                 const uint16x8_t in0_lo = vld1q_u16(in16_ptr);
@@ -104,9 +104,9 @@ void svt_enc_msb_un_pack2d_neon(uint16_t *in16_bit_buffer, uint32_t in_stride, u
     } else {
         do {
             int       w        = width;
-            uint16_t *in16_ptr = in16_bit_buffer;
-            uint8_t  *out8_ptr = out8_bit_buffer;
-            uint8_t  *outn_ptr = outn_bit_buffer;
+            uint16_t* in16_ptr = in16_bit_buffer;
+            uint8_t*  out8_ptr = out8_bit_buffer;
+            uint8_t*  outn_ptr = outn_bit_buffer;
 
             while (w >= 16) {
                 const uint16x8_t in0_lo = vld1q_u16(in16_ptr);

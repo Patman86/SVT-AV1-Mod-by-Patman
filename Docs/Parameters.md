@@ -349,7 +349,7 @@ The `--force-key-frames` option is meant to allow the non-uniform placement of k
 
 Other options such as updating the Bitrate and resolution during the encoding sessions have been added to the API (starting v1.8.0) by using the abstract structure `EbPrivDataNode` and a programming sample showing its
  usage can be found by tracking the marcos FTR_RATE_ON_FLY_SAMPLE and FTR_RES_ON_FLY_SAMPLE respectively. In the case of a resolution update request, please note that the encoder library will assume
- the upscaling and downscaling to have been preformed prior to passing the frames.
+ the upscaling and downscaling to have been performed prior to passing the frames.
 
 ### Color Description Options
 

@@ -23,15 +23,16 @@
 #include "pic_operators.h"
 
 static void dlf_context_dctor(EbPtr p) {
-    EbThreadContext *thread_ctx = (EbThreadContext *)p;
-    DlfContext      *obj        = (DlfContext *)thread_ctx->priv;
+    EbThreadContext* thread_ctx = (EbThreadContext*)p;
+    DlfContext*      obj        = (DlfContext*)thread_ctx->priv;
     EB_FREE_ARRAY(obj);
 }
+
 /******************************************************
  * Dlf Context Constructor
  ******************************************************/
-EbErrorType svt_aom_dlf_context_ctor(EbThreadContext *thread_ctx, const EbEncHandle *enc_handle_ptr, int index) {
-    DlfContext *context_ptr;
+EbErrorType svt_aom_dlf_context_ctor(EbThreadContext* thread_ctx, const EbEncHandle* enc_handle_ptr, int index) {
+    DlfContext* context_ptr;
     EB_CALLOC_ARRAY(context_ptr, 1);
     thread_ctx->priv  = context_ptr;
     thread_ctx->dctor = dlf_context_dctor;
@@ -47,29 +48,29 @@ EbErrorType svt_aom_dlf_context_ctor(EbThreadContext *thread_ctx, const EbEncHan
 /******************************************************
  * Dlf Kernel
  ******************************************************/
-void *svt_aom_dlf_kernel(void *input_ptr) {
+void* svt_aom_dlf_kernel(void* input_ptr) {
     // Context & SCS & PCS
-    EbThreadContext    *thread_ctx  = (EbThreadContext *)input_ptr;
-    DlfContext         *context_ptr = (DlfContext *)thread_ctx->priv;
-    PictureControlSet  *pcs;
-    SequenceControlSet *scs;
+    EbThreadContext*    thread_ctx  = (EbThreadContext*)input_ptr;
+    DlfContext*         context_ptr = (DlfContext*)thread_ctx->priv;
+    PictureControlSet*  pcs;
+    SequenceControlSet* scs;
 
     //// Input
-    EbObjectWrapper *enc_dec_results_wrapper;
-    EncDecResults   *enc_dec_results;
+    EbObjectWrapper* enc_dec_results_wrapper;
+    EncDecResults*   enc_dec_results;
 
     //// Output
-    EbObjectWrapper   *dlf_results_wrapper;
-    struct DlfResults *dlf_results;
+    EbObjectWrapper*   dlf_results_wrapper;
+    struct DlfResults* dlf_results;
 
     // SB Loop variables
     for (;;) {
         // Get EncDec Results
         EB_GET_FULL_OBJECT(context_ptr->dlf_input_fifo_ptr, &enc_dec_results_wrapper);
 
-        enc_dec_results               = (EncDecResults *)enc_dec_results_wrapper->object_ptr;
-        pcs                           = (PictureControlSet *)enc_dec_results->pcs_wrapper->object_ptr;
-        PictureParentControlSet *ppcs = pcs->ppcs;
+        enc_dec_results               = (EncDecResults*)enc_dec_results_wrapper->object_ptr;
+        pcs                           = (PictureControlSet*)enc_dec_results->pcs_wrapper->object_ptr;
+        PictureParentControlSet* ppcs = pcs->ppcs;
         scs                           = pcs->scs;
 
         bool is_16bit = scs->is_16bit_pipeline;
@@ -80,8 +81,8 @@ void *svt_aom_dlf_kernel(void *input_ptr) {
                                               pcs->ppcs->scs->subsampling_y);
             // convert 8-bit recon to 16-bit for it bypass encdec process
             if (pcs->pic_bypass_encdec) {
-                EbPictureBufferDesc *recon_pic;
-                EbPictureBufferDesc *recon_picture_16bit_ptr;
+                EbPictureBufferDesc* recon_pic;
+                EbPictureBufferDesc* recon_picture_16bit_ptr;
                 svt_aom_get_recon_pic(pcs, &recon_pic, 0);
                 svt_aom_get_recon_pic(pcs, &recon_picture_16bit_ptr, 1);
                 svt_aom_convert_pic_8bit_to_16bit(
@@ -93,16 +94,16 @@ void *svt_aom_dlf_kernel(void *input_ptr) {
         pcs->zero_filt_sse             = -1;
         pcs->best_filt_sse             = -1;
         pcs->dlf_dist_dev              = -1;
-        FrameHeader   *frm_hdr         = &pcs->ppcs->frm_hdr;
+        FrameHeader*   frm_hdr         = &pcs->ppcs->frm_hdr;
         bool           dlf_enable_flag = (bool)pcs->ppcs->dlf_ctrls.enabled;
         const uint16_t tg_count        = pcs->ppcs->tile_group_cols * pcs->ppcs->tile_group_rows;
         // Move sb level lf to here if tile_parallel
         if ((dlf_enable_flag && !pcs->ppcs->dlf_ctrls.sb_based_dlf) ||
             (dlf_enable_flag && pcs->ppcs->dlf_ctrls.sb_based_dlf && tg_count > 1)) {
-            EbPictureBufferDesc *recon_buffer;
+            EbPictureBufferDesc* recon_buffer;
             svt_aom_get_recon_pic(pcs, &recon_buffer, is_16bit);
             svt_av1_loop_filter_init(pcs);
-            svt_av1_pick_filter_level((EbPictureBufferDesc *)pcs->ppcs->enhanced_pic, pcs, LPF_PICK_FROM_FULL_IMAGE);
+            svt_av1_pick_filter_level((EbPictureBufferDesc*)pcs->ppcs->enhanced_pic, pcs, LPF_PICK_FROM_FULL_IMAGE);
             if (pcs->zero_filt_sse == -1 &&
                 (frm_hdr->loop_filter_params.filter_level[0] || frm_hdr->loop_filter_params.filter_level[1])) {
                 pcs->zero_filt_sse = picture_sse_calculations(pcs, recon_buffer, /*plane*/ 0);
@@ -127,10 +128,10 @@ void *svt_aom_dlf_kernel(void *input_ptr) {
 
         //pre-cdef prep
         {
-            EbPictureBufferDesc *recon_pic;
+            EbPictureBufferDesc* recon_pic;
             svt_aom_get_recon_pic(pcs, &recon_pic, is_16bit);
 
-            Av1Common *cm = pcs->ppcs->av1_cm;
+            Av1Common* cm = pcs->ppcs->av1_cm;
             if (ppcs->enable_restoration) {
                 svt_aom_link_eb_to_aom_buffer_desc(
                     recon_pic, cm->frame_to_show, scs->max_input_pad_right, scs->max_input_pad_bottom, is_16bit);
@@ -145,7 +146,7 @@ void *svt_aom_dlf_kernel(void *input_ptr) {
                 const uint32_t offset_cr = (recon_pic->org_x + recon_pic->org_y * recon_pic->stride_cr) >> 1;
                 pcs->cdef_input_recon[2] = recon_pic->buffer_cr + (offset_cr << is_16bit);
 
-                EbPictureBufferDesc *input_pic      = is_16bit ? pcs->input_frame16bit : pcs->ppcs->enhanced_pic;
+                EbPictureBufferDesc* input_pic      = is_16bit ? pcs->input_frame16bit : pcs->ppcs->enhanced_pic;
                 const uint32_t       input_offset_y = input_pic->org_x + input_pic->org_y * input_pic->stride_y;
                 pcs->cdef_input_source[0]           = input_pic->buffer_y + (input_offset_y << is_16bit);
                 const uint32_t input_offset_cb      = (input_pic->org_x + input_pic->org_y * input_pic->stride_cb) >> 1;
@@ -164,7 +165,7 @@ void *svt_aom_dlf_kernel(void *input_ptr) {
         for (segment_index = 0; segment_index < pcs->cdef_segments_total_count; ++segment_index) {
             // Get Empty DLF Results to Cdef
             svt_get_empty_object(context_ptr->dlf_output_fifo_ptr, &dlf_results_wrapper);
-            dlf_results                = (struct DlfResults *)dlf_results_wrapper->object_ptr;
+            dlf_results                = (struct DlfResults*)dlf_results_wrapper->object_ptr;
             dlf_results->pcs_wrapper   = enc_dec_results->pcs_wrapper;
             dlf_results->segment_index = segment_index;
             // Post DLF Results

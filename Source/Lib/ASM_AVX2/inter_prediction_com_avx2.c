@@ -14,8 +14,8 @@
 
 #include "definitions.h"
 
-static INLINE __m256i calc_mask_d16_avx2(const __m256i *data_src0, const __m256i *data_src1, const __m256i *round_const,
-                                         const __m256i *mask_base_16, const __m256i *clip_diff, int round) {
+static INLINE __m256i calc_mask_d16_avx2(const __m256i* data_src0, const __m256i* data_src1, const __m256i* round_const,
+                                         const __m256i* mask_base_16, const __m256i* clip_diff, int round) {
     const __m256i diffa       = _mm256_subs_epu16(*data_src0, *data_src1);
     const __m256i diffb       = _mm256_subs_epu16(*data_src1, *data_src0);
     const __m256i diff        = _mm256_max_epu16(diffa, diffb);
@@ -26,9 +26,9 @@ static INLINE __m256i calc_mask_d16_avx2(const __m256i *data_src0, const __m256i
     return diff_clamp;
 }
 
-static INLINE __m256i calc_mask_d16_inv_avx2(const __m256i *data_src0, const __m256i *data_src1,
-                                             const __m256i *round_const, const __m256i *mask_base_16,
-                                             const __m256i *clip_diff, int round) {
+static INLINE __m256i calc_mask_d16_inv_avx2(const __m256i* data_src0, const __m256i* data_src1,
+                                             const __m256i* round_const, const __m256i* mask_base_16,
+                                             const __m256i* clip_diff, int round) {
     const __m256i diffa         = _mm256_subs_epu16(*data_src0, *data_src1);
     const __m256i diffb         = _mm256_subs_epu16(*data_src1, *data_src0);
     const __m256i diff          = _mm256_max_epu16(diffa, diffb);
@@ -40,8 +40,8 @@ static INLINE __m256i calc_mask_d16_inv_avx2(const __m256i *data_src0, const __m
     return diff_const_16;
 }
 
-static INLINE void build_compound_diffwtd_mask_d16_avx2(uint8_t *mask, const CONV_BUF_TYPE *src0, int src0_stride,
-                                                        const CONV_BUF_TYPE *src1, int src1_stride, int h, int w,
+static INLINE void build_compound_diffwtd_mask_d16_avx2(uint8_t* mask, const CONV_BUF_TYPE* src0, int src0_stride,
+                                                        const CONV_BUF_TYPE* src1, int src1_stride, int h, int w,
                                                         int shift) {
     const int     mask_base = 38;
     const __m256i _r        = _mm256_set1_epi16((1 << shift) >> 1);
@@ -178,8 +178,8 @@ static INLINE void build_compound_diffwtd_mask_d16_avx2(uint8_t *mask, const CON
     }
 }
 
-static INLINE void build_compound_diffwtd_mask_d16_inv_avx2(uint8_t *mask, const CONV_BUF_TYPE *src0, int src0_stride,
-                                                            const CONV_BUF_TYPE *src1, int src1_stride, int h, int w,
+static INLINE void build_compound_diffwtd_mask_d16_inv_avx2(uint8_t* mask, const CONV_BUF_TYPE* src0, int src0_stride,
+                                                            const CONV_BUF_TYPE* src1, int src1_stride, int h, int w,
                                                             int shift) {
     const int     mask_base = 38;
     const __m256i _r        = _mm256_set1_epi16((1 << shift) >> 1);
@@ -316,9 +316,9 @@ static INLINE void build_compound_diffwtd_mask_d16_inv_avx2(uint8_t *mask, const
     }
 }
 
-void svt_av1_build_compound_diffwtd_mask_d16_avx2(uint8_t *mask, DIFFWTD_MASK_TYPE mask_type, const CONV_BUF_TYPE *src0,
-                                                  int src0_stride, const CONV_BUF_TYPE *src1, int src1_stride, int h,
-                                                  int w, ConvolveParams *conv_params, int bd) {
+void svt_av1_build_compound_diffwtd_mask_d16_avx2(uint8_t* mask, DIFFWTD_MASK_TYPE mask_type, const CONV_BUF_TYPE* src0,
+                                                  int src0_stride, const CONV_BUF_TYPE* src1, int src1_stride, int h,
+                                                  int w, ConvolveParams* conv_params, int bd) {
     const int shift = 2 * FILTER_BITS - conv_params->round_0 - conv_params->round_1 + (bd - 8);
     // When rounding constant is added, there is a possibility of overflow.
     // However that much precision is not required. Code should very well work for

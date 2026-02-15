@@ -11,7 +11,7 @@
 
 #include "pd_reorder_queue.h"
 
-EbErrorType svt_aom_picture_decision_reorder_entry_ctor(PictureDecisionReorderEntry *entry_ptr,
+EbErrorType svt_aom_picture_decision_reorder_entry_ctor(PictureDecisionReorderEntry* entry_ptr,
                                                         uint32_t                     picture_number) {
     entry_ptr->picture_number = picture_number;
     return EB_ErrorNone;

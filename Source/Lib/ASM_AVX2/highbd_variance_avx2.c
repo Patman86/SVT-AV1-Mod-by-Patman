@@ -14,18 +14,18 @@
 
 #include "aom_dsp_rtcd.h"
 
-typedef void (*HighVarianceFn)(const uint16_t *src, int src_stride, const uint16_t *ref, int ref_stride, uint32_t *sse,
-                               int *sum);
+typedef void (*HighVarianceFn)(const uint16_t* src, int src_stride, const uint16_t* ref, int ref_stride, uint32_t* sse,
+                               int* sum);
 
-static void aom_highbd_calc8x8var_avx2(const uint16_t *src, int src_stride, const uint16_t *ref, int ref_stride,
-                                       uint32_t *sse, int *sum) {
+static void aom_highbd_calc8x8var_avx2(const uint16_t* src, int src_stride, const uint16_t* ref, int ref_stride,
+                                       uint32_t* sse, int* sum) {
     __m256i v_sum_d = _mm256_setzero_si256();
     __m256i v_sse_d = _mm256_setzero_si256();
     for (int i = 0; i < 8; i += 2) {
-        const __m128i v_p_a0    = _mm_loadu_si128((const __m128i *)src);
-        const __m128i v_p_a1    = _mm_loadu_si128((const __m128i *)(src + src_stride));
-        const __m128i v_p_b0    = _mm_loadu_si128((const __m128i *)ref);
-        const __m128i v_p_b1    = _mm_loadu_si128((const __m128i *)(ref + ref_stride));
+        const __m128i v_p_a0    = _mm_loadu_si128((const __m128i*)src);
+        const __m128i v_p_a1    = _mm_loadu_si128((const __m128i*)(src + src_stride));
+        const __m128i v_p_b0    = _mm_loadu_si128((const __m128i*)ref);
+        const __m128i v_p_b1    = _mm_loadu_si128((const __m128i*)(ref + ref_stride));
         __m256i       v_p_a     = _mm256_castsi128_si256(v_p_a0);
         __m256i       v_p_b     = _mm256_castsi128_si256(v_p_b0);
         v_p_a                   = _mm256_inserti128_si256(v_p_a, v_p_a1, 1);
@@ -51,14 +51,14 @@ static void aom_highbd_calc8x8var_avx2(const uint16_t *src, int src_stride, cons
     *sse                  = _mm_extract_epi32(v_d, 1);
 }
 
-static void aom_highbd_calc16x16var_avx2(const uint16_t *src, int src_stride, const uint16_t *ref, int ref_stride,
-                                         uint32_t *sse, int *sum) {
+static void aom_highbd_calc16x16var_avx2(const uint16_t* src, int src_stride, const uint16_t* ref, int ref_stride,
+                                         uint32_t* sse, int* sum) {
     __m256i       v_sum_d = _mm256_setzero_si256();
     __m256i       v_sse_d = _mm256_setzero_si256();
     const __m256i one     = _mm256_set1_epi16(1);
     for (int i = 0; i < 16; ++i) {
-        const __m256i v_p_a     = _mm256_loadu_si256((const __m256i *)src);
-        const __m256i v_p_b     = _mm256_loadu_si256((const __m256i *)ref);
+        const __m256i v_p_a     = _mm256_loadu_si256((const __m256i*)src);
+        const __m256i v_p_b     = _mm256_loadu_si256((const __m256i*)ref);
         const __m256i v_diff    = _mm256_sub_epi16(v_p_a, v_p_b);
         const __m256i v_sqrdiff = _mm256_madd_epi16(v_diff, v_diff);
         v_sum_d                 = _mm256_add_epi16(v_sum_d, v_diff);
@@ -78,8 +78,8 @@ static void aom_highbd_calc16x16var_avx2(const uint16_t *src, int src_stride, co
     *sse                 = _mm_extract_epi32(v_d, 1);
 }
 
-static void highbd_10_variance_avx2(const uint16_t *src, int src_stride, const uint16_t *ref, int ref_stride, int w,
-                                    int h, uint32_t *sse, int *sum, HighVarianceFn var_fn, int block_size) {
+static void highbd_10_variance_avx2(const uint16_t* src, int src_stride, const uint16_t* ref, int ref_stride, int w,
+                                    int h, uint32_t* sse, int* sum, HighVarianceFn var_fn, int block_size) {
     int      i, j;
     uint64_t sse_long = 0;
     int32_t  sum_long = 0;
@@ -99,11 +99,11 @@ static void highbd_10_variance_avx2(const uint16_t *src, int src_stride, const u
 
 #define VAR_FN(w, h, block_size, shift)                                                            \
     uint32_t svt_aom_highbd_10_variance##w##x##h##_avx2(                                           \
-        const uint8_t *src8, int src_stride, const uint8_t *ref8, int ref_stride, uint32_t *sse) { \
+        const uint8_t* src8, int src_stride, const uint8_t* ref8, int ref_stride, uint32_t* sse) { \
         int       sum;                                                                             \
         int64_t   var;                                                                             \
-        uint16_t *src = CONVERT_TO_SHORTPTR(src8);                                                 \
-        uint16_t *ref = CONVERT_TO_SHORTPTR(ref8);                                                 \
+        uint16_t* src = CONVERT_TO_SHORTPTR(src8);                                                 \
+        uint16_t* ref = CONVERT_TO_SHORTPTR(ref8);                                                 \
         highbd_10_variance_avx2(src,                                                               \
                                 src_stride,                                                        \
                                 ref,                                                               \
@@ -143,8 +143,8 @@ VAR_FN(64, 16, 16, 10);
 * This kernel is only used by svt_aom_variance_highbd_avx2()
 * Return: SAD and sum of square differences
 */
-static inline void variance_highbd_32x32_avx2(const uint16_t *src, int src_stride, const uint16_t *ref, int ref_stride,
-                                              uint32_t *sse, int *sum) {
+static inline void variance_highbd_32x32_avx2(const uint16_t* src, int src_stride, const uint16_t* ref, int ref_stride,
+                                              uint32_t* sse, int* sum) {
     uint32_t sse0;
     int      sum0;
 
@@ -161,8 +161,8 @@ static inline void variance_highbd_32x32_avx2(const uint16_t *src, int src_strid
 /*
 * Helper function to compute variance with 16 bit input for square blocks of size 16 and 32
 */
-uint32_t svt_aom_variance_highbd_avx2(const uint16_t *a, int a_stride, const uint16_t *b, int b_stride, int w, int h,
-                                      uint32_t *sse) {
+uint32_t svt_aom_variance_highbd_avx2(const uint16_t* a, int a_stride, const uint16_t* b, int b_stride, int w, int h,
+                                      uint32_t* sse) {
     assert(w == h);
     assert(w == 16 || w == 32);
 
@@ -170,8 +170,12 @@ uint32_t svt_aom_variance_highbd_avx2(const uint16_t *a, int a_stride, const uin
     *sse    = 0;
 
     switch (w) {
-    case 16: aom_highbd_calc16x16var_avx2(a, a_stride, b, b_stride, sse, &sum); break;
-    case 32: variance_highbd_32x32_avx2(a, a_stride, b, b_stride, sse, &sum); break;
+    case 16:
+        aom_highbd_calc16x16var_avx2(a, a_stride, b, b_stride, sse, &sum);
+        break;
+    case 32:
+        variance_highbd_32x32_avx2(a, a_stride, b, b_stride, sse, &sum);
+        break;
     }
 
     return *sse - ((int64_t)sum * sum) / (w * h);

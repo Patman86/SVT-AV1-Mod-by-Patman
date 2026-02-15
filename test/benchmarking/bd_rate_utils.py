@@ -43,9 +43,7 @@ def compute_bd_rates_per_image(
     per_image_df = pd.read_csv(per_image_csv_path)
 
     # Convert file_size_mb to bitrate (for images, file size represents compressed size)
-    per_image_df["bitrate_kbps"] = (
-        per_image_df["file_size_mb"] * 8 * 1024
-    )  # Convert MB to Kbps
+    per_image_df["bitrate_kbps"] = per_image_df["file_size_mb"] * 8 * 1024
 
     # Get unique images
     images = per_image_df["image"].unique()
@@ -215,18 +213,18 @@ def compute_average_bd_rates(
     try:
         time_stats = per_image_df.groupby(["encoder", "speed"]).agg(
             {
-                "encoding_time": ["mean", "std", "count"],
-                "decoding_time": ["mean", "std"],
+                "encode_time": ["mean", "std", "count"],
+                "decode_time": ["mean", "std"],
             }
         )
 
         # Flatten column names
         time_stats.columns = [
-            "avg_encoding_time",
-            "std_encoding_time",
+            "avg_encode_time",
+            "std_encode_time",
             "num_samples",
-            "avg_decoding_time",
-            "std_decoding_time",
+            "avg_decode_time",
+            "std_decode_time",
         ]
         time_stats = time_stats.reset_index()
 
@@ -248,159 +246,3 @@ def compute_average_bd_rates(
         avg_results.to_csv(output_csv_path, index=False)
 
     return avg_results
-
-
-def plot_average_bd_rates(
-    avg_bd_rate_df: pd.DataFrame,
-    output_path: str = "average_bd_rates_plot.png",
-    title: str = "Average BD-rate vs Encoding Time",
-    figsize: Tuple[int, int] = (12, 8),
-    show_plot: bool = False,
-) -> None:
-    """
-    Plot average BD-rates vs average encoding time with points labeled by speed/preset.
-
-    Args:
-        avg_bd_rate_df: DataFrame with average BD-rate and encoding time results
-        output_path: Path to save the plot
-        title: Plot title
-        figsize: Figure size (width, height)
-        show_plot: Whether to display the plot interactively
-    """
-    if avg_bd_rate_df.empty:
-        print("Warning: No data to plot")
-        return
-
-    # Check if encoding time data is available
-    if "avg_encoding_time" not in avg_bd_rate_df.columns:
-        print("Warning: No encoding time data available for plotting")
-        return
-
-    # Create the plot
-    fig, ax = plt.subplots(figsize=figsize)
-
-    # Get unique encoders
-    encoders = avg_bd_rate_df["encoder"].unique()
-
-    # Define colors and markers for different encoders
-    colors = [
-        "blue",
-        "red",
-        "green",
-        "orange",
-        "purple",
-        "brown",
-        "pink",
-        "gray",
-        "olive",
-        "cyan",
-    ]
-    markers = ["o", "s", "^", "D", "v", "<", ">", "p", "*", "h"]
-
-    for i, encoder in enumerate(encoders):
-        encoder_data = avg_bd_rate_df[avg_bd_rate_df["encoder"] == encoder].copy()
-
-        # Filter out entries with missing encoding time data
-        encoder_data = encoder_data.dropna(subset=["avg_encoding_time"])
-
-        if encoder_data.empty:
-            continue
-
-        # Sort by encoding time for proper line connection
-        encoder_data = encoder_data.sort_values("avg_encoding_time")
-
-        color = colors[i % len(colors)]
-        marker = markers[i % len(markers)]
-
-        # Plot points and connect with lines if multiple points
-        ax.plot(
-            encoder_data["avg_encoding_time"],
-            encoder_data["avg_bd_rate"],
-            color=color,
-            marker=marker,
-            linewidth=2.5,
-            markersize=10,
-            label=encoder,
-            zorder=5,
-            markeredgecolor="black",
-            markeredgewidth=1,
-        )
-
-        # Add error bars if standard deviation data is available
-        if (
-            "std_bd_rate" in encoder_data.columns
-            and not encoder_data["std_bd_rate"].isna().all()
-        ):
-            ax.errorbar(
-                encoder_data["avg_encoding_time"],
-                encoder_data["avg_bd_rate"],
-                yerr=encoder_data["std_bd_rate"],
-                color=color,
-                alpha=0.4,
-                capsize=6,
-                capthick=2,
-                zorder=3,
-                linestyle="none",
-            )
-
-        # Add speed/preset labels on points
-        for _, row in encoder_data.iterrows():
-            # Position label to avoid overlap
-            x_offset = (
-                0.02 * (ax.get_xlim()[1] - ax.get_xlim()[0])
-                if row["avg_bd_rate"] >= 0
-                else -0.02 * (ax.get_xlim()[1] - ax.get_xlim()[0])
-            )
-            y_offset = (
-                0.02 * (ax.get_ylim()[1] - ax.get_ylim()[0])
-                if row["avg_encoding_time"]
-                >= np.median(encoder_data["avg_encoding_time"])
-                else -0.02 * (ax.get_ylim()[1] - ax.get_ylim()[0])
-            )
-
-            ax.annotate(
-                f"{int(row['speed'])}",
-                (row["avg_encoding_time"], row["avg_bd_rate"]),
-                xytext=(x_offset, y_offset),
-                textcoords="offset points",
-                ha="center",
-                va="center",
-                fontsize=11,
-                fontweight="bold",
-                color=color,
-                bbox=dict(
-                    boxstyle="round,pad=0.2",
-                    facecolor="white",
-                    alpha=0.9,
-                    edgecolor=color,
-                    linewidth=1,
-                ),
-            )
-
-    # Customize the plot
-    ax.set_xlabel("Avg Time (s)", fontsize=14, fontweight="bold")
-    ax.set_ylabel("Avg BD Rate (%)", fontsize=14, fontweight="bold")
-    ax.set_title(title, fontsize=16, fontweight="bold", pad=20)
-    ax.grid(True, alpha=0.4, linestyle="--")
-    ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=12)
-
-    # Add horizontal line at y=0 for reference
-    ax.axhline(y=0, color="black", linestyle="-", alpha=0.8, zorder=1, linewidth=1)
-
-    # Use log scale on x-axis (like in your example)
-    ax.set_xscale("log")
-
-    # Improve tick formatting
-    ax.tick_params(axis="both", which="major", labelsize=12)
-
-    # Adjust layout to prevent legend cutoff
-    plt.tight_layout()
-
-    # Save the plot
-    plt.savefig(output_path, dpi=300, bbox_inches="tight", facecolor="white")
-
-    # Show the plot if requested
-    if show_plot:
-        plt.show()
-    else:
-        plt.close(fig)

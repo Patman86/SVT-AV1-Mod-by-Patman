@@ -18,8 +18,8 @@
 #include "mem_neon.h"
 #include "utility.h"
 
-static inline void diffwtd_mask_highbd_neon(uint8_t *mask, bool inverse, const uint16_t *src0, int src0_stride,
-                                            const uint16_t *src1, int src1_stride, int h, int w,
+static inline void diffwtd_mask_highbd_neon(uint8_t* mask, bool inverse, const uint16_t* src0, int src0_stride,
+                                            const uint16_t* src1, int src1_stride, int h, int w,
                                             const unsigned int bd) {
     assert(DIFF_FACTOR > 0);
     uint8x16_t max_alpha = vdupq_n_u8(AOM_BLEND_A64_MAX_ALPHA);
@@ -29,9 +29,9 @@ static inline void diffwtd_mask_highbd_neon(uint8_t *mask, bool inverse, const u
     if (bd == 8) {
         if (w >= 16) {
             do {
-                uint8_t        *mask_ptr = mask;
-                const uint16_t *src0_ptr = src0;
-                const uint16_t *src1_ptr = src1;
+                uint8_t*        mask_ptr = mask;
+                const uint16_t* src0_ptr = src0;
+                const uint16_t* src1_ptr = src1;
                 int             width    = w;
                 do {
                     uint16x8_t s0_lo = vld1q_u16(src0_ptr);
@@ -65,9 +65,9 @@ static inline void diffwtd_mask_highbd_neon(uint8_t *mask, bool inverse, const u
             } while (--h != 0);
         } else if (w == 8) {
             do {
-                uint8_t        *mask_ptr = mask;
-                const uint16_t *src0_ptr = src0;
-                const uint16_t *src1_ptr = src1;
+                uint8_t*        mask_ptr = mask;
+                const uint16_t* src0_ptr = src0;
+                const uint16_t* src1_ptr = src1;
                 int             width    = w;
                 do {
                     uint16x8_t s0 = vld1q_u16(src0_ptr);
@@ -118,9 +118,9 @@ static inline void diffwtd_mask_highbd_neon(uint8_t *mask, bool inverse, const u
     } else if (bd == 10) {
         if (w >= 16) {
             do {
-                uint8_t        *mask_ptr = mask;
-                const uint16_t *src0_ptr = src0;
-                const uint16_t *src1_ptr = src1;
+                uint8_t*        mask_ptr = mask;
+                const uint16_t* src0_ptr = src0;
+                const uint16_t* src1_ptr = src1;
                 int             width    = w;
                 do {
                     uint16x8_t s0_lo = vld1q_u16(src0_ptr);
@@ -154,9 +154,9 @@ static inline void diffwtd_mask_highbd_neon(uint8_t *mask, bool inverse, const u
             } while (--h != 0);
         } else if (w == 8) {
             do {
-                uint8_t        *mask_ptr = mask;
-                const uint16_t *src0_ptr = src0;
-                const uint16_t *src1_ptr = src1;
+                uint8_t*        mask_ptr = mask;
+                const uint16_t* src0_ptr = src0;
+                const uint16_t* src1_ptr = src1;
                 int             width    = w;
                 do {
                     uint16x8_t s0 = vld1q_u16(src0_ptr);
@@ -207,8 +207,8 @@ static inline void diffwtd_mask_highbd_neon(uint8_t *mask, bool inverse, const u
     }
 }
 
-void svt_av1_build_compound_diffwtd_mask_highbd_neon(uint8_t *mask, DIFFWTD_MASK_TYPE mask_type, const uint8_t *src0,
-                                                     int src0_stride, const uint8_t *src1, int src1_stride, int h,
+void svt_av1_build_compound_diffwtd_mask_highbd_neon(uint8_t* mask, DIFFWTD_MASK_TYPE mask_type, const uint8_t* src0,
+                                                     int src0_stride, const uint8_t* src1, int src1_stride, int h,
                                                      int w, int bd) {
     assert(h % 4 == 0);
     assert(w % 4 == 0);
@@ -216,9 +216,9 @@ void svt_av1_build_compound_diffwtd_mask_highbd_neon(uint8_t *mask, DIFFWTD_MASK
 
     if (mask_type == DIFFWTD_38) {
         diffwtd_mask_highbd_neon(
-            mask, /*inverse=*/false, (uint16_t *)src0, src0_stride, (uint16_t *)src1, src1_stride, h, w, bd);
+            mask, /*inverse=*/false, (uint16_t*)src0, src0_stride, (uint16_t*)src1, src1_stride, h, w, bd);
     } else { // mask_type == DIFFWTD_38_INV
         diffwtd_mask_highbd_neon(
-            mask, /*inverse=*/true, (uint16_t *)src0, src0_stride, (uint16_t *)src1, src1_stride, h, w, bd);
+            mask, /*inverse=*/true, (uint16_t*)src0, src0_stride, (uint16_t*)src1, src1_stride, h, w, bd);
     }
 }

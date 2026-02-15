@@ -13,7 +13,7 @@
 
 #include "initial_rc_results.h"
 
-static EbErrorType initial_rate_control_results_ctor(InitialRateControlResults *object_ptr,
+static EbErrorType initial_rate_control_results_ctor(InitialRateControlResults* object_ptr,
                                                      EbPtr                      object_init_data_ptr) {
     (void)object_ptr;
     (void)object_init_data_ptr;
@@ -21,8 +21,8 @@ static EbErrorType initial_rate_control_results_ctor(InitialRateControlResults *
     return EB_ErrorNone;
 }
 
-EbErrorType svt_aom_initial_rate_control_results_creator(EbPtr *object_dbl_ptr, EbPtr object_init_data_ptr) {
-    InitialRateControlResults *obj;
+EbErrorType svt_aom_initial_rate_control_results_creator(EbPtr* object_dbl_ptr, EbPtr object_init_data_ptr) {
+    InitialRateControlResults* obj;
 
     *object_dbl_ptr = NULL;
     EB_NEW(obj, initial_rate_control_results_ctor, object_init_data_ptr);

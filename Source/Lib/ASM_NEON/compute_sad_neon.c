@@ -21,7 +21,7 @@
 #include "sum_neon.h"
 #include "utility.h"
 
-static inline uint32_t sad40xh_neon(const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride,
+static inline uint32_t sad40xh_neon(const uint8_t* src_ptr, int src_stride, const uint8_t* ref_ptr, int ref_stride,
                                     int h) {
     uint32_t res1, res2;
     res1 = sad32xh_neon(src_ptr, src_stride, ref_ptr, ref_stride, h);
@@ -29,7 +29,7 @@ static inline uint32_t sad40xh_neon(const uint8_t *src_ptr, int src_stride, cons
     return (res1 + res2);
 }
 
-static inline uint32_t sad56xh_neon(const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride,
+static inline uint32_t sad56xh_neon(const uint8_t* src_ptr, int src_stride, const uint8_t* ref_ptr, int ref_stride,
                                     int h) {
     uint32_t res1, res2;
     res1 = sad48xh_neon(src_ptr, src_stride, ref_ptr, ref_stride, h);
@@ -37,7 +37,7 @@ static inline uint32_t sad56xh_neon(const uint8_t *src_ptr, int src_stride, cons
     return (res1 + res2);
 }
 
-static inline uint32x4_t sadwxhx4d_large_neon(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
+static inline uint32x4_t sadwxhx4d_large_neon(const uint8_t* src, uint32_t src_stride, const uint8_t* ref,
                                               uint32_t ref_stride, uint32_t w, uint32_t h, uint32_t h_overflow) {
     uint32x4_t sum[4];
     uint16x8_t sum_lo[4], sum_hi[4];
@@ -61,9 +61,9 @@ static inline uint32x4_t sadwxhx4d_large_neon(const uint8_t *src, uint32_t src_s
         sum_hi[2] = vdupq_n_u16(0);
         sum_hi[3] = vdupq_n_u16(0);
         do {
-            const uint8_t       *loop_src       = src;
-            const uint8_t       *loop_ref       = ref;
-            const uint8_t *const loop_src_limit = loop_src + w;
+            const uint8_t*       loop_src       = src;
+            const uint8_t*       loop_ref       = ref;
+            const uint8_t* const loop_src_limit = loop_src + w;
             do {
                 const uint8x16_t s0 = vld1q_u8(loop_src);
                 sad16_neon(s0, vld1q_u8(loop_ref + 0), &sum_lo[0]);
@@ -100,17 +100,17 @@ static inline uint32x4_t sadwxhx4d_large_neon(const uint8_t *src, uint32_t src_s
     return horizontal_add_4d_u32x4(sum);
 }
 
-static inline uint32x4_t sad128xhx4d_neon(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
+static inline uint32x4_t sad128xhx4d_neon(const uint8_t* src, uint32_t src_stride, const uint8_t* ref,
                                           uint32_t ref_stride, uint32_t h) {
     return sadwxhx4d_large_neon(src, src_stride, ref, ref_stride, 128, h, 32);
 }
 
-static inline uint32x4_t sad64xhx4d_neon(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
+static inline uint32x4_t sad64xhx4d_neon(const uint8_t* src, uint32_t src_stride, const uint8_t* ref,
                                          uint32_t ref_stride, uint32_t h) {
     return sadwxhx4d_large_neon(src, src_stride, ref, ref_stride, 64, h, 64);
 }
 
-static inline uint32x4_t sad32xhx4d_neon(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
+static inline uint32x4_t sad32xhx4d_neon(const uint8_t* src, uint32_t src_stride, const uint8_t* ref,
                                          uint32_t ref_stride, uint32_t h) {
     uint16x8_t sum_lo[4], sum_hi[4];
 
@@ -126,7 +126,7 @@ static inline uint32x4_t sad32xhx4d_neon(const uint8_t *src, uint32_t src_stride
     sum_hi[2]                = sad16_neon_init(s1_init, vld1q_u8(ref + 2 + 16));
     sum_hi[3]                = sad16_neon_init(s1_init, vld1q_u8(ref + 3 + 16));
 
-    const uint8_t *const src_limit = src + src_stride * h;
+    const uint8_t* const src_limit = src + src_stride * h;
 
     src += src_stride;
     ref += ref_stride;
@@ -151,7 +151,7 @@ static inline uint32x4_t sad32xhx4d_neon(const uint8_t *src, uint32_t src_stride
     return horizontal_long_add_4d_u16x8(sum_lo, sum_hi);
 }
 
-static inline uint32x4_t sad16xhx4d_neon(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
+static inline uint32x4_t sad16xhx4d_neon(const uint8_t* src, uint32_t src_stride, const uint8_t* ref,
                                          uint32_t ref_stride, uint32_t h) {
     uint16x8_t sum_u16[4];
     uint32x4_t sum_u32[4];
@@ -162,7 +162,7 @@ static inline uint32x4_t sad16xhx4d_neon(const uint8_t *src, uint32_t src_stride
     sum_u16[2]              = sad16_neon_init(s_init, vld1q_u8(ref + 2));
     sum_u16[3]              = sad16_neon_init(s_init, vld1q_u8(ref + 3));
 
-    const uint8_t *const src_limit = src + src_stride * h;
+    const uint8_t* const src_limit = src + src_stride * h;
 
     src += src_stride;
     ref += ref_stride;
@@ -186,7 +186,7 @@ static inline uint32x4_t sad16xhx4d_neon(const uint8_t *src, uint32_t src_stride
     return horizontal_add_4d_u32x4(sum_u32);
 }
 
-static inline uint32x4_t sad24xhx4d_neon(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
+static inline uint32x4_t sad24xhx4d_neon(const uint8_t* src, uint32_t src_stride, const uint8_t* ref,
                                          uint32_t ref_stride, uint32_t h) {
     uint32x4_t sad4_0, sad4_1;
     sad4_0 = sad16xhx4d_neon(src + 0, src_stride, ref + 0, ref_stride, h);
@@ -194,7 +194,7 @@ static inline uint32x4_t sad24xhx4d_neon(const uint8_t *src, uint32_t src_stride
     return vaddq_u32(sad4_0, sad4_1);
 }
 
-static inline uint32x4_t sad48xhx4d_neon(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
+static inline uint32x4_t sad48xhx4d_neon(const uint8_t* src, uint32_t src_stride, const uint8_t* ref,
                                          uint32_t ref_stride, uint32_t h) {
     uint32x4_t sad4_0, sad4_1;
     sad4_0 = sad32xhx4d_neon(src + 0, src_stride, ref + 0, ref_stride, h);
@@ -202,9 +202,9 @@ static inline uint32x4_t sad48xhx4d_neon(const uint8_t *src, uint32_t src_stride
     return vaddq_u32(sad4_0, sad4_1);
 }
 
-static inline void svt_sad_loop_kernel16xh_neon(uint8_t *src, uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                                uint32_t block_height, uint64_t *best_sad, int16_t *x_search_center,
-                                                int16_t *y_search_center, uint32_t src_stride_raw,
+static inline void svt_sad_loop_kernel16xh_neon(uint8_t* src, uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                                uint32_t block_height, uint64_t* best_sad, int16_t* x_search_center,
+                                                int16_t* y_search_center, uint32_t src_stride_raw,
                                                 uint8_t skip_search_line, int16_t search_area_width,
                                                 int16_t search_area_height) {
     int16_t    x_search_index, y_search_index;
@@ -237,9 +237,9 @@ static inline void svt_sad_loop_kernel16xh_neon(uint8_t *src, uint32_t src_strid
     }
 }
 
-static inline void svt_sad_loop_kernel24xh_neon(uint8_t *src, uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                                uint32_t block_height, uint64_t *best_sad, int16_t *x_search_center,
-                                                int16_t *y_search_center, uint32_t src_stride_raw,
+static inline void svt_sad_loop_kernel24xh_neon(uint8_t* src, uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                                uint32_t block_height, uint64_t* best_sad, int16_t* x_search_center,
+                                                int16_t* y_search_center, uint32_t src_stride_raw,
                                                 int16_t search_area_width, int16_t search_area_height) {
     int16_t    x_search_index, y_search_index;
     uint32x4_t sad4;
@@ -261,9 +261,9 @@ static inline void svt_sad_loop_kernel24xh_neon(uint8_t *src, uint32_t src_strid
     }
 }
 
-static inline void svt_sad_loop_kernel32xh_neon(uint8_t *src, uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                                uint32_t block_height, uint64_t *best_sad, int16_t *x_search_center,
-                                                int16_t *y_search_center, uint32_t src_stride_raw,
+static inline void svt_sad_loop_kernel32xh_neon(uint8_t* src, uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                                uint32_t block_height, uint64_t* best_sad, int16_t* x_search_center,
+                                                int16_t* y_search_center, uint32_t src_stride_raw,
                                                 int16_t search_area_width, int16_t search_area_height) {
     int16_t    x_search_index, y_search_index;
     uint32x4_t sad4;
@@ -285,9 +285,9 @@ static inline void svt_sad_loop_kernel32xh_neon(uint8_t *src, uint32_t src_strid
     }
 }
 
-static inline void svt_sad_loop_kernel48xh_neon(uint8_t *src, uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                                uint32_t block_height, uint64_t *best_sad, int16_t *x_search_center,
-                                                int16_t *y_search_center, uint32_t src_stride_raw,
+static inline void svt_sad_loop_kernel48xh_neon(uint8_t* src, uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                                uint32_t block_height, uint64_t* best_sad, int16_t* x_search_center,
+                                                int16_t* y_search_center, uint32_t src_stride_raw,
                                                 int16_t search_area_width, int16_t search_area_height) {
     int16_t    x_search_index, y_search_index;
     uint32x4_t sad4;
@@ -309,9 +309,9 @@ static inline void svt_sad_loop_kernel48xh_neon(uint8_t *src, uint32_t src_strid
     }
 }
 
-static inline void svt_sad_loop_kernel64xh_neon(uint8_t *src, uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                                uint32_t block_height, uint64_t *best_sad, int16_t *x_search_center,
-                                                int16_t *y_search_center, uint32_t src_stride_raw,
+static inline void svt_sad_loop_kernel64xh_neon(uint8_t* src, uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                                uint32_t block_height, uint64_t* best_sad, int16_t* x_search_center,
+                                                int16_t* y_search_center, uint32_t src_stride_raw,
                                                 int16_t search_area_width, int16_t search_area_height) {
     int16_t    x_search_index, y_search_index;
     uint32x4_t sad4;
@@ -333,9 +333,9 @@ static inline void svt_sad_loop_kernel64xh_neon(uint8_t *src, uint32_t src_strid
     }
 }
 
-static inline void svt_sad_loop_kernel128xh_neon(uint8_t *src, uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                                 uint32_t block_height, uint64_t *best_sad, int16_t *x_search_center,
-                                                 int16_t *y_search_center, uint32_t src_stride_raw,
+static inline void svt_sad_loop_kernel128xh_neon(uint8_t* src, uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                                 uint32_t block_height, uint64_t* best_sad, int16_t* x_search_center,
+                                                 int16_t* y_search_center, uint32_t src_stride_raw,
                                                  int16_t search_area_width, int16_t search_area_height) {
     int16_t    x_search_index, y_search_index;
     uint32x4_t sad4;
@@ -359,7 +359,7 @@ static inline void svt_sad_loop_kernel128xh_neon(uint8_t *src, uint32_t src_stri
 
 DECLARE_ALIGNED(16, static const uint8_t, kPermTable4xh[16]) = {0, 1, 2, 3, 1, 2, 3, 4, 2, 3, 4, 5, 3, 4, 5, 6};
 
-static inline uint32x4_t sadwxhx4d_neon(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
+static inline uint32x4_t sadwxhx4d_neon(const uint8_t* src, uint32_t src_stride, const uint8_t* ref,
                                         uint32_t ref_stride, uint32_t width, uint32_t height) {
     uint32x4_t sum_u32[4] = {vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0)};
     uint32x4_t sum4       = vdupq_n_u32(0);
@@ -380,8 +380,8 @@ static inline uint32x4_t sadwxhx4d_neon(const uint8_t *src, uint32_t src_stride,
         do {
             int w = width;
 
-            const uint8_t *src_ptr = src;
-            const uint8_t *ref_ptr = ref;
+            const uint8_t* src_ptr = src;
+            const uint8_t* ref_ptr = ref;
 
             while (w >= 16) {
                 const uint8x16_t s = vld1q_u8(src_ptr);
@@ -409,7 +409,7 @@ static inline uint32x4_t sadwxhx4d_neon(const uint8_t *src, uint32_t src_stride,
 
             if (w >= 4) {
                 uint8x16_t perm_tbl = vld1q_u8(kPermTable4xh);
-                uint8x16_t s        = vreinterpretq_u8_u32(vld1q_dup_u32((const uint32_t *)src_ptr));
+                uint8x16_t s        = vreinterpretq_u8_u32(vld1q_dup_u32((const uint32_t*)src_ptr));
 
                 uint8x16_t r   = vqtbl1q_u8(vld1q_u8(ref_ptr), perm_tbl);
                 uint8x16_t abs = vabdq_u8(s, r);
@@ -446,9 +446,9 @@ static inline uint32x4_t sadwxhx4d_neon(const uint8_t *src, uint32_t src_stride,
     return vaddq_u32(vaddw_u16(sum4, vget_low_u16(sum)), horizontal_add_4d_u32x4(sum_u32));
 }
 
-static inline void svt_sad_loop_kernelwxh_neon(uint8_t *src, uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                               uint32_t block_width, uint32_t block_height, uint64_t *best_sad,
-                                               int16_t *x_search_center, int16_t *y_search_center,
+static inline void svt_sad_loop_kernelwxh_neon(uint8_t* src, uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                               uint32_t block_width, uint32_t block_height, uint64_t* best_sad,
+                                               int16_t* x_search_center, int16_t* y_search_center,
                                                uint32_t src_stride_raw, int16_t search_area_width,
                                                int16_t search_area_height) {
     for (int16_t y_search_index = 0; y_search_index < search_area_height; y_search_index++) {
@@ -470,9 +470,9 @@ static inline void svt_sad_loop_kernelwxh_neon(uint8_t *src, uint32_t src_stride
     }
 }
 
-void svt_sad_loop_kernel_neon(uint8_t *src, uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                              uint32_t block_height, uint32_t block_width, uint64_t *best_sad, int16_t *x_search_center,
-                              int16_t *y_search_center, uint32_t src_stride_raw, uint8_t skip_search_line,
+void svt_sad_loop_kernel_neon(uint8_t* src, uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                              uint32_t block_height, uint32_t block_width, uint64_t* best_sad, int16_t* x_search_center,
+                              int16_t* y_search_center, uint32_t src_stride_raw, uint8_t skip_search_line,
                               int16_t search_area_width, int16_t search_area_height) {
     *best_sad = UINT64_MAX;
     switch (block_width) {
@@ -635,7 +635,7 @@ void svt_sad_loop_kernel_neon(uint8_t *src, uint32_t src_stride, uint8_t *ref, u
     }
 }
 
-static inline uint32x4_t get_mv_cost_vector(const struct svt_mv_cost_param *mv_cost_params, int16_t row, int16_t col,
+static inline uint32x4_t get_mv_cost_vector(const svt_mv_cost_param* mv_cost_params, int16_t row, int16_t col,
                                             int16_t mvx, int16_t mvy, int16_t search_position_start_x,
                                             int16_t search_position_start_y) {
     const Mv baseMv = {
@@ -653,8 +653,8 @@ static inline uint32x4_t get_mv_cost_vector(const struct svt_mv_cost_param *mv_c
     return vld1q_u32(costs);
 }
 
-static inline void update_best_cost_u32(uint32x4_t cost4, uint32_t *best_cost, int16_t *x_search_center,
-                                        int16_t *y_search_center, int16_t x_search_index, int16_t y_search_index,
+static inline void update_best_cost_u32(uint32x4_t cost4, uint32_t* best_cost, int16_t* x_search_center,
+                                        int16_t* y_search_center, int16_t x_search_index, int16_t y_search_index,
                                         int16_t mvx, int16_t mvy) {
     uint64_t temp_cost;
 
@@ -668,10 +668,10 @@ static inline void update_best_cost_u32(uint32x4_t cost4, uint32_t *best_cost, i
     }
 }
 
-static inline void svt_pme_sad_loop_kernel4xh_neon(const struct svt_mv_cost_param *mv_cost_params, uint8_t *src,
-                                                   uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                                   uint32_t block_height, uint32_t *best_cost, int16_t *best_mvx,
-                                                   int16_t *best_mvy, int16_t search_position_start_x,
+static inline void svt_pme_sad_loop_kernel4xh_neon(const svt_mv_cost_param* mv_cost_params, uint8_t* src,
+                                                   uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                                   uint32_t block_height, uint32_t* best_cost, int16_t* best_mvx,
+                                                   int16_t* best_mvy, int16_t search_position_start_x,
                                                    int16_t search_position_start_y, int16_t search_area_width,
                                                    int16_t search_area_height, int16_t search_step, int16_t mvx,
                                                    int16_t mvy) {
@@ -715,10 +715,10 @@ static inline void svt_pme_sad_loop_kernel4xh_neon(const struct svt_mv_cost_para
     }
 }
 
-static inline void svt_pme_sad_loop_kernel8xh_neon(const struct svt_mv_cost_param *mv_cost_params, uint8_t *src,
-                                                   uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                                   uint32_t block_height, uint32_t *best_cost, int16_t *best_mvx,
-                                                   int16_t *best_mvy, int16_t search_position_start_x,
+static inline void svt_pme_sad_loop_kernel8xh_neon(const svt_mv_cost_param* mv_cost_params, uint8_t* src,
+                                                   uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                                   uint32_t block_height, uint32_t* best_cost, int16_t* best_mvx,
+                                                   int16_t* best_mvy, int16_t search_position_start_x,
                                                    int16_t search_position_start_y, int16_t search_area_width,
                                                    int16_t search_area_height, int16_t search_step, int16_t mvx,
                                                    int16_t mvy) {
@@ -761,10 +761,10 @@ static inline void svt_pme_sad_loop_kernel8xh_neon(const struct svt_mv_cost_para
     }
 }
 
-static inline void svt_pme_sad_loop_kernel16xh_neon(const struct svt_mv_cost_param *mv_cost_params, uint8_t *src,
-                                                    uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                                    uint32_t block_height, uint32_t *best_cost, int16_t *best_mvx,
-                                                    int16_t *best_mvy, int16_t search_position_start_x,
+static inline void svt_pme_sad_loop_kernel16xh_neon(const svt_mv_cost_param* mv_cost_params, uint8_t* src,
+                                                    uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                                    uint32_t block_height, uint32_t* best_cost, int16_t* best_mvx,
+                                                    int16_t* best_mvy, int16_t search_position_start_x,
                                                     int16_t search_position_start_y, int16_t search_area_width,
                                                     int16_t search_area_height, int16_t search_step, int16_t mvx,
                                                     int16_t mvy) {
@@ -807,10 +807,10 @@ static inline void svt_pme_sad_loop_kernel16xh_neon(const struct svt_mv_cost_par
     }
 }
 
-static inline void svt_pme_sad_loop_kernel24xh_neon(const struct svt_mv_cost_param *mv_cost_params, uint8_t *src,
-                                                    uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                                    uint32_t block_height, uint32_t *best_cost, int16_t *best_mvx,
-                                                    int16_t *best_mvy, int16_t search_position_start_x,
+static inline void svt_pme_sad_loop_kernel24xh_neon(const svt_mv_cost_param* mv_cost_params, uint8_t* src,
+                                                    uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                                    uint32_t block_height, uint32_t* best_cost, int16_t* best_mvx,
+                                                    int16_t* best_mvy, int16_t search_position_start_x,
                                                     int16_t search_position_start_y, int16_t search_area_width,
                                                     int16_t search_area_height, int16_t search_step, int16_t mvx,
                                                     int16_t mvy) {
@@ -853,10 +853,10 @@ static inline void svt_pme_sad_loop_kernel24xh_neon(const struct svt_mv_cost_par
     }
 }
 
-static inline void svt_pme_sad_loop_kernel32xh_neon(const struct svt_mv_cost_param *mv_cost_params, uint8_t *src,
-                                                    uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                                    uint32_t block_height, uint32_t *best_cost, int16_t *best_mvx,
-                                                    int16_t *best_mvy, int16_t search_position_start_x,
+static inline void svt_pme_sad_loop_kernel32xh_neon(const svt_mv_cost_param* mv_cost_params, uint8_t* src,
+                                                    uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                                    uint32_t block_height, uint32_t* best_cost, int16_t* best_mvx,
+                                                    int16_t* best_mvy, int16_t search_position_start_x,
                                                     int16_t search_position_start_y, int16_t search_area_width,
                                                     int16_t search_area_height, int16_t search_step, int16_t mvx,
                                                     int16_t mvy) {
@@ -899,10 +899,10 @@ static inline void svt_pme_sad_loop_kernel32xh_neon(const struct svt_mv_cost_par
     }
 }
 
-static inline void svt_pme_sad_loop_kernel48xh_neon(const struct svt_mv_cost_param *mv_cost_params, uint8_t *src,
-                                                    uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                                    uint32_t block_height, uint32_t *best_cost, int16_t *best_mvx,
-                                                    int16_t *best_mvy, int16_t search_position_start_x,
+static inline void svt_pme_sad_loop_kernel48xh_neon(const svt_mv_cost_param* mv_cost_params, uint8_t* src,
+                                                    uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                                    uint32_t block_height, uint32_t* best_cost, int16_t* best_mvx,
+                                                    int16_t* best_mvy, int16_t search_position_start_x,
                                                     int16_t search_position_start_y, int16_t search_area_width,
                                                     int16_t search_area_height, int16_t search_step, int16_t mvx,
                                                     int16_t mvy) {
@@ -945,10 +945,10 @@ static inline void svt_pme_sad_loop_kernel48xh_neon(const struct svt_mv_cost_par
     }
 }
 
-static inline void svt_pme_sad_loop_kernel64xh_neon(const struct svt_mv_cost_param *mv_cost_params, uint8_t *src,
-                                                    uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                                    uint32_t block_height, uint32_t *best_cost, int16_t *best_mvx,
-                                                    int16_t *best_mvy, int16_t search_position_start_x,
+static inline void svt_pme_sad_loop_kernel64xh_neon(const svt_mv_cost_param* mv_cost_params, uint8_t* src,
+                                                    uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                                    uint32_t block_height, uint32_t* best_cost, int16_t* best_mvx,
+                                                    int16_t* best_mvy, int16_t search_position_start_x,
                                                     int16_t search_position_start_y, int16_t search_area_width,
                                                     int16_t search_area_height, int16_t search_step, int16_t mvx,
                                                     int16_t mvy) {
@@ -992,10 +992,10 @@ static inline void svt_pme_sad_loop_kernel64xh_neon(const struct svt_mv_cost_par
     }
 }
 
-static inline void svt_pme_sad_loop_kernel128xh_neon(const struct svt_mv_cost_param *mv_cost_params, uint8_t *src,
-                                                     uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                                     uint32_t block_height, uint32_t *best_cost, int16_t *best_mvx,
-                                                     int16_t *best_mvy, int16_t search_position_start_x,
+static inline void svt_pme_sad_loop_kernel128xh_neon(const svt_mv_cost_param* mv_cost_params, uint8_t* src,
+                                                     uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                                     uint32_t block_height, uint32_t* best_cost, int16_t* best_mvx,
+                                                     int16_t* best_mvy, int16_t search_position_start_x,
                                                      int16_t search_position_start_y, int16_t search_area_width,
                                                      int16_t search_area_height, int16_t search_step, int16_t mvx,
                                                      int16_t mvy) {
@@ -1038,9 +1038,9 @@ static inline void svt_pme_sad_loop_kernel128xh_neon(const struct svt_mv_cost_pa
     }
 }
 
-void svt_pme_sad_loop_kernel_neon(const struct svt_mv_cost_param *mv_cost_params, uint8_t *src, uint32_t src_stride,
-                                  uint8_t *ref, uint32_t ref_stride, uint32_t block_height, uint32_t block_width,
-                                  uint32_t *best_cost, int16_t *best_mvx, int16_t *best_mvy,
+void svt_pme_sad_loop_kernel_neon(const svt_mv_cost_param* mv_cost_params, uint8_t* src, uint32_t src_stride,
+                                  uint8_t* ref, uint32_t ref_stride, uint32_t block_height, uint32_t block_width,
+                                  uint32_t* best_cost, int16_t* best_mvx, int16_t* best_mvy,
                                   int16_t search_position_start_x, int16_t search_position_start_y,
                                   int16_t search_area_width, int16_t search_area_height, int16_t search_step,
                                   int16_t mvx, int16_t mvy) {
@@ -1220,7 +1220,7 @@ void svt_pme_sad_loop_kernel_neon(const struct svt_mv_cost_param *mv_cost_params
     }
 }
 
-uint32_t svt_nxm_sad_kernel_helper_neon(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
+uint32_t svt_nxm_sad_kernel_helper_neon(const uint8_t* src, uint32_t src_stride, const uint8_t* ref,
                                         uint32_t ref_stride, uint32_t height, uint32_t width) {
     uint32_t res = 0;
     switch (width) {
@@ -1272,8 +1272,8 @@ uint32_t svt_nxm_sad_kernel_helper_neon(const uint8_t *src, uint32_t src_stride,
     return res;
 }
 
-static inline void compute_4sad_neon(const uint32_t p_sad16x16[4][8], uint32_t *p_sad32x32, uint32x4_t *sad0,
-                                     uint32x4_t *sad1) {
+static inline void compute_4sad_neon(const uint32_t p_sad16x16[4][8], uint32_t* p_sad32x32, uint32x4_t* sad0,
+                                     uint32x4_t* sad1) {
     uint32x4_t tmp0 = vaddq_u32(vld1q_u32(p_sad16x16[0]), vld1q_u32(p_sad16x16[1]));
     uint32x4_t tmp1 = vaddq_u32(vld1q_u32(p_sad16x16[2]), vld1q_u32(p_sad16x16[3]));
     *sad0           = vaddq_u32(tmp0, tmp1);
@@ -1285,9 +1285,9 @@ static inline void compute_4sad_neon(const uint32_t p_sad16x16[4][8], uint32_t *
     store_u32_4x2(p_sad32x32, 4, *sad0, *sad1);
 }
 
-void svt_ext_eight_sad_calculation_32x32_64x64_neon(const uint32_t p_sad16x16[16][8], uint32_t *p_best_sad_32x32,
-                                                    uint32_t *p_best_sad_64x64, uint32_t *p_best_mv32x32,
-                                                    uint32_t *p_best_mv64x64, uint32_t mv, uint32_t p_sad32x32[4][8]) {
+void svt_ext_eight_sad_calculation_32x32_64x64_neon(const uint32_t p_sad16x16[16][8], uint32_t* p_best_sad_32x32,
+                                                    uint32_t* p_best_sad_64x64, uint32_t* p_best_mv32x32,
+                                                    uint32_t* p_best_mv64x64, uint32_t mv, uint32_t p_sad32x32[4][8]) {
     uint32x4_t sad32_a1, sad32_a2, sad32_b1, sad32_b2, sad32_c1, sad32_c2, sad32_d1, sad32_d2;
     compute_4sad_neon(&p_sad16x16[0], &p_sad32x32[0][0], &sad32_a1, &sad32_a2);
     compute_4sad_neon(&p_sad16x16[4], &p_sad32x32[1][0], &sad32_b1, &sad32_b2);
@@ -1329,9 +1329,9 @@ void svt_ext_eight_sad_calculation_32x32_64x64_neon(const uint32_t p_sad16x16[16
     }
 }
 
-void svt_ext_sad_calculation_32x32_64x64_neon(uint32_t *p_sad16x16, uint32_t *p_best_sad_32x32,
-                                              uint32_t *p_best_sad_64x64, uint32_t *p_best_mv32x32,
-                                              uint32_t *p_best_mv64x64, uint32_t mv, uint32_t *p_sad32x32) {
+void svt_ext_sad_calculation_32x32_64x64_neon(uint32_t* p_sad16x16, uint32_t* p_best_sad_32x32,
+                                              uint32_t* p_best_sad_64x64, uint32_t* p_best_mv32x32,
+                                              uint32_t* p_best_mv64x64, uint32_t mv, uint32_t* p_sad32x32) {
     uint32x4_t sad4d[4];
     load_u32_4x4(p_sad16x16, 4, &sad4d[0], &sad4d[1], &sad4d[2], &sad4d[3]);
 
@@ -1358,7 +1358,7 @@ void svt_ext_sad_calculation_32x32_64x64_neon(uint32_t *p_sad16x16, uint32_t *p_
     }
 }
 
-static inline uint32_t highbd_sad4xh_neon(uint16_t *src_ptr, int src_stride, uint16_t *ref_ptr, int ref_stride, int h) {
+static inline uint32_t highbd_sad4xh_neon(uint16_t* src_ptr, int src_stride, uint16_t* ref_ptr, int ref_stride, int h) {
     assert(h % 2 == 0);
     uint32x4_t sum[2] = {vdupq_n_u32(0), vdupq_n_u32(0)};
 
@@ -1380,7 +1380,7 @@ static inline uint32_t highbd_sad4xh_neon(uint16_t *src_ptr, int src_stride, uin
     return vaddvq_u32(sum[0]);
 }
 
-static inline uint32_t highbd_sad8xh_neon(uint16_t *src_ptr, int src_stride, uint16_t *ref_ptr, int ref_stride, int h) {
+static inline uint32_t highbd_sad8xh_neon(uint16_t* src_ptr, int src_stride, uint16_t* ref_ptr, int ref_stride, int h) {
     assert(h % 2 == 0);
     uint32x4_t sum[2] = {vdupq_n_u32(0), vdupq_n_u32(0)};
 
@@ -1404,7 +1404,7 @@ static inline uint32_t highbd_sad8xh_neon(uint16_t *src_ptr, int src_stride, uin
     return vaddvq_u32(sum[0]);
 }
 
-static inline uint32_t highbd_sad16xh_neon(uint16_t *src_ptr, int src_stride, uint16_t *ref_ptr, int ref_stride,
+static inline uint32_t highbd_sad16xh_neon(uint16_t* src_ptr, int src_stride, uint16_t* ref_ptr, int ref_stride,
                                            int h) {
     uint32x4_t sum[2] = {vdupq_n_u32(0), vdupq_n_u32(0)};
 
@@ -1427,7 +1427,7 @@ static inline uint32_t highbd_sad16xh_neon(uint16_t *src_ptr, int src_stride, ui
     return vaddvq_u32(sum[0]);
 }
 
-static inline uint32_t highbd_sadwxh_neon(uint16_t *src_ptr, int src_stride, uint16_t *ref_ptr, int ref_stride, int h,
+static inline uint32_t highbd_sadwxh_neon(uint16_t* src_ptr, int src_stride, uint16_t* ref_ptr, int ref_stride, int h,
                                           int w) {
     uint32x4_t sum[4] = {vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0)};
 
@@ -1468,17 +1468,21 @@ static inline uint32_t highbd_sadwxh_neon(uint16_t *src_ptr, int src_stride, uin
     return vaddvq_u32(sum[0]);
 }
 
-uint32_t svt_aom_sad_16b_kernel_neon(uint16_t *src, uint32_t src_stride, uint16_t *ref, uint32_t ref_stride,
+uint32_t svt_aom_sad_16b_kernel_neon(uint16_t* src, uint32_t src_stride, uint16_t* ref, uint32_t ref_stride,
                                      uint32_t height, uint32_t width) {
     assert(width % 4 == 0);
 
     switch (width) {
-    case 4: return highbd_sad4xh_neon(src, src_stride, ref, ref_stride, height);
-    case 8: return highbd_sad8xh_neon(src, src_stride, ref, ref_stride, height);
-    case 16: return highbd_sad16xh_neon(src, src_stride, ref, ref_stride, height);
+    case 4:
+        return highbd_sad4xh_neon(src, src_stride, ref, ref_stride, height);
+    case 8:
+        return highbd_sad8xh_neon(src, src_stride, ref, ref_stride, height);
+    case 16:
+        return highbd_sad16xh_neon(src, src_stride, ref, ref_stride, height);
     case 32:
     case 64:
-    case 128: return highbd_sadwxh_neon(src, src_stride, ref, ref_stride, height, width);
+    case 128:
+        return highbd_sadwxh_neon(src, src_stride, ref, ref_stride, height, width);
     }
 
     uint32_t offset       = 0;

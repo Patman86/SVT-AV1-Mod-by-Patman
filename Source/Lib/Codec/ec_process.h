@@ -18,7 +18,6 @@
 #include "sys_resource_manager.h"
 #include "pic_buffer_desc.h"
 #include "enc_inter_prediction.h"
-#include "entropy_coding.h"
 #include "coding_unit.h"
 #include "object.h"
 
@@ -27,14 +26,14 @@
  **************************************/
 typedef struct EntropyCodingContext {
     EbDctor  dctor;
-    EbFifo  *enc_dec_input_fifo_ptr;
-    EbFifo  *entropy_coding_output_fifo_ptr; // to packetization
+    EbFifo*  enc_dec_input_fifo_ptr;
+    EbFifo*  entropy_coding_output_fifo_ptr; // to packetization
     uint32_t sb_total_count;
     // Coding Unit Workspace---------------------------
-    EbPictureBufferDesc *coeff_buffer_sb; //Used to hold quantized coeff for one TB in EncPass.
+    EbPictureBufferDesc* coeff_buffer_sb; //Used to hold quantized coeff for one TB in EncPass.
 
     //  Context Variables---------------------------------
-    BlkStruct *blk_ptr;
+    BlkStruct* blk_ptr;
     //const CodedBlockStats           *cu_stats;
     uint32_t blk_index;
     uint8_t  cu_depth;
@@ -58,8 +57,8 @@ typedef struct EntropyCodingContext {
     bool        is_16bit; //enable 10 bit encode in CL
     int32_t     coded_area_sb;
     int32_t     coded_area_sb_uv;
-    TOKENEXTRA *tok;
-    MbModeInfo *mbmi;
+    TOKENEXTRA* tok;
+    MbModeInfo* mbmi;
     /*!
      * cdef_transmitted[i] is true if CDEF strength for ith CDEF unit in the
      * current superblock has already been read from (decoder) / written to
@@ -91,9 +90,9 @@ typedef struct EntropyCodingContext {
 /**************************************
  * Extern Function Declarations
  **************************************/
-EbErrorType svt_aom_entropy_coding_context_ctor(EbThreadContext *thread_ctx, const EbEncHandle *enc_handle_ptr,
+EbErrorType svt_aom_entropy_coding_context_ctor(EbThreadContext* thread_ctx, const EbEncHandle* enc_handle_ptr,
                                                 int index);
 
-extern void *svt_aom_entropy_coding_kernel(void *input_ptr);
+void* svt_aom_entropy_coding_kernel(void* input_ptr);
 
 #endif // EbEntropyCodingProcess_h

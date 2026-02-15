@@ -52,7 +52,7 @@ TEST(EncApiDeathTest, set_parameter_null_pointer) {
     // watch out, function down
     EXPECT_EQ(EB_ErrorBadParameter,
               svt_av1_enc_set_parameter(context.enc_handle, nullptr));
-    // destory encoder handle
+    // destroy encoder handle
     EXPECT_EQ(EB_ErrorInvalidComponent, svt_av1_enc_deinit_handle(nullptr));
     SUCCEED();
 }
@@ -101,7 +101,7 @@ TEST(EncApiTest, check_null_pointer) {
     svt_av1_enc_release_out_buffer(nullptr);
     // close encoder with null pointer
     EXPECT_EQ(EB_ErrorBadParameter, svt_av1_enc_deinit(nullptr));
-    // destory encoder handle with null pointer
+    // destroy encoder handle with null pointer
     EXPECT_EQ(EB_ErrorInvalidComponent, svt_av1_enc_deinit_handle(nullptr));
     SUCCEED();
 }
@@ -148,7 +148,7 @@ TEST(EncApiTest, DISABLED_check_normal_setup) {
     // close encoder
     EXPECT_EQ(EB_ErrorNone, svt_av1_enc_deinit(context.enc_handle))
         << "svt_av1_enc_deinit failed";
-    // destory encoder
+    // destroy encoder
     EXPECT_EQ(EB_ErrorNone, svt_av1_enc_deinit_handle(context.enc_handle))
         << "svt_av1_enc_deinit_handle failed";
 }
@@ -158,14 +158,14 @@ TEST(EncApiTest, DISABLED_check_normal_setup) {
  * default normal setup to check for a resource or memory leak
  *
  * Test strategy: <br>
- * Input normal parameters to the encoder API and repeat the proccessing of
- * initialize and destory encoder handle and check the return value.
+ * Input normal parameters to the encoder API and repeat the processing of
+ * initialize and destroy encoder handle and check the return value.
  *
  * Expected result: <br>
  * Encoder can initialize normally without any error reported.
  *
  * Test coverage:
- * Initialize and destory APIs.
+ * Initialize and destroy APIs.
  *
  * Comments:
  * Disabled for it causes memory leak, and lead to effect other tests
@@ -195,7 +195,7 @@ TEST(EncApiTest, DISABLED_repeat_normal_setup) {
         // me
         // ASSERT_EQ(EB_ErrorNone, svt_av1_enc_deinit(context.enc_handle))
         //    << "svt_av1_enc_deinit failed";
-        // destory encoder
+        // destroy encoder
         ASSERT_EQ(EB_ErrorNone, svt_av1_enc_deinit_handle(context.enc_handle))
             << "svt_av1_enc_deinit_handle failed at " << i << " times";
     }

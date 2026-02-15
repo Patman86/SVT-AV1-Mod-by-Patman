@@ -22,12 +22,18 @@
 
 static const char* log_level_str(SvtAv1LogLevel level) {
     switch (level) {
-    case SVT_AV1_LOG_FATAL: return "fatal";
-    case SVT_AV1_LOG_ERROR: return "error";
-    case SVT_AV1_LOG_WARN: return "warn";
-    case SVT_AV1_LOG_INFO: return "info";
-    case SVT_AV1_LOG_DEBUG: return "debug";
-    default: return "unknown";
+    case SVT_AV1_LOG_FATAL:
+        return "fatal";
+    case SVT_AV1_LOG_ERROR:
+        return "error";
+    case SVT_AV1_LOG_WARN:
+        return "warn";
+    case SVT_AV1_LOG_INFO:
+        return "info";
+    case SVT_AV1_LOG_DEBUG:
+        return "debug";
+    default:
+        return "unknown";
     }
 }
 
@@ -49,10 +55,12 @@ static struct Logger {
 
 static void default_logger(void* context, SvtAv1LogLevel level, const char* tag, const char* fmt, va_list args) {
     struct DefaultCtx* logger = context;
-    if (level > logger->level)
+    if (level > logger->level) {
         return;
-    if (tag)
+    }
+    if (tag) {
         fprintf(logger->file, "%s[%s]: ", tag, log_level_str(level));
+    }
     vfprintf(logger->file, fmt, args);
     fflush(logger->file);
 }
@@ -60,8 +68,9 @@ static void default_logger(void* context, SvtAv1LogLevel level, const char* tag,
 static void logger_cleanup(void) {
     if (g_logger->fn == default_logger) {
         struct DefaultCtx* ctx = g_logger->ctx;
-        if (ctx->file && ctx->file != stderr)
+        if (ctx->file && ctx->file != stderr) {
             fclose(ctx->file);
+        }
         free(ctx);
     }
     free(g_logger);
@@ -100,16 +109,19 @@ static ONCE_ROUTINE(logger_create) {
     ctx->level      = SVT_AV1_LOG_INFO;
     if (log) {
         const int new_level = atoi(log);
-        if (new_level >= SVT_AV1_LOG_ALL && new_level <= SVT_AV1_LOG_DEBUG)
+        if (new_level >= SVT_AV1_LOG_ALL && new_level <= SVT_AV1_LOG_DEBUG) {
             ctx->level = (SvtAv1LogLevel)new_level;
+        }
     }
 
     const char* file = getenv("SVT_LOG_FILE");
-    if (file)
+    if (file) {
         FOPEN(ctx->file, file, "w+");
+    }
     // If the file couldn't be opened, fall back to stderr
-    if (!ctx->file)
+    if (!ctx->file) {
         ctx->file = stderr;
+    }
 
     g_logger->fn  = default_logger;
     g_logger->ctx = ctx;
@@ -118,6 +130,7 @@ static ONCE_ROUTINE(logger_create) {
 }
 
 DEFINE_ONCE(g_logger_once);
+
 static struct Logger* get_logger() {
     svt_run_once(&g_logger_once, logger_create);
     return g_logger;
@@ -137,8 +150,9 @@ void svt_aom_log_set_callback(SvtAv1LogCallback callback, void* context) {
 
 void svt_log(SvtAv1LogLevel level, const char* tag, const char* format, ...) {
     struct Logger* logger = get_logger();
-    if (!logger)
+    if (!logger) {
         return;
+    }
     va_list args;
     va_start(args, format);
     logger->fn(logger->ctx, level, tag, format, args);

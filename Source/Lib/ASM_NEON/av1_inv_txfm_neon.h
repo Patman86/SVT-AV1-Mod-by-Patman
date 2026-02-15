@@ -14,23 +14,23 @@
 
 #include "definitions.h"
 
-static inline void lowbd_inv_txfm2d_add_idtx_neon(const int32_t *input, uint8_t *output_r, int32_t stride_r,
-                                                  uint8_t *output_w, int32_t stride_w, TxType tx_type, TxSize tx_size,
+static inline void lowbd_inv_txfm2d_add_idtx_neon(const int32_t* input, uint8_t* output_r, int32_t stride_r,
+                                                  uint8_t* output_w, int32_t stride_w, TxType tx_type, TxSize tx_size,
                                                   int32_t eob);
 
-static inline void lowbd_inv_txfm2d_add_v_identity_neon(const int32_t *input, uint8_t *output_r, int32_t stride_r,
-                                                        uint8_t *output_w, int32_t stride_w, TxType tx_type,
+static inline void lowbd_inv_txfm2d_add_v_identity_neon(const int32_t* input, uint8_t* output_r, int32_t stride_r,
+                                                        uint8_t* output_w, int32_t stride_w, TxType tx_type,
                                                         TxSize tx_size, int32_t eob);
 
-static inline void lowbd_inv_txfm2d_add_h_identity_neon(const int32_t *input, uint8_t *output_r, int32_t stride_r,
-                                                        uint8_t *output_w, int32_t stride_w, TxType tx_type,
+static inline void lowbd_inv_txfm2d_add_h_identity_neon(const int32_t* input, uint8_t* output_r, int32_t stride_r,
+                                                        uint8_t* output_w, int32_t stride_w, TxType tx_type,
                                                         TxSize tx_size, int32_t eob);
 
-static inline void lowbd_inv_txfm2d_add_no_identity_neon(const int32_t *input, uint8_t *output_r, int32_t stride_r,
-                                                         uint8_t *output_w, int32_t stride_w, TxType tx_type,
+static inline void lowbd_inv_txfm2d_add_no_identity_neon(const int32_t* input, uint8_t* output_r, int32_t stride_r,
+                                                         uint8_t* output_w, int32_t stride_w, TxType tx_type,
                                                          TxSize tx_size, int32_t eob);
 
-void svt_av1_lowbd_inv_txfm2d_add_neon(const int32_t *input, uint8_t *output_r, int32_t stride_r, uint8_t *output_w,
+void svt_av1_lowbd_inv_txfm2d_add_neon(const int32_t* input, uint8_t* output_r, int32_t stride_r, uint8_t* output_w,
                                        int32_t stride_w, TxType tx_type, TxSize tx_size, int32_t eob) {
     switch (tx_type) {
     case IDTX:

@@ -43,6 +43,7 @@ enum aom_rc_mode {
     AOM_CQ, /**< Constrained Quality (CQ)  mode */
     AOM_Q, /**< Constant Quality (Q) mode */
 };
+
 //**********************************************************************************************************************//
 
 /*!\endcond */
@@ -94,6 +95,7 @@ typedef struct {
 } RateControlCfg;
 
 typedef int aom_bit_depth_t;
+
 typedef struct {
     int             frame_width;
     int             frame_height;
@@ -117,6 +119,7 @@ typedef struct {
     // of the target bitrate.
     int vbrmax_section;
 } TwoPassCfg;
+
 typedef struct SwitchFrameCfg {
     // Indicates the number of frames after which a frame may be coded as an S-Frame.
     int32_t sframe_dist;
@@ -124,9 +127,6 @@ typedef struct SwitchFrameCfg {
     // 2: the next altref frame will be made into an S-Frame.
     EbSFrameMode sframe_mode;
 } SwitchFrameCfg;
-
-#define MAX_GFUBOOST_FACTOR 10.0
-#define MIN_GFUBOOST_FACTOR 4.0
 
 // Function return size of frame stats buffer
 static INLINE int get_stats_buf_size(int num_lap_buffer, int num_lag_buffer) {

@@ -120,7 +120,7 @@ static AOM_FORCE_INLINE int16x8_t horizontal_filter_4x1_f1_8tap_beta0(const uint
 static AOM_FORCE_INLINE int16x8_t horizontal_filter_4x1_f1(const uint8x16_t in, int sx) {
     const int32x4_t add_const = vdupq_n_s32(1 << (8 + FILTER_BITS - 1));
 
-    int16x8_t f_s16 = vld1q_s16((int16_t *)(svt_aom_warped_filter + (sx >> WARPEDDIFF_PREC_BITS)));
+    int16x8_t f_s16 = vld1q_s16((int16_t*)(svt_aom_warped_filter + (sx >> WARPEDDIFF_PREC_BITS)));
     int8x16_t f_s8  = vcombine_s8(vmovn_s16(f_s16), vmovn_s16(f_s16));
 
     uint8x16_t perm0 = vld1q_u8(&svt_kDotProdPermuteTbl[0]);
@@ -184,7 +184,7 @@ static AOM_FORCE_INLINE int16x8_t horizontal_filter_8x1_f1_8tap_beta0(const uint
 static AOM_FORCE_INLINE int16x8_t horizontal_filter_8x1_f1(const uint8x16_t in, int sx) {
     const int32x4_t add_const = vdupq_n_s32(1 << (8 + FILTER_BITS - 1));
 
-    int16x8_t f_s16 = vld1q_s16((int16_t *)(svt_aom_warped_filter + (sx >> WARPEDDIFF_PREC_BITS)));
+    int16x8_t f_s16 = vld1q_s16((int16_t*)(svt_aom_warped_filter + (sx >> WARPEDDIFF_PREC_BITS)));
     int8x16_t f_s8  = vcombine_s8(vmovn_s16(f_s16), vmovn_s16(f_s16));
 
     uint8x16_t perm0 = vld1q_u8(&svt_kDotProdPermuteTbl[0]);
@@ -209,7 +209,7 @@ static AOM_FORCE_INLINE int16x8_t horizontal_filter_8x1_f1(const uint8x16_t in, 
     return vreinterpretq_s16_u16(res);
 }
 
-static AOM_FORCE_INLINE void warp_affine_horizontal_neon_i8mm(const uint8_t *ref, int width, int height, int stride,
+static AOM_FORCE_INLINE void warp_affine_horizontal_neon_i8mm(const uint8_t* ref, int width, int height, int stride,
                                                               int p_width, int p_height, int16_t alpha, int16_t beta,
                                                               const int64_t x4, const int64_t y4, const int i,
                                                               int16x8_t tmp[]) {
@@ -236,7 +236,7 @@ static AOM_FORCE_INLINE void warp_affine_horizontal_neon_i8mm(const uint8_t *ref
     if (p_width == 4) {
         if (beta == 0) {
             if (alpha == 0) {
-                int16_t       *f_ptr    = (int16_t *)(svt_aom_warped_filter + (sx4 >> WARPEDDIFF_PREC_BITS));
+                int16_t*       f_ptr    = (int16_t*)(svt_aom_warped_filter + (sx4 >> WARPEDDIFF_PREC_BITS));
                 int16x8_t      f_s16    = vld1q_s16(f_ptr);
                 const int8x8_t x_filter = vmovn_s16(f_s16);
                 if ((f_ptr[0] | f_ptr[1]) == 0) {
@@ -288,7 +288,7 @@ static AOM_FORCE_INLINE void warp_affine_horizontal_neon_i8mm(const uint8_t *ref
     } else {
         if (beta == 0) {
             if (alpha == 0) {
-                int16_t       *f_ptr    = (int16_t *)(svt_aom_warped_filter + (sx4 >> WARPEDDIFF_PREC_BITS));
+                int16_t*       f_ptr    = (int16_t*)(svt_aom_warped_filter + (sx4 >> WARPEDDIFF_PREC_BITS));
                 int16x8_t      f_s16    = vld1q_s16(f_ptr);
                 const int8x8_t x_filter = vmovn_s16(f_s16);
                 if ((f_ptr[0] | f_ptr[1]) == 0) {

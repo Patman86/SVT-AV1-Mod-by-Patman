@@ -15,7 +15,7 @@
 #include "EbSvtAv1ErrorCodes.h"
 #include "svt_threads.h"
 
-static EbErrorType create_stats_buffer(FIRSTPASS_STATS **frame_stats_buffer, STATS_BUFFER_CTX *stats_buf_context,
+static EbErrorType create_stats_buffer(FIRSTPASS_STATS** frame_stats_buffer, STATS_BUFFER_CTX* stats_buf_context,
                                        int num_lap_buffers) {
     EbErrorType res = EB_ErrorNone;
 
@@ -23,8 +23,9 @@ static EbErrorType create_stats_buffer(FIRSTPASS_STATS **frame_stats_buffer, STA
     // *frame_stats_buffer =
     //     (FIRSTPASS_STATS *)aom_calloc(size, sizeof(FIRSTPASS_STATS));
     EB_MALLOC_ARRAY((*frame_stats_buffer), size);
-    if (*frame_stats_buffer == NULL)
+    if (*frame_stats_buffer == NULL) {
         return EB_ErrorInsufficientResources;
+    }
 
     stats_buf_context->stats_in_start     = *frame_stats_buffer;
     stats_buf_context->stats_in_end_write = stats_buf_context->stats_in_start;
@@ -32,12 +33,14 @@ static EbErrorType create_stats_buffer(FIRSTPASS_STATS **frame_stats_buffer, STA
     stats_buf_context->stats_in_buf_end   = stats_buf_context->stats_in_start + size;
 
     EB_MALLOC_ARRAY(stats_buf_context->total_left_stats, 1);
-    if (stats_buf_context->total_left_stats == NULL)
+    if (stats_buf_context->total_left_stats == NULL) {
         return EB_ErrorInsufficientResources;
+    }
     svt_av1_twopass_zero_stats(stats_buf_context->total_left_stats);
     EB_MALLOC_ARRAY(stats_buf_context->total_stats, 1);
-    if (stats_buf_context->total_stats == NULL)
+    if (stats_buf_context->total_stats == NULL) {
         return EB_ErrorInsufficientResources;
+    }
     svt_av1_twopass_zero_stats(stats_buf_context->total_stats);
     stats_buf_context->last_frame_accumulated = -1;
 
@@ -45,14 +48,15 @@ static EbErrorType create_stats_buffer(FIRSTPASS_STATS **frame_stats_buffer, STA
     return res;
 }
 
-static void destroy_stats_buffer(STATS_BUFFER_CTX *stats_buf_context, FIRSTPASS_STATS *frame_stats_buffer) {
+static void destroy_stats_buffer(STATS_BUFFER_CTX* stats_buf_context, FIRSTPASS_STATS* frame_stats_buffer) {
     EB_FREE_ARRAY(stats_buf_context->total_left_stats);
     EB_FREE_ARRAY(stats_buf_context->total_stats);
     EB_FREE_ARRAY(frame_stats_buffer);
     EB_DESTROY_MUTEX(stats_buf_context->stats_in_write_mutex);
 }
+
 static void encode_context_dctor(EbPtr p) {
-    EncodeContext *obj = (EncodeContext *)p;
+    EncodeContext* obj = (EncodeContext*)p;
     EB_DESTROY_MUTEX(obj->total_number_of_recon_frame_mutex);
     EB_DESTROY_MUTEX(obj->total_number_of_shown_frames_mutex);
     EB_DESTROY_MUTEX(obj->sc_buffer_mutex);
@@ -74,13 +78,14 @@ static void encode_context_dctor(EbPtr p) {
     destroy_stats_buffer(&obj->stats_buf_context, obj->frame_stats_buffer);
     EB_DELETE_PTR_ARRAY(obj->rc.coded_frames_stat_queue, CODED_FRAMES_STAT_QUEUE_MAX_DEPTH);
 
-    if (obj->rc_param_queue)
+    if (obj->rc_param_queue) {
         EB_FREE_2D(obj->rc_param_queue);
+    }
     EB_DESTROY_MUTEX(obj->rc_param_queue_mutex);
     EB_DESTROY_MUTEX(obj->rc.rc_mutex);
 }
 
-EbErrorType svt_aom_encode_context_ctor(EncodeContext *enc_ctx, EbPtr object_init_data_ptr) {
+EbErrorType svt_aom_encode_context_ctor(EncodeContext* enc_ctx, EbPtr object_init_data_ptr) {
     uint32_t picture_index;
 
     enc_ctx->dctor = encode_context_dctor;
@@ -114,7 +119,7 @@ EbErrorType svt_aom_encode_context_ctor(EncodeContext *enc_ctx, EbPtr object_ini
     enc_ctx->rc_cfg.min_cr    = 0;
     EB_CREATE_MUTEX(enc_ctx->stat_file_mutex);
     enc_ctx->num_lap_buffers = 0; // lap not supported for now
-    int *num_lap_buffers     = &enc_ctx->num_lap_buffers;
+    int* num_lap_buffers     = &enc_ctx->num_lap_buffers;
     create_stats_buffer(&enc_ctx->frame_stats_buffer, &enc_ctx->stats_buf_context, *num_lap_buffers);
     EB_ALLOC_PTR_ARRAY(enc_ctx->rc.coded_frames_stat_queue, CODED_FRAMES_STAT_QUEUE_MAX_DEPTH);
 

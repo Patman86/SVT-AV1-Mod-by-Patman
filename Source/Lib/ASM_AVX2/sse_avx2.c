@@ -15,7 +15,7 @@
 #include "synonyms_avx2.h"
 #include "convolve_avx2.h"
 
-static INLINE int64_t summary_all_avx2(const __m256i *sum_all) {
+static INLINE int64_t summary_all_avx2(const __m256i* sum_all) {
     int64_t       sum;
     __m256i       zero      = _mm256_setzero_si256();
     const __m256i sum0_4x64 = _mm256_unpacklo_epi32(*sum_all, zero);
@@ -27,7 +27,7 @@ static INLINE int64_t summary_all_avx2(const __m256i *sum_all) {
     return sum;
 }
 
-static INLINE void summary_32_avx2(const __m256i *sum32, __m256i *sum) {
+static INLINE void summary_32_avx2(const __m256i* sum32, __m256i* sum) {
     const __m256i sum0_4x64 = _mm256_cvtepu32_epi64(_mm256_castsi256_si128(*sum32));
     const __m256i sum1_4x64 = _mm256_cvtepu32_epi64(_mm256_extracti128_si256(*sum32, 1));
     const __m256i sum_4x64  = _mm256_add_epi64(sum0_4x64, sum1_4x64);
@@ -42,14 +42,15 @@ static INLINE int64_t summary_4x64_avx2(const __m256i sum_4x64) {
     xx_storel_64(&sum, sum_1x64);
     return sum;
 }
-static INLINE void highbd_sse_w16_avx2(__m256i *sum, const uint16_t *a, const uint16_t *b) {
+
+static INLINE void highbd_sse_w16_avx2(__m256i* sum, const uint16_t* a, const uint16_t* b) {
     const __m256i v_a_w = yy_loadu_256(a);
     const __m256i v_b_w = yy_loadu_256(b);
     const __m256i v_d_w = _mm256_sub_epi16(v_a_w, v_b_w);
     *sum                = _mm256_add_epi32(*sum, _mm256_madd_epi16(v_d_w, v_d_w));
 }
 
-static INLINE void highbd_sse_w4x4_avx2(__m256i *sum, const uint16_t *a, int a_stride, const uint16_t *b,
+static INLINE void highbd_sse_w4x4_avx2(__m256i* sum, const uint16_t* a, int a_stride, const uint16_t* b,
                                         int b_stride) {
     const __m128i v_a0  = xx_loadl_64(a);
     const __m128i v_a1  = xx_loadl_64(a + a_stride);
@@ -65,19 +66,20 @@ static INLINE void highbd_sse_w4x4_avx2(__m256i *sum, const uint16_t *a, int a_s
     *sum                = _mm256_add_epi32(*sum, _mm256_madd_epi16(v_d_w, v_d_w));
 }
 
-static INLINE void highbd_sse_w8x2_avx2(__m256i *sum, const uint16_t *a, int a_stride, const uint16_t *b,
+static INLINE void highbd_sse_w8x2_avx2(__m256i* sum, const uint16_t* a, int a_stride, const uint16_t* b,
                                         int b_stride) {
     const __m256i v_a_w = yy_loadu2_128(a + a_stride, a);
     const __m256i v_b_w = yy_loadu2_128(b + b_stride, b);
     const __m256i v_d_w = _mm256_sub_epi16(v_a_w, v_b_w);
     *sum                = _mm256_add_epi32(*sum, _mm256_madd_epi16(v_d_w, v_d_w));
 }
-int64_t svt_aom_highbd_sse_avx2(const uint8_t *a8, int a_stride, const uint8_t *b8, int b_stride, int width,
+
+int64_t svt_aom_highbd_sse_avx2(const uint8_t* a8, int a_stride, const uint8_t* b8, int b_stride, int width,
                                 int height) {
     int32_t   y   = 0;
     int64_t   sse = 0;
-    uint16_t *a   = (uint16_t *)(a8);
-    uint16_t *b   = (uint16_t *)(b8);
+    uint16_t* a   = (uint16_t*)(a8);
+    uint16_t* b   = (uint16_t*)(b8);
     __m256i   sum = _mm256_setzero_si256();
     switch (width) {
     case 4:
@@ -170,8 +172,8 @@ int64_t svt_aom_highbd_sse_avx2(const uint8_t *a8, int a_stride, const uint8_t *
                 __m256i sum32 = _mm256_setzero_si256();
                 do {
                     highbd_sse_w8x2_avx2(&sum32, a + i, a_stride, b + i, b_stride);
-                    const uint16_t *a2 = a + i + (a_stride << 1);
-                    const uint16_t *b2 = b + i + (b_stride << 1);
+                    const uint16_t* a2 = a + i + (a_stride << 1);
+                    const uint16_t* b2 = b + i + (b_stride << 1);
                     highbd_sse_w8x2_avx2(&sum32, a2, a_stride, b2, b_stride);
                     i += 8;
                 } while (i + 4 < width);
@@ -204,4 +206,5 @@ int64_t svt_aom_highbd_sse_avx2(const uint8_t *a8, int a_stride, const uint8_t *
     }
     return sse;
 }
+
 // CONFIG_AV1_HIGHBITDEPTH

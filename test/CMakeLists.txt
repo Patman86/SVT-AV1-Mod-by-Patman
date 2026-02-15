@@ -138,7 +138,6 @@ if(HAVE_X86_PLATFORM)
       FwdTxfm2dTest.cc
       MotionEstimationTest.cc
       PsnrTest.cc
-      dwt_test.cc
       frame_error_test.cc)
 endif()
 

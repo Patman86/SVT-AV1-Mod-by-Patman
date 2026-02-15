@@ -193,7 +193,7 @@ def convert_to_yuv(file: str, target_dir: str, logger: Logger):
 
 def detect_source_format(source_data_dir: str) -> str:
     """Detect the file format of the source data directory"""
-    file_formats = ["y4m", "yuv", "png"]
+    file_formats = ["y4m", "yuv", "png", "jpg", "jpeg"]
     extensions_on_disk = [f.split(".")[-1] for f in os.listdir(source_data_dir)]
     for file_format in file_formats:
         if file_format in extensions_on_disk:

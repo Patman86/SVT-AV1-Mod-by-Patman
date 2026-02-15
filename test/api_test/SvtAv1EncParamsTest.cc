@@ -96,11 +96,11 @@ class EncParamTestBase : public ::testing::Test {
     virtual void TearDown() override {
         // TODO: svt_av1_enc_deinit should not be called here, for this test
         // does not call svt_av1_enc_init, but there is huge memory leak if only
-        // calls svt_av1_enc_deinit_handle. please remmove it after we pass
+        // calls svt_av1_enc_deinit_handle. please remove it after we pass
         // EncApiTest-->repeat_normal_setup
         ASSERT_EQ(EB_ErrorNone, svt_av1_enc_deinit(ctxt_.enc_handle))
             << "svt_av1_enc_deinit failed";
-        // destory encoder
+        // destroy encoder
         ASSERT_EQ(EB_ErrorNone, svt_av1_enc_deinit_handle(ctxt_.enc_handle))
             << "svt_av1_enc_deinit_handle failed";
     }

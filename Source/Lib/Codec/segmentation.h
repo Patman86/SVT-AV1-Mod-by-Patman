@@ -19,15 +19,15 @@
 #include "rc_process.h"
 #include "utility.h"
 
-void svt_aom_apply_segmentation_based_quantization(const BlockGeom *blk_geom, PictureControlSet *pcs,
-                                                   SuperBlock *sb_ptr, BlkStruct *blk_ptr);
+void svt_aom_apply_segmentation_based_quantization(const BlockGeom* blk_geom, PictureControlSet* pcs,
+                                                   SuperBlock* sb_ptr, BlkStruct* blk_ptr);
 
-void svt_aom_setup_segmentation(PictureControlSet *pcs, SequenceControlSet *scs);
+void svt_aom_setup_segmentation(PictureControlSet* pcs, SequenceControlSet* scs);
 
-void find_segment_qps(SegmentationParams *segmentation_params, PictureControlSet *pcs);
+void find_segment_qps(SegmentationParams* segmentation_params, PictureControlSet* pcs);
 
-void temporally_update_qps(int32_t *segment_qp_ptr, int32_t *prev_segment_qp_ptr, bool temporal_update);
+void temporally_update_qps(int32_t* segment_qp_ptr, int32_t* prev_segment_qp_ptr, bool temporal_update);
 
-void calculate_segmentation_data(SegmentationParams *segmentation_params);
+void calculate_segmentation_data(SegmentationParams* segmentation_params);
 
 #endif //SVT_AV1_EBSEGMENTATIONS_H

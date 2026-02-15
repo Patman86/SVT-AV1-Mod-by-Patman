@@ -28,7 +28,7 @@ DECLARE_ALIGNED(16, const uint8_t, svt_aom_compute_cross_byte_mask[8][16]) = {
    correlation/standard deviation are taken over MATCH_SZ by MATCH_SZ windows
    of each image, centered at (x1, y1) and (x2, y2) respectively.
 */
-double svt_av1_compute_cross_correlation_sse4_1(unsigned char *im1, int stride1, int x1, int y1, unsigned char *im2,
+double svt_av1_compute_cross_correlation_sse4_1(unsigned char* im1, int stride1, int x1, int y1, unsigned char* im2,
                                                 int stride2, int x2, int y2, uint8_t match_sz) {
     int i;
     // 2 16-bit partial sums in lanes 0, 4 (== 2 32-bit partial sums in lanes 0,
@@ -42,15 +42,15 @@ double svt_av1_compute_cross_correlation_sse4_1(unsigned char *im1, int stride1,
     const uint8_t match_sz_sq  = (match_sz * match_sz);
 
     int           mask_idx = match_sz / 2;
-    const __m128i mask     = _mm_loadu_si128((__m128i *)svt_aom_compute_cross_byte_mask[mask_idx]);
+    const __m128i mask     = _mm_loadu_si128((__m128i*)svt_aom_compute_cross_byte_mask[mask_idx]);
     const __m128i zero     = _mm_setzero_si128();
 
     im1 += (y1 - match_sz_by2) * stride1 + (x1 - match_sz_by2);
     im2 += (y2 - match_sz_by2) * stride2 + (x2 - match_sz_by2);
 
     for (i = 0; i < match_sz; ++i) {
-        const __m128i v1 = _mm_and_si128(_mm_loadu_si128((__m128i *)&im1[i * stride1]), mask);
-        const __m128i v2 = _mm_and_si128(_mm_loadu_si128((__m128i *)&im2[i * stride2]), mask);
+        const __m128i v1 = _mm_and_si128(_mm_loadu_si128((__m128i*)&im1[i * stride1]), mask);
+        const __m128i v2 = _mm_and_si128(_mm_loadu_si128((__m128i*)&im2[i * stride2]), mask);
 
         // Using the 'sad' intrinsic here is a bit faster than adding
         // v1_l + v1_r and v2_l + v2_r, plus it avoids the need for a 16->32 bit

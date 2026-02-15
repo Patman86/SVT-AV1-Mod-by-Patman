@@ -60,7 +60,8 @@ static const int32_t expf_tab_fp16[] = {
     36,    34,    31,    30,    28,    26,    24,    23,    21};
 
 #define SSE_STRIDE (BW + 2)
-static uint32_t calculate_squared_errors_sum_no_div_sse4_1(const uint8_t *s, int s_stride, const uint8_t *p,
+
+static uint32_t calculate_squared_errors_sum_no_div_sse4_1(const uint8_t* s, int s_stride, const uint8_t* p,
                                                            int p_stride, unsigned int w, unsigned int h) {
     assert(w % 16 == 0 && "block width must be multiple of 16");
     unsigned int i, j;
@@ -70,8 +71,8 @@ static uint32_t calculate_squared_errors_sum_no_div_sse4_1(const uint8_t *s, int
 
     for (i = 0; i < h; i++) {
         for (j = 0; j < w; j += 8) {
-            s_8 = _mm_cvtepu8_epi16(_mm_loadl_epi64((const __m128i *)(s + i * s_stride + j)));
-            p_8 = _mm_cvtepu8_epi16(_mm_loadl_epi64((const __m128i *)(p + i * p_stride + j)));
+            s_8 = _mm_cvtepu8_epi16(_mm_loadl_epi64((const __m128i*)(s + i * s_stride + j)));
+            p_8 = _mm_cvtepu8_epi16(_mm_loadl_epi64((const __m128i*)(p + i * p_stride + j)));
 
             dif = _mm_sub_epi16(s_8, p_8);
             sum = _mm_add_epi32(sum, _mm_madd_epi16(dif, dif));
@@ -83,19 +84,20 @@ static uint32_t calculate_squared_errors_sum_no_div_sse4_1(const uint8_t *s, int
 
     return _mm_cvtsi128_si32(sum);
 }
+
 /*This function return 2 separate squared errors for two block 8xh, return value is stored in output array*/
-static void calculate_squared_errors_sum_2x8xh_no_div_sse4_1(const uint8_t *s, int s_stride, const uint8_t *p,
-                                                             int p_stride, unsigned int h, uint32_t *output) {
+static void calculate_squared_errors_sum_2x8xh_no_div_sse4_1(const uint8_t* s, int s_stride, const uint8_t* p,
+                                                             int p_stride, unsigned int h, uint32_t* output) {
     unsigned int i;
 
     __m128i sum[2] = {_mm_setzero_si128()};
     __m128i s_8[2], p_8[2], dif[2];
 
     for (i = 0; i < h; i++) {
-        s_8[0] = _mm_cvtepu8_epi16(_mm_loadl_epi64((const __m128i *)(s + i * s_stride)));
-        s_8[1] = _mm_cvtepu8_epi16(_mm_loadl_epi64((const __m128i *)(s + i * s_stride + 8)));
-        p_8[0] = _mm_cvtepu8_epi16(_mm_loadl_epi64((const __m128i *)(p + i * p_stride)));
-        p_8[1] = _mm_cvtepu8_epi16(_mm_loadl_epi64((const __m128i *)(p + i * p_stride + 8)));
+        s_8[0] = _mm_cvtepu8_epi16(_mm_loadl_epi64((const __m128i*)(s + i * s_stride)));
+        s_8[1] = _mm_cvtepu8_epi16(_mm_loadl_epi64((const __m128i*)(s + i * s_stride + 8)));
+        p_8[0] = _mm_cvtepu8_epi16(_mm_loadl_epi64((const __m128i*)(p + i * p_stride)));
+        p_8[1] = _mm_cvtepu8_epi16(_mm_loadl_epi64((const __m128i*)(p + i * p_stride + 8)));
 
         dif[0] = _mm_sub_epi16(s_8[0], p_8[0]);
         dif[1] = _mm_sub_epi16(s_8[1], p_8[1]);
@@ -111,7 +113,7 @@ static void calculate_squared_errors_sum_2x8xh_no_div_sse4_1(const uint8_t *s, i
     output[1] = _mm_cvtsi128_si32(sum[1]);
 }
 
-static uint32_t calculate_squared_errors_sum_no_div_highbd_sse4_1(const uint16_t *s, int s_stride, const uint16_t *p,
+static uint32_t calculate_squared_errors_sum_no_div_highbd_sse4_1(const uint16_t* s, int s_stride, const uint16_t* p,
                                                                   int p_stride, unsigned int w, unsigned int h,
                                                                   int shift_factor) {
     assert(w % 16 == 0 && "block width must be multiple of 16");
@@ -122,8 +124,8 @@ static uint32_t calculate_squared_errors_sum_no_div_highbd_sse4_1(const uint16_t
 
     for (i = 0; i < h; i++) {
         for (j = 0; j < w; j += 8) {
-            s_16 = _mm_loadu_si128((const __m128i *)(s + i * s_stride + j));
-            p_16 = _mm_loadu_si128((const __m128i *)(p + i * p_stride + j));
+            s_16 = _mm_loadu_si128((const __m128i*)(s + i * s_stride + j));
+            p_16 = _mm_loadu_si128((const __m128i*)(p + i * p_stride + j));
 
             dif = _mm_sub_epi16(s_16, p_16);
             sum = _mm_add_epi32(sum, _mm_madd_epi16(dif, dif));
@@ -137,19 +139,19 @@ static uint32_t calculate_squared_errors_sum_no_div_highbd_sse4_1(const uint16_t
 }
 
 /*This function return 2 separate squared errors for two block 8xh, return value is stored in output array*/
-static void calculate_squared_errors_sum_2x8xh_no_div_highbd_sse4_1(const uint16_t *s, int s_stride, const uint16_t *p,
+static void calculate_squared_errors_sum_2x8xh_no_div_highbd_sse4_1(const uint16_t* s, int s_stride, const uint16_t* p,
                                                                     int p_stride, unsigned int h, int shift_factor,
-                                                                    uint32_t *output) {
+                                                                    uint32_t* output) {
     unsigned int i;
 
     __m128i sum[2] = {_mm_setzero_si128()};
     __m128i s_8[2], p_8[2], dif[2];
 
     for (i = 0; i < h; i++) {
-        s_8[0] = _mm_loadu_si128((const __m128i *)(s + i * s_stride));
-        s_8[1] = _mm_loadu_si128((const __m128i *)(s + i * s_stride + 8));
-        p_8[0] = _mm_loadu_si128((const __m128i *)(p + i * p_stride));
-        p_8[1] = _mm_loadu_si128((const __m128i *)(p + i * p_stride + 8));
+        s_8[0] = _mm_loadu_si128((const __m128i*)(s + i * s_stride));
+        s_8[1] = _mm_loadu_si128((const __m128i*)(s + i * s_stride + 8));
+        p_8[0] = _mm_loadu_si128((const __m128i*)(p + i * p_stride));
+        p_8[1] = _mm_loadu_si128((const __m128i*)(p + i * p_stride + 8));
 
         dif[0] = _mm_sub_epi16(s_8[0], p_8[0]);
         dif[1] = _mm_sub_epi16(s_8[1], p_8[1]);
@@ -165,9 +167,10 @@ static void calculate_squared_errors_sum_2x8xh_no_div_highbd_sse4_1(const uint16
     output[0] = _mm_cvtsi128_si32(sum[0]) >> shift_factor;
     output[1] = _mm_cvtsi128_si32(sum[1]) >> shift_factor;
 }
+
 static void svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_sse4_1(
-    struct MeContext *me_ctx, const uint8_t *y_pre, int y_pre_stride, unsigned int block_width,
-    unsigned int block_height, uint32_t *y_accum, uint16_t *y_count, const uint32_t tf_decay_factor) {
+    MeContext* me_ctx, const uint8_t* y_pre, int y_pre_stride, unsigned int block_width, unsigned int block_height,
+    uint32_t* y_accum, uint16_t* y_count, const uint32_t tf_decay_factor) {
     unsigned int i, j, k, subblock_idx;
 
     int32_t idx_32x32 = me_ctx->tf_block_col + me_ctx->tf_block_row * 2;
@@ -176,7 +179,9 @@ static void svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_sse4
     uint32_t block_error_fp8[4];
 
     if (me_ctx->tf_32x32_block_split_flag[idx_32x32]) {
-        for (i = 0; i < 4; ++i) { block_error_fp8[i] = (uint32_t)(me_ctx->tf_16x16_block_error[idx_32x32 * 4 + i]); }
+        for (i = 0; i < 4; ++i) {
+            block_error_fp8[i] = (uint32_t)(me_ctx->tf_16x16_block_error[idx_32x32 * 4 + i]);
+        }
     } else {
         block_error_fp8[0] = block_error_fp8[1] = block_error_fp8[2] = block_error_fp8[3] =
             (uint32_t)(me_ctx->tf_32x32_block_error[idx_32x32] >> 2);
@@ -203,14 +208,14 @@ static void svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_sse4
             k = i * y_pre_stride + j;
 
             //y_count[k] += adjusted_weight;
-            __m128i count_array = _mm_loadu_si128((__m128i *)(y_count + k));
+            __m128i count_array = _mm_loadu_si128((__m128i*)(y_count + k));
             count_array = _mm_add_epi16(count_array, adjusted_weight_int16[subblock_idx_h + (j >= block_width / 2)]);
-            _mm_storeu_si128((__m128i *)(y_count + k), count_array);
+            _mm_storeu_si128((__m128i*)(y_count + k), count_array);
 
             //y_accum[k] += adjusted_weight * pixel_value;
-            __m128i accumulator_array1 = _mm_loadu_si128((__m128i *)(y_accum + k));
-            __m128i accumulator_array2 = _mm_loadu_si128((__m128i *)(y_accum + k + 4));
-            __m128i frame2_array       = _mm_loadl_epi64((__m128i *)(y_pre + k));
+            __m128i accumulator_array1 = _mm_loadu_si128((__m128i*)(y_accum + k));
+            __m128i accumulator_array2 = _mm_loadu_si128((__m128i*)(y_accum + k + 4));
+            __m128i frame2_array       = _mm_loadl_epi64((__m128i*)(y_pre + k));
             frame2_array               = _mm_cvtepu8_epi16(frame2_array);
             __m128i frame2_array_u32_1 = _mm_cvtepi16_epi32(frame2_array);
             __m128i frame2_array_u32_2 = _mm_cvtepi16_epi32(_mm_srli_si128(frame2_array, 8));
@@ -221,16 +226,16 @@ static void svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_sse4
 
             accumulator_array1 = _mm_add_epi32(accumulator_array1, frame2_array_u32_1);
             accumulator_array2 = _mm_add_epi32(accumulator_array2, frame2_array_u32_2);
-            _mm_storeu_si128((__m128i *)(y_accum + k), accumulator_array1);
-            _mm_storeu_si128((__m128i *)(y_accum + k + 4), accumulator_array2);
+            _mm_storeu_si128((__m128i*)(y_accum + k), accumulator_array1);
+            _mm_storeu_si128((__m128i*)(y_accum + k + 4), accumulator_array2);
         }
     }
 }
 
 void svt_av1_apply_zz_based_temporal_filter_planewise_medium_sse4_1(
-    struct MeContext *me_ctx, const uint8_t *y_pre, int y_pre_stride, const uint8_t *u_pre, const uint8_t *v_pre,
-    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t *y_accum,
-    uint16_t *y_count, uint32_t *u_accum, uint16_t *u_count, uint32_t *v_accum, uint16_t *v_count) {
+    MeContext* me_ctx, const uint8_t* y_pre, int y_pre_stride, const uint8_t* u_pre, const uint8_t* v_pre,
+    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t* y_accum,
+    uint16_t* y_count, uint32_t* u_accum, uint16_t* u_count, uint32_t* v_accum, uint16_t* v_count) {
     svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_sse4_1(me_ctx,
                                                                            y_pre,
                                                                            y_pre_stride,
@@ -260,9 +265,10 @@ void svt_av1_apply_zz_based_temporal_filter_planewise_medium_sse4_1(
                                                                                me_ctx->tf_decay_factor_fp16[C_V]);
     }
 }
+
 static void svt_av1_apply_temporal_filter_planewise_medium_partial_sse4_1(
-    struct MeContext *me_ctx, const uint8_t *y_src, int y_src_stride, const uint8_t *y_pre, int y_pre_stride,
-    unsigned int block_width, unsigned int block_height, uint32_t *y_accum, uint16_t *y_count, uint32_t tf_decay_factor,
+    MeContext* me_ctx, const uint8_t* y_src, int y_src_stride, const uint8_t* y_pre, int y_pre_stride,
+    unsigned int block_width, unsigned int block_height, uint32_t* y_accum, uint16_t* y_count, uint32_t tf_decay_factor,
     uint32_t luma_window_error_quad_fp8[4], int is_chroma) {
     unsigned int i, j, k, subblock_idx;
 
@@ -272,7 +278,7 @@ static void svt_av1_apply_temporal_filter_planewise_medium_partial_sse4_1(
     uint32_t  d_factor_fp8[4];
     uint32_t  block_error_fp8[4];
     uint32_t  chroma_window_error_quad_fp8[4];
-    uint32_t *window_error_quad_fp8 = is_chroma ? chroma_window_error_quad_fp8 : luma_window_error_quad_fp8;
+    uint32_t* window_error_quad_fp8 = is_chroma ? chroma_window_error_quad_fp8 : luma_window_error_quad_fp8;
 
     if (me_ctx->tf_32x32_block_split_flag[idx_32x32]) {
         for (i = 0; i < 4; ++i) {
@@ -361,14 +367,14 @@ static void svt_av1_apply_temporal_filter_planewise_medium_partial_sse4_1(
             k = i * y_pre_stride + j;
 
             //y_count[k] += adjusted_weight;
-            __m128i count_array = _mm_loadu_si128((__m128i *)(y_count + k));
+            __m128i count_array = _mm_loadu_si128((__m128i*)(y_count + k));
             count_array = _mm_add_epi16(count_array, adjusted_weight_int16[subblock_idx_h + (j >= block_width / 2)]);
-            _mm_storeu_si128((__m128i *)(y_count + k), count_array);
+            _mm_storeu_si128((__m128i*)(y_count + k), count_array);
 
             //y_accum[k] += adjusted_weight * pixel_value;
-            __m128i accumulator_array1 = _mm_loadu_si128((__m128i *)(y_accum + k));
-            __m128i accumulator_array2 = _mm_loadu_si128((__m128i *)(y_accum + k + 4));
-            __m128i frame2_array       = _mm_loadl_epi64((__m128i *)(y_pre + k));
+            __m128i accumulator_array1 = _mm_loadu_si128((__m128i*)(y_accum + k));
+            __m128i accumulator_array2 = _mm_loadu_si128((__m128i*)(y_accum + k + 4));
+            __m128i frame2_array       = _mm_loadl_epi64((__m128i*)(y_pre + k));
             frame2_array               = _mm_cvtepu8_epi16(frame2_array);
             __m128i frame2_array_u32_1 = _mm_cvtepi16_epi32(frame2_array);
             __m128i frame2_array_u32_2 = _mm_cvtepi16_epi32(_mm_srli_si128(frame2_array, 8));
@@ -379,17 +385,17 @@ static void svt_av1_apply_temporal_filter_planewise_medium_partial_sse4_1(
 
             accumulator_array1 = _mm_add_epi32(accumulator_array1, frame2_array_u32_1);
             accumulator_array2 = _mm_add_epi32(accumulator_array2, frame2_array_u32_2);
-            _mm_storeu_si128((__m128i *)(y_accum + k), accumulator_array1);
-            _mm_storeu_si128((__m128i *)(y_accum + k + 4), accumulator_array2);
+            _mm_storeu_si128((__m128i*)(y_accum + k), accumulator_array1);
+            _mm_storeu_si128((__m128i*)(y_accum + k + 4), accumulator_array2);
         }
     }
 }
 
 void svt_av1_apply_temporal_filter_planewise_medium_sse4_1(
-    struct MeContext *me_ctx, const uint8_t *y_src, int y_src_stride, const uint8_t *y_pre, int y_pre_stride,
-    const uint8_t *u_src, const uint8_t *v_src, int uv_src_stride, const uint8_t *u_pre, const uint8_t *v_pre,
-    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t *y_accum,
-    uint16_t *y_count, uint32_t *u_accum, uint16_t *u_count, uint32_t *v_accum, uint16_t *v_count) {
+    MeContext* me_ctx, const uint8_t* y_src, int y_src_stride, const uint8_t* y_pre, int y_pre_stride,
+    const uint8_t* u_src, const uint8_t* v_src, int uv_src_stride, const uint8_t* u_pre, const uint8_t* v_pre,
+    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t* y_accum,
+    uint16_t* y_count, uint32_t* u_accum, uint16_t* u_count, uint32_t* v_accum, uint16_t* v_count) {
     uint32_t luma_window_error_quad_fp8[4];
 
     svt_av1_apply_temporal_filter_planewise_medium_partial_sse4_1(me_ctx,
@@ -433,10 +439,10 @@ void svt_av1_apply_temporal_filter_planewise_medium_sse4_1(
                                                                       1);
     }
 }
+
 static void svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_partial_sse4_1(
-    struct MeContext *me_ctx, const uint16_t *y_pre, int y_pre_stride, unsigned int block_width,
-    unsigned int block_height, uint32_t *y_accum, uint16_t *y_count, const uint32_t tf_decay_factor,
-    uint32_t encoder_bit_depth) {
+    MeContext* me_ctx, const uint16_t* y_pre, int y_pre_stride, unsigned int block_width, unsigned int block_height,
+    uint32_t* y_accum, uint16_t* y_count, const uint32_t tf_decay_factor, uint32_t encoder_bit_depth) {
     unsigned int i, j, k, subblock_idx;
 
     int32_t idx_32x32 = me_ctx->tf_block_col + me_ctx->tf_block_row * 2;
@@ -474,15 +480,15 @@ static void svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_partial_
             k = i * y_pre_stride + j;
 
             //y_count[k] += adjusted_weight;
-            __m128i count_array = _mm_loadu_si128((__m128i *)(y_count + k));
+            __m128i count_array = _mm_loadu_si128((__m128i*)(y_count + k));
             count_array = _mm_add_epi16(count_array, adjusted_weight_int16[subblock_idx_h + (j >= block_width / 2)]);
-            _mm_storeu_si128((__m128i *)(y_count + k), count_array);
+            _mm_storeu_si128((__m128i*)(y_count + k), count_array);
 
             //y_accum[k] += adjusted_weight * pixel_value;
-            __m128i accumulator_array1 = _mm_loadu_si128((__m128i *)(y_accum + k));
-            __m128i accumulator_array2 = _mm_loadu_si128((__m128i *)(y_accum + k + 4));
-            __m128i frame2_array1      = _mm_loadl_epi64((__m128i *)(y_pre + k));
-            __m128i frame2_array2      = _mm_loadl_epi64((__m128i *)(y_pre + k + 4));
+            __m128i accumulator_array1 = _mm_loadu_si128((__m128i*)(y_accum + k));
+            __m128i accumulator_array2 = _mm_loadu_si128((__m128i*)(y_accum + k + 4));
+            __m128i frame2_array1      = _mm_loadl_epi64((__m128i*)(y_pre + k));
+            __m128i frame2_array2      = _mm_loadl_epi64((__m128i*)(y_pre + k + 4));
             __m128i frame2_array_u32_1 = _mm_cvtepi16_epi32(frame2_array1);
             __m128i frame2_array_u32_2 = _mm_cvtepi16_epi32(frame2_array2);
             frame2_array_u32_1         = _mm_mullo_epi32(frame2_array_u32_1,
@@ -492,16 +498,16 @@ static void svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_partial_
 
             accumulator_array1 = _mm_add_epi32(accumulator_array1, frame2_array_u32_1);
             accumulator_array2 = _mm_add_epi32(accumulator_array2, frame2_array_u32_2);
-            _mm_storeu_si128((__m128i *)(y_accum + k), accumulator_array1);
-            _mm_storeu_si128((__m128i *)(y_accum + k + 4), accumulator_array2);
+            _mm_storeu_si128((__m128i*)(y_accum + k), accumulator_array1);
+            _mm_storeu_si128((__m128i*)(y_accum + k + 4), accumulator_array2);
         }
     }
 }
 
 void svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_sse4_1(
-    struct MeContext *me_ctx, const uint16_t *y_pre, int y_pre_stride, const uint16_t *u_pre, const uint16_t *v_pre,
-    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t *y_accum,
-    uint16_t *y_count, uint32_t *u_accum, uint16_t *u_count, uint32_t *v_accum, uint16_t *v_count,
+    MeContext* me_ctx, const uint16_t* y_pre, int y_pre_stride, const uint16_t* u_pre, const uint16_t* v_pre,
+    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t* y_accum,
+    uint16_t* y_count, uint32_t* u_accum, uint16_t* u_count, uint32_t* v_accum, uint16_t* v_count,
     uint32_t encoder_bit_depth) {
     svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_partial_sse4_1(me_ctx,
                                                                                y_pre,
@@ -534,9 +540,10 @@ void svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_sse4_1(
                                                                                    encoder_bit_depth);
     }
 }
+
 static void svt_av1_apply_temporal_filter_planewise_medium_hbd_partial_sse4_1(
-    struct MeContext *me_ctx, const uint16_t *y_src, int y_src_stride, const uint16_t *y_pre, int y_pre_stride,
-    unsigned int block_width, unsigned int block_height, uint32_t *y_accum, uint16_t *y_count, uint32_t tf_decay_factor,
+    MeContext* me_ctx, const uint16_t* y_src, int y_src_stride, const uint16_t* y_pre, int y_pre_stride,
+    unsigned int block_width, unsigned int block_height, uint32_t* y_accum, uint16_t* y_count, uint32_t tf_decay_factor,
     uint32_t luma_window_error_quad_fp8[4], int is_chroma, uint32_t encoder_bit_depth) {
     unsigned int i, j, k, subblock_idx;
 
@@ -549,7 +556,7 @@ static void svt_av1_apply_temporal_filter_planewise_medium_hbd_partial_sse4_1(
     uint32_t  d_factor_fp8[4];
     uint32_t  block_error_fp8[4];
     uint32_t  chroma_window_error_quad_fp8[4];
-    uint32_t *window_error_quad_fp8 = is_chroma ? chroma_window_error_quad_fp8 : luma_window_error_quad_fp8;
+    uint32_t* window_error_quad_fp8 = is_chroma ? chroma_window_error_quad_fp8 : luma_window_error_quad_fp8;
 
     if (me_ctx->tf_32x32_block_split_flag[idx_32x32]) {
         for (i = 0; i < 4; ++i) {
@@ -645,15 +652,15 @@ static void svt_av1_apply_temporal_filter_planewise_medium_hbd_partial_sse4_1(
             k = i * y_pre_stride + j;
 
             //y_count[k] += adjusted_weight;
-            __m128i count_array = _mm_loadu_si128((__m128i *)(y_count + k));
+            __m128i count_array = _mm_loadu_si128((__m128i*)(y_count + k));
             count_array = _mm_add_epi16(count_array, adjusted_weight_int16[subblock_idx_h + (j >= block_width / 2)]);
-            _mm_storeu_si128((__m128i *)(y_count + k), count_array);
+            _mm_storeu_si128((__m128i*)(y_count + k), count_array);
 
             //y_accum[k] += adjusted_weight * pixel_value;
-            __m128i accumulator_array1 = _mm_loadu_si128((__m128i *)(y_accum + k));
-            __m128i accumulator_array2 = _mm_loadu_si128((__m128i *)(y_accum + k + 4));
-            __m128i frame2_array1      = _mm_loadl_epi64((__m128i *)(y_pre + k));
-            __m128i frame2_array2      = _mm_loadl_epi64((__m128i *)(y_pre + k + 4));
+            __m128i accumulator_array1 = _mm_loadu_si128((__m128i*)(y_accum + k));
+            __m128i accumulator_array2 = _mm_loadu_si128((__m128i*)(y_accum + k + 4));
+            __m128i frame2_array1      = _mm_loadl_epi64((__m128i*)(y_pre + k));
+            __m128i frame2_array2      = _mm_loadl_epi64((__m128i*)(y_pre + k + 4));
             __m128i frame2_array_u32_1 = _mm_cvtepi16_epi32(frame2_array1);
             __m128i frame2_array_u32_2 = _mm_cvtepi16_epi32(frame2_array2);
             frame2_array_u32_1         = _mm_mullo_epi32(frame2_array_u32_1,
@@ -663,17 +670,17 @@ static void svt_av1_apply_temporal_filter_planewise_medium_hbd_partial_sse4_1(
 
             accumulator_array1 = _mm_add_epi32(accumulator_array1, frame2_array_u32_1);
             accumulator_array2 = _mm_add_epi32(accumulator_array2, frame2_array_u32_2);
-            _mm_storeu_si128((__m128i *)(y_accum + k), accumulator_array1);
-            _mm_storeu_si128((__m128i *)(y_accum + k + 4), accumulator_array2);
+            _mm_storeu_si128((__m128i*)(y_accum + k), accumulator_array1);
+            _mm_storeu_si128((__m128i*)(y_accum + k + 4), accumulator_array2);
         }
     }
 }
 
 void svt_av1_apply_temporal_filter_planewise_medium_hbd_sse4_1(
-    struct MeContext *me_ctx, const uint16_t *y_src, int y_src_stride, const uint16_t *y_pre, int y_pre_stride,
-    const uint16_t *u_src, const uint16_t *v_src, int uv_src_stride, const uint16_t *u_pre, const uint16_t *v_pre,
-    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t *y_accum,
-    uint16_t *y_count, uint32_t *u_accum, uint16_t *u_count, uint32_t *v_accum, uint16_t *v_count,
+    MeContext* me_ctx, const uint16_t* y_src, int y_src_stride, const uint16_t* y_pre, int y_pre_stride,
+    const uint16_t* u_src, const uint16_t* v_src, int uv_src_stride, const uint16_t* u_pre, const uint16_t* v_pre,
+    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t* y_accum,
+    uint16_t* y_count, uint32_t* u_accum, uint16_t* u_count, uint32_t* v_accum, uint16_t* v_count,
     uint32_t encoder_bit_depth) {
     uint32_t luma_window_error_quad_fp8[4];
 
@@ -721,12 +728,12 @@ void svt_av1_apply_temporal_filter_planewise_medium_hbd_sse4_1(
     }
 }
 
-static INLINE __m128i __mm_div_epi32(const __m128i *a, const __m128i *b) {
+static INLINE __m128i __mm_div_epi32(const __m128i* a, const __m128i* b) {
     __m128 d_f = _mm_div_ps(_mm_cvtepi32_ps(*a), _mm_cvtepi32_ps(*b));
     return _mm_cvtps_epi32(_mm_floor_ps(d_f));
 }
 
-static void process_block_lbd_sse4_1(int h, int w, uint8_t *buff_lbd_start, uint32_t *accum, uint16_t *count,
+static void process_block_lbd_sse4_1(int h, int w, uint8_t* buff_lbd_start, uint32_t* accum, uint16_t* count,
                                      uint32_t stride) {
     int i, j, k;
     int pos = 0;
@@ -734,10 +741,10 @@ static void process_block_lbd_sse4_1(int h, int w, uint8_t *buff_lbd_start, uint
         for (j = 0; j < w; j += 8, k += 8) {
             //buff_lbd_start[pos] = (uint8_t)OD_DIVU(accum[k] + (count[k] >> 1), count[k]);
             //buff_lbd_start[pos] = (uint8_t)((accum[k] + (count[k] >> 1))/ count[k]);
-            __m128i accum_a = _mm_loadu_si128((__m128i *)(accum + k));
-            __m128i accum_b = _mm_loadu_si128((__m128i *)(accum + k + 4));
-            __m128i count_a = _mm_cvtepi16_epi32(_mm_loadl_epi64((__m128i *)(count + k)));
-            __m128i count_b = _mm_cvtepi16_epi32(_mm_loadl_epi64((__m128i *)(count + k + 4)));
+            __m128i accum_a = _mm_loadu_si128((__m128i*)(accum + k));
+            __m128i accum_b = _mm_loadu_si128((__m128i*)(accum + k + 4));
+            __m128i count_a = _mm_cvtepi16_epi32(_mm_loadl_epi64((__m128i*)(count + k)));
+            __m128i count_b = _mm_cvtepi16_epi32(_mm_loadl_epi64((__m128i*)(count + k + 4)));
 
             //accum[k] + (count[k] >> 1)
             __m128i tmp_a = _mm_add_epi32(accum_a, _mm_srli_epi32(count_a, 1));
@@ -748,7 +755,7 @@ static void process_block_lbd_sse4_1(int h, int w, uint8_t *buff_lbd_start, uint
             tmp_b          = __mm_div_epi32(&tmp_b, &count_b);
             __m128i tmp_ab = _mm_packus_epi16(_mm_packs_epi32(tmp_a, tmp_b), _mm_setzero_si128());
 
-            _mm_storel_epi64((__m128i *)(buff_lbd_start + pos), tmp_ab);
+            _mm_storel_epi64((__m128i*)(buff_lbd_start + pos), tmp_ab);
 
             pos += 8;
         }
@@ -756,7 +763,7 @@ static void process_block_lbd_sse4_1(int h, int w, uint8_t *buff_lbd_start, uint
     }
 }
 
-static INLINE __m128i __mm_div_epi32_pd(const __m128i *a, const __m128i *b) {
+static INLINE __m128i __mm_div_epi32_pd(const __m128i* a, const __m128i* b) {
     __m128d d_f1 = _mm_div_pd(_mm_cvtepi32_pd(*a), _mm_cvtepi32_pd(*b));
     __m128d d_f2 = _mm_div_pd(_mm_cvtepi32_pd(_mm_srli_si128(*a, 8)), _mm_cvtepi32_pd(_mm_srli_si128(*b, 8)));
     d_f1         = _mm_floor_pd(d_f1);
@@ -764,7 +771,7 @@ static INLINE __m128i __mm_div_epi32_pd(const __m128i *a, const __m128i *b) {
     return _mm_unpacklo_epi64(_mm_cvtpd_epi32(d_f1), _mm_cvtpd_epi32(d_f2));
 }
 
-static void process_block_hbd_sse4_1(int h, int w, uint16_t *buff_hbd_start, uint32_t *accum, uint16_t *count,
+static void process_block_hbd_sse4_1(int h, int w, uint16_t* buff_hbd_start, uint32_t* accum, uint16_t* count,
                                      uint32_t stride) {
     int i, j, k;
     int pos = 0;
@@ -772,10 +779,10 @@ static void process_block_hbd_sse4_1(int h, int w, uint16_t *buff_hbd_start, uin
         for (j = 0; j < w; j += 8, k += 8) {
             //buff_lbd_start[pos] = (uint8_t)OD_DIVU(accum[k] + (count[k] >> 1), count[k]);
             //buff_lbd_start[pos] = (uint8_t)((accum[k] + (count[k] >> 1))/ count[k]);
-            __m128i accum_a = _mm_loadu_si128((__m128i *)(accum + k));
-            __m128i accum_b = _mm_loadu_si128((__m128i *)(accum + k + 4));
-            __m128i count_a = _mm_cvtepi16_epi32(_mm_loadl_epi64((__m128i *)(count + k)));
-            __m128i count_b = _mm_cvtepi16_epi32(_mm_loadl_epi64((__m128i *)(count + k + 4)));
+            __m128i accum_a = _mm_loadu_si128((__m128i*)(accum + k));
+            __m128i accum_b = _mm_loadu_si128((__m128i*)(accum + k + 4));
+            __m128i count_a = _mm_cvtepi16_epi32(_mm_loadl_epi64((__m128i*)(count + k)));
+            __m128i count_b = _mm_cvtepi16_epi32(_mm_loadl_epi64((__m128i*)(count + k + 4)));
 
             //accum[k] + (count[k] >> 1)
             __m128i tmp_a = _mm_add_epi32(accum_a, _mm_srli_epi32(count_a, 1));
@@ -786,7 +793,7 @@ static void process_block_hbd_sse4_1(int h, int w, uint16_t *buff_hbd_start, uin
             tmp_b          = __mm_div_epi32_pd(&tmp_b, &count_b);
             __m128i tmp_ab = _mm_packs_epi32(tmp_a, tmp_b), _mm_setzero_si128();
 
-            _mm_storeu_si128((__m128i *)(buff_hbd_start + pos), tmp_ab);
+            _mm_storeu_si128((__m128i*)(buff_hbd_start + pos), tmp_ab);
 
             pos += 8;
         }
@@ -794,9 +801,9 @@ static void process_block_hbd_sse4_1(int h, int w, uint16_t *buff_hbd_start, uin
     }
 }
 
-void svt_aom_get_final_filtered_pixels_sse4_1(MeContext *me_ctx, EbByte *src_center_ptr_start,
-                                              uint16_t **altref_buffer_highbd_start, uint32_t **accum, uint16_t **count,
-                                              const uint32_t *stride, int blk_y_src_offset, int blk_ch_src_offset,
+void svt_aom_get_final_filtered_pixels_sse4_1(MeContext* me_ctx, EbByte* src_center_ptr_start,
+                                              uint16_t** altref_buffer_highbd_start, uint32_t** accum, uint16_t** count,
+                                              const uint32_t* stride, int blk_y_src_offset, int blk_ch_src_offset,
                                               uint16_t blk_width_ch, uint16_t blk_height_ch, bool is_highbd) {
     assert(blk_width_ch % 16 == 0);
     assert(BW % 16 == 0);
@@ -842,8 +849,8 @@ void svt_aom_get_final_filtered_pixels_sse4_1(MeContext *me_ctx, EbByte *src_cen
     }
 }
 
-static void apply_filtering_central_loop_lbd(uint16_t w, uint16_t h, uint8_t *src, uint16_t src_stride, uint32_t *accum,
-                                             uint16_t *count) {
+static void apply_filtering_central_loop_lbd(uint16_t w, uint16_t h, uint8_t* src, uint16_t src_stride, uint32_t* accum,
+                                             uint16_t* count) {
     assert(w % 8 == 0);
 
     __m128i modifier       = _mm_set1_epi32(TF_PLANEWISE_FILTER_WEIGHT_SCALE);
@@ -851,18 +858,18 @@ static void apply_filtering_central_loop_lbd(uint16_t w, uint16_t h, uint8_t *sr
 
     for (uint16_t k = 0, i = 0; i < h; i++) {
         for (uint16_t j = 0; j < w; j += 8) {
-            __m128i src_16 = _mm_cvtepu8_epi16(_mm_loadl_epi64((__m128i *)(src + i * src_stride + j)));
-            _mm_storeu_si128((__m128i *)(accum + k), _mm_mullo_epi32(modifier, _mm_cvtepu16_epi32(src_16)));
-            _mm_storeu_si128((__m128i *)(accum + k + 4),
+            __m128i src_16 = _mm_cvtepu8_epi16(_mm_loadl_epi64((__m128i*)(src + i * src_stride + j)));
+            _mm_storeu_si128((__m128i*)(accum + k), _mm_mullo_epi32(modifier, _mm_cvtepu16_epi32(src_16)));
+            _mm_storeu_si128((__m128i*)(accum + k + 4),
                              _mm_mullo_epi32(modifier, _mm_cvtepu16_epi32(_mm_srli_si128(src_16, 8))));
-            _mm_storeu_si128((__m128i *)(count + k), modifier_epi16);
+            _mm_storeu_si128((__m128i*)(count + k), modifier_epi16);
             k += 8;
         }
     }
 }
 
-static void apply_filtering_central_loop_hbd(uint16_t w, uint16_t h, uint16_t *src, uint16_t src_stride,
-                                             uint32_t *accum, uint16_t *count) {
+static void apply_filtering_central_loop_hbd(uint16_t w, uint16_t h, uint16_t* src, uint16_t src_stride,
+                                             uint32_t* accum, uint16_t* count) {
     assert(w % 8 == 0);
 
     __m128i modifier       = _mm_set1_epi32(TF_PLANEWISE_FILTER_WEIGHT_SCALE);
@@ -870,19 +877,19 @@ static void apply_filtering_central_loop_hbd(uint16_t w, uint16_t h, uint16_t *s
 
     for (uint16_t k = 0, i = 0; i < h; i++) {
         for (uint16_t j = 0; j < w; j += 8) {
-            __m128i src_1 = _mm_cvtepu16_epi32(_mm_loadl_epi64((__m128i *)(src + i * src_stride + j)));
-            __m128i src_2 = _mm_cvtepu16_epi32(_mm_loadl_epi64((__m128i *)(src + i * src_stride + j + 4)));
-            _mm_storeu_si128((__m128i *)(accum + k), _mm_mullo_epi32(modifier, src_1));
-            _mm_storeu_si128((__m128i *)(accum + k + 4), _mm_mullo_epi32(modifier, src_2));
-            _mm_storeu_si128((__m128i *)(count + k), modifier_epi16);
+            __m128i src_1 = _mm_cvtepu16_epi32(_mm_loadl_epi64((__m128i*)(src + i * src_stride + j)));
+            __m128i src_2 = _mm_cvtepu16_epi32(_mm_loadl_epi64((__m128i*)(src + i * src_stride + j + 4)));
+            _mm_storeu_si128((__m128i*)(accum + k), _mm_mullo_epi32(modifier, src_1));
+            _mm_storeu_si128((__m128i*)(accum + k + 4), _mm_mullo_epi32(modifier, src_2));
+            _mm_storeu_si128((__m128i*)(count + k), modifier_epi16);
             k += 8;
         }
     }
 }
 
 // Apply filtering to the central picture
-void svt_aom_apply_filtering_central_sse4_1(MeContext *me_ctx, EbPictureBufferDesc *input_picture_ptr_central,
-                                            EbByte *src, uint32_t **accum, uint16_t **count, uint16_t blk_width,
+void svt_aom_apply_filtering_central_sse4_1(MeContext* me_ctx, EbPictureBufferDesc* input_picture_ptr_central,
+                                            EbByte* src, uint32_t** accum, uint16_t** count, uint16_t blk_width,
                                             uint16_t blk_height, uint32_t ss_x, uint32_t ss_y) {
     uint16_t src_stride_y = input_picture_ptr_central->stride_y;
 
@@ -900,8 +907,8 @@ void svt_aom_apply_filtering_central_sse4_1(MeContext *me_ctx, EbPictureBufferDe
 }
 
 // Apply filtering to the central picture
-void svt_aom_apply_filtering_central_highbd_sse4_1(MeContext *me_ctx, EbPictureBufferDesc *input_picture_ptr_central,
-                                                   uint16_t **src_16bit, uint32_t **accum, uint16_t **count,
+void svt_aom_apply_filtering_central_highbd_sse4_1(MeContext* me_ctx, EbPictureBufferDesc* input_picture_ptr_central,
+                                                   uint16_t** src_16bit, uint32_t** accum, uint16_t** count,
                                                    uint16_t blk_width, uint16_t blk_height, uint32_t ss_x,
                                                    uint32_t ss_y) {
     uint16_t src_stride_y = input_picture_ptr_central->stride_y;

@@ -69,7 +69,7 @@ EbErrorType Y4MVideoSource::parse_file_info() {
 
     cal_yuv_plane_param();
 
-    // Get header lenght
+    // Get header length
     header_length_ = ftell(file_handle_);
 
     uint32_t luma_size = width_ * height_ * bytes_per_sample_;

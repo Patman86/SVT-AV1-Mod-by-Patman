@@ -15,7 +15,7 @@
 #include "pic_buffer_desc.h"
 
 static void svt_picture_buffer_desc_dctor(EbPtr p) {
-    EbPictureBufferDesc *obj = (EbPictureBufferDesc *)p;
+    EbPictureBufferDesc* obj = (EbPictureBufferDesc*)p;
     if (obj->buffer_enable_mask & PICTURE_BUFFER_DESC_Y_FLAG) {
         EB_FREE_ALIGNED_ARRAY(obj->buffer_y);
         EB_FREE_ALIGNED_ARRAY(obj->buffer_bit_inc_y);
@@ -36,9 +36,9 @@ static void svt_picture_buffer_desc_dctor(EbPtr p) {
  *  values that are fixed for the life of
  *  the descriptor.
  *****************************************/
-EbErrorType svt_picture_buffer_desc_ctor_noy8b(EbPictureBufferDesc *pictureBufferDescPtr,
+EbErrorType svt_picture_buffer_desc_ctor_noy8b(EbPictureBufferDesc* pictureBufferDescPtr,
                                                const EbPtr          object_init_data_ptr) {
-    const EbPictureBufferDescInitData *picture_buffer_desc_init_data_ptr = (EbPictureBufferDescInitData *)
+    const EbPictureBufferDescInitData* picture_buffer_desc_init_data_ptr = (EbPictureBufferDescInitData*)
         object_init_data_ptr;
 
     //for 10bit we force split mode + 2b-compressed
@@ -60,7 +60,7 @@ EbErrorType svt_picture_buffer_desc_ctor_noy8b(EbPictureBufferDesc *pictureBuffe
         picture_buffer_desc_init_data_ptr->left_padding + picture_buffer_desc_init_data_ptr->right_padding;
 
     svt_aom_assert_err(pictureBufferDescPtr->stride_y % 8 == 0,
-                       "Luma Stride should be n*8 to accomodate 2b-compression flow \n");
+                       "Luma Stride should be n*8 to accommodate 2b-compression flow \n");
 
     pictureBufferDescPtr->stride_cb = pictureBufferDescPtr->stride_cr = (pictureBufferDescPtr->stride_y +
                                                                          subsampling_x) >>
@@ -119,14 +119,15 @@ EbErrorType svt_picture_buffer_desc_ctor_noy8b(EbPictureBufferDesc *pictureBuffe
 
     return EB_ErrorNone;
 }
+
 /*****************************************
  * svt_picture_buffer_desc_noy8b_update
  * update the parameters in EbPictureBufferDesc for changing the resolution
  * on the fly similar to svt_picture_buffer_desc_ctor_noy8b, but no allocation is done.
  *****************************************/
-EbErrorType svt_picture_buffer_desc_noy8b_update(EbPictureBufferDesc *pictureBufferDescPtr,
+EbErrorType svt_picture_buffer_desc_noy8b_update(EbPictureBufferDesc* pictureBufferDescPtr,
                                                  const EbPtr          object_init_data_ptr) {
-    const EbPictureBufferDescInitData *picture_buffer_desc_init_data_ptr = (EbPictureBufferDescInitData *)
+    const EbPictureBufferDescInitData* picture_buffer_desc_init_data_ptr = (EbPictureBufferDescInitData*)
         object_init_data_ptr;
 
     const uint16_t subsampling_x = (picture_buffer_desc_init_data_ptr->color_format == EB_YUV444 ? 0 : 1);
@@ -144,7 +145,7 @@ EbErrorType svt_picture_buffer_desc_noy8b_update(EbPictureBufferDesc *pictureBuf
         picture_buffer_desc_init_data_ptr->left_padding + picture_buffer_desc_init_data_ptr->right_padding;
 
     svt_aom_assert_err(pictureBufferDescPtr->stride_y % 8 == 0,
-                       "Luma Stride should be n*8 to accomodate 2b-compression flow \n");
+                       "Luma Stride should be n*8 to accommodate 2b-compression flow \n");
 
     pictureBufferDescPtr->stride_cb = pictureBufferDescPtr->stride_cr = (pictureBufferDescPtr->stride_y +
                                                                          subsampling_x) >>
@@ -171,13 +172,14 @@ EbErrorType svt_picture_buffer_desc_noy8b_update(EbPictureBufferDesc *pictureBuf
 
     return EB_ErrorNone;
 }
+
 /*
 svt_picture_buffer_desc_update: update the parameters in EbPictureBufferDesc for changing the resolution on the fly
 similar to svt_picture_buffer_desc_ctor, but no allocation is done.
 */
-EbErrorType svt_picture_buffer_desc_update(EbPictureBufferDesc *pictureBufferDescPtr,
+EbErrorType svt_picture_buffer_desc_update(EbPictureBufferDesc* pictureBufferDescPtr,
                                            const EbPtr          object_init_data_ptr) {
-    const EbPictureBufferDescInitData *picture_buffer_desc_init_data_ptr = (EbPictureBufferDescInitData *)
+    const EbPictureBufferDescInitData* picture_buffer_desc_init_data_ptr = (EbPictureBufferDescInitData*)
         object_init_data_ptr;
 
     const uint16_t subsampling_x = (picture_buffer_desc_init_data_ptr->color_format == EB_YUV444 ? 0 : 1);
@@ -214,8 +216,8 @@ EbErrorType svt_picture_buffer_desc_update(EbPictureBufferDesc *pictureBufferDes
     return EB_ErrorNone;
 }
 
-EbErrorType svt_picture_buffer_desc_ctor(EbPictureBufferDesc *pictureBufferDescPtr, const EbPtr object_init_data_ptr) {
-    const EbPictureBufferDescInitData *picture_buffer_desc_init_data_ptr = (EbPictureBufferDescInitData *)
+EbErrorType svt_picture_buffer_desc_ctor(EbPictureBufferDesc* pictureBufferDescPtr, const EbPtr object_init_data_ptr) {
+    const EbPictureBufferDescInitData* picture_buffer_desc_init_data_ptr = (EbPictureBufferDescInitData*)
         object_init_data_ptr;
 
     uint32_t       bytes_per_pixel = (picture_buffer_desc_init_data_ptr->bit_depth == EB_EIGHT_BIT) ? 1
@@ -228,8 +230,9 @@ EbErrorType svt_picture_buffer_desc_ctor(EbPictureBufferDesc *pictureBufferDescP
 
     if (picture_buffer_desc_init_data_ptr->bit_depth > EB_EIGHT_BIT &&
         picture_buffer_desc_init_data_ptr->bit_depth <= EB_SIXTEEN_BIT &&
-        picture_buffer_desc_init_data_ptr->split_mode == true)
+        picture_buffer_desc_init_data_ptr->split_mode == true) {
         bytes_per_pixel = 1;
+    }
 
     // Set the Picture Buffer Static variables
     pictureBufferDescPtr->max_width         = picture_buffer_desc_init_data_ptr->max_width;
@@ -297,24 +300,27 @@ EbErrorType svt_picture_buffer_desc_ctor(EbPictureBufferDesc *pictureBufferDescP
 }
 
 static void svt_recon_picture_buffer_desc_dctor(EbPtr p) {
-    EbPictureBufferDesc *obj = (EbPictureBufferDesc *)p;
-    if (obj->buffer_enable_mask & PICTURE_BUFFER_DESC_Y_FLAG)
+    EbPictureBufferDesc* obj = (EbPictureBufferDesc*)p;
+    if (obj->buffer_enable_mask & PICTURE_BUFFER_DESC_Y_FLAG) {
         EB_FREE_ALIGNED_ARRAY(obj->buffer_y);
-    if (obj->buffer_enable_mask & PICTURE_BUFFER_DESC_Cb_FLAG)
+    }
+    if (obj->buffer_enable_mask & PICTURE_BUFFER_DESC_Cb_FLAG) {
         EB_FREE_ALIGNED_ARRAY(obj->buffer_cb);
-    if (obj->buffer_enable_mask & PICTURE_BUFFER_DESC_Cr_FLAG)
+    }
+    if (obj->buffer_enable_mask & PICTURE_BUFFER_DESC_Cr_FLAG) {
         EB_FREE_ALIGNED_ARRAY(obj->buffer_cr);
+    }
 }
+
 /*****************************************
 Update the parameters in pictureBufferDescPtr for changing the resolution on the fly
 similar to svt_recon_picture_buffer_desc_ctor, but no allocation is done.
  *****************************************/
-EbErrorType svt_recon_picture_buffer_desc_update(EbPictureBufferDesc *pictureBufferDescPtr,
+EbErrorType svt_recon_picture_buffer_desc_update(EbPictureBufferDesc* pictureBufferDescPtr,
                                                  EbPtr                object_init_data_ptr) {
-    EbPictureBufferDescInitData *picture_buffer_desc_init_data_ptr = (EbPictureBufferDescInitData *)
-        object_init_data_ptr;
-    const uint16_t subsampling_x = (picture_buffer_desc_init_data_ptr->color_format == EB_YUV444 ? 0 : 1);
-    const uint16_t subsampling_y = (picture_buffer_desc_init_data_ptr->color_format == EB_YUV444 ? 0 : 1);
+    EbPictureBufferDescInitData* picture_buffer_desc_init_data_ptr = (EbPictureBufferDescInitData*)object_init_data_ptr;
+    const uint16_t               subsampling_x = (picture_buffer_desc_init_data_ptr->color_format == EB_YUV444 ? 0 : 1);
+    const uint16_t               subsampling_y = (picture_buffer_desc_init_data_ptr->color_format == EB_YUV444 ? 0 : 1);
 
     // Set the Picture Buffer Static variables
     pictureBufferDescPtr->max_width    = picture_buffer_desc_init_data_ptr->max_width;
@@ -345,17 +351,17 @@ EbErrorType svt_recon_picture_buffer_desc_update(EbPictureBufferDesc *pictureBuf
 
     return EB_ErrorNone;
 }
+
 /*****************************************
  * svt_recon_picture_buffer_desc_ctor
  *  Initializes the Buffer Descriptor's
  *  values that are fixed for the life of
  *  the descriptor.
  *****************************************/
-EbErrorType svt_recon_picture_buffer_desc_ctor(EbPictureBufferDesc *pictureBufferDescPtr, EbPtr object_init_data_ptr) {
-    EbPictureBufferDescInitData *picture_buffer_desc_init_data_ptr = (EbPictureBufferDescInitData *)
-        object_init_data_ptr;
-    const uint16_t subsampling_x = (picture_buffer_desc_init_data_ptr->color_format == EB_YUV444 ? 0 : 1);
-    const uint16_t subsampling_y = (picture_buffer_desc_init_data_ptr->color_format == EB_YUV444 ? 0 : 1);
+EbErrorType svt_recon_picture_buffer_desc_ctor(EbPictureBufferDesc* pictureBufferDescPtr, EbPtr object_init_data_ptr) {
+    EbPictureBufferDescInitData* picture_buffer_desc_init_data_ptr = (EbPictureBufferDescInitData*)object_init_data_ptr;
+    const uint16_t               subsampling_x = (picture_buffer_desc_init_data_ptr->color_format == EB_YUV444 ? 0 : 1);
+    const uint16_t               subsampling_y = (picture_buffer_desc_init_data_ptr->color_format == EB_YUV444 ? 0 : 1);
 
     uint32_t bytes_per_pixel = (picture_buffer_desc_init_data_ptr->bit_depth == EB_EIGHT_BIT) ? 1 : 2;
 
@@ -399,7 +405,8 @@ EbErrorType svt_recon_picture_buffer_desc_ctor(EbPictureBufferDesc *pictureBuffe
     }
     return EB_ErrorNone;
 }
-void svt_aom_link_eb_to_aom_buffer_desc_8bit(EbPictureBufferDesc *picBuffDsc, Yv12BufferConfig *aomBuffDsc) {
+
+void svt_aom_link_eb_to_aom_buffer_desc_8bit(EbPictureBufferDesc* picBuffDsc, Yv12BufferConfig* aomBuffDsc) {
     //forces an 8 bit version
     //NOTe:  Not all fileds are connected. add more connections as needed.
     {
@@ -432,7 +439,7 @@ void svt_aom_link_eb_to_aom_buffer_desc_8bit(EbPictureBufferDesc *picBuffDsc, Yv
     }
 }
 
-void svt_aom_link_eb_to_aom_buffer_desc(EbPictureBufferDesc *picBuffDsc, Yv12BufferConfig *aomBuffDsc,
+void svt_aom_link_eb_to_aom_buffer_desc(EbPictureBufferDesc* picBuffDsc, Yv12BufferConfig* aomBuffDsc,
                                         uint16_t pad_right, uint16_t pad_bottom, bool is_16bit) {
     (void)is_16bit;
 
@@ -522,11 +529,11 @@ void svt_aom_link_eb_to_aom_buffer_desc(EbPictureBufferDesc *picBuffDsc, Yv12Buf
     }
 }
 
-#define yv12_align_addr(addr, align) (void *)(((size_t)(addr) + ((align) - 1)) & (size_t)-(align))
+#define yv12_align_addr(addr, align) (void*)(((size_t)(addr) + ((align) - 1)) & (size_t)-(align))
 
-int32_t svt_aom_realloc_frame_buffer(Yv12BufferConfig *ybf, int32_t width, int32_t height, int32_t ss_x, int32_t ss_y,
+int32_t svt_aom_realloc_frame_buffer(Yv12BufferConfig* ybf, int32_t width, int32_t height, int32_t ss_x, int32_t ss_y,
                                      int32_t use_highbitdepth, int32_t border, int32_t byte_alignment,
-                                     AomCodecFrameBuffer *fb, AomGetFrameBufferCbFn cb, void *cb_priv) {
+                                     AomCodecFrameBuffer* fb, AomGetFrameBufferCbFn cb, void* cb_priv) {
     if (ybf) {
         const int32_t  aom_byte_align = (byte_alignment == 0) ? 1 : byte_alignment;
         const int32_t  aligned_width  = (width + 7) & ~7;
@@ -542,7 +549,7 @@ int32_t svt_aom_realloc_frame_buffer(Yv12BufferConfig *ybf, int32_t width, int32
 
         const uint64_t frame_size = (1 + use_highbitdepth) * (yplane_size + 2 * uvplane_size);
 
-        uint8_t *buf = NULL;
+        uint8_t* buf = NULL;
 
         if (cb != NULL) {
             const int32_t  align_addr_extra_size = 31;
@@ -550,17 +557,20 @@ int32_t svt_aom_realloc_frame_buffer(Yv12BufferConfig *ybf, int32_t width, int32
 
             assert(fb != NULL);
 
-            if (external_frame_size != (size_t)external_frame_size)
+            if (external_frame_size != (size_t)external_frame_size) {
                 return -1;
+            }
 
             // Allocation to hold larger frame, or first allocation.
-            if (cb(cb_priv, (size_t)external_frame_size, fb) < 0)
+            if (cb(cb_priv, (size_t)external_frame_size, fb) < 0) {
                 return -1;
+            }
 
-            if (fb->data == NULL || fb->size < external_frame_size)
+            if (fb->data == NULL || fb->size < external_frame_size) {
                 return -1;
+            }
 
-            ybf->buffer_alloc = (uint8_t *)yv12_align_addr(fb->data, 32);
+            ybf->buffer_alloc = (uint8_t*)yv12_align_addr(fb->data, 32);
 
 #if defined(__has_feature)
 #if __has_feature(memory_sanitizer)
@@ -572,14 +582,17 @@ int32_t svt_aom_realloc_frame_buffer(Yv12BufferConfig *ybf, int32_t width, int32
 #endif
         } else if (frame_size > (size_t)ybf->buffer_alloc_sz) {
             // Allocation to hold larger frame, or first allocation.
-            if (ybf->buffer_alloc_sz > 0)
+            if (ybf->buffer_alloc_sz > 0) {
                 EB_FREE_ARRAY(ybf->buffer_alloc);
-            if (frame_size != (size_t)frame_size)
+            }
+            if (frame_size != (size_t)frame_size) {
                 return -1;
+            }
             EB_MALLOC_ARRAY(ybf->buffer_alloc, frame_size);
 
-            if (!ybf->buffer_alloc)
+            if (!ybf->buffer_alloc) {
                 return -1;
+            }
 
             ybf->buffer_alloc_sz = (size_t)frame_size;
 
@@ -594,8 +607,9 @@ int32_t svt_aom_realloc_frame_buffer(Yv12BufferConfig *ybf, int32_t width, int32
         * the start of the chroma rows without introducing an arbitrary gap
         * between planes, which would break the semantics of things like
         * aom_img_set_rect(). */
-        if (border & 0x1f)
+        if (border & 0x1f) {
             return -3;
+        }
 
         ybf->y_crop_width  = width;
         ybf->y_crop_height = height;
@@ -619,24 +633,16 @@ int32_t svt_aom_realloc_frame_buffer(Yv12BufferConfig *ybf, int32_t width, int32
             // Store uint16 addresses when using 16bit framebuffers
             buf        = CONVERT_TO_BYTEPTR(ybf->buffer_alloc);
             ybf->flags = YV12_FLAG_HIGHBITDEPTH;
-        } else
+        } else {
             ybf->flags = 0;
-        ybf->y_buffer = (uint8_t *)yv12_align_addr(buf + (border * y_stride) + border, aom_byte_align);
-        ybf->u_buffer = (uint8_t *)yv12_align_addr(buf + yplane_size + (uv_border_h * uv_stride) + uv_border_w,
-                                                   aom_byte_align);
-        ybf->v_buffer = (uint8_t *)yv12_align_addr(
+        }
+        ybf->y_buffer = (uint8_t*)yv12_align_addr(buf + (border * y_stride) + border, aom_byte_align);
+        ybf->u_buffer = (uint8_t*)yv12_align_addr(buf + yplane_size + (uv_border_h * uv_stride) + uv_border_w,
+                                                  aom_byte_align);
+        ybf->v_buffer = (uint8_t*)yv12_align_addr(
             buf + yplane_size + uvplane_size + (uv_border_h * uv_stride) + uv_border_w, aom_byte_align);
 
         ybf->use_external_refernce_buffers = 0;
-
-        //if (use_highbitdepth) {
-        //    if (ybf->y_buffer_8bit) svt_aom_free(ybf->y_buffer_8bit);
-        //    ybf->y_buffer_8bit = (uint8_t *)svt_aom_memalign(32, (size_t)yplane_size);
-        //    if (!ybf->y_buffer_8bit) return -1;
-        //}
-        //else {
-        //    assert(!ybf->y_buffer_8bit);
-        //}
 
         ybf->corrupted = 0; /* assume not corrupted by errors */
         return 0;

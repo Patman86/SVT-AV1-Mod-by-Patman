@@ -14,7 +14,6 @@
 #include <assert.h>
 #include "aom_dsp_rtcd.h"
 #include "warped_motion.h"
-//#include "pcs.h"
 #include "bitstream_unit.h"
 #include "definitions.h"
 #include "convolve.h"
@@ -56,178 +55,177 @@
 /* clang-format off */
 EB_ALIGN(16) const int16_t svt_aom_warped_filter[WARPEDPIXEL_PREC_SHIFTS * 3 + 1][8] = {
 #if WARPEDPIXEL_PREC_BITS == 6
-        // [-1, 0)
-        { 0,   0, 127,   1,   0, 0, 0, 0 }, { 0, - 1, 127,   2,   0, 0, 0, 0 },
-        { 1, - 3, 127,   4, - 1, 0, 0, 0 }, { 1, - 4, 126,   6, - 2, 1, 0, 0 },
-        { 1, - 5, 126,   8, - 3, 1, 0, 0 }, { 1, - 6, 125,  11, - 4, 1, 0, 0 },
-        { 1, - 7, 124,  13, - 4, 1, 0, 0 }, { 2, - 8, 123,  15, - 5, 1, 0, 0 },
-        { 2, - 9, 122,  18, - 6, 1, 0, 0 }, { 2, -10, 121,  20, - 6, 1, 0, 0 },
-        { 2, -11, 120,  22, - 7, 2, 0, 0 }, { 2, -12, 119,  25, - 8, 2, 0, 0 },
-        { 3, -13, 117,  27, - 8, 2, 0, 0 }, { 3, -13, 116,  29, - 9, 2, 0, 0 },
-        { 3, -14, 114,  32, -10, 3, 0, 0 }, { 3, -15, 113,  35, -10, 2, 0, 0 },
-        { 3, -15, 111,  37, -11, 3, 0, 0 }, { 3, -16, 109,  40, -11, 3, 0, 0 },
-        { 3, -16, 108,  42, -12, 3, 0, 0 }, { 4, -17, 106,  45, -13, 3, 0, 0 },
-        { 4, -17, 104,  47, -13, 3, 0, 0 }, { 4, -17, 102,  50, -14, 3, 0, 0 },
-        { 4, -17, 100,  52, -14, 3, 0, 0 }, { 4, -18,  98,  55, -15, 4, 0, 0 },
-        { 4, -18,  96,  58, -15, 3, 0, 0 }, { 4, -18,  94,  60, -16, 4, 0, 0 },
-        { 4, -18,  91,  63, -16, 4, 0, 0 }, { 4, -18,  89,  65, -16, 4, 0, 0 },
-        { 4, -18,  87,  68, -17, 4, 0, 0 }, { 4, -18,  85,  70, -17, 4, 0, 0 },
-        { 4, -18,  82,  73, -17, 4, 0, 0 }, { 4, -18,  80,  75, -17, 4, 0, 0 },
-        { 4, -18,  78,  78, -18, 4, 0, 0 }, { 4, -17,  75,  80, -18, 4, 0, 0 },
-        { 4, -17,  73,  82, -18, 4, 0, 0 }, { 4, -17,  70,  85, -18, 4, 0, 0 },
-        { 4, -17,  68,  87, -18, 4, 0, 0 }, { 4, -16,  65,  89, -18, 4, 0, 0 },
-        { 4, -16,  63,  91, -18, 4, 0, 0 }, { 4, -16,  60,  94, -18, 4, 0, 0 },
-        { 3, -15,  58,  96, -18, 4, 0, 0 }, { 4, -15,  55,  98, -18, 4, 0, 0 },
-        { 3, -14,  52, 100, -17, 4, 0, 0 }, { 3, -14,  50, 102, -17, 4, 0, 0 },
-        { 3, -13,  47, 104, -17, 4, 0, 0 }, { 3, -13,  45, 106, -17, 4, 0, 0 },
-        { 3, -12,  42, 108, -16, 3, 0, 0 }, { 3, -11,  40, 109, -16, 3, 0, 0 },
-        { 3, -11,  37, 111, -15, 3, 0, 0 }, { 2, -10,  35, 113, -15, 3, 0, 0 },
-        { 3, -10,  32, 114, -14, 3, 0, 0 }, { 2, - 9,  29, 116, -13, 3, 0, 0 },
-        { 2, - 8,  27, 117, -13, 3, 0, 0 }, { 2, - 8,  25, 119, -12, 2, 0, 0 },
-        { 2, - 7,  22, 120, -11, 2, 0, 0 }, { 1, - 6,  20, 121, -10, 2, 0, 0 },
-        { 1, - 6,  18, 122, - 9, 2, 0, 0 }, { 1, - 5,  15, 123, - 8, 2, 0, 0 },
-        { 1, - 4,  13, 124, - 7, 1, 0, 0 }, { 1, - 4,  11, 125, - 6, 1, 0, 0 },
-        { 1, - 3,   8, 126, - 5, 1, 0, 0 }, { 1, - 2,   6, 126, - 4, 1, 0, 0 },
-        { 0, - 1,   4, 127, - 3, 1, 0, 0 }, { 0,   0,   2, 127, - 1, 0, 0, 0 },
-        // [0, 1)
-        { 0,  0,   0, 127,   1,   0,  0,  0}, { 0,  0,  -1, 127,   2,   0,  0,  0},
-        { 0,  1,  -3, 127,   4,  -2,  1,  0}, { 0,  1,  -5, 127,   6,  -2,  1,  0},
-        { 0,  2,  -6, 126,   8,  -3,  1,  0}, {-1,  2,  -7, 126,  11,  -4,  2, -1},
-        {-1,  3,  -8, 125,  13,  -5,  2, -1}, {-1,  3, -10, 124,  16,  -6,  3, -1},
-        {-1,  4, -11, 123,  18,  -7,  3, -1}, {-1,  4, -12, 122,  20,  -7,  3, -1},
-        {-1,  4, -13, 121,  23,  -8,  3, -1}, {-2,  5, -14, 120,  25,  -9,  4, -1},
-        {-1,  5, -15, 119,  27, -10,  4, -1}, {-1,  5, -16, 118,  30, -11,  4, -1},
-        {-2,  6, -17, 116,  33, -12,  5, -1}, {-2,  6, -17, 114,  35, -12,  5, -1},
-        {-2,  6, -18, 113,  38, -13,  5, -1}, {-2,  7, -19, 111,  41, -14,  6, -2},
-        {-2,  7, -19, 110,  43, -15,  6, -2}, {-2,  7, -20, 108,  46, -15,  6, -2},
-        {-2,  7, -20, 106,  49, -16,  6, -2}, {-2,  7, -21, 104,  51, -16,  7, -2},
-        {-2,  7, -21, 102,  54, -17,  7, -2}, {-2,  8, -21, 100,  56, -18,  7, -2},
-        {-2,  8, -22,  98,  59, -18,  7, -2}, {-2,  8, -22,  96,  62, -19,  7, -2},
-        {-2,  8, -22,  94,  64, -19,  7, -2}, {-2,  8, -22,  91,  67, -20,  8, -2},
-        {-2,  8, -22,  89,  69, -20,  8, -2}, {-2,  8, -22,  87,  72, -21,  8, -2},
-        {-2,  8, -21,  84,  74, -21,  8, -2}, {-2,  8, -22,  82,  77, -21,  8, -2},
-        {-2,  8, -21,  79,  79, -21,  8, -2}, {-2,  8, -21,  77,  82, -22,  8, -2},
-        {-2,  8, -21,  74,  84, -21,  8, -2}, {-2,  8, -21,  72,  87, -22,  8, -2},
-        {-2,  8, -20,  69,  89, -22,  8, -2}, {-2,  8, -20,  67,  91, -22,  8, -2},
-        {-2,  7, -19,  64,  94, -22,  8, -2}, {-2,  7, -19,  62,  96, -22,  8, -2},
-        {-2,  7, -18,  59,  98, -22,  8, -2}, {-2,  7, -18,  56, 100, -21,  8, -2},
-        {-2,  7, -17,  54, 102, -21,  7, -2}, {-2,  7, -16,  51, 104, -21,  7, -2},
-        {-2,  6, -16,  49, 106, -20,  7, -2}, {-2,  6, -15,  46, 108, -20,  7, -2},
-        {-2,  6, -15,  43, 110, -19,  7, -2}, {-2,  6, -14,  41, 111, -19,  7, -2},
-        {-1,  5, -13,  38, 113, -18,  6, -2}, {-1,  5, -12,  35, 114, -17,  6, -2},
-        {-1,  5, -12,  33, 116, -17,  6, -2}, {-1,  4, -11,  30, 118, -16,  5, -1},
-        {-1,  4, -10,  27, 119, -15,  5, -1}, {-1,  4,  -9,  25, 120, -14,  5, -2},
-        {-1,  3,  -8,  23, 121, -13,  4, -1}, {-1,  3,  -7,  20, 122, -12,  4, -1},
-        {-1,  3,  -7,  18, 123, -11,  4, -1}, {-1,  3,  -6,  16, 124, -10,  3, -1},
-        {-1,  2,  -5,  13, 125,  -8,  3, -1}, {-1,  2,  -4,  11, 126,  -7,  2, -1},
-        { 0,  1,  -3,   8, 126,  -6,  2,  0}, { 0,  1,  -2,   6, 127,  -5,  1,  0},
-        { 0,  1,  -2,   4, 127,  -3,  1,  0}, { 0,  0,   0,   2, 127,  -1,  0,  0},
-        // [1, 2)
-        { 0, 0, 0,   1, 127,   0,   0, 0 }, { 0, 0, 0, - 1, 127,   2,   0, 0 },
-        { 0, 0, 1, - 3, 127,   4, - 1, 0 }, { 0, 0, 1, - 4, 126,   6, - 2, 1 },
-        { 0, 0, 1, - 5, 126,   8, - 3, 1 }, { 0, 0, 1, - 6, 125,  11, - 4, 1 },
-        { 0, 0, 1, - 7, 124,  13, - 4, 1 }, { 0, 0, 2, - 8, 123,  15, - 5, 1 },
-        { 0, 0, 2, - 9, 122,  18, - 6, 1 }, { 0, 0, 2, -10, 121,  20, - 6, 1 },
-        { 0, 0, 2, -11, 120,  22, - 7, 2 }, { 0, 0, 2, -12, 119,  25, - 8, 2 },
-        { 0, 0, 3, -13, 117,  27, - 8, 2 }, { 0, 0, 3, -13, 116,  29, - 9, 2 },
-        { 0, 0, 3, -14, 114,  32, -10, 3 }, { 0, 0, 3, -15, 113,  35, -10, 2 },
-        { 0, 0, 3, -15, 111,  37, -11, 3 }, { 0, 0, 3, -16, 109,  40, -11, 3 },
-        { 0, 0, 3, -16, 108,  42, -12, 3 }, { 0, 0, 4, -17, 106,  45, -13, 3 },
-        { 0, 0, 4, -17, 104,  47, -13, 3 }, { 0, 0, 4, -17, 102,  50, -14, 3 },
-        { 0, 0, 4, -17, 100,  52, -14, 3 }, { 0, 0, 4, -18,  98,  55, -15, 4 },
-        { 0, 0, 4, -18,  96,  58, -15, 3 }, { 0, 0, 4, -18,  94,  60, -16, 4 },
-        { 0, 0, 4, -18,  91,  63, -16, 4 }, { 0, 0, 4, -18,  89,  65, -16, 4 },
-        { 0, 0, 4, -18,  87,  68, -17, 4 }, { 0, 0, 4, -18,  85,  70, -17, 4 },
-        { 0, 0, 4, -18,  82,  73, -17, 4 }, { 0, 0, 4, -18,  80,  75, -17, 4 },
-        { 0, 0, 4, -18,  78,  78, -18, 4 }, { 0, 0, 4, -17,  75,  80, -18, 4 },
-        { 0, 0, 4, -17,  73,  82, -18, 4 }, { 0, 0, 4, -17,  70,  85, -18, 4 },
-        { 0, 0, 4, -17,  68,  87, -18, 4 }, { 0, 0, 4, -16,  65,  89, -18, 4 },
-        { 0, 0, 4, -16,  63,  91, -18, 4 }, { 0, 0, 4, -16,  60,  94, -18, 4 },
-        { 0, 0, 3, -15,  58,  96, -18, 4 }, { 0, 0, 4, -15,  55,  98, -18, 4 },
-        { 0, 0, 3, -14,  52, 100, -17, 4 }, { 0, 0, 3, -14,  50, 102, -17, 4 },
-        { 0, 0, 3, -13,  47, 104, -17, 4 }, { 0, 0, 3, -13,  45, 106, -17, 4 },
-        { 0, 0, 3, -12,  42, 108, -16, 3 }, { 0, 0, 3, -11,  40, 109, -16, 3 },
-        { 0, 0, 3, -11,  37, 111, -15, 3 }, { 0, 0, 2, -10,  35, 113, -15, 3 },
-        { 0, 0, 3, -10,  32, 114, -14, 3 }, { 0, 0, 2, - 9,  29, 116, -13, 3 },
-        { 0, 0, 2, - 8,  27, 117, -13, 3 }, { 0, 0, 2, - 8,  25, 119, -12, 2 },
-        { 0, 0, 2, - 7,  22, 120, -11, 2 }, { 0, 0, 1, - 6,  20, 121, -10, 2 },
-        { 0, 0, 1, - 6,  18, 122, - 9, 2 }, { 0, 0, 1, - 5,  15, 123, - 8, 2 },
-        { 0, 0, 1, - 4,  13, 124, - 7, 1 }, { 0, 0, 1, - 4,  11, 125, - 6, 1 },
-        { 0, 0, 1, - 3,   8, 126, - 5, 1 }, { 0, 0, 1, - 2,   6, 126, - 4, 1 },
-        { 0, 0, 0, - 1,   4, 127, - 3, 1 }, { 0, 0, 0,   0,   2, 127, - 1, 0 },
-        // dummy (replicate row index 191)
-        { 0, 0, 0,   0,   2, 127, - 1, 0 },
+    // [-1, 0)
+    { 0,   0, 127,   1,   0, 0, 0, 0 }, { 0, - 1, 127,   2,   0, 0, 0, 0 },
+    { 1, - 3, 127,   4, - 1, 0, 0, 0 }, { 1, - 4, 126,   6, - 2, 1, 0, 0 },
+    { 1, - 5, 126,   8, - 3, 1, 0, 0 }, { 1, - 6, 125,  11, - 4, 1, 0, 0 },
+    { 1, - 7, 124,  13, - 4, 1, 0, 0 }, { 2, - 8, 123,  15, - 5, 1, 0, 0 },
+    { 2, - 9, 122,  18, - 6, 1, 0, 0 }, { 2, -10, 121,  20, - 6, 1, 0, 0 },
+    { 2, -11, 120,  22, - 7, 2, 0, 0 }, { 2, -12, 119,  25, - 8, 2, 0, 0 },
+    { 3, -13, 117,  27, - 8, 2, 0, 0 }, { 3, -13, 116,  29, - 9, 2, 0, 0 },
+    { 3, -14, 114,  32, -10, 3, 0, 0 }, { 3, -15, 113,  35, -10, 2, 0, 0 },
+    { 3, -15, 111,  37, -11, 3, 0, 0 }, { 3, -16, 109,  40, -11, 3, 0, 0 },
+    { 3, -16, 108,  42, -12, 3, 0, 0 }, { 4, -17, 106,  45, -13, 3, 0, 0 },
+    { 4, -17, 104,  47, -13, 3, 0, 0 }, { 4, -17, 102,  50, -14, 3, 0, 0 },
+    { 4, -17, 100,  52, -14, 3, 0, 0 }, { 4, -18,  98,  55, -15, 4, 0, 0 },
+    { 4, -18,  96,  58, -15, 3, 0, 0 }, { 4, -18,  94,  60, -16, 4, 0, 0 },
+    { 4, -18,  91,  63, -16, 4, 0, 0 }, { 4, -18,  89,  65, -16, 4, 0, 0 },
+    { 4, -18,  87,  68, -17, 4, 0, 0 }, { 4, -18,  85,  70, -17, 4, 0, 0 },
+    { 4, -18,  82,  73, -17, 4, 0, 0 }, { 4, -18,  80,  75, -17, 4, 0, 0 },
+    { 4, -18,  78,  78, -18, 4, 0, 0 }, { 4, -17,  75,  80, -18, 4, 0, 0 },
+    { 4, -17,  73,  82, -18, 4, 0, 0 }, { 4, -17,  70,  85, -18, 4, 0, 0 },
+    { 4, -17,  68,  87, -18, 4, 0, 0 }, { 4, -16,  65,  89, -18, 4, 0, 0 },
+    { 4, -16,  63,  91, -18, 4, 0, 0 }, { 4, -16,  60,  94, -18, 4, 0, 0 },
+    { 3, -15,  58,  96, -18, 4, 0, 0 }, { 4, -15,  55,  98, -18, 4, 0, 0 },
+    { 3, -14,  52, 100, -17, 4, 0, 0 }, { 3, -14,  50, 102, -17, 4, 0, 0 },
+    { 3, -13,  47, 104, -17, 4, 0, 0 }, { 3, -13,  45, 106, -17, 4, 0, 0 },
+    { 3, -12,  42, 108, -16, 3, 0, 0 }, { 3, -11,  40, 109, -16, 3, 0, 0 },
+    { 3, -11,  37, 111, -15, 3, 0, 0 }, { 2, -10,  35, 113, -15, 3, 0, 0 },
+    { 3, -10,  32, 114, -14, 3, 0, 0 }, { 2, - 9,  29, 116, -13, 3, 0, 0 },
+    { 2, - 8,  27, 117, -13, 3, 0, 0 }, { 2, - 8,  25, 119, -12, 2, 0, 0 },
+    { 2, - 7,  22, 120, -11, 2, 0, 0 }, { 1, - 6,  20, 121, -10, 2, 0, 0 },
+    { 1, - 6,  18, 122, - 9, 2, 0, 0 }, { 1, - 5,  15, 123, - 8, 2, 0, 0 },
+    { 1, - 4,  13, 124, - 7, 1, 0, 0 }, { 1, - 4,  11, 125, - 6, 1, 0, 0 },
+    { 1, - 3,   8, 126, - 5, 1, 0, 0 }, { 1, - 2,   6, 126, - 4, 1, 0, 0 },
+    { 0, - 1,   4, 127, - 3, 1, 0, 0 }, { 0,   0,   2, 127, - 1, 0, 0, 0 },
+    // [0, 1)
+    { 0,  0,   0, 127,   1,   0,  0,  0}, { 0,  0,  -1, 127,   2,   0,  0,  0},
+    { 0,  1,  -3, 127,   4,  -2,  1,  0}, { 0,  1,  -5, 127,   6,  -2,  1,  0},
+    { 0,  2,  -6, 126,   8,  -3,  1,  0}, {-1,  2,  -7, 126,  11,  -4,  2, -1},
+    {-1,  3,  -8, 125,  13,  -5,  2, -1}, {-1,  3, -10, 124,  16,  -6,  3, -1},
+    {-1,  4, -11, 123,  18,  -7,  3, -1}, {-1,  4, -12, 122,  20,  -7,  3, -1},
+    {-1,  4, -13, 121,  23,  -8,  3, -1}, {-2,  5, -14, 120,  25,  -9,  4, -1},
+    {-1,  5, -15, 119,  27, -10,  4, -1}, {-1,  5, -16, 118,  30, -11,  4, -1},
+    {-2,  6, -17, 116,  33, -12,  5, -1}, {-2,  6, -17, 114,  35, -12,  5, -1},
+    {-2,  6, -18, 113,  38, -13,  5, -1}, {-2,  7, -19, 111,  41, -14,  6, -2},
+    {-2,  7, -19, 110,  43, -15,  6, -2}, {-2,  7, -20, 108,  46, -15,  6, -2},
+    {-2,  7, -20, 106,  49, -16,  6, -2}, {-2,  7, -21, 104,  51, -16,  7, -2},
+    {-2,  7, -21, 102,  54, -17,  7, -2}, {-2,  8, -21, 100,  56, -18,  7, -2},
+    {-2,  8, -22,  98,  59, -18,  7, -2}, {-2,  8, -22,  96,  62, -19,  7, -2},
+    {-2,  8, -22,  94,  64, -19,  7, -2}, {-2,  8, -22,  91,  67, -20,  8, -2},
+    {-2,  8, -22,  89,  69, -20,  8, -2}, {-2,  8, -22,  87,  72, -21,  8, -2},
+    {-2,  8, -21,  84,  74, -21,  8, -2}, {-2,  8, -22,  82,  77, -21,  8, -2},
+    {-2,  8, -21,  79,  79, -21,  8, -2}, {-2,  8, -21,  77,  82, -22,  8, -2},
+    {-2,  8, -21,  74,  84, -21,  8, -2}, {-2,  8, -21,  72,  87, -22,  8, -2},
+    {-2,  8, -20,  69,  89, -22,  8, -2}, {-2,  8, -20,  67,  91, -22,  8, -2},
+    {-2,  7, -19,  64,  94, -22,  8, -2}, {-2,  7, -19,  62,  96, -22,  8, -2},
+    {-2,  7, -18,  59,  98, -22,  8, -2}, {-2,  7, -18,  56, 100, -21,  8, -2},
+    {-2,  7, -17,  54, 102, -21,  7, -2}, {-2,  7, -16,  51, 104, -21,  7, -2},
+    {-2,  6, -16,  49, 106, -20,  7, -2}, {-2,  6, -15,  46, 108, -20,  7, -2},
+    {-2,  6, -15,  43, 110, -19,  7, -2}, {-2,  6, -14,  41, 111, -19,  7, -2},
+    {-1,  5, -13,  38, 113, -18,  6, -2}, {-1,  5, -12,  35, 114, -17,  6, -2},
+    {-1,  5, -12,  33, 116, -17,  6, -2}, {-1,  4, -11,  30, 118, -16,  5, -1},
+    {-1,  4, -10,  27, 119, -15,  5, -1}, {-1,  4,  -9,  25, 120, -14,  5, -2},
+    {-1,  3,  -8,  23, 121, -13,  4, -1}, {-1,  3,  -7,  20, 122, -12,  4, -1},
+    {-1,  3,  -7,  18, 123, -11,  4, -1}, {-1,  3,  -6,  16, 124, -10,  3, -1},
+    {-1,  2,  -5,  13, 125,  -8,  3, -1}, {-1,  2,  -4,  11, 126,  -7,  2, -1},
+    { 0,  1,  -3,   8, 126,  -6,  2,  0}, { 0,  1,  -2,   6, 127,  -5,  1,  0},
+    { 0,  1,  -2,   4, 127,  -3,  1,  0}, { 0,  0,   0,   2, 127,  -1,  0,  0},
+    // [1, 2)
+    { 0, 0, 0,   1, 127,   0,   0, 0 }, { 0, 0, 0, - 1, 127,   2,   0, 0 },
+    { 0, 0, 1, - 3, 127,   4, - 1, 0 }, { 0, 0, 1, - 4, 126,   6, - 2, 1 },
+    { 0, 0, 1, - 5, 126,   8, - 3, 1 }, { 0, 0, 1, - 6, 125,  11, - 4, 1 },
+    { 0, 0, 1, - 7, 124,  13, - 4, 1 }, { 0, 0, 2, - 8, 123,  15, - 5, 1 },
+    { 0, 0, 2, - 9, 122,  18, - 6, 1 }, { 0, 0, 2, -10, 121,  20, - 6, 1 },
+    { 0, 0, 2, -11, 120,  22, - 7, 2 }, { 0, 0, 2, -12, 119,  25, - 8, 2 },
+    { 0, 0, 3, -13, 117,  27, - 8, 2 }, { 0, 0, 3, -13, 116,  29, - 9, 2 },
+    { 0, 0, 3, -14, 114,  32, -10, 3 }, { 0, 0, 3, -15, 113,  35, -10, 2 },
+    { 0, 0, 3, -15, 111,  37, -11, 3 }, { 0, 0, 3, -16, 109,  40, -11, 3 },
+    { 0, 0, 3, -16, 108,  42, -12, 3 }, { 0, 0, 4, -17, 106,  45, -13, 3 },
+    { 0, 0, 4, -17, 104,  47, -13, 3 }, { 0, 0, 4, -17, 102,  50, -14, 3 },
+    { 0, 0, 4, -17, 100,  52, -14, 3 }, { 0, 0, 4, -18,  98,  55, -15, 4 },
+    { 0, 0, 4, -18,  96,  58, -15, 3 }, { 0, 0, 4, -18,  94,  60, -16, 4 },
+    { 0, 0, 4, -18,  91,  63, -16, 4 }, { 0, 0, 4, -18,  89,  65, -16, 4 },
+    { 0, 0, 4, -18,  87,  68, -17, 4 }, { 0, 0, 4, -18,  85,  70, -17, 4 },
+    { 0, 0, 4, -18,  82,  73, -17, 4 }, { 0, 0, 4, -18,  80,  75, -17, 4 },
+    { 0, 0, 4, -18,  78,  78, -18, 4 }, { 0, 0, 4, -17,  75,  80, -18, 4 },
+    { 0, 0, 4, -17,  73,  82, -18, 4 }, { 0, 0, 4, -17,  70,  85, -18, 4 },
+    { 0, 0, 4, -17,  68,  87, -18, 4 }, { 0, 0, 4, -16,  65,  89, -18, 4 },
+    { 0, 0, 4, -16,  63,  91, -18, 4 }, { 0, 0, 4, -16,  60,  94, -18, 4 },
+    { 0, 0, 3, -15,  58,  96, -18, 4 }, { 0, 0, 4, -15,  55,  98, -18, 4 },
+    { 0, 0, 3, -14,  52, 100, -17, 4 }, { 0, 0, 3, -14,  50, 102, -17, 4 },
+    { 0, 0, 3, -13,  47, 104, -17, 4 }, { 0, 0, 3, -13,  45, 106, -17, 4 },
+    { 0, 0, 3, -12,  42, 108, -16, 3 }, { 0, 0, 3, -11,  40, 109, -16, 3 },
+    { 0, 0, 3, -11,  37, 111, -15, 3 }, { 0, 0, 2, -10,  35, 113, -15, 3 },
+    { 0, 0, 3, -10,  32, 114, -14, 3 }, { 0, 0, 2, - 9,  29, 116, -13, 3 },
+    { 0, 0, 2, - 8,  27, 117, -13, 3 }, { 0, 0, 2, - 8,  25, 119, -12, 2 },
+    { 0, 0, 2, - 7,  22, 120, -11, 2 }, { 0, 0, 1, - 6,  20, 121, -10, 2 },
+    { 0, 0, 1, - 6,  18, 122, - 9, 2 }, { 0, 0, 1, - 5,  15, 123, - 8, 2 },
+    { 0, 0, 1, - 4,  13, 124, - 7, 1 }, { 0, 0, 1, - 4,  11, 125, - 6, 1 },
+    { 0, 0, 1, - 3,   8, 126, - 5, 1 }, { 0, 0, 1, - 2,   6, 126, - 4, 1 },
+    { 0, 0, 0, - 1,   4, 127, - 3, 1 }, { 0, 0, 0,   0,   2, 127, - 1, 0 },
+    // dummy (replicate row index 191)
+    { 0, 0, 0,   0,   2, 127, - 1, 0 },
 #elif WARPEDPIXEL_PREC_BITS == 5
-// [-1, 0)
-  {0,   0, 127,   1,   0, 0, 0, 0}, {1,  -3, 127,   4,  -1, 0, 0, 0},
-  {1,  -5, 126,   8,  -3, 1, 0, 0}, {1,  -7, 124,  13,  -4, 1, 0, 0},
-  {2,  -9, 122,  18,  -6, 1, 0, 0}, {2, -11, 120,  22,  -7, 2, 0, 0},
-  {3, -13, 117,  27,  -8, 2, 0, 0}, {3, -14, 114,  32, -10, 3, 0, 0},
-  {3, -15, 111,  37, -11, 3, 0, 0}, {3, -16, 108,  42, -12, 3, 0, 0},
-  {4, -17, 104,  47, -13, 3, 0, 0}, {4, -17, 100,  52, -14, 3, 0, 0},
-  {4, -18,  96,  58, -15, 3, 0, 0}, {4, -18,  91,  63, -16, 4, 0, 0},
-  {4, -18,  87,  68, -17, 4, 0, 0}, {4, -18,  82,  73, -17, 4, 0, 0},
-  {4, -18,  78,  78, -18, 4, 0, 0}, {4, -17,  73,  82, -18, 4, 0, 0},
-  {4, -17,  68,  87, -18, 4, 0, 0}, {4, -16,  63,  91, -18, 4, 0, 0},
-  {3, -15,  58,  96, -18, 4, 0, 0}, {3, -14,  52, 100, -17, 4, 0, 0},
-  {3, -13,  47, 104, -17, 4, 0, 0}, {3, -12,  42, 108, -16, 3, 0, 0},
-  {3, -11,  37, 111, -15, 3, 0, 0}, {3, -10,  32, 114, -14, 3, 0, 0},
-  {2,  -8,  27, 117, -13, 3, 0, 0}, {2,  -7,  22, 120, -11, 2, 0, 0},
-  {1,  -6,  18, 122,  -9, 2, 0, 0}, {1,  -4,  13, 124,  -7, 1, 0, 0},
-  {1,  -3,   8, 126,  -5, 1, 0, 0}, {0,  -1,   4, 127,  -3, 1, 0, 0},
-  // [0, 1)
-  { 0,  0,   0, 127,   1,   0,   0,  0}, { 0,  1,  -3, 127,   4,  -2,   1,  0},
-  { 0,  2,  -6, 126,   8,  -3,   1,  0}, {-1,  3,  -8, 125,  13,  -5,   2, -1},
-  {-1,  4, -11, 123,  18,  -7,   3, -1}, {-1,  4, -13, 121,  23,  -8,   3, -1},
-  {-1,  5, -15, 119,  27, -10,   4, -1}, {-2,  6, -17, 116,  33, -12,   5, -1},
-  {-2,  6, -18, 113,  38, -13,   5, -1}, {-2,  7, -19, 110,  43, -15,   6, -2},
-  {-2,  7, -20, 106,  49, -16,   6, -2}, {-2,  7, -21, 102,  54, -17,   7, -2},
-  {-2,  8, -22,  98,  59, -18,   7, -2}, {-2,  8, -22,  94,  64, -19,   7, -2},
-  {-2,  8, -22,  89,  69, -20,   8, -2}, {-2,  8, -21,  84,  74, -21,   8, -2},
-  {-2,  8, -21,  79,  79, -21,   8, -2}, {-2,  8, -21,  74,  84, -21,   8, -2},
-  {-2,  8, -20,  69,  89, -22,   8, -2}, {-2,  7, -19,  64,  94, -22,   8, -2},
-  {-2,  7, -18,  59,  98, -22,   8, -2}, {-2,  7, -17,  54, 102, -21,   7, -2},
-  {-2,  6, -16,  49, 106, -20,   7, -2}, {-2,  6, -15,  43, 110, -19,   7, -2},
-  {-1,  5, -13,  38, 113, -18,   6, -2}, {-1,  5, -12,  33, 116, -17,   6, -2},
-  {-1,  4, -10,  27, 119, -15,   5, -1}, {-1,  3,  -8,  23, 121, -13,   4, -1},
-  {-1,  3,  -7,  18, 123, -11,   4, -1}, {-1,  2,  -5,  13, 125,  -8,   3, -1},
-  { 0,  1,  -3,   8, 126,  -6,   2,  0}, { 0,  1,  -2,   4, 127,  -3,   1,  0},
-  // [1, 2)
-  {0, 0, 0,   1, 127,   0,   0, 0}, {0, 0, 1,  -3, 127,   4,  -1, 0},
-  {0, 0, 1,  -5, 126,   8,  -3, 1}, {0, 0, 1,  -7, 124,  13,  -4, 1},
-  {0, 0, 2,  -9, 122,  18,  -6, 1}, {0, 0, 2, -11, 120,  22,  -7, 2},
-  {0, 0, 3, -13, 117,  27,  -8, 2}, {0, 0, 3, -14, 114,  32, -10, 3},
-  {0, 0, 3, -15, 111,  37, -11, 3}, {0, 0, 3, -16, 108,  42, -12, 3},
-  {0, 0, 4, -17, 104,  47, -13, 3}, {0, 0, 4, -17, 100,  52, -14, 3},
-  {0, 0, 4, -18,  96,  58, -15, 3}, {0, 0, 4, -18,  91,  63, -16, 4},
-  {0, 0, 4, -18,  87,  68, -17, 4}, {0, 0, 4, -18,  82,  73, -17, 4},
-  {0, 0, 4, -18,  78,  78, -18, 4}, {0, 0, 4, -17,  73,  82, -18, 4},
-  {0, 0, 4, -17,  68,  87, -18, 4}, {0, 0, 4, -16,  63,  91, -18, 4},
-  {0, 0, 3, -15,  58,  96, -18, 4}, {0, 0, 3, -14,  52, 100, -17, 4},
-  {0, 0, 3, -13,  47, 104, -17, 4}, {0, 0, 3, -12,  42, 108, -16, 3},
-  {0, 0, 3, -11,  37, 111, -15, 3}, {0, 0, 3, -10,  32, 114, -14, 3},
-  {0, 0, 2,  -8,  27, 117, -13, 3}, {0, 0, 2,  -7,  22, 120, -11, 2},
-  {0, 0, 1,  -6,  18, 122,  -9, 2}, {0, 0, 1,  -4,  13, 124,  -7, 1},
-  {0, 0, 1,  -3,   8, 126,  -5, 1}, {0, 0, 0,  -1,   4, 127,  -3, 1},
-  // dummy (replicate row index 95)
-  {0, 0, 0,  -1,   4, 127,  -3, 1},
+    // [-1, 0)
+    {0,   0, 127,   1,   0, 0, 0, 0}, {1,  -3, 127,   4,  -1, 0, 0, 0},
+    {1,  -5, 126,   8,  -3, 1, 0, 0}, {1,  -7, 124,  13,  -4, 1, 0, 0},
+    {2,  -9, 122,  18,  -6, 1, 0, 0}, {2, -11, 120,  22,  -7, 2, 0, 0},
+    {3, -13, 117,  27,  -8, 2, 0, 0}, {3, -14, 114,  32, -10, 3, 0, 0},
+    {3, -15, 111,  37, -11, 3, 0, 0}, {3, -16, 108,  42, -12, 3, 0, 0},
+    {4, -17, 104,  47, -13, 3, 0, 0}, {4, -17, 100,  52, -14, 3, 0, 0},
+    {4, -18,  96,  58, -15, 3, 0, 0}, {4, -18,  91,  63, -16, 4, 0, 0},
+    {4, -18,  87,  68, -17, 4, 0, 0}, {4, -18,  82,  73, -17, 4, 0, 0},
+    {4, -18,  78,  78, -18, 4, 0, 0}, {4, -17,  73,  82, -18, 4, 0, 0},
+    {4, -17,  68,  87, -18, 4, 0, 0}, {4, -16,  63,  91, -18, 4, 0, 0},
+    {3, -15,  58,  96, -18, 4, 0, 0}, {3, -14,  52, 100, -17, 4, 0, 0},
+    {3, -13,  47, 104, -17, 4, 0, 0}, {3, -12,  42, 108, -16, 3, 0, 0},
+    {3, -11,  37, 111, -15, 3, 0, 0}, {3, -10,  32, 114, -14, 3, 0, 0},
+    {2,  -8,  27, 117, -13, 3, 0, 0}, {2,  -7,  22, 120, -11, 2, 0, 0},
+    {1,  -6,  18, 122,  -9, 2, 0, 0}, {1,  -4,  13, 124,  -7, 1, 0, 0},
+    {1,  -3,   8, 126,  -5, 1, 0, 0}, {0,  -1,   4, 127,  -3, 1, 0, 0},
+    // [0, 1)
+    { 0,  0,   0, 127,   1,   0,   0,  0}, { 0,  1,  -3, 127,   4,  -2,   1,  0},
+    { 0,  2,  -6, 126,   8,  -3,   1,  0}, {-1,  3,  -8, 125,  13,  -5,   2, -1},
+    {-1,  4, -11, 123,  18,  -7,   3, -1}, {-1,  4, -13, 121,  23,  -8,   3, -1},
+    {-1,  5, -15, 119,  27, -10,   4, -1}, {-2,  6, -17, 116,  33, -12,   5, -1},
+    {-2,  6, -18, 113,  38, -13,   5, -1}, {-2,  7, -19, 110,  43, -15,   6, -2},
+    {-2,  7, -20, 106,  49, -16,   6, -2}, {-2,  7, -21, 102,  54, -17,   7, -2},
+    {-2,  8, -22,  98,  59, -18,   7, -2}, {-2,  8, -22,  94,  64, -19,   7, -2},
+    {-2,  8, -22,  89,  69, -20,   8, -2}, {-2,  8, -21,  84,  74, -21,   8, -2},
+    {-2,  8, -21,  79,  79, -21,   8, -2}, {-2,  8, -21,  74,  84, -21,   8, -2},
+    {-2,  8, -20,  69,  89, -22,   8, -2}, {-2,  7, -19,  64,  94, -22,   8, -2},
+    {-2,  7, -18,  59,  98, -22,   8, -2}, {-2,  7, -17,  54, 102, -21,   7, -2},
+    {-2,  6, -16,  49, 106, -20,   7, -2}, {-2,  6, -15,  43, 110, -19,   7, -2},
+    {-1,  5, -13,  38, 113, -18,   6, -2}, {-1,  5, -12,  33, 116, -17,   6, -2},
+    {-1,  4, -10,  27, 119, -15,   5, -1}, {-1,  3,  -8,  23, 121, -13,   4, -1},
+    {-1,  3,  -7,  18, 123, -11,   4, -1}, {-1,  2,  -5,  13, 125,  -8,   3, -1},
+    { 0,  1,  -3,   8, 126,  -6,   2,  0}, { 0,  1,  -2,   4, 127,  -3,   1,  0},
+    // [1, 2)
+    {0, 0, 0,   1, 127,   0,   0, 0}, {0, 0, 1,  -3, 127,   4,  -1, 0},
+    {0, 0, 1,  -5, 126,   8,  -3, 1}, {0, 0, 1,  -7, 124,  13,  -4, 1},
+    {0, 0, 2,  -9, 122,  18,  -6, 1}, {0, 0, 2, -11, 120,  22,  -7, 2},
+    {0, 0, 3, -13, 117,  27,  -8, 2}, {0, 0, 3, -14, 114,  32, -10, 3},
+    {0, 0, 3, -15, 111,  37, -11, 3}, {0, 0, 3, -16, 108,  42, -12, 3},
+    {0, 0, 4, -17, 104,  47, -13, 3}, {0, 0, 4, -17, 100,  52, -14, 3},
+    {0, 0, 4, -18,  96,  58, -15, 3}, {0, 0, 4, -18,  91,  63, -16, 4},
+    {0, 0, 4, -18,  87,  68, -17, 4}, {0, 0, 4, -18,  82,  73, -17, 4},
+    {0, 0, 4, -18,  78,  78, -18, 4}, {0, 0, 4, -17,  73,  82, -18, 4},
+    {0, 0, 4, -17,  68,  87, -18, 4}, {0, 0, 4, -16,  63,  91, -18, 4},
+    {0, 0, 3, -15,  58,  96, -18, 4}, {0, 0, 3, -14,  52, 100, -17, 4},
+    {0, 0, 3, -13,  47, 104, -17, 4}, {0, 0, 3, -12,  42, 108, -16, 3},
+    {0, 0, 3, -11,  37, 111, -15, 3}, {0, 0, 3, -10,  32, 114, -14, 3},
+    {0, 0, 2,  -8,  27, 117, -13, 3}, {0, 0, 2,  -7,  22, 120, -11, 2},
+    {0, 0, 1,  -6,  18, 122,  -9, 2}, {0, 0, 1,  -4,  13, 124,  -7, 1},
+    {0, 0, 1,  -3,   8, 126,  -5, 1}, {0, 0, 0,  -1,   4, 127,  -3, 1},
+    // dummy (replicate row index 95)
+    {0, 0, 0,  -1,   4, 127,  -3, 1},
 #endif  // WARPEDPIXEL_PREC_BITS == 6
 };
-
-
+/* clang-format on */
 
 #define USE_LIMITED_PREC_MULT 0
 
 #if USE_LIMITED_PREC_MULT
 
 #define MUL_PREC_BITS 16
-static uint16_t resolve_multiplier_64(uint64_t D, int16_t *shift) {
+
+static uint16_t resolve_multiplier_64(uint64_t D, int16_t* shift) {
     int      msb  = 0;
     uint16_t mult = 0;
     *shift        = 0;
     if (D != 0) {
-        msb =
-            (int16_t)((D >> 32) ? get_msb((unsigned int)(D >> 32)) + 32 : get_msb((unsigned int)D));
+        msb = (int16_t)((D >> 32) ? get_msb((unsigned int)(D >> 32)) + 32 : get_msb((unsigned int)D));
         if (msb >= MUL_PREC_BITS) {
             mult   = (uint16_t)ROUND_POWER_OF_TWO_64(D, msb + 1 - MUL_PREC_BITS);
             *shift = msb + 1 - MUL_PREC_BITS;
@@ -250,9 +248,8 @@ static int32_t get_mult_shift_ndiag(int64_t p_x, int16_t i_det, int shift) {
                               -WARPEDMODEL_NONDIAGAFFINE_CLAMP + 1,
                               WARPEDMODEL_NONDIAGAFFINE_CLAMP - 1);
     } else {
-        return (int32_t)clamp(v * (1 << (-shift)),
-                              -WARPEDMODEL_NONDIAGAFFINE_CLAMP + 1,
-                              WARPEDMODEL_NONDIAGAFFINE_CLAMP - 1);
+        return (int32_t)clamp(
+            v * (1 << (-shift)), -WARPEDMODEL_NONDIAGAFFINE_CLAMP + 1, WARPEDMODEL_NONDIAGAFFINE_CLAMP - 1);
     }
     return ret;
 }
@@ -290,8 +287,6 @@ static int32_t get_mult_shift_diag(int64_t p_x, int16_t i_det, int shift) {
 }
 #endif // USE_LIMITED_PREC_MULT
 
-/* clang-format on */
-
 #define DIV_LUT_PREC_BITS 14
 #define DIV_LUT_BITS 8
 #define DIV_LUT_NUM (1 << DIV_LUT_BITS)
@@ -318,52 +313,55 @@ static const uint16_t div_lut[DIV_LUT_NUM + 1] = {
 
 // Decomposes a divisor D such that 1/D = y/2^shift, where y is returned
 // at precision of DIV_LUT_PREC_BITS along with the shift.
-static int16_t resolve_divisor_64(uint64_t D, int16_t *shift) {
+static int16_t resolve_divisor_64(uint64_t D, int16_t* shift) {
     int64_t f;
     *shift = (int16_t)((D >> 32) ? get_msb((unsigned int)(D >> 32)) + 32 : get_msb((unsigned int)D));
     // e is obtained from D after resetting the most significant 1 bit.
     const int64_t e = D - ((uint64_t)1 << *shift);
     // Get the most significant DIV_LUT_BITS (8) bits of e into f
-    if (*shift > DIV_LUT_BITS)
+    if (*shift > DIV_LUT_BITS) {
         f = ROUND_POWER_OF_TWO_64(e, *shift - DIV_LUT_BITS);
-    else
+    } else {
         f = e << (DIV_LUT_BITS - *shift);
+    }
     assert(f <= DIV_LUT_NUM);
     *shift += DIV_LUT_PREC_BITS;
     // Use f as lookup into the precomputed table of multipliers
     return div_lut[f];
 }
 
-static int16_t resolve_divisor_32(uint32_t D, int16_t *shift) {
+static int16_t resolve_divisor_32(uint32_t D, int16_t* shift) {
     int32_t f;
     *shift = get_msb(D);
     // e is obtained from D after resetting the most significant 1 bit.
     const int32_t e = D - ((uint32_t)1 << *shift);
     // Get the most significant DIV_LUT_BITS (8) bits of e into f
-    if (*shift > DIV_LUT_BITS)
+    if (*shift > DIV_LUT_BITS) {
         f = ROUND_POWER_OF_TWO(e, *shift - DIV_LUT_BITS);
-    else
+    } else {
         f = e << (DIV_LUT_BITS - *shift);
+    }
     assert(f <= DIV_LUT_NUM);
     *shift += DIV_LUT_PREC_BITS;
     // Use f as lookup into the precomputed table of multipliers
     return div_lut[f];
 }
 
-static int is_affine_valid(const WarpedMotionParams *const wm) {
-    const int32_t *mat = wm->wmmat;
+static int is_affine_valid(const WarpedMotionParams* const wm) {
+    const int32_t* mat = wm->wmmat;
     return (mat[2] > 0);
 }
 
 static int is_affine_shear_allowed(int16_t alpha, int16_t beta, int16_t gamma, int16_t delta) {
     if ((4 * abs(alpha) + 7 * abs(beta) >= (1 << WARPEDMODEL_PREC_BITS)) ||
-        (4 * abs(gamma) + 4 * abs(delta) >= (1 << WARPEDMODEL_PREC_BITS)))
+        (4 * abs(gamma) + 4 * abs(delta) >= (1 << WARPEDMODEL_PREC_BITS))) {
         return 0;
-    else
+    } else {
         return 1;
+    }
 }
 
-static int find_affine_int(int np, const int *pts1, const int *pts2, BlockSize bsize, Mv mv, WarpedMotionParams *wm,
+static int find_affine_int(int np, const int* pts1, const int* pts2, BlockSize bsize, Mv mv, WarpedMotionParams* wm,
                            int mi_row, int mi_col) {
     int32_t A[2][2] = {{0, 0}, {0, 0}};
     int32_t bx[2]   = {0, 0};
@@ -434,8 +432,9 @@ static int find_affine_int(int np, const int *pts1, const int *pts2, BlockSize b
 
     // Compute Determinant of A
     det = (int64_t)A[0][0] * A[1][1] - (int64_t)A[0][1] * A[0][1];
-    if (det == 0)
+    if (det == 0) {
         return 1;
+    }
     i_det = resolve_divisor_64(llabs(det), &shift) * (det < 0 ? -1 : 1);
     shift -= WARPEDMODEL_PREC_BITS;
     if (shift < 0) {
@@ -470,15 +469,16 @@ static int find_affine_int(int np, const int *pts1, const int *pts2, BlockSize b
     return 0;
 }
 
-bool svt_find_projection(int np, int *pts1, int *pts2, BlockSize bsize, Mv mv, WarpedMotionParams *wm_params,
+bool svt_find_projection(int np, int* pts1, int* pts2, BlockSize bsize, Mv mv, WarpedMotionParams* wm_params,
                          int mi_row, int mi_col) {
     if (find_affine_int(np, pts1, pts2, bsize, mv, wm_params, mi_row, mi_col)) {
         return 1;
     }
 
     // check compatibility with the fast warp filter
-    if (!svt_get_shear_params(wm_params))
+    if (!svt_get_shear_params(wm_params)) {
         return 1;
+    }
 
     return 0;
 }
@@ -567,9 +567,9 @@ bool svt_find_projection(int np, int *pts1, int *pts2, BlockSize bsize, Mv mv, W
     leads to a maximum value of about 282 * 2^k after applying the offset.
     So in that case we still need to clamp.
 */
-void svt_av1_warp_affine_c(const int32_t *mat, const uint8_t *ref, int width, int height, int stride, uint8_t *pred,
+void svt_av1_warp_affine_c(const int32_t* mat, const uint8_t* ref, int width, int height, int stride, uint8_t* pred,
                            int p_col, int p_row, int p_width, int p_height, int p_stride, int subsampling_x,
-                           int subsampling_y, ConvolveParams *conv_params, int16_t alpha, int16_t beta, int16_t gamma,
+                           int subsampling_y, ConvolveParams* conv_params, int16_t alpha, int16_t beta, int16_t gamma,
                            int16_t delta) {
     int32_t   tmp[15 * 8];
     const int bd                = 8;
@@ -620,7 +620,7 @@ void svt_av1_warp_affine_c(const int32_t *mat, const uint8_t *ref, int width, in
                     // At this point, sx = sx4 + alpha * l + beta * k
                     const int offs = ROUND_POWER_OF_TWO(sx, WARPEDDIFF_PREC_BITS) + WARPEDPIXEL_PREC_SHIFTS;
                     assert(offs >= 0 && offs <= WARPEDPIXEL_PREC_SHIFTS * 3);
-                    const int16_t *coeffs = svt_aom_warped_filter[offs];
+                    const int16_t* coeffs = svt_aom_warped_filter[offs];
 
                     int32_t sum = 1 << offset_bits_horiz;
                     for (int m = 0; m < 8; ++m) {
@@ -643,16 +643,18 @@ void svt_av1_warp_affine_c(const int32_t *mat, const uint8_t *ref, int width, in
                     // At this point, sy = sy4 + gamma * l + delta * k
                     const int offs = ROUND_POWER_OF_TWO(sy, WARPEDDIFF_PREC_BITS) + WARPEDPIXEL_PREC_SHIFTS;
                     assert(offs >= 0 && offs <= WARPEDPIXEL_PREC_SHIFTS * 3);
-                    const int16_t *coeffs = svt_aom_warped_filter[offs];
+                    const int16_t* coeffs = svt_aom_warped_filter[offs];
 
                     int32_t sum = 1 << offset_bits_vert;
-                    for (int m = 0; m < 8; ++m) sum += tmp[(k + m + 4) * 8 + (l + 4)] * coeffs[m];
+                    for (int m = 0; m < 8; ++m) {
+                        sum += tmp[(k + m + 4) * 8 + (l + 4)] * coeffs[m];
+                    }
                     if (conv_params->is_compound) {
-                        ConvBufType *p =
+                        ConvBufType* p =
                             &conv_params->dst[(i - p_row + k + 4) * conv_params->dst_stride + (j - p_col + l + 4)];
                         sum = ROUND_POWER_OF_TWO(sum, reduce_bits_vert);
                         if (conv_params->do_average) {
-                            uint8_t *dst8  = &pred[(i - p_row + k + 4) * p_stride + (j - p_col + l + 4)];
+                            uint8_t* dst8  = &pred[(i - p_row + k + 4) * p_stride + (j - p_col + l + 4)];
                             int32_t  tmp32 = *p;
                             if (conv_params->use_jnt_comp_avg) {
                                 tmp32 = tmp32 * conv_params->fwd_offset + sum * conv_params->bck_offset;
@@ -664,10 +666,11 @@ void svt_av1_warp_affine_c(const int32_t *mat, const uint8_t *ref, int width, in
                             tmp32 = tmp32 - (1 << (offset_bits - conv_params->round_1)) -
                                 (1 << (offset_bits - conv_params->round_1 - 1));
                             *dst8 = clip_pixel(ROUND_POWER_OF_TWO(tmp32, round_bits));
-                        } else
+                        } else {
                             *p = sum;
+                        }
                     } else {
-                        uint8_t *p = &pred[(i - p_row + k + 4) * p_stride + (j - p_col + l + 4)];
+                        uint8_t* p = &pred[(i - p_row + k + 4) * p_stride + (j - p_col + l + 4)];
                         sum        = ROUND_POWER_OF_TWO(sum, reduce_bits_vert);
                         assert(0 <= sum && sum < (1 << (bd + 2)));
                         *p = clip_pixel(sum - (1 << (bd - 1)) - (1 << bd));
@@ -679,15 +682,15 @@ void svt_av1_warp_affine_c(const int32_t *mat, const uint8_t *ref, int width, in
     }
 }
 
-void svt_warp_plane(WarpedMotionParams *wm, const uint8_t *const ref, int width, int height, int stride, uint8_t *pred,
+void svt_warp_plane(WarpedMotionParams* wm, const uint8_t* const ref, int width, int height, int stride, uint8_t* pred,
                     int p_col, int p_row, int p_width, int p_height, int p_stride, int subsampling_x, int subsampling_y,
-                    ConvolveParams *conv_params) {
+                    ConvolveParams* conv_params) {
     assert(wm->wmtype <= AFFINE);
     if (wm->wmtype == ROTZOOM) {
         wm->wmmat[5] = wm->wmmat[2];
         wm->wmmat[4] = -wm->wmmat[3];
     }
-    const int32_t *const mat   = wm->wmmat;
+    const int32_t* const mat   = wm->wmmat;
     const int16_t        alpha = wm->alpha;
     const int16_t        beta  = wm->beta;
     const int16_t        gamma = wm->gamma;
@@ -712,10 +715,10 @@ void svt_warp_plane(WarpedMotionParams *wm, const uint8_t *const ref, int width,
                         delta);
 }
 
-void svt_av1_highbd_warp_affine_c(const int32_t *mat, const uint8_t *ref8b, const uint8_t *ref2b, int width, int height,
-                                  int stride8b, int stride2b, uint16_t *pred, int p_col, int p_row, int p_width,
+void svt_av1_highbd_warp_affine_c(const int32_t* mat, const uint8_t* ref8b, const uint8_t* ref2b, int width, int height,
+                                  int stride8b, int stride2b, uint16_t* pred, int p_col, int p_row, int p_width,
                                   int p_height, int p_stride, int subsampling_x, int subsampling_y, int bd,
-                                  ConvolveParams *conv_params, int16_t alpha, int16_t beta, int16_t gamma,
+                                  ConvolveParams* conv_params, int16_t alpha, int16_t beta, int16_t gamma,
                                   int16_t delta) {
     int32_t   tmp[15 * 8];
     const int reduce_bits_horiz = conv_params->round_0 + AOMMAX(bd + FILTER_BITS - conv_params->round_0 - 14, 0);
@@ -761,7 +764,7 @@ void svt_av1_highbd_warp_affine_c(const int32_t *mat, const uint8_t *ref8b, cons
                     int       ix   = ix4 + l - 3;
                     const int offs = ROUND_POWER_OF_TWO(sx, WARPEDDIFF_PREC_BITS) + WARPEDPIXEL_PREC_SHIFTS;
                     assert(offs >= 0 && offs <= WARPEDPIXEL_PREC_SHIFTS * 3);
-                    const int16_t *coeffs = svt_aom_warped_filter[offs];
+                    const int16_t* coeffs = svt_aom_warped_filter[offs];
 
                     int32_t sum = 1 << offset_bits_horiz;
                     for (int m = 0; m < 8; ++m) {
@@ -783,16 +786,18 @@ void svt_av1_highbd_warp_affine_c(const int32_t *mat, const uint8_t *ref8b, cons
                 for (int l = -4; l < AOMMIN(4, p_col + p_width - j - 4); ++l) {
                     const int offs = ROUND_POWER_OF_TWO(sy, WARPEDDIFF_PREC_BITS) + WARPEDPIXEL_PREC_SHIFTS;
                     assert(offs >= 0 && offs <= WARPEDPIXEL_PREC_SHIFTS * 3);
-                    const int16_t *coeffs = svt_aom_warped_filter[offs];
+                    const int16_t* coeffs = svt_aom_warped_filter[offs];
 
                     int32_t sum = 1 << offset_bits_vert;
-                    for (int m = 0; m < 8; ++m) sum += tmp[(k + m + 4) * 8 + (l + 4)] * coeffs[m];
+                    for (int m = 0; m < 8; ++m) {
+                        sum += tmp[(k + m + 4) * 8 + (l + 4)] * coeffs[m];
+                    }
                     if (conv_params->is_compound) {
-                        ConvBufType *p =
+                        ConvBufType* p =
                             &conv_params->dst[(i - p_row + k + 4) * conv_params->dst_stride + (j - p_col + l + 4)];
                         sum = ROUND_POWER_OF_TWO(sum, reduce_bits_vert);
                         if (conv_params->do_average) {
-                            uint16_t *dst16 = &pred[(i - p_row + k + 4) * p_stride + (j - p_col + l + 4)];
+                            uint16_t* dst16 = &pred[(i - p_row + k + 4) * p_stride + (j - p_col + l + 4)];
                             int32_t   tmp32 = *p;
                             if (conv_params->use_jnt_comp_avg) {
                                 tmp32 = tmp32 * conv_params->fwd_offset + sum * conv_params->bck_offset;
@@ -804,10 +809,11 @@ void svt_av1_highbd_warp_affine_c(const int32_t *mat, const uint8_t *ref8b, cons
                             tmp32 = tmp32 - (1 << (offset_bits - conv_params->round_1)) -
                                 (1 << (offset_bits - conv_params->round_1 - 1));
                             *dst16 = clip_pixel_highbd(ROUND_POWER_OF_TWO(tmp32, round_bits), bd);
-                        } else
+                        } else {
                             *p = sum;
+                        }
                     } else {
-                        uint16_t *p = &pred[(i - p_row + k + 4) * p_stride + (j - p_col + l + 4)];
+                        uint16_t* p = &pred[(i - p_row + k + 4) * p_stride + (j - p_col + l + 4)];
                         sum         = ROUND_POWER_OF_TWO(sum, reduce_bits_vert);
                         assert(0 <= sum && sum < (1 << (bd + 2)));
                         *p = clip_pixel_highbd(sum - (1 << (bd - 1)) - (1 << bd), bd);
@@ -819,22 +825,22 @@ void svt_av1_highbd_warp_affine_c(const int32_t *mat, const uint8_t *ref8b, cons
     }
 }
 
-static void highbd_warp_plane(WarpedMotionParams *wm, const uint8_t *const ref8, const uint8_t *const ref_2b, int width,
-                              int height, int stride, const uint8_t *const pred8, int p_col, int p_row, int p_width,
+static void highbd_warp_plane(WarpedMotionParams* wm, const uint8_t* const ref8, const uint8_t* const ref_2b, int width,
+                              int height, int stride, const uint8_t* const pred8, int p_col, int p_row, int p_width,
                               int p_height, int p_stride, int subsampling_x, int subsampling_y, int bd,
-                              ConvolveParams *conv_params) {
+                              ConvolveParams* conv_params) {
     assert(wm->wmtype <= AFFINE);
     if (wm->wmtype == ROTZOOM) {
         wm->wmmat[5] = wm->wmmat[2];
         wm->wmmat[4] = -wm->wmmat[3];
     }
-    const int32_t *const mat   = wm->wmmat;
+    const int32_t* const mat   = wm->wmmat;
     const int16_t        alpha = wm->alpha;
     const int16_t        beta  = wm->beta;
     const int16_t        gamma = wm->gamma;
     const int16_t        delta = wm->delta;
 
-    uint16_t *pred = (uint16_t *)pred8;
+    uint16_t* pred = (uint16_t*)pred8;
     svt_av1_highbd_warp_affine(mat,
                                ref8,
                                ref_2b,
@@ -858,10 +864,10 @@ static void highbd_warp_plane(WarpedMotionParams *wm, const uint8_t *const ref8,
                                delta);
 }
 
-void svt_av1_warp_plane(WarpedMotionParams *wm, int use_hbd, int bd, const uint8_t *ref, const uint8_t *ref_2b,
-                        int width, int height, int stride, uint8_t *pred, int p_col, int p_row, int p_width,
-                        int p_height, int p_stride, int subsampling_x, int subsampling_y, ConvolveParams *conv_params) {
-    if (use_hbd)
+void svt_av1_warp_plane(WarpedMotionParams* wm, int use_hbd, int bd, const uint8_t* ref, const uint8_t* ref_2b,
+                        int width, int height, int stride, uint8_t* pred, int p_col, int p_row, int p_width,
+                        int p_height, int p_stride, int subsampling_x, int subsampling_y, ConvolveParams* conv_params) {
+    if (use_hbd) {
         highbd_warp_plane(wm,
                           ref,
                           ref_2b,
@@ -878,7 +884,7 @@ void svt_av1_warp_plane(WarpedMotionParams *wm, int use_hbd, int bd, const uint8
                           subsampling_y,
                           bd,
                           conv_params);
-    else
+    } else {
         svt_warp_plane(wm,
                        ref,
                        width,
@@ -893,13 +899,15 @@ void svt_av1_warp_plane(WarpedMotionParams *wm, int use_hbd, int bd, const uint8
                        subsampling_x,
                        subsampling_y,
                        conv_params);
+    }
 }
 
 // Returns 1 on success or 0 on an invalid affine set
-int svt_get_shear_params(WarpedMotionParams *wm) {
-    const int32_t *mat = wm->wmmat;
-    if (!is_affine_valid(wm))
+int svt_get_shear_params(WarpedMotionParams* wm) {
+    const int32_t* mat = wm->wmmat;
+    if (!is_affine_valid(wm)) {
         return 0;
+    }
     wm->alpha = clamp(mat[2] - (1 << WARPEDMODEL_PREC_BITS), INT16_MIN, INT16_MAX);
     wm->beta  = clamp(mat[3], INT16_MIN, INT16_MAX);
     int16_t shift;
@@ -915,14 +923,15 @@ int svt_get_shear_params(WarpedMotionParams *wm) {
     wm->gamma = ROUND_POWER_OF_TWO_SIGNED(wm->gamma, WARP_PARAM_REDUCE_BITS) * (1 << WARP_PARAM_REDUCE_BITS);
     wm->delta = ROUND_POWER_OF_TWO_SIGNED(wm->delta, WARP_PARAM_REDUCE_BITS) * (1 << WARP_PARAM_REDUCE_BITS);
 
-    if (!is_affine_shear_allowed(wm->alpha, wm->beta, wm->gamma, wm->delta))
+    if (!is_affine_shear_allowed(wm->alpha, wm->beta, wm->gamma, wm->delta)) {
         return 0;
+    }
 
     return 1;
 }
 
 // Select samples according to the motion vector difference.
-uint8_t svt_aom_select_samples(Mv mv, int *pts, int *pts_inref, int len, BlockSize bsize) {
+uint8_t svt_aom_select_samples(Mv mv, int* pts, int* pts_inref, int len, BlockSize bsize) {
     const int bw     = block_size_wide[bsize];
     const int bh     = block_size_high[bsize];
     const int thresh = clamp(AOMMAX(bw, bh), 16, 112);
@@ -931,8 +940,9 @@ uint8_t svt_aom_select_samples(Mv mv, int *pts, int *pts_inref, int len, BlockSi
     // Only keep the samples with MV differences within threshold.
     for (int i = 0; i < len; ++i) {
         const int diff = abs(pts_inref[2 * i] - pts[2 * i] - mv.x) + abs(pts_inref[2 * i + 1] - pts[2 * i + 1] - mv.y);
-        if (diff > thresh)
+        if (diff > thresh) {
             continue;
+        }
         if (ret != i) {
             memcpy(pts + 2 * ret, pts + 2 * i, 2 * sizeof(pts[0]));
             memcpy(pts_inref + 2 * ret, pts_inref + 2 * i, 2 * sizeof(pts_inref[0]));

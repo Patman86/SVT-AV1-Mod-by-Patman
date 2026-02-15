@@ -15,8 +15,8 @@
 #include "mem_neon.h"
 #include "sum_neon.h"
 
-static inline void highbd_sse_8x1_init_neon(const uint16_t *src, const uint16_t *ref, uint32x4_t *sse_acc0,
-                                            uint32x4_t *sse_acc1) {
+static inline void highbd_sse_8x1_init_neon(const uint16_t* src, const uint16_t* ref, uint32x4_t* sse_acc0,
+                                            uint32x4_t* sse_acc1) {
     uint16x8_t s = vld1q_u16(src);
     uint16x8_t r = vld1q_u16(ref);
 
@@ -28,8 +28,8 @@ static inline void highbd_sse_8x1_init_neon(const uint16_t *src, const uint16_t 
     *sse_acc1 = vmull_u16(abs_diff_hi, abs_diff_hi);
 }
 
-static inline void highbd_sse_8x1_neon(const uint16_t *src, const uint16_t *ref, uint32x4_t *sse_acc0,
-                                       uint32x4_t *sse_acc1) {
+static inline void highbd_sse_8x1_neon(const uint16_t* src, const uint16_t* ref, uint32x4_t* sse_acc0,
+                                       uint32x4_t* sse_acc1) {
     uint16x8_t s = vld1q_u16(src);
     uint16x8_t r = vld1q_u16(ref);
 
@@ -41,7 +41,7 @@ static inline void highbd_sse_8x1_neon(const uint16_t *src, const uint16_t *ref,
     *sse_acc1 = vmlal_u16(*sse_acc1, abs_diff_hi, abs_diff_hi);
 }
 
-static inline int64_t highbd_sse_128xh_neon(const uint16_t *src, int src_stride, const uint16_t *ref, int ref_stride,
+static inline int64_t highbd_sse_128xh_neon(const uint16_t* src, int src_stride, const uint16_t* ref, int ref_stride,
                                             int height) {
     uint32x4_t sse[8];
     highbd_sse_8x1_init_neon(src + 0 * 8, ref + 0 * 8, &sse[0], &sse[1]);
@@ -89,7 +89,7 @@ static inline int64_t highbd_sse_128xh_neon(const uint16_t *src, int src_stride,
     return horizontal_long_add_u32x4_x8(sse);
 }
 
-static inline int64_t highbd_sse_64xh_neon(const uint16_t *src, int src_stride, const uint16_t *ref, int ref_stride,
+static inline int64_t highbd_sse_64xh_neon(const uint16_t* src, int src_stride, const uint16_t* ref, int ref_stride,
                                            int height) {
     uint32x4_t sse[8];
     highbd_sse_8x1_init_neon(src + 0 * 8, ref + 0 * 8, &sse[0], &sse[1]);
@@ -121,7 +121,7 @@ static inline int64_t highbd_sse_64xh_neon(const uint16_t *src, int src_stride, 
     return horizontal_long_add_u32x4_x8(sse);
 }
 
-static inline int64_t highbd_sse_32xh_neon(const uint16_t *src, int src_stride, const uint16_t *ref, int ref_stride,
+static inline int64_t highbd_sse_32xh_neon(const uint16_t* src, int src_stride, const uint16_t* ref, int ref_stride,
                                            int height) {
     uint32x4_t sse[8];
     highbd_sse_8x1_init_neon(src + 0 * 8, ref + 0 * 8, &sse[0], &sse[1]);
@@ -145,7 +145,7 @@ static inline int64_t highbd_sse_32xh_neon(const uint16_t *src, int src_stride, 
     return horizontal_long_add_u32x4_x8(sse);
 }
 
-static inline int64_t highbd_sse_16xh_neon(const uint16_t *src, int src_stride, const uint16_t *ref, int ref_stride,
+static inline int64_t highbd_sse_16xh_neon(const uint16_t* src, int src_stride, const uint16_t* ref, int ref_stride,
                                            int height) {
     uint32x4_t sse[4];
     highbd_sse_8x1_init_neon(src + 0 * 8, ref + 0 * 8, &sse[0], &sse[1]);
@@ -165,7 +165,7 @@ static inline int64_t highbd_sse_16xh_neon(const uint16_t *src, int src_stride, 
     return horizontal_long_add_u32x4_x4(sse);
 }
 
-static inline int64_t highbd_sse_8xh_neon(const uint16_t *src, int src_stride, const uint16_t *ref, int ref_stride,
+static inline int64_t highbd_sse_8xh_neon(const uint16_t* src, int src_stride, const uint16_t* ref, int ref_stride,
                                           int height) {
     uint32x4_t sse[2];
     highbd_sse_8x1_init_neon(src, ref, &sse[0], &sse[1]);
@@ -183,7 +183,7 @@ static inline int64_t highbd_sse_8xh_neon(const uint16_t *src, int src_stride, c
     return horizontal_long_add_u32x4_x2(sse);
 }
 
-static inline int64_t highbd_sse_4xh_neon(const uint16_t *src, int src_stride, const uint16_t *ref, int ref_stride,
+static inline int64_t highbd_sse_4xh_neon(const uint16_t* src, int src_stride, const uint16_t* ref, int ref_stride,
                                           int height) {
     // Peel the first loop iteration.
     uint16x4_t s = vld1_u16(src);
@@ -209,7 +209,7 @@ static inline int64_t highbd_sse_4xh_neon(const uint16_t *src, int src_stride, c
     return vaddlvq_u32(sse);
 }
 
-static inline int64_t highbd_sse_wxh_neon(const uint16_t *src, int src_stride, const uint16_t *ref, int ref_stride,
+static inline int64_t highbd_sse_wxh_neon(const uint16_t* src, int src_stride, const uint16_t* ref, int ref_stride,
                                           int width, int height) {
     // { 0, 1, 2, 3, 4, 5, 6, 7 }
     uint16x8_t k01234567      = vmovl_u8(vcreate_u8(0x0706050403020100));
@@ -250,37 +250,51 @@ static inline int64_t highbd_sse_wxh_neon(const uint16_t *src, int src_stride, c
     return sse;
 }
 
-int64_t svt_aom_highbd_sse_neon(const uint8_t *src8, int src_stride, const uint8_t *ref8, int ref_stride, int width,
+int64_t svt_aom_highbd_sse_neon(const uint8_t* src8, int src_stride, const uint8_t* ref8, int ref_stride, int width,
                                 int height) {
-    uint16_t *src = (uint16_t *)src8;
-    uint16_t *ref = (uint16_t *)ref8;
+    uint16_t* src = (uint16_t*)src8;
+    uint16_t* ref = (uint16_t*)ref8;
 
     switch (width) {
-    case 4: return highbd_sse_4xh_neon(src, src_stride, ref, ref_stride, height);
-    case 8: return highbd_sse_8xh_neon(src, src_stride, ref, ref_stride, height);
-    case 16: return highbd_sse_16xh_neon(src, src_stride, ref, ref_stride, height);
-    case 32: return highbd_sse_32xh_neon(src, src_stride, ref, ref_stride, height);
-    case 64: return highbd_sse_64xh_neon(src, src_stride, ref, ref_stride, height);
-    case 128: return highbd_sse_128xh_neon(src, src_stride, ref, ref_stride, height);
-    default: return highbd_sse_wxh_neon(src, src_stride, ref, ref_stride, width, height);
+    case 4:
+        return highbd_sse_4xh_neon(src, src_stride, ref, ref_stride, height);
+    case 8:
+        return highbd_sse_8xh_neon(src, src_stride, ref, ref_stride, height);
+    case 16:
+        return highbd_sse_16xh_neon(src, src_stride, ref, ref_stride, height);
+    case 32:
+        return highbd_sse_32xh_neon(src, src_stride, ref, ref_stride, height);
+    case 64:
+        return highbd_sse_64xh_neon(src, src_stride, ref, ref_stride, height);
+    case 128:
+        return highbd_sse_128xh_neon(src, src_stride, ref, ref_stride, height);
+    default:
+        return highbd_sse_wxh_neon(src, src_stride, ref, ref_stride, width, height);
     }
 }
 
-uint64_t svt_full_distortion_kernel16_bits_neon(uint8_t *input8, uint32_t input_offset, uint32_t input_stride,
-                                                uint8_t *recon8, int32_t recon_offset, uint32_t recon_stride,
+uint64_t svt_full_distortion_kernel16_bits_neon(uint8_t* input8, uint32_t input_offset, uint32_t input_stride,
+                                                uint8_t* recon8, int32_t recon_offset, uint32_t recon_stride,
                                                 uint32_t area_width, uint32_t area_height) {
-    uint16_t *input = (uint16_t *)input8;
-    uint16_t *recon = (uint16_t *)recon8;
+    uint16_t* input = (uint16_t*)input8;
+    uint16_t* recon = (uint16_t*)recon8;
     input += input_offset;
     recon += recon_offset;
 
     switch (area_width) {
-    case 4: return highbd_sse_4xh_neon(input, input_stride, recon, recon_stride, area_height);
-    case 8: return highbd_sse_8xh_neon(input, input_stride, recon, recon_stride, area_height);
-    case 16: return highbd_sse_16xh_neon(input, input_stride, recon, recon_stride, area_height);
-    case 32: return highbd_sse_32xh_neon(input, input_stride, recon, recon_stride, area_height);
-    case 64: return highbd_sse_64xh_neon(input, input_stride, recon, recon_stride, area_height);
-    case 128: return highbd_sse_128xh_neon(input, input_stride, recon, recon_stride, area_height);
-    default: return highbd_sse_wxh_neon(input, input_stride, recon, recon_stride, area_width, area_height);
+    case 4:
+        return highbd_sse_4xh_neon(input, input_stride, recon, recon_stride, area_height);
+    case 8:
+        return highbd_sse_8xh_neon(input, input_stride, recon, recon_stride, area_height);
+    case 16:
+        return highbd_sse_16xh_neon(input, input_stride, recon, recon_stride, area_height);
+    case 32:
+        return highbd_sse_32xh_neon(input, input_stride, recon, recon_stride, area_height);
+    case 64:
+        return highbd_sse_64xh_neon(input, input_stride, recon, recon_stride, area_height);
+    case 128:
+        return highbd_sse_128xh_neon(input, input_stride, recon, recon_stride, area_height);
+    default:
+        return highbd_sse_wxh_neon(input, input_stride, recon, recon_stride, area_width, area_height);
     }
 }

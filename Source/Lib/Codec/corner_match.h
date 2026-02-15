@@ -19,9 +19,9 @@
 #include "definitions.h"
 #include "global_motion.h"
 
-int svt_av1_determine_correspondence(uint8_t *frm, int *frm_corners, int num_frm_corners, uint8_t *ref,
-                                     int *ref_corners, int num_ref_corners, int width, int height, int frm_stride,
-                                     int ref_stride, Correspondence *correspondences, uint8_t match_sz);
+int svt_av1_determine_correspondence(uint8_t* frm, int* frm_corners, int num_frm_corners, uint8_t* ref,
+                                     int* ref_corners, int num_ref_corners, int width, int height, int frm_stride,
+                                     int ref_stride, Correspondence* correspondences, uint8_t match_sz);
 
 DECLARE_ALIGNED(16, extern const uint8_t, svt_aom_compute_cross_byte_mask[8][16]);
 

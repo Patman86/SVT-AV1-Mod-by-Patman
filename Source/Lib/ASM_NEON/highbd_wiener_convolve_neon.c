@@ -43,12 +43,12 @@ static inline uint16x8_t highbd_wiener_convolve5_8_2d_h(const int16x8_t s0, cons
     return vminq_u16(vcombine_u16(res_lo, res_hi), im_max_val);
 }
 
-static inline void highbd_convolve_add_src_5tap_horiz(const uint16_t *src_ptr, ptrdiff_t src_stride, uint16_t *dst_ptr,
+static inline void highbd_convolve_add_src_5tap_horiz(const uint16_t* src_ptr, ptrdiff_t src_stride, uint16_t* dst_ptr,
                                                       ptrdiff_t dst_stride, int w, int h, const int16x4_t x_filter,
                                                       const int32x4_t round_vec, const uint16x8_t im_max_val) {
     do {
-        const int16_t *s     = (int16_t *)src_ptr;
-        uint16_t      *d     = dst_ptr;
+        const int16_t* s     = (int16_t*)src_ptr;
+        uint16_t*      d     = dst_ptr;
         int            width = w;
 
         do {
@@ -93,12 +93,12 @@ static inline uint16x8_t highbd_wiener_convolve7_8_2d_h(const int16x8_t s0, cons
     return vminq_u16(vcombine_u16(res_lo, res_hi), im_max_val);
 }
 
-static inline void highbd_convolve_add_src_7tap_horiz(const uint16_t *src_ptr, ptrdiff_t src_stride, uint16_t *dst_ptr,
+static inline void highbd_convolve_add_src_7tap_horiz(const uint16_t* src_ptr, ptrdiff_t src_stride, uint16_t* dst_ptr,
                                                       ptrdiff_t dst_stride, int w, int h, const int16x4_t x_filter,
                                                       const int32x4_t round_vec, const uint16x8_t im_max_val) {
     do {
-        const int16_t *s     = (int16_t *)src_ptr;
-        uint16_t      *d     = dst_ptr;
+        const int16_t* s     = (int16_t*)src_ptr;
+        uint16_t*      d     = dst_ptr;
         int            width = w;
 
         do {
@@ -146,12 +146,12 @@ static inline uint16x8_t highbd_wiener_convolve5_8_2d_v(const int16x8_t s0, cons
     return vminq_u16(vcombine_u16(res_lo, res_hi), res_max_val);
 }
 
-static inline void highbd_convolve_add_src_5tap_vert(const uint16_t *src_ptr, ptrdiff_t src_stride, uint16_t *dst_ptr,
+static inline void highbd_convolve_add_src_5tap_vert(const uint16_t* src_ptr, ptrdiff_t src_stride, uint16_t* dst_ptr,
                                                      ptrdiff_t dst_stride, int w, int h, const int16x4_t y_filter,
                                                      const int32x4_t round_vec, const uint16x8_t res_max_val) {
     do {
-        const int16_t *s      = (int16_t *)src_ptr;
-        uint16_t      *d      = dst_ptr;
+        const int16_t* s      = (int16_t*)src_ptr;
+        uint16_t*      d      = dst_ptr;
         int            height = h;
 
         while (height > 3) {
@@ -219,12 +219,12 @@ static inline uint16x8_t highbd_wiener_convolve7_8_2d_v(const int16x8_t s0, cons
     return vminq_u16(vcombine_u16(res_lo, res_hi), res_max_val);
 }
 
-static inline void highbd_convolve_add_src_7tap_vert(const uint16_t *src_ptr, ptrdiff_t src_stride, uint16_t *dst_ptr,
+static inline void highbd_convolve_add_src_7tap_vert(const uint16_t* src_ptr, ptrdiff_t src_stride, uint16_t* dst_ptr,
                                                      ptrdiff_t dst_stride, int w, int h, const int16x4_t y_filter,
                                                      const int32x4_t round_vec, const uint16x8_t res_max_val) {
     do {
-        const int16_t *s      = (int16_t *)src_ptr;
-        uint16_t      *d      = dst_ptr;
+        const int16_t* s      = (int16_t*)src_ptr;
+        uint16_t*      d      = dst_ptr;
         int            height = h;
 
         while (height > 3) {
@@ -266,7 +266,7 @@ static inline void highbd_convolve_add_src_7tap_vert(const uint16_t *src_ptr, pt
     } while (w != 0);
 }
 
-static inline int get_wiener_filter_taps(const int16_t *filter) {
+static inline int get_wiener_filter_taps(const int16_t* filter) {
     assert(filter[7] == 0);
     if (filter[0] == 0 && filter[6] == 0) {
         return WIENER_WIN_REDUCED;
@@ -274,10 +274,10 @@ static inline int get_wiener_filter_taps(const int16_t *filter) {
     return WIENER_WIN;
 }
 
-void svt_av1_highbd_wiener_convolve_add_src_neon(const uint8_t *const src8, ptrdiff_t src_stride, uint8_t *dst8,
-                                                 ptrdiff_t dst_stride, const int16_t *const x_filter,
-                                                 const int16_t *const y_filter, int w, int h,
-                                                 const ConvolveParams *conv_params, int bd) {
+void svt_av1_highbd_wiener_convolve_add_src_neon(const uint8_t* const src8, ptrdiff_t src_stride, uint8_t* dst8,
+                                                 ptrdiff_t dst_stride, const int16_t* const x_filter,
+                                                 const int16_t* const y_filter, int w, int h,
+                                                 const ConvolveParams* conv_params, int bd) {
     (void)conv_params;
     assert(w % 8 == 0);
     assert(w <= MAX_SB_SIZE && h <= MAX_SB_SIZE);
@@ -305,8 +305,8 @@ void svt_av1_highbd_wiener_convolve_add_src_neon(const uint8_t *const src8, ptrd
     const uint16x8_t res_max_val    = vdupq_n_u16((1 << bd) - 1);
     const int32x4_t  vert_round_vec = vdupq_n_s32(-(1 << (bd + 2 * FILTER_BITS - WIENER_ROUND0_BITS - 1)));
 
-    uint16_t *src = CONVERT_TO_SHORTPTR(src8);
-    uint16_t *dst = CONVERT_TO_SHORTPTR(dst8);
+    uint16_t* src = CONVERT_TO_SHORTPTR(src8);
+    uint16_t* dst = CONVERT_TO_SHORTPTR(dst8);
 
     if (x_filter_taps == WIENER_WIN_REDUCED) {
         highbd_convolve_add_src_5tap_horiz(src - horiz_offset - vert_offset,

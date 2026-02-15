@@ -26,7 +26,6 @@ endif()
 
 set(all_files
     av1_txfm_sse2.h
-    avc_style_mcp_intrin_sse.c
     compute_mean_intrin_sse2.c
     compute_mean_sse2.h
     convolve_2d_sse2.c

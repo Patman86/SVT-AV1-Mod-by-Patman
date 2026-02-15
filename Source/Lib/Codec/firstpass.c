@@ -1,4 +1,3 @@
-// clang-format off
 /*
  * Copyright (c) 2016, Alliance for Open Media. All rights reserved
  *
@@ -23,7 +22,6 @@
 #include "svt_log.h"
 #include "md_process.h"
 #include "coding_loop.h"
-#include "dwt.h" // to move to firstpass.c
 #include "pd_process.h"
 #include "md_config_process.h"
 #include "mv.h"
@@ -48,10 +46,11 @@
 #define STATS_CAPABILITY_INIT 100
 //1.5 times larger than request.
 #define STATS_CAPABILITY_GROW(s) (s * 3 / 2)
-static EbErrorType realloc_stats_out(SequenceControlSet *scs, FirstPassStatsOut *out,
-                                     uint64_t frame_number) {
-    if (frame_number < out->size)
+
+static EbErrorType realloc_stats_out(SequenceControlSet* scs, FirstPassStatsOut* out, uint64_t frame_number) {
+    if (frame_number < out->size) {
         return EB_ErrorNone;
+    }
 
     if ((int64_t)frame_number >= (int64_t)out->capability - 1) {
         size_t capability = (int64_t)frame_number >= (int64_t)STATS_CAPABILITY_INIT - 1
@@ -65,8 +64,7 @@ static EbErrorType realloc_stats_out(SequenceControlSet *scs, FirstPassStatsOut 
             if (frame_number) {
                 stats_in_start_offset = scs->twopass.stats_buf_ctx->stats_in_start - out->stat;
                 stats_in_offset       = scs->twopass.stats_in - out->stat;
-                stats_in_end_offset   = scs->twopass.stats_buf_ctx->stats_in_end_write -
-                    out->stat;
+                stats_in_end_offset   = scs->twopass.stats_buf_ctx->stats_in_end_write - out->stat;
             }
             EB_REALLOC_ARRAY(out->stat, capability);
             // restore the pointers after re-allocation is done
@@ -82,9 +80,8 @@ static EbErrorType realloc_stats_out(SequenceControlSet *scs, FirstPassStatsOut 
     return EB_ErrorNone;
 }
 
-static AOM_INLINE void output_stats(SequenceControlSet *scs, const FIRSTPASS_STATS *stats,
-                                    uint64_t frame_number) {
-    FirstPassStatsOut *stats_out = &scs->enc_ctx->stats_out;
+static AOM_INLINE void output_stats(SequenceControlSet* scs, const FIRSTPASS_STATS* stats, uint64_t frame_number) {
+    FirstPassStatsOut* stats_out = &scs->enc_ctx->stats_out;
     svt_block_on_mutex(scs->enc_ctx->stat_file_mutex);
     if (realloc_stats_out(scs, stats_out, frame_number) != EB_ErrorNone) {
         SVT_ERROR("realloc_stats_out request %d entries failed failed\n", frame_number);
@@ -95,11 +92,12 @@ static AOM_INLINE void output_stats(SequenceControlSet *scs, const FIRSTPASS_STA
     // TEMP debug code
 #if OUTPUT_FPF
     {
-        FILE *fpfile;
-        if (frame_number == 0)
+        FILE* fpfile;
+        if (frame_number == 0) {
             fpfile = fopen("firstpass.stt", "w");
-        else
+        } else {
             fpfile = fopen("firstpass.stt", "a");
+        }
         fprintf(fpfile,
                 "%12.0lf %12.4lf %12.0lf %12.0lf %12.0lf %12.4lf %12.4lf"
                 "%12.4lf %12.4lf %12.4lf %12.4lf %12.4lf %12.4lf %12.4lf %12.4lf"
@@ -131,22 +129,25 @@ static AOM_INLINE void output_stats(SequenceControlSet *scs, const FIRSTPASS_STA
 #endif
     svt_release_mutex(scs->enc_ctx->stat_file_mutex);
 }
-void svt_av1_twopass_zero_stats(FIRSTPASS_STATS *section) {
-    section->frame              = 0.0;
-    section->coded_error        = 0.0;
-    section->count    = 0.0;
-    section->duration = 1.0;
+
+void svt_av1_twopass_zero_stats(FIRSTPASS_STATS* section) {
+    section->frame       = 0.0;
+    section->coded_error = 0.0;
+    section->count       = 0.0;
+    section->duration    = 1.0;
     memset(&section->stat_struct, 0, sizeof(StatStruct));
 }
-void svt_av1_accumulate_stats(FIRSTPASS_STATS *section, const FIRSTPASS_STATS *frame) {
+
+void svt_av1_accumulate_stats(FIRSTPASS_STATS* section, const FIRSTPASS_STATS* frame) {
     section->frame += frame->frame;
     section->coded_error += frame->coded_error;
     section->count += frame->count;
     section->duration += frame->duration;
 }
-void svt_av1_end_first_pass(PictureParentControlSet *pcs) {
-    SequenceControlSet *scs = pcs->scs;
-    TWO_PASS *          twopass = &scs->twopass;
+
+void svt_av1_end_first_pass(PictureParentControlSet* pcs) {
+    SequenceControlSet* scs     = pcs->scs;
+    TWO_PASS*           twopass = &scs->twopass;
 
     if (twopass->stats_buf_ctx->total_stats) {
         // add the total to the end of the file
@@ -158,6 +159,7 @@ void svt_av1_end_first_pass(PictureParentControlSet *pcs) {
         svt_release_mutex(twopass->stats_buf_ctx->stats_in_write_mutex);
     }
 }
+
 // Updates the first pass stats of this frame.
 // Input:
 //   stats: stats accumulated for this frame.
@@ -168,34 +170,33 @@ void svt_av1_end_first_pass(PictureParentControlSet *pcs) {
 //   twopass->stats_buf_ctx->stats_in_end: the pointer to the current stats,
 //                                         update its value and its position
 //                                         in the buffer.
-void update_firstpass_stats(PictureParentControlSet *pcs, const int frame_number,
-    const double ts_duration, StatStruct *stat_struct) {
-    SequenceControlSet *scs = pcs->scs;
-    TWO_PASS *          twopass = &scs->twopass;
+void update_firstpass_stats(PictureParentControlSet* pcs, const int frame_number, const double ts_duration,
+                            StatStruct* stat_struct) {
+    SequenceControlSet* scs     = pcs->scs;
+    TWO_PASS*           twopass = &scs->twopass;
 
     svt_block_on_mutex(twopass->stats_buf_ctx->stats_in_write_mutex);
 
-    FIRSTPASS_STATS *this_frame_stats = twopass->stats_buf_ctx->stats_in_end_write;
+    FIRSTPASS_STATS* this_frame_stats = twopass->stats_buf_ctx->stats_in_end_write;
     FIRSTPASS_STATS  fps;
-    fps.frame = frame_number;
+    fps.frame       = frame_number;
     fps.coded_error = 0;
-    fps.count = 1.0;
+    fps.count       = 1.0;
     // TODO(paulwilkins):  Handle the case when duration is set to 0, or
     // something less than the full time between subsequent values of
     // cpi->source_time_stamp.
     fps.duration = (double)ts_duration;
     memset(&fps.stat_struct, 0, sizeof(StatStruct));
-    fps.stat_struct.poc     = stat_struct->poc;
-    fps.stat_struct.qindex = stat_struct->qindex;
-    fps.stat_struct.total_num_bits = stat_struct->total_num_bits;
+    fps.stat_struct.poc                  = stat_struct->poc;
+    fps.stat_struct.qindex               = stat_struct->qindex;
+    fps.stat_struct.total_num_bits       = stat_struct->total_num_bits;
     fps.stat_struct.temporal_layer_index = stat_struct->temporal_layer_index;
-    fps.stat_struct.worst_qindex = stat_struct->worst_qindex;
+    fps.stat_struct.worst_qindex         = stat_struct->worst_qindex;
     // We will store the stats inside the persistent twopass struct (and NOT the
     // local variable 'fps'), and then cpi->output_pkt_list will point to it.
     *this_frame_stats = fps;
     output_stats(scs, &fps, pcs->picture_number);
-    if (twopass->stats_buf_ctx->total_stats != NULL &&
-        scs->static_config.pass == ENC_FIRST_PASS) {
+    if (twopass->stats_buf_ctx->total_stats != NULL && scs->static_config.pass == ENC_FIRST_PASS) {
         svt_av1_accumulate_stats(twopass->stats_buf_ctx->total_stats, &fps);
     }
     /*In the case of two pass, first pass uses it as a circular buffer,
@@ -207,18 +208,18 @@ void update_firstpass_stats(PictureParentControlSet *pcs, const int frame_number
     }
     svt_release_mutex(twopass->stats_buf_ctx->stats_in_write_mutex);
 }
-void first_pass_frame_end_one_pass(PictureParentControlSet *pcs) {
 
-    SequenceControlSet *scs = pcs->scs;
-    TWO_PASS *          twopass = &scs->twopass;
+void first_pass_frame_end_one_pass(PictureParentControlSet* pcs) {
+    SequenceControlSet* scs     = pcs->scs;
+    TWO_PASS*           twopass = &scs->twopass;
 
     svt_block_on_mutex(twopass->stats_buf_ctx->stats_in_write_mutex);
-    FIRSTPASS_STATS *this_frame_stats = twopass->stats_buf_ctx->stats_in_end_write;
+    FIRSTPASS_STATS* this_frame_stats = twopass->stats_buf_ctx->stats_in_end_write;
     FIRSTPASS_STATS  fps;
     memset(&fps, 0, sizeof(FIRSTPASS_STATS));
     memset(&fps.stat_struct, 0, sizeof(StatStruct));
-    fps.frame = (double)pcs->picture_number;
-    fps.count = 1.0;
+    fps.frame    = (double)pcs->picture_number;
+    fps.count    = 1.0;
     fps.duration = (double)pcs->ts_duration;
 
     // We will store the stats inside the persistent twopass struct (and NOT the
@@ -230,5 +231,3 @@ void first_pass_frame_end_one_pass(PictureParentControlSet *pcs) {
     twopass->stats_buf_ctx->stats_in_end_write++;
     svt_release_mutex(twopass->stats_buf_ctx->stats_in_write_mutex);
 }
-
-// clang-format on

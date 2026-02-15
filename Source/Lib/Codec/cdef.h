@@ -25,7 +25,6 @@ extern "C" {
 #define CDEF_BLOCKSIZE 64
 #define CDEF_BLOCKSIZE_LOG2 6
 #define CDEF_NBLOCKS ((1 << MAX_SB_SIZE_LOG2) / 8)
-#define CDEF_SB_SHIFT (MAX_SB_SIZE_LOG2 - CDEF_BLOCKSIZE_LOG2)
 
 /* We need to buffer three vertical lines. */
 #define CDEF_VBORDER (3)
@@ -42,16 +41,14 @@ extern const int32_t svt_aom_eb_cdef_pri_taps[2][2];
 extern const int32_t svt_aom_eb_cdef_sec_taps[2][2];
 extern const int (*const svt_aom_eb_cdef_directions)[2];
 
-#define REDUCED_PRI_STRENGTHS 8
-#define REDUCED_TOTAL_STRENGTHS (REDUCED_PRI_STRENGTHS * CDEF_SEC_STRENGTHS)
 #define TOTAL_STRENGTHS (CDEF_PRI_STRENGTHS * CDEF_SEC_STRENGTHS)
 
-void svt_aom_copy_sb8_16(uint16_t *dst, int32_t dstride, const uint8_t *src, int32_t src_voffset, int32_t src_hoffset,
+void svt_aom_copy_sb8_16(uint16_t* dst, int32_t dstride, const uint8_t* src, int32_t src_voffset, int32_t src_hoffset,
                          int32_t sstride, int32_t vsize, int32_t hsize, bool is_16bit);
 
-void svt_cdef_filter_fb(uint8_t *dst8, uint16_t *dst16, int32_t dstride, uint16_t *in, int32_t xdec, int32_t ydec,
-                        uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t *dirinit,
-                        int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t pli, CdefList *dlist, int32_t cdef_count,
+void svt_cdef_filter_fb(uint8_t* dst8, uint16_t* dst16, int32_t dstride, uint16_t* in, int32_t xdec, int32_t ydec,
+                        uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t* dirinit,
+                        int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t pli, CdefList* dlist, int32_t cdef_count,
                         int32_t level, int32_t sec_strength, int32_t pri_damping, int32_t sec_damping,
                         int32_t coeff_shift, uint8_t subsampling_factor);
 

@@ -14,11 +14,11 @@
 
 #include "aom_dsp_rtcd.h"
 
-void svt_aom_highbd_subtract_block_neon(int rows, int cols, int16_t *diff, ptrdiff_t diff_stride, const uint8_t *src8,
-                                        ptrdiff_t src_stride, const uint8_t *pred8, ptrdiff_t pred_stride, int bd) {
+void svt_aom_highbd_subtract_block_neon(int rows, int cols, int16_t* diff, ptrdiff_t diff_stride, const uint8_t* src8,
+                                        ptrdiff_t src_stride, const uint8_t* pred8, ptrdiff_t pred_stride, int bd) {
     (void)bd;
-    uint16_t *src  = (uint16_t *)src8;
-    uint16_t *pred = (uint16_t *)pred8;
+    uint16_t* src  = (uint16_t*)src8;
+    uint16_t* pred = (uint16_t*)pred8;
 
     if (cols > 16) {
         do {

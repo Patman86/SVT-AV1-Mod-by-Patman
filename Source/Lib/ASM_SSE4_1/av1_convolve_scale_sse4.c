@@ -16,8 +16,8 @@
 
 // A specialised version of hfilter, the horizontal filter for
 // av1_convolve_2d_scale_sse4_1. This version only supports 8 tap filters.
-static void hfilter8(const uint8_t *src, int src_stride, int16_t *dst, int w, int h, int subpel_x_qn, int x_step_qn,
-                     const InterpFilterParams *filter_params, unsigned round) {
+static void hfilter8(const uint8_t* src, int src_stride, int16_t* dst, int w, int h, int subpel_x_qn, int x_step_qn,
+                     const InterpFilterParams* filter_params, unsigned round) {
     const int bd    = 8;
     const int ntaps = 8;
 
@@ -29,28 +29,28 @@ static void hfilter8(const uint8_t *src, int src_stride, int16_t *dst, int w, in
 
     int x_qn = subpel_x_qn;
     for (int x = 0; x < w; ++x, x_qn += x_step_qn) {
-        const uint8_t *const src_col    = src + (x_qn >> SCALE_SUBPEL_BITS);
+        const uint8_t* const src_col    = src + (x_qn >> SCALE_SUBPEL_BITS);
         const int            filter_idx = (x_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS;
         assert(filter_idx < SUBPEL_SHIFTS);
-        const int16_t *filter = av1_get_interp_filter_subpel_kernel(*filter_params, filter_idx);
+        const int16_t* filter = av1_get_interp_filter_subpel_kernel(*filter_params, filter_idx);
 
         // Load the filter coefficients
-        const __m128i coefflo = _mm_loadu_si128((__m128i *)filter);
+        const __m128i coefflo = _mm_loadu_si128((__m128i*)filter);
         const __m128i zero    = _mm_castps_si128(_mm_setzero_ps());
 
         int y;
         for (y = 0; y <= h - 4; y += 4) {
-            const uint8_t *const src0 = src_col + y * src_stride;
-            const uint8_t *const src1 = src0 + 1 * src_stride;
-            const uint8_t *const src2 = src0 + 2 * src_stride;
-            const uint8_t *const src3 = src0 + 3 * src_stride;
+            const uint8_t* const src0 = src_col + y * src_stride;
+            const uint8_t* const src1 = src0 + 1 * src_stride;
+            const uint8_t* const src2 = src0 + 2 * src_stride;
+            const uint8_t* const src3 = src0 + 3 * src_stride;
 
             // Load up source data. This is 8-bit input data; each load is just
             // loading the lower half of the register and gets 8 pixels
-            const __m128i data08 = _mm_loadl_epi64((__m128i *)src0);
-            const __m128i data18 = _mm_loadl_epi64((__m128i *)src1);
-            const __m128i data28 = _mm_loadl_epi64((__m128i *)src2);
-            const __m128i data38 = _mm_loadl_epi64((__m128i *)src3);
+            const __m128i data08 = _mm_loadl_epi64((__m128i*)src0);
+            const __m128i data18 = _mm_loadl_epi64((__m128i*)src1);
+            const __m128i data28 = _mm_loadl_epi64((__m128i*)src2);
+            const __m128i data38 = _mm_loadl_epi64((__m128i*)src3);
 
             // Now zero-extend up to 16-bit precision by interleaving with
             // zeros. Drop the upper half of each register (which just had zeros)
@@ -75,28 +75,30 @@ static void hfilter8(const uint8_t *src, int src_stride, int16_t *dst, int w, in
 
             shifted = _mm_packus_epi32(shifted, shifted);
             // Write transposed to the output
-            _mm_storel_epi64((__m128i *)(dst + y + x * h), shifted);
+            _mm_storel_epi64((__m128i*)(dst + y + x * h), shifted);
         }
         for (; y < h; ++y) {
-            const uint8_t *const src_row = src_col + y * src_stride;
+            const uint8_t* const src_row = src_col + y * src_stride;
 
             int32_t sum = (1 << (bd + FILTER_BITS - 1));
-            for (int k = 0; k < ntaps; ++k) { sum += filter[k] * src_row[k]; }
+            for (int k = 0; k < ntaps; ++k) {
+                sum += filter[k] * src_row[k];
+            }
 
             dst[y + x * h] = ROUND_POWER_OF_TWO(sum, round);
         }
     }
 }
 
-static __m128i convolve_16_8(const int16_t *src, __m128i coeff) {
-    __m128i data = _mm_loadu_si128((__m128i *)src);
+static __m128i convolve_16_8(const int16_t* src, __m128i coeff) {
+    __m128i data = _mm_loadu_si128((__m128i*)src);
     return _mm_madd_epi16(data, coeff);
 }
 
 // A specialised version of vfilter, the vertical filter for
 // av1_convolve_2d_scale_sse4_1. This version only supports 8 tap filters.
-static void vfilter8(const int16_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, int subpel_y_qn,
-                     int y_step_qn, const InterpFilterParams *filter_params, const ConvolveParams *conv_params,
+static void vfilter8(const int16_t* src, int src_stride, uint8_t* dst, int dst_stride, int w, int h, int subpel_y_qn,
+                     int y_step_qn, const InterpFilterParams* filter_params, const ConvolveParams* conv_params,
                      int bd) {
     const int offset_bits = bd + 2 * FILTER_BITS - conv_params->round_0;
     const int ntaps       = 8;
@@ -107,7 +109,7 @@ static void vfilter8(const int16_t *src, int src_stride, uint8_t *dst, int dst_s
                            (1 << (offset_bits - conv_params->round_1 - 1)));
     const __m128i sub   = _mm_set1_epi16(sub32);
 
-    CONV_BUF_TYPE *dst16           = conv_params->dst;
+    CONV_BUF_TYPE* dst16           = conv_params->dst;
     const int      dst16_stride    = conv_params->dst_stride;
     const int      bits            = FILTER_BITS * 2 - conv_params->round_0 - conv_params->round_1;
     const __m128i  bits_shift      = _mm_cvtsi32_si128(bits);
@@ -123,18 +125,18 @@ static void vfilter8(const int16_t *src, int src_stride, uint8_t *dst, int dst_s
 
     int y_qn = subpel_y_qn;
     for (int y = 0; y < h; ++y, y_qn += y_step_qn) {
-        const int16_t *src_y      = src + (y_qn >> SCALE_SUBPEL_BITS);
+        const int16_t* src_y      = src + (y_qn >> SCALE_SUBPEL_BITS);
         const int      filter_idx = (y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS;
         assert(filter_idx < SUBPEL_SHIFTS);
-        const int16_t *filter = av1_get_interp_filter_subpel_kernel(*filter_params, filter_idx);
+        const int16_t* filter = av1_get_interp_filter_subpel_kernel(*filter_params, filter_idx);
 
-        const __m128i coeff0716 = _mm_loadu_si128((__m128i *)filter);
+        const __m128i coeff0716 = _mm_loadu_si128((__m128i*)filter);
         int           x;
         for (x = 0; x <= w - 4; x += 4) {
-            const int16_t *const src0 = src_y + x * src_stride;
-            const int16_t *const src1 = src0 + 1 * src_stride;
-            const int16_t *const src2 = src0 + 2 * src_stride;
-            const int16_t *const src3 = src0 + 3 * src_stride;
+            const int16_t* const src0 = src_y + x * src_stride;
+            const int16_t* const src1 = src0 + 1 * src_stride;
+            const int16_t* const src2 = src0 + 2 * src_stride;
+            const int16_t* const src3 = src0 + 3 * src_stride;
 
             // Load the source data for the three rows, adding the three registers of
             // convolved products to one as we go (conv0..conv3) to avoid the
@@ -153,14 +155,14 @@ static void vfilter8(const int16_t *src, int src_stride, uint8_t *dst, int dst_s
             // Divide down by (1 << round_1), rounding to nearest and subtract sub32.
             __m128i shifted = _mm_sra_epi32(_mm_add_epi32(conv, round_shift_add), round_shift);
 
-            uint8_t       *dst_x    = dst + y * dst_stride + x;
-            CONV_BUF_TYPE *dst_16_x = dst16 + y * dst16_stride + x;
+            uint8_t*       dst_x    = dst + y * dst_stride + x;
+            CONV_BUF_TYPE* dst_16_x = dst16 + y * dst16_stride + x;
             __m128i        result;
             __m128i        shifted_16 = _mm_packus_epi32(shifted, shifted);
 
             if (conv_params->is_compound) {
                 if (conv_params->do_average) {
-                    const __m128i p_16 = _mm_loadl_epi64((__m128i *)dst_16_x);
+                    const __m128i p_16 = _mm_loadl_epi64((__m128i*)dst_16_x);
                     if (conv_params->use_dist_wtd_comp_avg) {
                         const __m128i p_16_lo    = _mm_unpacklo_epi16(p_16, shifted_16);
                         const __m128i wt_res_lo  = _mm_madd_epi16(p_16_lo, wt);
@@ -172,21 +174,23 @@ static void vfilter8(const int16_t *src, int src_stride, uint8_t *dst, int dst_s
                     const __m128i subbed   = _mm_sub_epi16(shifted_16, sub);
                     result                 = _mm_sra_epi16(_mm_add_epi16(subbed, bits_const), bits_shift);
                     const __m128i result_8 = _mm_packus_epi16(result, result);
-                    *(uint32_t *)dst_x     = _mm_cvtsi128_si32(result_8);
+                    *(uint32_t*)dst_x      = _mm_cvtsi128_si32(result_8);
                 } else {
-                    _mm_storel_epi64((__m128i *)dst_16_x, shifted_16);
+                    _mm_storel_epi64((__m128i*)dst_16_x, shifted_16);
                 }
             } else {
                 const __m128i subbed   = _mm_sub_epi16(shifted_16, sub);
                 result                 = _mm_sra_epi16(_mm_add_epi16(subbed, bits_const), bits_shift);
                 const __m128i result_8 = _mm_packus_epi16(result, result);
-                *(uint32_t *)dst_x     = _mm_cvtsi128_si32(result_8);
+                *(uint32_t*)dst_x      = _mm_cvtsi128_si32(result_8);
             }
         }
         for (; x < w; ++x) {
-            const int16_t *src_x = src_y + x * src_stride;
+            const int16_t* src_x = src_y + x * src_stride;
             int32_t        sum   = 1 << offset_bits;
-            for (int k = 0; k < ntaps; ++k) sum += filter[k] * src_x[k];
+            for (int k = 0; k < ntaps; ++k) {
+                sum += filter[k] * src_x[k];
+            }
             CONV_BUF_TYPE res = ROUND_POWER_OF_TWO(sum, conv_params->round_1);
 
             if (conv_params->is_compound) {
@@ -214,11 +218,12 @@ static void vfilter8(const int16_t *src, int src_stride, uint8_t *dst, int dst_s
         }
     }
 }
-void svt_av1_convolve_2d_scale_sse4_1(const uint8_t *src, int src_stride, uint8_t *dst8, int dst8_stride, int w, int h,
-                                      const InterpFilterParams *filter_params_x,
-                                      const InterpFilterParams *filter_params_y, const int subpel_x_qn,
+
+void svt_av1_convolve_2d_scale_sse4_1(const uint8_t* src, int src_stride, uint8_t* dst8, int dst8_stride, int w, int h,
+                                      const InterpFilterParams* filter_params_x,
+                                      const InterpFilterParams* filter_params_y, const int subpel_x_qn,
                                       const int x_step_qn, const int subpel_y_qn, const int y_step_qn,
-                                      ConvolveParams *conv_params) {
+                                      ConvolveParams* conv_params) {
     int16_t tmp[(2 * MAX_SB_SIZE + MAX_FILTER_TAP) * MAX_SB_SIZE];
     int     im_h = (((h - 1) * y_step_qn + subpel_y_qn) >> SCALE_SUBPEL_BITS) + filter_params_y->taps;
 
@@ -246,8 +251,8 @@ void svt_av1_convolve_2d_scale_sse4_1(const uint8_t *src, int src_stride, uint8_
 // A specialised version of hfilter, the horizontal filter for
 // av1_highbd_convolve_2d_scale_sse4_1. This version only supports 8 tap
 // filters.
-static void highbd_hfilter8(const uint16_t *src, int src_stride, int16_t *dst, int w, int h, int subpel_x_qn,
-                            int x_step_qn, const InterpFilterParams *filter_params, unsigned round, int bd) {
+static void highbd_hfilter8(const uint16_t* src, int src_stride, int16_t* dst, int w, int h, int subpel_x_qn,
+                            int x_step_qn, const InterpFilterParams* filter_params, unsigned round, int bd) {
     const int ntaps = 8;
 
     src -= ntaps / 2 - 1;
@@ -258,27 +263,27 @@ static void highbd_hfilter8(const uint16_t *src, int src_stride, int16_t *dst, i
 
     int x_qn = subpel_x_qn;
     for (int x = 0; x < w; ++x, x_qn += x_step_qn) {
-        const uint16_t *const src_col    = src + (x_qn >> SCALE_SUBPEL_BITS);
+        const uint16_t* const src_col    = src + (x_qn >> SCALE_SUBPEL_BITS);
         const int             filter_idx = (x_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS;
         assert(filter_idx < SUBPEL_SHIFTS);
-        const int16_t *filter = av1_get_interp_filter_subpel_kernel(*filter_params, filter_idx);
+        const int16_t* filter = av1_get_interp_filter_subpel_kernel(*filter_params, filter_idx);
 
         // Load the filter coefficients
-        const __m128i coefflo = _mm_loadu_si128((__m128i *)filter);
+        const __m128i coefflo = _mm_loadu_si128((__m128i*)filter);
 
         int y;
         for (y = 0; y <= h - 4; y += 4) {
-            const uint16_t *const src0 = src_col + y * src_stride;
-            const uint16_t *const src1 = src0 + 1 * src_stride;
-            const uint16_t *const src2 = src0 + 2 * src_stride;
-            const uint16_t *const src3 = src0 + 3 * src_stride;
+            const uint16_t* const src0 = src_col + y * src_stride;
+            const uint16_t* const src1 = src0 + 1 * src_stride;
+            const uint16_t* const src2 = src0 + 2 * src_stride;
+            const uint16_t* const src3 = src0 + 3 * src_stride;
 
             // Load up source data. This is 16-bit input data, so each load gets the 8
             // pixels we need.
-            const __m128i data0lo = _mm_loadu_si128((__m128i *)src0);
-            const __m128i data1lo = _mm_loadu_si128((__m128i *)src1);
-            const __m128i data2lo = _mm_loadu_si128((__m128i *)src2);
-            const __m128i data3lo = _mm_loadu_si128((__m128i *)src3);
+            const __m128i data0lo = _mm_loadu_si128((__m128i*)src0);
+            const __m128i data1lo = _mm_loadu_si128((__m128i*)src1);
+            const __m128i data2lo = _mm_loadu_si128((__m128i*)src2);
+            const __m128i data3lo = _mm_loadu_si128((__m128i*)src3);
 
             // Multiply by coefficients
             const __m128i conv0lo = _mm_madd_epi16(data0lo, coefflo);
@@ -296,24 +301,27 @@ static void highbd_hfilter8(const uint16_t *src, int src_stride, int16_t *dst, i
 
             shifted = _mm_packus_epi32(shifted, shifted);
             // Write transposed to the output
-            _mm_storel_epi64((__m128i *)(dst + y + x * h), shifted);
+            _mm_storel_epi64((__m128i*)(dst + y + x * h), shifted);
         }
         for (; y < h; ++y) {
-            const uint16_t *const src_row = src_col + y * src_stride;
+            const uint16_t* const src_row = src_col + y * src_stride;
 
             int32_t sum = (1 << (bd + FILTER_BITS - 1));
-            for (int k = 0; k < ntaps; ++k) { sum += filter[k] * src_row[k]; }
+            for (int k = 0; k < ntaps; ++k) {
+                sum += filter[k] * src_row[k];
+            }
 
             dst[y + x * h] = ROUND_POWER_OF_TWO(sum, round);
         }
     }
 }
+
 // A specialised version of vfilter, the vertical filter for
 // av1_highbd_convolve_2d_scale_sse4_1. This version only supports 8 tap
 // filters.
-static void highbd_vfilter8(const int16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h,
-                            int subpel_y_qn, int y_step_qn, const InterpFilterParams *filter_params,
-                            const ConvolveParams *conv_params, int bd) {
+static void highbd_vfilter8(const int16_t* src, int src_stride, uint16_t* dst, int dst_stride, int w, int h,
+                            int subpel_y_qn, int y_step_qn, const InterpFilterParams* filter_params,
+                            const ConvolveParams* conv_params, int bd) {
     const int offset_bits = bd + 2 * FILTER_BITS - conv_params->round_0;
     const int ntaps       = 8;
 
@@ -323,7 +331,7 @@ static void highbd_vfilter8(const int16_t *src, int src_stride, uint16_t *dst, i
                            (1 << (offset_bits - conv_params->round_1 - 1)));
     const __m128i sub   = _mm_set1_epi32(sub32);
 
-    CONV_BUF_TYPE *dst16            = conv_params->dst;
+    CONV_BUF_TYPE* dst16            = conv_params->dst;
     const int      dst16_stride     = conv_params->dst_stride;
     const __m128i  clip_pixel_      = _mm_set1_epi16(bd == 10 ? 1023 : (bd == 12 ? 4095 : 255));
     const int      bits             = FILTER_BITS * 2 - conv_params->round_0 - conv_params->round_1;
@@ -342,18 +350,18 @@ static void highbd_vfilter8(const int16_t *src, int src_stride, uint16_t *dst, i
 
     int y_qn = subpel_y_qn;
     for (int y = 0; y < h; ++y, y_qn += y_step_qn) {
-        const int16_t *src_y      = src + (y_qn >> SCALE_SUBPEL_BITS);
+        const int16_t* src_y      = src + (y_qn >> SCALE_SUBPEL_BITS);
         const int      filter_idx = (y_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS;
         assert(filter_idx < SUBPEL_SHIFTS);
-        const int16_t *filter = av1_get_interp_filter_subpel_kernel(*filter_params, filter_idx);
+        const int16_t* filter = av1_get_interp_filter_subpel_kernel(*filter_params, filter_idx);
 
-        const __m128i coeff0716 = _mm_loadu_si128((__m128i *)filter);
+        const __m128i coeff0716 = _mm_loadu_si128((__m128i*)filter);
         int           x;
         for (x = 0; x <= w - 4; x += 4) {
-            const int16_t *const src0 = src_y + x * src_stride;
-            const int16_t *const src1 = src0 + 1 * src_stride;
-            const int16_t *const src2 = src0 + 2 * src_stride;
-            const int16_t *const src3 = src0 + 3 * src_stride;
+            const int16_t* const src0 = src_y + x * src_stride;
+            const int16_t* const src1 = src0 + 1 * src_stride;
+            const int16_t* const src2 = src0 + 2 * src_stride;
+            const int16_t* const src3 = src0 + 3 * src_stride;
 
             // Load the source data for the three rows, adding the three registers of
             // convolved products to one as we go (conv0..conv3) to avoid the
@@ -372,13 +380,13 @@ static void highbd_vfilter8(const int16_t *src, int src_stride, uint16_t *dst, i
             // Divide down by (1 << round_1), rounding to nearest and subtract sub32.
             __m128i shifted = _mm_sra_epi32(_mm_add_epi32(conv, round_shift_add), round_shift);
 
-            uint16_t      *dst_x    = dst + y * dst_stride + x;
-            CONV_BUF_TYPE *dst_16_x = dst16 + y * dst16_stride + x;
+            uint16_t*      dst_x    = dst + y * dst_stride + x;
+            CONV_BUF_TYPE* dst_16_x = dst16 + y * dst16_stride + x;
 
             __m128i result;
             if (conv_params->is_compound) {
                 if (conv_params->do_average) {
-                    __m128i p_32 = _mm_cvtepu16_epi32(_mm_loadl_epi64((__m128i *)dst_16_x));
+                    __m128i p_32 = _mm_cvtepu16_epi32(_mm_loadl_epi64((__m128i*)dst_16_x));
 
                     if (conv_params->use_dist_wtd_comp_avg) {
                         shifted = _mm_add_epi32(_mm_mullo_epi32(p_32, wt0), _mm_mullo_epi32(shifted, wt1));
@@ -391,24 +399,26 @@ static void highbd_vfilter8(const int16_t *src, int src_stride, uint16_t *dst, i
 
                     __m128i res16 = _mm_packus_epi32(res32, res32);
                     res16         = _mm_min_epi16(res16, clip_pixel_);
-                    _mm_storel_epi64((__m128i *)dst_x, res16);
+                    _mm_storel_epi64((__m128i*)dst_x, res16);
                 } else {
                     __m128i shifted_16 = _mm_packus_epi32(shifted, shifted);
-                    _mm_storel_epi64((__m128i *)dst_16_x, shifted_16);
+                    _mm_storel_epi64((__m128i*)dst_16_x, shifted_16);
                 }
             } else {
                 const __m128i subbed = _mm_sub_epi32(shifted, sub);
                 result               = _mm_sra_epi16(_mm_add_epi32(subbed, bits_const), bits_shift);
                 result               = _mm_packus_epi32(result, result);
                 result               = _mm_min_epi16(result, clip_pixel_);
-                _mm_storel_epi64((__m128i *)dst_x, result);
+                _mm_storel_epi64((__m128i*)dst_x, result);
             }
         }
 
         for (; x < w; ++x) {
-            const int16_t *src_x = src_y + x * src_stride;
+            const int16_t* src_x = src_y + x * src_stride;
             int32_t        sum   = 1 << offset_bits;
-            for (int k = 0; k < ntaps; ++k) sum += filter[k] * src_x[k];
+            for (int k = 0; k < ntaps; ++k) {
+                sum += filter[k] * src_x[k];
+            }
             CONV_BUF_TYPE res = ROUND_POWER_OF_TWO(sum, conv_params->round_1);
             if (conv_params->is_compound) {
                 if (conv_params->do_average) {
@@ -437,11 +447,11 @@ static void highbd_vfilter8(const int16_t *src, int src_stride, uint16_t *dst, i
     }
 }
 
-void svt_av1_highbd_convolve_2d_scale_sse4_1(const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w,
-                                             int h, const InterpFilterParams *filter_params_x,
-                                             const InterpFilterParams *filter_params_y, const int subpel_x_qn,
+void svt_av1_highbd_convolve_2d_scale_sse4_1(const uint16_t* src, int src_stride, uint16_t* dst, int dst_stride, int w,
+                                             int h, const InterpFilterParams* filter_params_x,
+                                             const InterpFilterParams* filter_params_y, const int subpel_x_qn,
                                              const int x_step_qn, const int subpel_y_qn, const int y_step_qn,
-                                             ConvolveParams *conv_params, int bd) {
+                                             ConvolveParams* conv_params, int bd) {
     // TODO(yaowu): Move this out of stack
     DECLARE_ALIGNED(16, int16_t, tmp[(2 * MAX_SB_SIZE + MAX_FILTER_TAP) * MAX_SB_SIZE]);
     int       im_h    = (((h - 1) * y_step_qn + subpel_y_qn) >> SCALE_SUBPEL_BITS) + filter_params_y->taps;

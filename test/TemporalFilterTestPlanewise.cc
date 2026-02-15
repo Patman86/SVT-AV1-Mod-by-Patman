@@ -27,7 +27,7 @@ using svt_av1_test_tool::SVTRandom;
 extern "C" void setup_test_env();
 
 typedef void (*TemporalFilterFunc)(
-    struct MeContext *me_ctx, const uint8_t *y_src, int y_src_stride,
+    MeContext *me_ctx, const uint8_t *y_src, int y_src_stride,
     const uint8_t *y_pre, int y_pre_stride, const uint8_t *u_src,
     const uint8_t *v_src, int uv_src_stride, const uint8_t *u_pre,
     const uint8_t *v_pre, int uv_pre_stride, unsigned int block_width,
@@ -36,7 +36,7 @@ typedef void (*TemporalFilterFunc)(
     uint16_t *v_count);
 
 typedef void (*TemporalFilterZZFunc)(
-    struct MeContext *me_ctx, const uint8_t *y_pre, int y_pre_stride,
+    MeContext *me_ctx, const uint8_t *y_pre, int y_pre_stride,
     const uint8_t *u_pre, const uint8_t *v_pre, int uv_pre_stride,
     unsigned int block_width, unsigned int block_height, int ss_x, int ss_y,
     uint32_t *y_accum, uint16_t *y_count, uint32_t *u_accum, uint16_t *u_count,
@@ -264,7 +264,7 @@ class TemporalFilterTestPlanewiseMedium
     void RunTest(int run_times) {
         const int width = 32;
         const int height = 32;
-        struct MeContext context1, context2, *me_ctx;
+        MeContext context1, context2, *me_ctx;
         TemporalFilterFillMeContexts(&context1, &context2);
 
         if (run_times <= 100) {
@@ -493,7 +493,7 @@ class TemporalFilterZZTestPlanewiseMedium
     void RunTest(int run_times) {
         const int width = 32;
         const int height = 32;
-        struct MeContext context1, context2, *me_ctx;
+        MeContext context1, context2, *me_ctx;
         TemporalFilterFillMeContexts(&context1, &context2);
 
         if (run_times <= 100) {
@@ -696,7 +696,7 @@ INSTANTIATE_TEST_SUITE_P(
 #endif  // ARCH_AARCH64
 
 typedef void (*TemporalFilterFuncHbd)(
-    struct MeContext *me_ctx, const uint16_t *y_src, int y_src_stride,
+    MeContext *me_ctx, const uint16_t *y_src, int y_src_stride,
     const uint16_t *y_pre, int y_pre_stride, const uint16_t *u_src,
     const uint16_t *v_src, int uv_src_stride, const uint16_t *u_pre,
     const uint16_t *v_pre, int uv_pre_stride, unsigned int block_width,
@@ -705,7 +705,7 @@ typedef void (*TemporalFilterFuncHbd)(
     uint16_t *v_count, uint32_t encoder_bit_depth);
 
 typedef void (*TemporalFilterZZFuncHbd)(
-    struct MeContext *me_ctx, const uint16_t *y_pre, int y_pre_stride,
+    MeContext *me_ctx, const uint16_t *y_pre, int y_pre_stride,
     const uint16_t *u_pre, const uint16_t *v_pre, int uv_pre_stride,
     unsigned int block_width, unsigned int block_height, int ss_x, int ss_y,
     uint32_t *y_accum, uint16_t *y_count, uint32_t *u_accum, uint16_t *u_count,
@@ -849,7 +849,7 @@ class TemporalFilterTestPlanewiseMediumHbd
     void RunTest(int run_times) {
         const int width = 32;
         const int height = 32;
-        struct MeContext context1, context2, *me_ctx;
+        MeContext context1, context2, *me_ctx;
         TemporalFilterFillMeContexts(&context1, &context2);
 
         if (run_times <= 100) {
@@ -1234,7 +1234,7 @@ class TemporalFilterZZTestPlanewiseMediumHbd
     void RunTest(int run_times) {
         const int width = 32;
         const int height = 32;
-        struct MeContext context1, context2, *me_ctx;
+        MeContext context1, context2, *me_ctx;
         TemporalFilterFillMeContexts(&context1, &context2);
 
         if (run_times <= 100) {
@@ -1571,7 +1571,7 @@ INSTANTIATE_TEST_SUITE_P(
 #endif  // ARCH_AARCH64
 
 typedef void (*get_final_filtered_pixels_fn)(
-    struct MeContext *me_ctx, EbByte *src_center_ptr_start,
+    MeContext *me_ctx, EbByte *src_center_ptr_start,
     uint16_t **altref_buffer_highbd_start, uint32_t **accum, uint16_t **count,
     const uint32_t *stride, int blk_y_src_offset, int blk_ch_src_offset,
     uint16_t blk_width_ch, uint16_t blk_height_ch, bool is_highbd);
@@ -1848,7 +1848,7 @@ class TemporalFilterTestApplyFilteringCentral
 };
 
 typedef void (*apply_filtering_central_fn)(
-    struct MeContext *me_ctx, EbPictureBufferDesc *input_picture_ptr_central,
+    MeContext *me_ctx, EbPictureBufferDesc *input_picture_ptr_central,
     EbByte *src, uint32_t **accum, uint16_t **count, uint16_t blk_width,
     uint16_t blk_height, uint32_t ss_x, uint32_t ss_y);
 
@@ -1886,7 +1886,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
 typedef void (*apply_filtering_central_highbd_fn)(
-    struct MeContext *me_ctx, EbPictureBufferDesc *input_picture_ptr_central,
+    MeContext *me_ctx, EbPictureBufferDesc *input_picture_ptr_central,
     uint16_t **src_16bit, uint32_t **accum, uint16_t **count,
     uint16_t blk_width, uint16_t blk_height, uint32_t ss_x, uint32_t ss_y);
 

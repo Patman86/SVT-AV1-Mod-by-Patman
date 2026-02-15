@@ -233,7 +233,7 @@ class LoopFilterTest : public ::testing::TestWithParam<TestParamType> {
     // loop filter type
     LpfType lpf_type_;
     // Horizontally and Vertically need 32x32:
-    // 8  Coeffs preceeding filtered section
+    // 8  Coeffs preceding filtered section
     // 16 Coefs within filtered section
     // 8  Coeffs following filtered section
     static const int kNumCoeffs = 32 * 32;

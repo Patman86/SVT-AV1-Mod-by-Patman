@@ -21,21 +21,21 @@
  * Helper function that add 32bit values from sum32 to 64bit values in sum64
  * sum32 is also zeroed
 *******************************************************************************/
-static INLINE void sum32_to64_avx512(__m512i *const sum32, __m512i *const sum64) {
+static INLINE void sum32_to64_avx512(__m512i* const sum32, __m512i* const sum64) {
     //Save partial sum into large 64bit register instead of 32 bit (which could overflow)
     *sum64 = _mm512_add_epi64(*sum64, _mm512_unpacklo_epi32(*sum32, _mm512_setzero_si512()));
     *sum64 = _mm512_add_epi64(*sum64, _mm512_unpackhi_epi32(*sum32, _mm512_setzero_si512()));
     *sum32 = _mm512_setzero_si512();
 }
 
-static INLINE void residual32x2_avx512(const uint8_t *input, const uint32_t input_stride, const uint8_t *pred,
-                                       const uint32_t pred_stride, int16_t *residual, const uint32_t residual_stride) {
+static INLINE void residual32x2_avx512(const uint8_t* input, const uint32_t input_stride, const uint8_t* pred,
+                                       const uint32_t pred_stride, int16_t* residual, const uint32_t residual_stride) {
     const __m512i zero  = _mm512_setzero_si512();
     const __m512i idx   = _mm512_setr_epi64(0, 4, 1, 5, 2, 6, 3, 7);
-    const __m256i in0   = _mm256_loadu_si256((__m256i *)input);
-    const __m256i in1   = _mm256_loadu_si256((__m256i *)(input + input_stride));
-    const __m256i pr0   = _mm256_loadu_si256((__m256i *)pred);
-    const __m256i pr1   = _mm256_loadu_si256((__m256i *)(pred + pred_stride));
+    const __m256i in0   = _mm256_loadu_si256((__m256i*)input);
+    const __m256i in1   = _mm256_loadu_si256((__m256i*)(input + input_stride));
+    const __m256i pr0   = _mm256_loadu_si256((__m256i*)pred);
+    const __m256i pr1   = _mm256_loadu_si256((__m256i*)(pred + pred_stride));
     const __m512i in2   = _mm512_inserti64x4(_mm512_castsi256_si512(in0), in1, 1);
     const __m512i pr2   = _mm512_inserti64x4(_mm512_castsi256_si512(pr0), pr1, 1);
     const __m512i in3   = _mm512_permutexvar_epi64(idx, in2);
@@ -46,12 +46,12 @@ static INLINE void residual32x2_avx512(const uint8_t *input, const uint32_t inpu
     const __m512i pr_hi = _mm512_unpackhi_epi8(pr3, zero);
     const __m512i re_lo = _mm512_sub_epi16(in_lo, pr_lo);
     const __m512i re_hi = _mm512_sub_epi16(in_hi, pr_hi);
-    _mm512_storeu_si512((__m512i *)(residual + 0 * residual_stride), re_lo);
-    _mm512_storeu_si512((__m512i *)(residual + 1 * residual_stride), re_hi);
+    _mm512_storeu_si512((__m512i*)(residual + 0 * residual_stride), re_lo);
+    _mm512_storeu_si512((__m512i*)(residual + 1 * residual_stride), re_hi);
 }
 
-SIMD_INLINE void residual_kernel32_avx2(const uint8_t *input, const uint32_t input_stride, const uint8_t *pred,
-                                        const uint32_t pred_stride, int16_t *residual, const uint32_t residual_stride,
+SIMD_INLINE void residual_kernel32_avx2(const uint8_t* input, const uint32_t input_stride, const uint8_t* pred,
+                                        const uint32_t pred_stride, int16_t* residual, const uint32_t residual_stride,
                                         const uint32_t area_height) {
     uint32_t y = area_height;
 
@@ -64,11 +64,11 @@ SIMD_INLINE void residual_kernel32_avx2(const uint8_t *input, const uint32_t inp
     } while (y);
 }
 
-static INLINE void residual64_avx512(const uint8_t *const input, const uint8_t *const pred, int16_t *const residual) {
+static INLINE void residual64_avx512(const uint8_t* const input, const uint8_t* const pred, int16_t* const residual) {
     const __m512i zero  = _mm512_setzero_si512();
     const __m512i idx   = _mm512_setr_epi64(0, 4, 1, 5, 2, 6, 3, 7);
-    const __m512i in0   = _mm512_loadu_si512((__m512i *)input);
-    const __m512i pr0   = _mm512_loadu_si512((__m512i *)pred);
+    const __m512i in0   = _mm512_loadu_si512((__m512i*)input);
+    const __m512i pr0   = _mm512_loadu_si512((__m512i*)pred);
     const __m512i in1   = _mm512_permutexvar_epi64(idx, in0);
     const __m512i pr1   = _mm512_permutexvar_epi64(idx, pr0);
     const __m512i in_lo = _mm512_unpacklo_epi8(in1, zero);
@@ -77,12 +77,12 @@ static INLINE void residual64_avx512(const uint8_t *const input, const uint8_t *
     const __m512i pr_hi = _mm512_unpackhi_epi8(pr1, zero);
     const __m512i re_lo = _mm512_sub_epi16(in_lo, pr_lo);
     const __m512i re_hi = _mm512_sub_epi16(in_hi, pr_hi);
-    _mm512_storeu_si512((__m512i *)(residual + 0 * 32), re_lo);
-    _mm512_storeu_si512((__m512i *)(residual + 1 * 32), re_hi);
+    _mm512_storeu_si512((__m512i*)(residual + 0 * 32), re_lo);
+    _mm512_storeu_si512((__m512i*)(residual + 1 * 32), re_hi);
 }
 
-SIMD_INLINE void residual_kernel64_avx2(const uint8_t *input, const uint32_t input_stride, const uint8_t *pred,
-                                        const uint32_t pred_stride, int16_t *residual, const uint32_t residual_stride,
+SIMD_INLINE void residual_kernel64_avx2(const uint8_t* input, const uint32_t input_stride, const uint8_t* pred,
+                                        const uint32_t pred_stride, int16_t* residual, const uint32_t residual_stride,
                                         const uint32_t area_height) {
     uint32_t y = area_height;
 
@@ -94,8 +94,8 @@ SIMD_INLINE void residual_kernel64_avx2(const uint8_t *input, const uint32_t inp
     } while (--y);
 }
 
-SIMD_INLINE void residual_kernel128_avx2(const uint8_t *input, const uint32_t input_stride, const uint8_t *pred,
-                                         const uint32_t pred_stride, int16_t *residual, const uint32_t residual_stride,
+SIMD_INLINE void residual_kernel128_avx2(const uint8_t* input, const uint32_t input_stride, const uint8_t* pred,
+                                         const uint32_t pred_stride, int16_t* residual, const uint32_t residual_stride,
                                          const uint32_t area_height) {
     uint32_t y = area_height;
 
@@ -108,8 +108,8 @@ SIMD_INLINE void residual_kernel128_avx2(const uint8_t *input, const uint32_t in
     } while (--y);
 }
 
-void svt_residual_kernel8bit_avx512(uint8_t *input, uint32_t input_stride, uint8_t *pred, uint32_t pred_stride,
-                                    int16_t *residual, uint32_t residual_stride, uint32_t area_width,
+void svt_residual_kernel8bit_avx512(uint8_t* input, uint32_t input_stride, uint8_t* pred, uint32_t pred_stride,
+                                    int16_t* residual, uint32_t residual_stride, uint32_t area_width,
                                     uint32_t area_height) {
     switch (area_width) {
     case 4:
@@ -138,7 +138,7 @@ void svt_residual_kernel8bit_avx512(uint8_t *input, uint32_t input_stride, uint8
     }
 }
 
-static INLINE void Distortion_AVX512_INTRIN(const __m256i input, const __m256i recon, __m512i *const sum) {
+static INLINE void Distortion_AVX512_INTRIN(const __m256i input, const __m256i recon, __m512i* const sum) {
     const __m512i in   = _mm512_cvtepu8_epi16(input);
     const __m512i re   = _mm512_cvtepu8_epi16(recon);
     const __m512i diff = _mm512_sub_epi16(in, re);
@@ -146,17 +146,17 @@ static INLINE void Distortion_AVX512_INTRIN(const __m256i input, const __m256i r
     *sum               = _mm512_add_epi32(*sum, dist);
 }
 
-static INLINE void SpatialFullDistortionKernel32_AVX512_INTRIN(const uint8_t *const input, const uint8_t *const recon,
-                                                               __m512i *const sum) {
-    const __m256i in = _mm256_loadu_si256((__m256i *)input);
-    const __m256i re = _mm256_loadu_si256((__m256i *)recon);
+static INLINE void SpatialFullDistortionKernel32_AVX512_INTRIN(const uint8_t* const input, const uint8_t* const recon,
+                                                               __m512i* const sum) {
+    const __m256i in = _mm256_loadu_si256((__m256i*)input);
+    const __m256i re = _mm256_loadu_si256((__m256i*)recon);
     Distortion_AVX512_INTRIN(in, re, sum);
 }
 
-static INLINE void SpatialFullDistortionKernel64_AVX512_INTRIN(const uint8_t *const input, const uint8_t *const recon,
-                                                               __m512i *const sum) {
-    const __m512i in     = _mm512_loadu_si512((__m512i *)input);
-    const __m512i re     = _mm512_loadu_si512((__m512i *)recon);
+static INLINE void SpatialFullDistortionKernel64_AVX512_INTRIN(const uint8_t* const input, const uint8_t* const recon,
+                                                               __m512i* const sum) {
+    const __m512i in     = _mm512_loadu_si512((__m512i*)input);
+    const __m512i re     = _mm512_loadu_si512((__m512i*)recon);
     const __m512i max    = _mm512_max_epu8(in, re);
     const __m512i min    = _mm512_min_epu8(in, re);
     const __m512i diff   = _mm512_sub_epi8(max, min);
@@ -168,8 +168,8 @@ static INLINE void SpatialFullDistortionKernel64_AVX512_INTRIN(const uint8_t *co
     *sum                 = _mm512_add_epi32(*sum, dist);
 }
 
-uint64_t svt_spatial_full_distortion_kernel_avx512(uint8_t *input, uint32_t input_offset, uint32_t input_stride,
-                                                   uint8_t *recon, int32_t recon_offset, uint32_t recon_stride,
+uint64_t svt_spatial_full_distortion_kernel_avx512(uint8_t* input, uint32_t input_offset, uint32_t input_stride,
+                                                   uint8_t* recon, int32_t recon_offset, uint32_t recon_stride,
                                                    uint32_t area_width, uint32_t area_height) {
     const uint32_t leftover = area_width & 31;
     int32_t        h;
@@ -179,16 +179,16 @@ uint64_t svt_spatial_full_distortion_kernel_avx512(uint8_t *input, uint32_t inpu
     recon += recon_offset;
 
     if (leftover) {
-        const uint8_t *inp = input + area_width - leftover;
-        const uint8_t *rec = recon + area_width - leftover;
+        const uint8_t* inp = input + area_width - leftover;
+        const uint8_t* rec = recon + area_width - leftover;
 
         if (leftover == 4) {
             h = area_height;
             do {
-                const __m128i in0 = _mm_cvtsi32_si128(*(uint32_t *)inp);
-                const __m128i in1 = _mm_cvtsi32_si128(*(uint32_t *)(inp + input_stride));
-                const __m128i re0 = _mm_cvtsi32_si128(*(uint32_t *)rec);
-                const __m128i re1 = _mm_cvtsi32_si128(*(uint32_t *)(rec + recon_stride));
+                const __m128i in0 = _mm_cvtsi32_si128(*(uint32_t*)inp);
+                const __m128i in1 = _mm_cvtsi32_si128(*(uint32_t*)(inp + input_stride));
+                const __m128i re0 = _mm_cvtsi32_si128(*(uint32_t*)rec);
+                const __m128i re1 = _mm_cvtsi32_si128(*(uint32_t*)(rec + recon_stride));
                 const __m256i in  = _mm256_setr_m128i(in0, in1);
                 const __m256i re  = _mm256_setr_m128i(re0, re1);
                 distortion_avx2_intrin(in, re, &sum);
@@ -208,10 +208,10 @@ uint64_t svt_spatial_full_distortion_kernel_avx512(uint8_t *input, uint32_t inpu
         } else if (leftover == 8) {
             h = area_height;
             do {
-                const __m128i in0 = _mm_loadl_epi64((__m128i *)inp);
-                const __m128i in1 = _mm_loadl_epi64((__m128i *)(inp + input_stride));
-                const __m128i re0 = _mm_loadl_epi64((__m128i *)rec);
-                const __m128i re1 = _mm_loadl_epi64((__m128i *)(rec + recon_stride));
+                const __m128i in0 = _mm_loadl_epi64((__m128i*)inp);
+                const __m128i in1 = _mm_loadl_epi64((__m128i*)(inp + input_stride));
+                const __m128i re0 = _mm_loadl_epi64((__m128i*)rec);
+                const __m128i re1 = _mm_loadl_epi64((__m128i*)(rec + recon_stride));
                 const __m256i in  = _mm256_setr_m128i(in0, in1);
                 const __m256i re  = _mm256_setr_m128i(re0, re1);
                 distortion_avx2_intrin(in, re, &sum);
@@ -261,8 +261,8 @@ uint64_t svt_spatial_full_distortion_kernel_avx512(uint8_t *input, uint32_t inpu
     area_width -= leftover;
 
     if (area_width) {
-        uint8_t *inp = input;
-        uint8_t *rec = recon;
+        uint8_t* inp = input;
+        uint8_t* rec = recon;
         h            = area_height;
 
         if (area_width == 32) {

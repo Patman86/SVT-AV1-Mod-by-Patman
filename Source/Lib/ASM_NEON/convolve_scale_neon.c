@@ -58,8 +58,8 @@ static inline int16x8_t convolve8_8_h(const int16x8_t s0, const int16x8_t s1, co
     return vshrq_n_s16(sum, ROUND0_BITS - 1);
 }
 
-static inline void convolve_horiz_scale_8tap_neon(const uint8_t *src, int src_stride, int16_t *dst, int dst_stride,
-                                                  int w, int h, const int16_t *x_filter, const int subpel_x_qn,
+static inline void convolve_horiz_scale_8tap_neon(const uint8_t* src, int src_stride, int16_t* dst, int dst_stride,
+                                                  int w, int h, const int16_t* x_filter, const int subpel_x_qn,
                                                   const int x_step_qn) {
     DECLARE_ALIGNED(16, int16_t, temp[8 * 8]);
     const int bd = 8;
@@ -73,7 +73,7 @@ static inline void convolve_horiz_scale_8tap_neon(const uint8_t *src, int src_st
 
             // Process a 4x4 tile.
             for (int r = 0; r < 4; ++r) {
-                const uint8_t *const s = &src[x_qn >> SCALE_SUBPEL_BITS];
+                const uint8_t* const s = &src[x_qn >> SCALE_SUBPEL_BITS];
 
                 const ptrdiff_t filter_offset = SUBPEL_TAPS * ((x_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
                 const int16x8_t filter        = vld1q_s16(x_filter + filter_offset);
@@ -117,13 +117,13 @@ static inline void convolve_horiz_scale_8tap_neon(const uint8_t *src, int src_st
 
         do {
             int      x_qn  = subpel_x_qn;
-            int16_t *d     = dst;
+            int16_t* d     = dst;
             int      width = w;
 
             do {
                 // Process an 8x8 tile.
                 for (int r = 0; r < 8; ++r) {
-                    const uint8_t *const s = &src[(x_qn >> SCALE_SUBPEL_BITS)];
+                    const uint8_t* const s = &src[(x_qn >> SCALE_SUBPEL_BITS)];
 
                     const ptrdiff_t filter_offset = SUBPEL_TAPS * ((x_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
                     int16x8_t       filter        = vld1q_s16(x_filter + filter_offset);
@@ -208,8 +208,8 @@ static inline int16x8_t convolve6_8_h(const int16x8_t s0, const int16x8_t s1, co
     return vshrq_n_s16(sum, ROUND0_BITS - 1);
 }
 
-static inline void convolve_horiz_scale_6tap_neon(const uint8_t *src, int src_stride, int16_t *dst, int dst_stride,
-                                                  int w, int h, const int16_t *x_filter, const int subpel_x_qn,
+static inline void convolve_horiz_scale_6tap_neon(const uint8_t* src, int src_stride, int16_t* dst, int dst_stride,
+                                                  int w, int h, const int16_t* x_filter, const int subpel_x_qn,
                                                   const int x_step_qn) {
     DECLARE_ALIGNED(16, int16_t, temp[8 * 8]);
     const int bd = 8;
@@ -223,7 +223,7 @@ static inline void convolve_horiz_scale_6tap_neon(const uint8_t *src, int src_st
 
             // Process a 4x4 tile.
             for (int r = 0; r < 4; ++r) {
-                const uint8_t *const s = &src[x_qn >> SCALE_SUBPEL_BITS];
+                const uint8_t* const s = &src[x_qn >> SCALE_SUBPEL_BITS];
 
                 const ptrdiff_t filter_offset = SUBPEL_TAPS * ((x_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
                 const int16x8_t filter        = vld1q_s16(x_filter + filter_offset);
@@ -265,13 +265,13 @@ static inline void convolve_horiz_scale_6tap_neon(const uint8_t *src, int src_st
 
         do {
             int      x_qn  = subpel_x_qn;
-            int16_t *d     = dst;
+            int16_t* d     = dst;
             int      width = w;
 
             do {
                 // Process an 8x8 tile.
                 for (int r = 0; r < 8; ++r) {
-                    const uint8_t *const s = &src[(x_qn >> SCALE_SUBPEL_BITS)];
+                    const uint8_t* const s = &src[(x_qn >> SCALE_SUBPEL_BITS)];
 
                     const ptrdiff_t filter_offset = SUBPEL_TAPS * ((x_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
                     int16x8_t       filter        = vld1q_s16(x_filter + filter_offset);
@@ -317,8 +317,8 @@ static inline void convolve_horiz_scale_6tap_neon(const uint8_t *src, int src_st
     }
 }
 
-static inline void convolve_horiz_scale_2_8tap_neon(const uint8_t *src, int src_stride, int16_t *dst, int dst_stride,
-                                                    int w, int h, const int16_t *x_filter) {
+static inline void convolve_horiz_scale_2_8tap_neon(const uint8_t* src, int src_stride, int16_t* dst, int dst_stride,
+                                                    int w, int h, const int16_t* x_filter) {
     const int bd = 8;
 
     if (w == 4) {
@@ -379,8 +379,8 @@ static inline void convolve_horiz_scale_2_8tap_neon(const uint8_t *src, int src_
         const int16x8_t filter = vshrq_n_s16(vld1q_s16(x_filter), 1);
 
         do {
-            const uint8_t *s     = src;
-            int16_t       *d     = dst;
+            const uint8_t* s     = src;
+            int16_t*       d     = dst;
             int            width = w;
 
             uint8x8_t t0, t1, t2, t3, t4, t5, t6, t7;
@@ -452,8 +452,8 @@ static inline void convolve_horiz_scale_2_8tap_neon(const uint8_t *src, int src_
     }
 }
 
-static inline void convolve_horiz_scale_2_6tap_neon(const uint8_t *src, int src_stride, int16_t *dst, int dst_stride,
-                                                    int w, int h, const int16_t *x_filter) {
+static inline void convolve_horiz_scale_2_6tap_neon(const uint8_t* src, int src_stride, int16_t* dst, int dst_stride,
+                                                    int w, int h, const int16_t* x_filter) {
     const int bd = 8;
 
     if (w == 4) {
@@ -512,8 +512,8 @@ static inline void convolve_horiz_scale_2_6tap_neon(const uint8_t *src, int src_
         const int16x8_t filter = vshrq_n_s16(vld1q_s16(x_filter), 1);
 
         do {
-            const uint8_t *s     = src;
-            int16_t       *d     = dst;
+            const uint8_t* s     = src;
+            int16_t*       d     = dst;
             int            width = w;
 
             uint8x8_t t0, t1, t2, t3, t4, t5, t6, t7;
@@ -583,11 +583,11 @@ static inline void convolve_horiz_scale_2_6tap_neon(const uint8_t *src, int src_
     }
 }
 
-void svt_av1_convolve_2d_scale_neon(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h,
-                                    const InterpFilterParams *filter_params_x,
-                                    const InterpFilterParams *filter_params_y, const int subpel_x_qn,
+void svt_av1_convolve_2d_scale_neon(const uint8_t* src, int src_stride, uint8_t* dst, int dst_stride, int w, int h,
+                                    const InterpFilterParams* filter_params_x,
+                                    const InterpFilterParams* filter_params_y, const int subpel_x_qn,
                                     const int x_step_qn, const int subpel_y_qn, const int y_step_qn,
-                                    ConvolveParams *conv_params) {
+                                    ConvolveParams* conv_params) {
     if (w < 4 || h < 4) {
         svt_av1_convolve_2d_scale_c(src,
                                     src_stride,
@@ -611,7 +611,7 @@ void svt_av1_convolve_2d_scale_neon(const uint8_t *src, int src_stride, uint8_t 
     DECLARE_ALIGNED(32, int16_t, im_block[(2 * MAX_SB_SIZE + MAX_FILTER_TAP) * MAX_SB_SIZE]);
     int            im_h         = (((h - 1) * y_step_qn + subpel_y_qn) >> SCALE_SUBPEL_BITS) + filter_params_y->taps;
     int            im_stride    = MAX_SB_SIZE;
-    CONV_BUF_TYPE *dst16        = conv_params->dst;
+    CONV_BUF_TYPE* dst16        = conv_params->dst;
     const int      dst16_stride = conv_params->dst_stride;
 
     // Account for needing filter_taps / 2 - 1 lines prior and filter_taps / 2
@@ -650,7 +650,7 @@ void svt_av1_convolve_2d_scale_neon(const uint8_t *src, int src_stride, uint8_t 
         // equation, where the values of x are from 0 to w. If x_step_qn is a
         // multiple of SCALE_SUBPEL_MASK we can leave it out of the equation.
         const ptrdiff_t filter_offset = SUBPEL_TAPS * ((subpel_x_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
-        const int16_t  *x_filter      = filter_params_x->filter_ptr + filter_offset;
+        const int16_t*  x_filter      = filter_params_x->filter_ptr + filter_offset;
 
         // The source index is calculated using the (subpel_x_qn + x * x_step_qn)
         // >> SCALE_SUBPEL_BITS, where the values of x are from 0 to w. If

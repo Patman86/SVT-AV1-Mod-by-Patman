@@ -14,7 +14,7 @@
 #include "sequence_control_set.h"
 #include "utility.h"
 
-static void free_scale_evts(SvtAv1FrameScaleEvts *evts) {
+static void free_scale_evts(SvtAv1FrameScaleEvts* evts) {
     EB_FREE_ARRAY(evts->resize_denoms);
     EB_FREE_ARRAY(evts->resize_kf_denoms);
     EB_FREE_ARRAY(evts->start_frame_nums);
@@ -22,9 +22,10 @@ static void free_scale_evts(SvtAv1FrameScaleEvts *evts) {
 }
 
 static void svt_sequence_control_set_dctor(EbPtr p) {
-    SequenceControlSet *obj = (SequenceControlSet *)p;
-    if (!obj)
+    SequenceControlSet* obj = (SequenceControlSet*)p;
+    if (!obj) {
         return;
+    }
     EB_FREE_ARRAY(obj->b64_geom);
     free_sb_geoms(obj->sb_geom);
     free_scale_evts(&obj->static_config.frame_scale_evts);
@@ -34,6 +35,7 @@ static void svt_sequence_control_set_dctor(EbPtr p) {
     EB_FREE_ARRAY(obj->static_config.sframe_posi.sframe_posis);
     obj->static_config.sframe_posi.sframe_num = 0;
 }
+
 /**************************************************************************************************
     General notes on how Sequence Control Sets (SCS) are used.
 
@@ -64,7 +66,7 @@ static void svt_sequence_control_set_dctor(EbPtr p) {
     stream.  At the resource coordination kernel, a pointer to the SequenceControlSetInstance
     is saved in the PCS, that is not managed by an SRM.
  ***************************************************************************************************/
-EbErrorType svt_sequence_control_set_ctor(SequenceControlSet *scs, EbPtr object_init_data_ptr) {
+EbErrorType svt_sequence_control_set_ctor(SequenceControlSet* scs, EbPtr object_init_data_ptr) {
     UNUSED(object_init_data_ptr);
     scs->dctor = svt_sequence_control_set_dctor;
 
@@ -104,8 +106,9 @@ EbErrorType svt_sequence_control_set_ctor(SequenceControlSet *scs, EbPtr object_
 
     return EB_ErrorNone;
 }
-EbErrorType svt_aom_scs_set_creator(EbPtr *object_dbl_ptr, EbPtr object_init_data_ptr) {
-    SequenceControlSet *obj;
+
+EbErrorType svt_aom_scs_set_creator(EbPtr* object_dbl_ptr, EbPtr object_init_data_ptr) {
+    SequenceControlSet* obj;
 
     *object_dbl_ptr = NULL;
     EB_NEW(obj, svt_sequence_control_set_ctor, object_init_data_ptr);
@@ -113,35 +116,37 @@ EbErrorType svt_aom_scs_set_creator(EbPtr *object_dbl_ptr, EbPtr object_init_dat
 
     return EB_ErrorNone;
 }
-EbErrorType svt_aom_derive_input_resolution(EbInputResolution *input_resolution, uint32_t inputSize) {
+
+EbErrorType svt_aom_derive_input_resolution(EbInputResolution* input_resolution, uint32_t inputSize) {
     EbErrorType return_error = EB_ErrorNone;
-    if (inputSize < INPUT_SIZE_240p_TH)
+    if (inputSize < INPUT_SIZE_240p_TH) {
         *input_resolution = INPUT_SIZE_240p_RANGE;
-    else if (inputSize < INPUT_SIZE_360p_TH)
+    } else if (inputSize < INPUT_SIZE_360p_TH) {
         *input_resolution = INPUT_SIZE_360p_RANGE;
-    else if (inputSize < INPUT_SIZE_480p_TH)
+    } else if (inputSize < INPUT_SIZE_480p_TH) {
         *input_resolution = INPUT_SIZE_480p_RANGE;
-    else if (inputSize < INPUT_SIZE_720p_TH)
+    } else if (inputSize < INPUT_SIZE_720p_TH) {
         *input_resolution = INPUT_SIZE_720p_RANGE;
-    else if (inputSize < INPUT_SIZE_1080p_TH)
+    } else if (inputSize < INPUT_SIZE_1080p_TH) {
         *input_resolution = INPUT_SIZE_1080p_RANGE;
-    else if (inputSize < INPUT_SIZE_4K_TH)
+    } else if (inputSize < INPUT_SIZE_4K_TH) {
         *input_resolution = INPUT_SIZE_4K_RANGE;
-    else
+    } else {
         *input_resolution = INPUT_SIZE_8K_RANGE;
+    }
 
     return return_error;
 }
 
 static void svt_sequence_control_set_instance_dctor(EbPtr p) {
-    EbSequenceControlSetInstance *obj = (EbSequenceControlSetInstance *)p;
+    EbSequenceControlSetInstance* obj = (EbSequenceControlSetInstance*)p;
     EB_DELETE(obj->enc_ctx);
     EB_DESTROY_SEMAPHORE(obj->scs->ref_buffer_available_semaphore);
     EB_DESTROY_MUTEX(obj->config_mutex);
     EB_DELETE(obj->scs);
 }
 
-EbErrorType svt_sequence_control_set_instance_ctor(EbSequenceControlSetInstance *object_ptr) {
+EbErrorType svt_sequence_control_set_instance_ctor(EbSequenceControlSetInstance* object_ptr) {
     object_ptr->dctor = svt_sequence_control_set_instance_dctor;
 
     EB_NEW(object_ptr->enc_ctx, svt_aom_encode_context_ctor, NULL);
@@ -155,11 +160,13 @@ EbErrorType svt_sequence_control_set_instance_ctor(EbSequenceControlSetInstance 
 /************************************************
  * Sequence Control Set Copy
  ************************************************/
-EbErrorType copy_sequence_control_set(SequenceControlSet *dst, SequenceControlSet *src) {
-    if (dst->sb_geom != NULL)
+EbErrorType copy_sequence_control_set(SequenceControlSet* dst, SequenceControlSet* src) {
+    if (dst->sb_geom != NULL) {
         free_sb_geoms(dst->sb_geom);
-    if (dst->b64_geom != NULL)
+    }
+    if (dst->b64_geom != NULL) {
         EB_FREE_ARRAY(dst->b64_geom);
+    }
     // Copy the non-pointer members
     *dst = *src;
 
@@ -167,8 +174,8 @@ EbErrorType copy_sequence_control_set(SequenceControlSet *dst, SequenceControlSe
     memcpy(dst->b64_geom, src->b64_geom, sizeof(B64Geom) * dst->b64_total_count);
 
     // allocate buffers and copy data preserving dst pointers
-    alloc_sb_geoms(&dst->sb_geom, dst->picture_width_in_sb, dst->picture_height_in_sb, dst->max_block_cnt);
-    copy_sb_geoms(dst->sb_geom, src->sb_geom, dst->picture_width_in_sb, dst->picture_height_in_sb, dst->max_block_cnt);
+    alloc_sb_geoms(&dst->sb_geom, dst->picture_width_in_sb, dst->picture_height_in_sb);
+    copy_sb_geoms(dst->sb_geom, src->sb_geom, dst->picture_width_in_sb, dst->picture_height_in_sb);
 
     if (src->static_config.frame_scale_evts.start_frame_nums) {
         EB_NO_THROW_MALLOC(dst->static_config.frame_scale_evts.start_frame_nums,

@@ -20,31 +20,31 @@
  * Context
  **************************************/
 typedef struct MotionEstimationContext {
-    EbFifo    *picture_decision_results_input_fifo_ptr;
-    EbFifo    *motion_estimation_results_output_fifo_ptr;
-    MeContext *me_ctx;
+    EbFifo*    picture_decision_results_input_fifo_ptr;
+    EbFifo*    motion_estimation_results_output_fifo_ptr;
+    MeContext* me_ctx;
 
-    uint8_t *index_table0;
-    uint8_t *index_table1;
+    uint8_t* index_table0;
+    uint8_t* index_table1;
 } MotionEstimationContext_t;
 
 typedef struct InLoopMeContext {
-    EbFifo    *input_fifo_ptr;
-    EbFifo    *output_fifo_ptr;
-    MeContext *me_ctx;
+    EbFifo*    input_fifo_ptr;
+    EbFifo*    output_fifo_ptr;
+    MeContext* me_ctx;
 
-    uint8_t *index_table0;
-    uint8_t *index_table1;
+    uint8_t* index_table0;
+    uint8_t* index_table1;
 } InLoopMeContext;
 
 /***************************************
  * Extern Function Declaration
  ***************************************/
-EbErrorType svt_aom_motion_estimation_context_ctor(EbThreadContext *thread_ctx, const EbEncHandle *enc_handle_ptr,
+EbErrorType svt_aom_motion_estimation_context_ctor(EbThreadContext* thread_ctx, const EbEncHandle* enc_handle_ptr,
                                                    int index);
 
-extern void *svt_aom_motion_estimation_kernel(void *input_ptr);
+void* svt_aom_motion_estimation_kernel(void* input_ptr);
 
-void svt_aom_gm_pre_processor(PictureParentControlSet *pcs, PictureParentControlSet **pcs_list);
+void svt_aom_gm_pre_processor(PictureParentControlSet* pcs, PictureParentControlSet** pcs_list);
 
 #endif // EbMotionEstimationProcess_h

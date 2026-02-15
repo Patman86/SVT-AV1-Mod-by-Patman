@@ -27,18 +27,18 @@
 #define GMV_ME_SAD_TH_2 10
 #define GMV_PIC_VAR_TH 750
 
-static void compute_global_motion(PictureParentControlSet *pcs, int *frm_corners, int num_frm_corners,
-                                  EbPictureBufferDesc *det_input_pic, //src frame for detection
-                                  EbPictureBufferDesc *det_ref_pic, //ref frame for detection
-                                  EbPictureBufferDesc *input_pic, //src frame for refinement
-                                  EbPictureBufferDesc *ref_pic, //ref frame for refinement
+static void compute_global_motion(PictureParentControlSet* pcs, int* frm_corners, int num_frm_corners,
+                                  EbPictureBufferDesc* det_input_pic, //src frame for detection
+                                  EbPictureBufferDesc* det_ref_pic, //ref frame for detection
+                                  EbPictureBufferDesc* input_pic, //src frame for refinement
+                                  EbPictureBufferDesc* ref_pic, //ref frame for refinement
                                   uint8_t              sf, //downsacle factor between det and refinement
-                                  uint8_t chess_refn, WarpedMotionParams *best_wm, int allow_high_precision_mv,
+                                  uint8_t chess_refn, WarpedMotionParams* best_wm, int allow_high_precision_mv,
                                   uint8_t list_idx, uint8_t ref_idx);
 
 //gm pre-processing pass, is an analysis pass done at the same time TF to detect any GM activity in
 //the clip. in case of detection in this pre-processing phase, a second GM detection pass is invoked.
-void svt_aom_gm_pre_processor(PictureParentControlSet *pcs, PictureParentControlSet **pcs_list) {
+void svt_aom_gm_pre_processor(PictureParentControlSet* pcs, PictureParentControlSet** pcs_list) {
     uint8_t              detect_refn_scale_factor;
     EbPictureBufferDesc *input_detection, *ref_detection, *input_refinement, *ref_refinement;
     WarpedMotionParams   wm_tmp[MAX_NUM_OF_REF_PIC_LIST];
@@ -59,16 +59,16 @@ void svt_aom_gm_pre_processor(PictureParentControlSet *pcs, PictureParentControl
     pcs->gm_ctrls.rfn_early_exit          = 1;
     pcs->gm_ctrls.correspondence_method   = CORNERS;
 
-    PictureParentControlSet *ref_pcs_list[2];
-    PictureParentControlSet *cur_pcs   = pcs_list[0];
+    PictureParentControlSet* ref_pcs_list[2];
+    PictureParentControlSet* cur_pcs   = pcs_list[0];
     uint8_t                  list_size = pcs->past_altref_nframes + pcs->future_altref_nframes + 1;
     ref_pcs_list[0]                    = list_size > 0 ? pcs_list[1] : NULL;
     ref_pcs_list[1]                    = list_size > 5 ? pcs_list[5] : list_size > 2 ? pcs_list[list_size - 1] : NULL;
 
-    EbPaReferenceObject *src_object = (EbPaReferenceObject *)cur_pcs->pa_ref_pic_wrapper->object_ptr;
-    EbPictureBufferDesc *input_pic  = src_object->input_padded_pic;
-    EbPictureBufferDesc *quart_pic  = src_object->quarter_downsampled_picture_ptr;
-    EbPictureBufferDesc *sixt_pic   = src_object->sixteenth_downsampled_picture_ptr;
+    EbPaReferenceObject* src_object = (EbPaReferenceObject*)cur_pcs->pa_ref_pic_wrapper->object_ptr;
+    EbPictureBufferDesc* input_pic  = src_object->input_padded_pic;
+    EbPictureBufferDesc* quart_pic  = src_object->quarter_downsampled_picture_ptr;
+    EbPictureBufferDesc* sixt_pic   = src_object->sixteenth_downsampled_picture_ptr;
 
     if (pcs->gm_ctrls.downsample_level == GM_DOWN16) {
         input_detection  = sixt_pic;
@@ -91,12 +91,13 @@ void svt_aom_gm_pre_processor(PictureParentControlSet *pcs, PictureParentControl
         MAX_CORNERS);
 
     for (uint32_t ref_idx = 0; ref_idx < 2; ++ref_idx) {
-        if (ref_pcs_list[ref_idx] == NULL || ref_pcs_list[ref_idx] == pcs /*as curr might have TF underway*/)
+        if (ref_pcs_list[ref_idx] == NULL || ref_pcs_list[ref_idx] == pcs /*as curr might have TF underway*/) {
             continue;
-        EbPaReferenceObject *ref_obj       = ref_pcs_list[ref_idx]->pa_ref_pic_wrapper->object_ptr;
-        EbPictureBufferDesc *ref_pic       = ref_obj->input_padded_pic;
-        EbPictureBufferDesc *quart_ref_pic = ref_obj->quarter_downsampled_picture_ptr;
-        EbPictureBufferDesc *sixt_ref_pic  = ref_obj->sixteenth_downsampled_picture_ptr;
+        }
+        EbPaReferenceObject* ref_obj       = ref_pcs_list[ref_idx]->pa_ref_pic_wrapper->object_ptr;
+        EbPictureBufferDesc* ref_pic       = ref_obj->input_padded_pic;
+        EbPictureBufferDesc* quart_ref_pic = ref_obj->quarter_downsampled_picture_ptr;
+        EbPictureBufferDesc* sixt_ref_pic  = ref_obj->sixteenth_downsampled_picture_ptr;
 
         if (pcs->gm_ctrls.downsample_level == GM_DOWN16) {
             ref_detection            = sixt_ref_pic;
@@ -133,11 +134,12 @@ void svt_aom_gm_pre_processor(PictureParentControlSet *pcs, PictureParentControl
         }
     }
 }
-void svt_aom_global_motion_estimation(PictureParentControlSet *pcs, EbPictureBufferDesc *input_pic) {
+
+void svt_aom_global_motion_estimation(PictureParentControlSet* pcs, EbPictureBufferDesc* input_pic) {
     // Get downsampled pictures with a downsampling factor of 2 in each dimension
-    EbPaReferenceObject *pa_reference_object   = (EbPaReferenceObject *)pcs->pa_ref_pic_wrapper->object_ptr;
-    EbPictureBufferDesc *quarter_picture_ptr   = pa_reference_object->quarter_downsampled_picture_ptr;
-    EbPictureBufferDesc *sixteenth_picture_ptr = pa_reference_object->sixteenth_downsampled_picture_ptr;
+    EbPaReferenceObject* pa_reference_object   = (EbPaReferenceObject*)pcs->pa_ref_pic_wrapper->object_ptr;
+    EbPictureBufferDesc* quarter_picture_ptr   = pa_reference_object->quarter_downsampled_picture_ptr;
+    EbPictureBufferDesc* sixteenth_picture_ptr = pa_reference_object->sixteenth_downsampled_picture_ptr;
     // Initilize global motion to be OFF for all references frames.
     memset(pcs->is_global_motion, false, MAX_NUM_OF_REF_PIC_LIST * REF_LIST_MAX_DEPTH);
     // Initilize wmtype to be IDENTITY for all references frames
@@ -161,14 +163,15 @@ void svt_aom_global_motion_estimation(PictureParentControlSet *pcs, EbPictureBuf
     // 1: use up to 1 ref per list @ the GMV params derivation
     // 2: use up to 2 ref per list @ the GMV params derivation
     // 3: all refs @ the GMV params derivation
-    if (average_me_sad < (GMV_ME_SAD_TH_0))
+    if (average_me_sad < (GMV_ME_SAD_TH_0)) {
         global_motion_estimation_level = 0;
-    else if (average_me_sad < (GMV_ME_SAD_TH_1))
+    } else if (average_me_sad < (GMV_ME_SAD_TH_1)) {
         global_motion_estimation_level = 1;
-    else if (average_me_sad < (GMV_ME_SAD_TH_2))
+    } else if (average_me_sad < (GMV_ME_SAD_TH_2)) {
         global_motion_estimation_level = 2;
-    else
+    } else {
         global_motion_estimation_level = 3;
+    }
 
     if (pcs->gm_ctrls.downsample_level == GM_ADAPT_0) {
         pcs->gm_downsample_level = (average_me_sad < GMV_ME_SAD_TH_1) ? GM_DOWN : GM_FULL;
@@ -179,8 +182,9 @@ void svt_aom_global_motion_estimation(PictureParentControlSet *pcs, EbPictureBuf
     }
 
     if (pcs->gm_ctrls.bypass_based_on_me) {
-        if ((total_gm_sbs < (uint32_t)(pcs->b64_total_count >> 1)))
+        if ((total_gm_sbs < (uint32_t)(pcs->b64_total_count >> 1))) {
             global_motion_estimation_level = 0;
+        }
     }
     if (global_motion_estimation_level) {
         EbPictureBufferDesc *input_detection, *input_refinement;
@@ -198,7 +202,7 @@ void svt_aom_global_motion_estimation(PictureParentControlSet *pcs, EbPictureBuf
         int frm_corners[2 * MAX_CORNERS];
         int num_frm_corners = 0;
         // If generating the correspondences from corners, search for the current frame's corners outside the loop over all ref pics
-        if (pcs->gm_ctrls.correspondence_method == CORNERS)
+        if (pcs->gm_ctrls.correspondence_method == CORNERS) {
             num_frm_corners = svt_av1_fast_corner_detect(
                 input_detection->buffer_y + input_detection->org_x + input_detection->org_y * input_detection->stride_y,
                 input_detection->width,
@@ -206,28 +210,31 @@ void svt_aom_global_motion_estimation(PictureParentControlSet *pcs, EbPictureBuf
                 input_detection->stride_y,
                 frm_corners,
                 MAX_CORNERS);
+        }
         for (uint32_t list_index = REF_LIST_0; list_index < MAX_NUM_OF_REF_PIC_LIST; ++list_index) {
             uint32_t num_of_ref_pic_to_search = list_index == REF_LIST_0 ? pcs->ref_list0_count_try
                                                                          : pcs->ref_list1_count_try;
-            if (global_motion_estimation_level == 1)
+            if (global_motion_estimation_level == 1) {
                 num_of_ref_pic_to_search = MIN(num_of_ref_pic_to_search, 1);
-            else if (global_motion_estimation_level == 2)
+            } else if (global_motion_estimation_level == 2) {
                 num_of_ref_pic_to_search = MIN(num_of_ref_pic_to_search, 2);
+            }
 
-            if (pcs->temporal_layer_index > 0 && pcs->gm_ctrls.ref_idx0_only)
+            if (pcs->temporal_layer_index > 0 && pcs->gm_ctrls.ref_idx0_only) {
                 num_of_ref_pic_to_search = MIN(num_of_ref_pic_to_search, 1);
+            }
 
             // Ref Picture Loop
             for (uint32_t ref_pic_index = 0; ref_pic_index < num_of_ref_pic_to_search; ++ref_pic_index) {
-                EbPaReferenceObject *ref_object =
-                    (EbPaReferenceObject *)pcs->ref_pa_pic_ptr_array[list_index][ref_pic_index]->object_ptr;
+                EbPaReferenceObject* ref_object =
+                    (EbPaReferenceObject*)pcs->ref_pa_pic_ptr_array[list_index][ref_pic_index]->object_ptr;
 
                 uint8_t              detect_refine_scale_factor;
                 EbPictureBufferDesc *ref_detection, *ref_refinement;
                 uint8_t              chess_refn;
-                EbPictureBufferDesc *ref_picture_ptr       = ref_object->input_padded_pic;
-                EbPictureBufferDesc *quarter_ref_pic_ptr   = ref_object->quarter_downsampled_picture_ptr;
-                EbPictureBufferDesc *sixteenth_ref_pic_ptr = ref_object->sixteenth_downsampled_picture_ptr;
+                EbPictureBufferDesc* ref_picture_ptr       = ref_object->input_padded_pic;
+                EbPictureBufferDesc* quarter_ref_pic_ptr   = ref_object->quarter_downsampled_picture_ptr;
+                EbPictureBufferDesc* sixteenth_ref_pic_ptr = ref_object->sixteenth_downsampled_picture_ptr;
 
                 if (pcs->gm_downsample_level == GM_DOWN16) {
                     input_detection = sixteenth_picture_ptr;
@@ -298,7 +305,7 @@ void svt_aom_global_motion_estimation(PictureParentControlSet *pcs, EbPictureBuf
     }
 }
 
-void svt_aom_upscale_wm_params(WarpedMotionParams *wm_params, uint8_t scale_factor) {
+void svt_aom_upscale_wm_params(WarpedMotionParams* wm_params, uint8_t scale_factor) {
     // Upscale the translation parameters by 2 or 4,
     // because the search is done on a down-sampled
     // version of the source picture
@@ -313,18 +320,18 @@ void svt_aom_upscale_wm_params(WarpedMotionParams *wm_params, uint8_t scale_fact
     }
 }
 
-static void compute_global_motion(PictureParentControlSet *pcs, int *frm_corners, int num_frm_corners,
-                                  EbPictureBufferDesc *det_input_pic, //src frame for detection
-                                  EbPictureBufferDesc *det_ref_pic, //ref frame for detection
-                                  EbPictureBufferDesc *input_pic, //src frame for refinement
-                                  EbPictureBufferDesc *ref_pic, //ref frame for refinement
+static void compute_global_motion(PictureParentControlSet* pcs, int* frm_corners, int num_frm_corners,
+                                  EbPictureBufferDesc* det_input_pic, //src frame for detection
+                                  EbPictureBufferDesc* det_ref_pic, //ref frame for detection
+                                  EbPictureBufferDesc* input_pic, //src frame for refinement
+                                  EbPictureBufferDesc* ref_pic, //ref frame for refinement
                                   uint8_t              sf, //downsacle factor between det and refinement
-                                  uint8_t chess_refn, WarpedMotionParams *best_wm, int allow_high_precision_mv,
+                                  uint8_t chess_refn, WarpedMotionParams* best_wm, int allow_high_precision_mv,
                                   uint8_t list_idx, uint8_t ref_idx) {
     WarpedMotionParams        global_motion = default_warp_params;
-    const WarpedMotionParams *ref_params    = &default_warp_params;
-    unsigned char *frm_buffer = input_pic->buffer_y + input_pic->org_x + input_pic->org_y * input_pic->stride_y;
-    unsigned char *ref_buffer = ref_pic->buffer_y + ref_pic->org_x + ref_pic->org_y * ref_pic->stride_y;
+    const WarpedMotionParams* ref_params    = &default_warp_params;
+    unsigned char* frm_buffer = input_pic->buffer_y + input_pic->org_x + input_pic->org_y * input_pic->stride_y;
+    unsigned char* ref_buffer = ref_pic->buffer_y + ref_pic->org_x + ref_pic->org_y * ref_pic->stride_y;
 
     const uint32_t ref_sad_error = svt_nxm_sad_kernel(
         ref_buffer, ref_pic->stride_y, frm_buffer, input_pic->stride_y, input_pic->height, input_pic->width);
@@ -334,9 +341,9 @@ static void compute_global_motion(PictureParentControlSet *pcs, int *frm_corners
         return;
     }
 
-    unsigned char *det_frm_buffer = det_input_pic->buffer_y + det_input_pic->org_x +
+    unsigned char* det_frm_buffer = det_input_pic->buffer_y + det_input_pic->org_x +
         det_input_pic->org_y * det_input_pic->stride_y;
-    unsigned char *det_ref_buffer = det_ref_pic->buffer_y + det_ref_pic->org_x +
+    unsigned char* det_ref_buffer = det_ref_pic->buffer_y + det_ref_pic->org_x +
         det_ref_pic->org_y * det_ref_pic->stride_y;
 
     int size_correspondence = num_frm_corners;
@@ -347,7 +354,7 @@ static void compute_global_motion(PictureParentControlSet *pcs, int *frm_corners
         size_correspondence         = num_blocks_per_sb * pcs->b64_total_count;
     }
     int             num_correspondences = 0;
-    Correspondence *correspondences;
+    Correspondence* correspondences;
     EB_MALLOC_ARRAY_NO_CHECK(correspondences, size_correspondence);
     gm_compute_correspondence(pcs,
                               det_frm_buffer,
@@ -381,8 +388,9 @@ static void compute_global_motion(PictureParentControlSet *pcs, int *frm_corners
         determine_gm_params(model, params_by_motion, RANSAC_NUM_MOTIONS, correspondences, num_correspondences);
 
         for (unsigned i = 0; i < RANSAC_NUM_MOTIONS; ++i) {
-            if (params_by_motion[i].num_inliers == 0)
+            if (params_by_motion[i].num_inliers == 0) {
                 continue;
+            }
             WarpedMotionParams tmp_wm_params;
             svt_av1_convert_model_to_params(params_by_motion[i].params, &tmp_wm_params);
 
@@ -417,11 +425,13 @@ static void compute_global_motion(PictureParentControlSet *pcs, int *frm_corners
             }
         }
 
-        if (!svt_get_shear_params(&global_motion) || global_motion.wmtype != model)
+        if (!svt_get_shear_params(&global_motion) || global_motion.wmtype != model) {
             global_motion = default_warp_params;
+        }
 
-        if (global_motion.wmtype == IDENTITY)
+        if (global_motion.wmtype == IDENTITY) {
             continue;
+        }
 
         // If the best error advantage found doesn't meet the threshold for
         // this motion type, revert to IDENTITY.
@@ -438,6 +448,8 @@ static void compute_global_motion(PictureParentControlSet *pcs, int *frm_corners
 
     *best_wm = global_motion;
 
-    for (int m = 0; m < RANSAC_NUM_MOTIONS; m++) { EB_FREE(params_by_motion[m].inliers); }
+    for (int m = 0; m < RANSAC_NUM_MOTIONS; m++) {
+        EB_FREE(params_by_motion[m].inliers);
+    }
     EB_FREE(correspondences);
 }

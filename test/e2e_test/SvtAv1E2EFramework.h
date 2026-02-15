@@ -60,8 +60,9 @@ typedef struct {
         *input_picture_buffer; /**< input buffer of encoder in test */
 } SvtAv1Context;
 
-/** SvtAv1E2ETestFramework is a class with impelmention of video source control,
- * encoding progress, decoding progress, data collection and data comparision */
+/** SvtAv1E2ETestFramework is a class with implementation of video source
+ * control, encoding progress, decoding progress, data collection and data
+ * comparison */
 class SvtAv1E2ETestFramework : public ::testing::TestWithParam<EncTestSetting> {
   public:
     struct IvfFile {

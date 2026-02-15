@@ -351,6 +351,7 @@ typedef struct QuantizationParams {
     /*!< qindex for every segment ID */
     uint8_t qindex[MAX_SEGMENTS];
 } QuantizationParams;
+
 typedef struct DeltaQParams {
     /*!< Specifies whether quantizer index delta values are present */
     uint8_t delta_q_present;
@@ -413,6 +414,7 @@ typedef struct SkipModeInfo {
     int ref_frame_idx_1;
 
 } SkipModeInfo;
+
 typedef struct GlobalMotionParams {
     /*!< Specifies the transform type */
     TransformationType gm_type;
