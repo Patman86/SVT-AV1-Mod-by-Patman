@@ -1890,7 +1890,7 @@ int svt_aom_get_reference_mode_context_new(const MacroBlockD* xd) {
     return ctx;
 }
 
-INLINE void svt_aom_collect_neighbors_ref_counts_new(MacroBlockD* const xd) {
+void svt_aom_collect_neighbors_ref_counts_new(MacroBlockD* const xd) {
     av1_zero(xd->neighbors_ref_counts);
 
     uint8_t* const ref_counts = xd->neighbors_ref_counts;
