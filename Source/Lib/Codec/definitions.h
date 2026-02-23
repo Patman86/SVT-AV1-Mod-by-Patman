@@ -251,11 +251,19 @@ typedef enum SqWeightOffsets {
     AGGRESSIVE_OFFSET_0   = -5,
     AGGRESSIVE_OFFSET_1   = -10
 } SqWeightOffsets;
+#if FTR_INTRA_COEFF_LVL
+#define COEFF_LVL_INTRA_TH_0 25
+#define COEFF_LVL_INTRA_TH_1 50
+#define COEFF_LVL_INTRA_TH_2 150
 
+#define COEFF_LVL_INTER_TH_0 (5833 / 96)
+#define COEFF_LVL_INTER_TH_1 (5833 / 48)
+#define COEFF_LVL_INTER_TH_2 (16666 / 48)
+#else
 #define COEFF_LVL_TH_0 (5833 / 96)
 #define COEFF_LVL_TH_1 (5833 / 48)
 #define COEFF_LVL_TH_2 (16666 / 48)
-
+#endif
 typedef enum InputCoeffLvl {
     VLOW_LVL    = 0,
     LOW_LVL     = 1,

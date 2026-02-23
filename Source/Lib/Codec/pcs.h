@@ -318,6 +318,9 @@ typedef struct PictureControlSet {
     uint8_t md_pme_level;
     uint8_t mds0_level;
     uint8_t rdoq_level;
+#if OPT_RATE_ESTIMATION
+    uint8_t rate_est_level;
+#endif
     uint8_t intra_level;
     uint8_t dist_based_ang_intra_level;
     uint8_t pic_disallow_4x4; // disallow 4x4 at pic level
@@ -564,6 +567,10 @@ typedef struct CdefSearchControls {
     uint8_t use_skip_detector;
     // If true, skip UV filter search and force UV filters to take the chosen luma values
     bool uv_from_y;
+#if OPT_Q_CDEF
+    // Enable QP-based CDEF strength prediction (bypass strength search)
+    bool use_qp_strength;
+#endif
 } CdefSearchControls;
 
 typedef struct CdefReconControls {
@@ -931,8 +938,11 @@ typedef struct PictureParentControlSet {
 
     uint8_t sc_class2;
 
-    uint8_t      sc_class3;
-    uint8_t      sc_class4;
+    uint8_t sc_class3;
+    uint8_t sc_class4;
+#if OPT_SC_ALLINTRA_DETECTION
+    uint8_t sc_class5;
+#endif
     SkipModeInfo skip_mode_info;
 
     uint64_t picture_number_alt; // The picture number overlay includes all the overlay frames

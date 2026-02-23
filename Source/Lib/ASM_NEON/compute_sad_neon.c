@@ -1404,68 +1404,178 @@ static inline uint32_t highbd_sad8xh_neon(uint16_t* src_ptr, int src_stride, uin
     return vaddvq_u32(sum[0]);
 }
 
-static inline uint32_t highbd_sad16xh_neon(uint16_t* src_ptr, int src_stride, uint16_t* ref_ptr, int ref_stride,
-                                           int h) {
-    uint32x4_t sum[2] = {vdupq_n_u32(0), vdupq_n_u32(0)};
+static inline uint32_t highbd_sad16xh_neon(uint16_t* src_ptr, uint32_t src_stride, uint16_t* ref_ptr,
+                                           uint32_t ref_stride, int h) {
+    // 'h_overflow' is the number of 16-wide rows we can process before 16-bit
+    // accumulators overflow. After hitting this limit accumulate into 32-bit
+    // elements. 65535 / 1023 ~= 64, so 64 16-wide rows using two accumulators.
+    const int h_overflow = 64;
+    int       h_limit    = h < h_overflow ? h : h_overflow;
+
+    uint32x4_t sum_u32 = vdupq_n_u32(0);
 
     do {
-        uint16x8_t s0    = vld1q_u16(src_ptr);
-        uint16x8_t r0    = vld1q_u16(ref_ptr);
-        uint16x8_t diff0 = vabdq_u16(s0, r0);
-        sum[0]           = vpadalq_u16(sum[0], diff0);
+        uint16x8_t sum_u16[2] = {vdupq_n_u16(0), vdupq_n_u16(0)};
 
-        uint16x8_t s1    = vld1q_u16(src_ptr + 8);
-        uint16x8_t r1    = vld1q_u16(ref_ptr + 8);
-        uint16x8_t diff1 = vabdq_u16(s1, r1);
-        sum[1]           = vpadalq_u16(sum[1], diff1);
+        int i = h_limit;
+        do {
+            uint16x8_t s0 = vld1q_u16(src_ptr);
+            uint16x8_t r0 = vld1q_u16(ref_ptr);
+            sum_u16[0]    = vabaq_u16(sum_u16[0], s0, r0);
 
-        src_ptr += src_stride;
-        ref_ptr += ref_stride;
-    } while (--h != 0);
+            uint16x8_t s1 = vld1q_u16(src_ptr + 8);
+            uint16x8_t r1 = vld1q_u16(ref_ptr + 8);
+            sum_u16[1]    = vabaq_u16(sum_u16[1], s1, r1);
 
-    sum[0] = vaddq_u32(sum[0], sum[1]);
-    return vaddvq_u32(sum[0]);
+            src_ptr += src_stride;
+            ref_ptr += ref_stride;
+        } while (--i != 0);
+
+        sum_u32 = vpadalq_u16(sum_u32, sum_u16[0]);
+        sum_u32 = vpadalq_u16(sum_u32, sum_u16[1]);
+
+        h -= h_limit;
+        h_limit = h < h_limit ? h : h_limit;
+    } while (h != 0);
+
+    return vaddvq_u32(sum_u32);
 }
 
-static inline uint32_t highbd_sadwxh_neon(uint16_t* src_ptr, int src_stride, uint16_t* ref_ptr, int ref_stride, int h,
-                                          int w) {
-    uint32x4_t sum[4] = {vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0)};
+static inline uint32_t highbd_sad24nxh_neon(uint16_t* src_ptr, uint32_t src_stride, uint16_t* ref_ptr,
+                                            uint32_t ref_stride, int w, int h, const int h_overflow) {
+    int h_limit = h < h_overflow ? h : h_overflow;
+
+    uint32x4_t sum_u32 = vdupq_n_u32(0);
 
     do {
-        int i = 0;
+        uint16x8_t sum_u16[3] = {vdupq_n_u16(0), vdupq_n_u16(0), vdupq_n_u16(0)};
+
+        int i = h_limit;
         do {
-            uint16x8_t s0    = vld1q_u16(src_ptr + i);
-            uint16x8_t r0    = vld1q_u16(ref_ptr + i);
-            uint16x8_t diff0 = vabdq_u16(s0, r0);
-            sum[0]           = vpadalq_u16(sum[0], diff0);
+            int j = 0;
+            do {
+                uint16x8_t s0 = vld1q_u16(src_ptr + j + 0);
+                uint16x8_t r0 = vld1q_u16(ref_ptr + j + 0);
+                sum_u16[0]    = vabaq_u16(sum_u16[0], s0, r0);
 
-            uint16x8_t s1    = vld1q_u16(src_ptr + i + 8);
-            uint16x8_t r1    = vld1q_u16(ref_ptr + i + 8);
-            uint16x8_t diff1 = vabdq_u16(s1, r1);
-            sum[1]           = vpadalq_u16(sum[1], diff1);
+                uint16x8_t s1 = vld1q_u16(src_ptr + j + 8);
+                uint16x8_t r1 = vld1q_u16(ref_ptr + j + 8);
+                sum_u16[1]    = vabaq_u16(sum_u16[1], s1, r1);
 
-            uint16x8_t s2    = vld1q_u16(src_ptr + i + 16);
-            uint16x8_t r2    = vld1q_u16(ref_ptr + i + 16);
-            uint16x8_t diff2 = vabdq_u16(s2, r2);
-            sum[2]           = vpadalq_u16(sum[2], diff2);
+                uint16x8_t s2 = vld1q_u16(src_ptr + j + 16);
+                uint16x8_t r2 = vld1q_u16(ref_ptr + j + 16);
+                sum_u16[2]    = vabaq_u16(sum_u16[2], s2, r2);
 
-            uint16x8_t s3    = vld1q_u16(src_ptr + i + 24);
-            uint16x8_t r3    = vld1q_u16(ref_ptr + i + 24);
-            uint16x8_t diff3 = vabdq_u16(s3, r3);
-            sum[3]           = vpadalq_u16(sum[3], diff3);
+                j += 24;
+            } while (j < w);
 
-            i += 32;
-        } while (i < w);
+            src_ptr += src_stride;
+            ref_ptr += ref_stride;
+        } while (--i != 0);
 
-        src_ptr += src_stride;
-        ref_ptr += ref_stride;
-    } while (--h != 0);
+        sum_u32 = vpadalq_u16(sum_u32, sum_u16[0]);
+        sum_u32 = vpadalq_u16(sum_u32, sum_u16[1]);
+        sum_u32 = vpadalq_u16(sum_u32, sum_u16[2]);
 
-    sum[0] = vaddq_u32(sum[0], sum[1]);
-    sum[2] = vaddq_u32(sum[2], sum[3]);
-    sum[0] = vaddq_u32(sum[0], sum[2]);
+        h -= h_limit;
+        h_limit = h < h_limit ? h : h_limit;
+    } while (h != 0);
 
-    return vaddvq_u32(sum[0]);
+    return vaddvq_u32(sum_u32);
+}
+
+static inline uint32_t highbd_sad24xh_neon(uint16_t* src_ptr, uint32_t src_stride, uint16_t* ref_ptr,
+                                           uint32_t ref_stride, int h) {
+    // 'h_overflow' is the number of 24-wide rows we can process before 16-bit
+    // accumulators overflow. After hitting this limit accumulate into 32-bit
+    // elements. 65535 / 1023 ~= 64, so 64 24-wide rows using three accumulators.
+    const int h_overflow = 64;
+    return highbd_sad24nxh_neon(src_ptr, src_stride, ref_ptr, ref_stride, 24, h, h_overflow);
+}
+
+static inline uint32_t highbd_sad48xh_neon(uint16_t* src_ptr, uint32_t src_stride, uint16_t* ref_ptr,
+                                           uint32_t ref_stride, int h) {
+    // 'h_overflow' is the number of 48-wide rows we can process before 16-bit
+    // accumulators overflow. After hitting this limit accumulate into 32-bit
+    // elements. 65535 / 1023 ~= 64, so 32 48-wide rows using three accumulators.
+    const int h_overflow = 32;
+    return highbd_sad24nxh_neon(src_ptr, src_stride, ref_ptr, ref_stride, 48, h, h_overflow);
+}
+
+static inline uint32_t highbd_sadwxh_neon(uint16_t* src_ptr, uint32_t src_stride, uint16_t* ref_ptr,
+                                          uint32_t ref_stride, int w, int h, const int h_overflow) {
+    assert(w % 32 == 0);
+    int h_limit = h < h_overflow ? h : h_overflow;
+
+    uint32x4_t sum_u32 = vdupq_n_u32(0);
+
+    do {
+        uint16x8_t sum_u16[4] = {vdupq_n_u16(0), vdupq_n_u16(0), vdupq_n_u16(0), vdupq_n_u16(0)};
+
+        int i = h_limit;
+        do {
+            int j = 0;
+            do {
+                uint16x8_t s0 = vld1q_u16(src_ptr + j + 0);
+                uint16x8_t r0 = vld1q_u16(ref_ptr + j + 0);
+                sum_u16[0]    = vabaq_u16(sum_u16[0], s0, r0);
+
+                uint16x8_t s1 = vld1q_u16(src_ptr + j + 8);
+                uint16x8_t r1 = vld1q_u16(ref_ptr + j + 8);
+                sum_u16[1]    = vabaq_u16(sum_u16[1], s1, r1);
+
+                uint16x8_t s2 = vld1q_u16(src_ptr + j + 16);
+                uint16x8_t r2 = vld1q_u16(ref_ptr + j + 16);
+                sum_u16[2]    = vabaq_u16(sum_u16[2], s2, r2);
+
+                uint16x8_t s3 = vld1q_u16(src_ptr + j + 24);
+                uint16x8_t r3 = vld1q_u16(ref_ptr + j + 24);
+                sum_u16[3]    = vabaq_u16(sum_u16[3], s3, r3);
+
+                j += 32;
+            } while (j < w);
+
+            src_ptr += src_stride;
+            ref_ptr += ref_stride;
+        } while (--i != 0);
+
+        sum_u32 = vpadalq_u16(sum_u32, sum_u16[0]);
+        sum_u32 = vpadalq_u16(sum_u32, sum_u16[1]);
+        sum_u32 = vpadalq_u16(sum_u32, sum_u16[2]);
+        sum_u32 = vpadalq_u16(sum_u32, sum_u16[3]);
+
+        h -= h_limit;
+        h_limit = h < h_limit ? h : h_limit;
+    } while (h != 0);
+
+    return vaddvq_u32(sum_u32);
+}
+
+static inline uint32_t highbd_sad32xh_neon(uint16_t* src_ptr, uint32_t src_stride, uint16_t* ref_ptr,
+                                           uint32_t ref_stride, int h) {
+    // 'h_overflow' is the number of 32-wide rows we can process before 16-bit
+    // accumulators overflow. After hitting this limit accumulate into 32-bit
+    // elements. 65535 / 1023 ~= 64, so 64 32-wide rows using four accumulators.
+    const int h_overflow = 64;
+    return highbd_sadwxh_neon(src_ptr, src_stride, ref_ptr, ref_stride, 32, h, h_overflow);
+}
+
+static inline uint32_t highbd_sad64xh_neon(uint16_t* src_ptr, uint32_t src_stride, uint16_t* ref_ptr,
+                                           uint32_t ref_stride, int h) {
+    // 'h_overflow' is the number of 64-wide rows we can process before 16-bit
+    // accumulators overflow. After hitting this limit accumulate into 32-bit
+    // elements. 65535 / 1023 ~= 64, so 32 64-wide rows using four accumulators.
+    const int h_overflow = 32;
+    return highbd_sadwxh_neon(src_ptr, src_stride, ref_ptr, ref_stride, 64, h, h_overflow);
+}
+
+static inline uint32_t highbd_sad128xh_neon(uint16_t* src_ptr, uint32_t src_stride, uint16_t* ref_ptr,
+                                            uint32_t ref_stride, int h) {
+    // 'h_overflow' is the number of 128-wide rows we can process before 16-bit
+    // accumulators overflow. After hitting this limit accumulate into 32-bit
+    // elements. 65535 / 1023 ~= 64, so 16 128-wide rows using four accumulators.
+    const int h_overflow = 16;
+    return highbd_sadwxh_neon(src_ptr, src_stride, ref_ptr, ref_stride, 128, h, h_overflow);
 }
 
 uint32_t svt_aom_sad_16b_kernel_neon(uint16_t* src, uint32_t src_stride, uint16_t* ref, uint32_t ref_stride,
@@ -1479,17 +1589,24 @@ uint32_t svt_aom_sad_16b_kernel_neon(uint16_t* src, uint32_t src_stride, uint16_
         return highbd_sad8xh_neon(src, src_stride, ref, ref_stride, height);
     case 16:
         return highbd_sad16xh_neon(src, src_stride, ref, ref_stride, height);
+    case 24:
+        return highbd_sad24xh_neon(src, src_stride, ref, ref_stride, height);
     case 32:
+        return highbd_sad32xh_neon(src, src_stride, ref, ref_stride, height);
+    case 48:
+        return highbd_sad48xh_neon(src, src_stride, ref, ref_stride, height);
     case 64:
+        return highbd_sad64xh_neon(src, src_stride, ref, ref_stride, height);
     case 128:
-        return highbd_sadwxh_neon(src, src_stride, ref, ref_stride, height, width);
+        return highbd_sad128xh_neon(src, src_stride, ref, ref_stride, height);
     }
 
     uint32_t offset       = 0;
     uint32_t acc          = 0;
     uint32_t width_offset = width & ~31;
     if (width_offset) {
-        acc += highbd_sadwxh_neon(src, src_stride, ref, ref_stride, height, width_offset);
+        const int h_overflow = 64 / (width_offset / 16);
+        acc += highbd_sadwxh_neon(src, src_stride, ref, ref_stride, width_offset, height, h_overflow);
         width -= width_offset;
         offset += width_offset;
     }

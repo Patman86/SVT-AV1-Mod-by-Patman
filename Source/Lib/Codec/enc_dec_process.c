@@ -1,4 +1,4 @@
-/*
+﻿/*
 * Copyright(c) 2019 Intel Corporation
 * Copyright (c) 2016, Alliance for Open Media. All rights reserved
 *
@@ -2491,7 +2491,56 @@ static void lpd1_detector_skip_pd0(PictureControlSet* pcs, ModeDecisionContext* 
         }
     }
 }
+#if FTR_VLPD0 // classifier
+static void lpd0_detector_allintra(PictureControlSet* pcs, ModeDecisionContext* md_ctx) {
+    if (md_ctx->lpd0_ctrls.pd0_level != VERY_LIGHT_PD0) {
+        return;
+    }
 
+    uint16_t* sb_var = pcs->ppcs->variance[md_ctx->sb_index];
+
+    // Variance accumulation
+    int32_t var64 = sb_var[ME_TIER_ZERO_PU_64x64];
+
+    int32_t var32 = 0;
+    for (int i = ME_TIER_ZERO_PU_32x32_0; i <= ME_TIER_ZERO_PU_32x32_3; ++i) {
+        var32 += sb_var[i];
+    }
+
+    int32_t var16 = 0;
+    for (int i = ME_TIER_ZERO_PU_16x16_0; i <= ME_TIER_ZERO_PU_16x16_15; ++i) {
+        var16 += sb_var[i];
+    }
+
+    // Normalize per block
+    var32 >>= 2; // 4 x 32x32
+    var16 >>= 4; // 16 x 16x16
+
+    // Normalize per pixel
+    const int32_t scale_32 = (64 * 64) / (32 * 32); // 4
+    const int32_t scale_16 = (64 * 64) / (16 * 16); // 16
+
+    int32_t norm_v64 = var64;
+    int32_t norm_v32 = var32 * scale_32;
+    int32_t norm_v16 = var16 * scale_16;
+
+    // QP-scaled thresholds
+    uint32_t q_weight, q_weight_denom;
+    svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.lpd0_qp_based_th_scaling,
+                                            &q_weight,
+                                            &q_weight_denom,
+                                            pcs->scs->static_config.qp);
+
+    // Threshold for detecting lack of a dominant depth
+    int32_t delta_var_th = 7500;
+
+    delta_var_th = DIVIDE_AND_ROUND(delta_var_th * q_weight, q_weight_denom);
+
+    if (ABS(norm_v32 - norm_v64) < delta_var_th && ABS(norm_v16 - norm_v32) < delta_var_th) {
+        md_ctx->lpd0_ctrls.pd0_level--;
+    }
+}
+#endif
 /* Light-PD0 classifier. */
 static void lpd0_detector(PictureControlSet* pcs, ModeDecisionContext* md_ctx, uint32_t pic_width_in_sb) {
     Lpd0Ctrls* lpd0_ctrls = &md_ctx->lpd0_ctrls;
@@ -3049,14 +3098,21 @@ void* svt_aom_mode_decision_kernel(void* input_ptr) {
                                                (scs->super_block_size == 64 || ed_ctx->md_ctx->max_block_size == 64)) ||
                             (ed_ctx->md_ctx->depth_removal_ctrls.disallow_below_32x32 &&
                              ed_ctx->md_ctx->max_block_size == 32);
+#if FTR_VLPD0 // classifier
+                        if (scs->allintra) {
+                            lpd0_detector_allintra(pcs, md_ctx);
+                        } else {
+#endif
 
-                        // If LPD0 is used, a more conservative level can be set for complex SBs
-                        const bool use_lpd0_classifier = !scs->static_config.rtc || pcs->ppcs->sc_class1 ||
-                            pcs->enc_mode <= ENC_M9;
-                        if (use_lpd0_classifier && md_ctx->lpd0_ctrls.pd0_level > REGULAR_PD0) {
-                            lpd0_detector(pcs, md_ctx, pic_width_in_sb);
+                            // If LPD0 is used, a more conservative level can be set for complex SBs
+                            const bool use_lpd0_classifier = !scs->static_config.rtc || pcs->ppcs->sc_class1 ||
+                                pcs->enc_mode <= ENC_M9;
+                            if (use_lpd0_classifier && md_ctx->lpd0_ctrls.pd0_level > REGULAR_PD0) {
+                                lpd0_detector(pcs, md_ctx, pic_width_in_sb);
+                            }
+#if FTR_VLPD0
                         }
-
+#endif
                         // PD0 is only skipped if there is a single depth to test
                         if (skip_pd_pass_0) {
                             md_ctx->pred_depth_only = 1;
@@ -3106,7 +3162,18 @@ void* svt_aom_mode_decision_kernel(void* input_ptr) {
                                 }
                             } else {
                                 // [PD_PASS_0] Signal(s) derivation
+#if TUNE_STILL_IMAGE
+                                if (scs->allintra) {
+                                    svt_aom_sig_deriv_enc_dec_allintra(pcs, ed_ctx->md_ctx);
+                                } else if (scs->static_config.rtc) {
+                                    svt_aom_sig_deriv_enc_dec_rtc(pcs, ed_ctx->md_ctx);
+                                } else {
+                                    svt_aom_sig_deriv_enc_dec_default(pcs, ed_ctx->md_ctx);
+                                }
+
+#else
                                 svt_aom_sig_deriv_enc_dec(scs, pcs, ed_ctx->md_ctx);
+#endif
 
                                 // Save a clean copy of the neighbor arrays
                                 svt_aom_copy_neighbour_arrays(pcs,
@@ -3168,9 +3235,19 @@ void* svt_aom_mode_decision_kernel(void* input_ptr) {
                         exaustive_light_pd1_features(md_ctx, ppcs, md_ctx->lpd1_ctrls.pd1_level > REGULAR_PD1, 0);
                         if (md_ctx->lpd1_ctrls.pd1_level > REGULAR_PD1) {
                             svt_aom_sig_deriv_enc_dec_light_pd1(pcs, ed_ctx->md_ctx);
+#if TUNE_STILL_IMAGE
+                        } else if (scs->allintra) {
+                            svt_aom_sig_deriv_enc_dec_allintra(pcs, ed_ctx->md_ctx);
+                        } else if (scs->static_config.rtc) {
+                            svt_aom_sig_deriv_enc_dec_rtc(pcs, ed_ctx->md_ctx);
+                        } else {
+                            svt_aom_sig_deriv_enc_dec_default(pcs, ed_ctx->md_ctx);
+                        }
+#else
                         } else {
                             svt_aom_sig_deriv_enc_dec(scs, pcs, ed_ctx->md_ctx);
                         }
+#endif
                         // If there is only one depth and no NSQ search at PD1, then the partition structure
                         // is fixed.
                         md_ctx->fixed_partition = md_ctx->pred_depth_only && md_ctx->md_disallow_nsq_search;
@@ -3264,15 +3341,30 @@ void* svt_aom_mode_decision_kernel(void* input_ptr) {
 
                             // Apply the loop filter
                             //Jing: Don't work for tile_parallel since the SB of bottom tile comes early than the bottom SB of top tile
-                            if (pcs->ppcs->frm_hdr.loop_filter_params.filter_level[0] ||
-                                pcs->ppcs->frm_hdr.loop_filter_params.filter_level[1]) {
-                                EbPictureBufferDesc* recon_buffer;
-                                svt_aom_get_recon_pic(pcs, &recon_buffer, ed_ctx->is_16bit);
-                                uint32_t sb_width = MIN(scs->sb_size, pcs->ppcs->aligned_width - sb_origin_x);
-                                uint8_t  last_col = ((sb_origin_x + sb_width) == pcs->ppcs->aligned_width) ? 1 : 0;
-                                svt_aom_loop_filter_sb(
-                                    recon_buffer, pcs, sb_origin_y >> 2, sb_origin_x >> 2, 0, 3, last_col);
+
+#if OPT_DLF
+#if OPT_Q_CDEF
+                            if ((pcs->ppcs->cdef_search_ctrls.enabled &&
+                                 !pcs->ppcs->cdef_search_ctrls.use_qp_strength &&
+                                 !pcs->ppcs->cdef_search_ctrls.use_reference_cdef_fs) ||
+                                pcs->ppcs->enable_restoration ||
+#else
+                            if (pcs->ppcs->cdef_search_ctrls.enabled || pcs->ppcs->enable_restoration ||
+#endif
+                                pcs->ppcs->is_ref || scs->static_config.recon_enabled) {
+#endif
+                                if (pcs->ppcs->frm_hdr.loop_filter_params.filter_level[0] ||
+                                    pcs->ppcs->frm_hdr.loop_filter_params.filter_level[1]) {
+                                    EbPictureBufferDesc* recon_buffer;
+                                    svt_aom_get_recon_pic(pcs, &recon_buffer, ed_ctx->is_16bit);
+                                    uint32_t sb_width = MIN(scs->sb_size, pcs->ppcs->aligned_width - sb_origin_x);
+                                    uint8_t  last_col = ((sb_origin_x + sb_width) == pcs->ppcs->aligned_width) ? 1 : 0;
+                                    svt_aom_loop_filter_sb(
+                                        recon_buffer, pcs, sb_origin_y >> 2, sb_origin_x >> 2, 0, 3, last_col);
+                                }
+#if OPT_DLF
                             }
+#endif
                         }
 
                         ed_ctx->coded_sb_count++;

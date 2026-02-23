@@ -1086,7 +1086,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
             switch (config->rate_control_mode) {
             case SVT_AV1_RC_MODE_CQP_OR_CRF:
                 if (config->max_bit_rate) {
-                    PRINT_CONFIG("BRC mode / mode / factor / max bitrate (kbps)", "%s / %s / %d / %.2f",
+                    PRINT_CONFIG("BRC mode / mode / factor / max bitrate (kbps)", "%s / %s / %.2f / %d",
                         scs->tpl || scs->static_config.enable_variance_boost ? "rate factor" : "CQP Assignment",
                         scs->tpl || scs->static_config.enable_variance_boost ? "capped CRF" : "CQP",
                         get_extended_crf(config),

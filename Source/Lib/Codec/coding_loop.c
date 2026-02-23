@@ -1800,11 +1800,11 @@ static void update_b(PictureControlSet* pcs, EncDecContext* ctx, BlkStruct* blk_
                 }
             }
             bool is_zero_mv = 0;
-            if (blk_ptr->block_mi.mv[0].x < 8 && blk_ptr->block_mi.mv[0].y < 8) {
+            if (abs(blk_ptr->block_mi.mv[0].x) < 8 && abs(blk_ptr->block_mi.mv[0].y) < 8) {
                 is_zero_mv = 1;
             }
             if (has_second_ref(&blk_ptr->block_mi)) {
-                if (blk_ptr->block_mi.mv[1].x < 8 && blk_ptr->block_mi.mv[1].y < 8) {
+                if (abs(blk_ptr->block_mi.mv[1].x) < 8 && abs(blk_ptr->block_mi.mv[1].y) < 8) {
                     is_zero_mv = 1;
                 }
             }

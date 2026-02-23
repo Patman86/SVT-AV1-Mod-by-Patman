@@ -659,10 +659,43 @@ static void generate_ibc_data(PictureControlSet* pcs) {
 
     svt_av1_init3smotion_compensation(&pcs->ss_cfg, pcs->ppcs->enhanced_pic->stride_y);
 }
+#if FTR_INTRA_COEFF_LVL
+static void derive_intra_coeff_level(PictureControlSet* pcs) {
+    uint64_t cmplx = pcs->ppcs->pic_avg_variance / MAX(1, pcs->scs->static_config.qp);
 
+    uint64_t coeff_vlow_level_th = COEFF_LVL_INTRA_TH_0;
+    uint64_t coeff_low_level_th  = COEFF_LVL_INTRA_TH_1;
+    uint64_t coeff_high_level_th = COEFF_LVL_INTRA_TH_2;
+
+    if (pcs->ppcs->input_resolution == INPUT_SIZE_240p_RANGE) {
+        coeff_vlow_level_th = (uint64_t)((double)coeff_vlow_level_th * 1.7);
+        coeff_low_level_th  = (uint64_t)((double)coeff_low_level_th * 1.7);
+        coeff_high_level_th = (uint64_t)((double)coeff_high_level_th * 1.7);
+    } else if (pcs->ppcs->input_resolution <= INPUT_SIZE_480p_RANGE) {
+        coeff_vlow_level_th = (uint64_t)((double)coeff_vlow_level_th * 1.3);
+        coeff_low_level_th  = (uint64_t)((double)coeff_low_level_th * 1.3);
+        coeff_high_level_th = (uint64_t)((double)coeff_high_level_th * 1.3);
+    } else if (pcs->ppcs->input_resolution <= INPUT_SIZE_720p_RANGE) {
+        coeff_vlow_level_th = (uint64_t)((double)coeff_vlow_level_th * 1.2);
+        coeff_low_level_th  = (uint64_t)((double)coeff_low_level_th * 1.2);
+        coeff_high_level_th = (uint64_t)((double)coeff_high_level_th * 1.2);
+    }
+
+    pcs->coeff_lvl = NORMAL_LVL;
+    if (cmplx < coeff_vlow_level_th) {
+        pcs->coeff_lvl = VLOW_LVL;
+    } else if (cmplx < coeff_low_level_th) {
+        pcs->coeff_lvl = LOW_LVL;
+    } else if (cmplx > coeff_high_level_th) {
+        pcs->coeff_lvl = HIGH_LVL;
+    }
+}
+static void derive_inter_coeff_level(PictureControlSet* pcs) {
+#else
 /* Determine the frame complexity level (stored under pcs->coeff_lvl) based
 on the ME distortion and QP. */
 static void set_frame_coeff_lvl(PictureControlSet* pcs) {
+#endif
     // Derive the input nois level
     EbPictureBufferDesc* input_pic = pcs->ppcs->enhanced_pic;
 
@@ -673,11 +706,17 @@ static void set_frame_coeff_lvl(PictureControlSet* pcs) {
                                                        input_pic->height,
                                                        input_pic->stride_y);
 
-    noise_level_fp16             = svt_aom_noise_log1p_fp16(noise_level_fp16);
-    uint64_t cmplx               = pcs->ppcs->norm_me_dist / MAX(1, pcs->scs->static_config.qp);
+    noise_level_fp16 = svt_aom_noise_log1p_fp16(noise_level_fp16);
+    uint64_t cmplx   = pcs->ppcs->norm_me_dist / MAX(1, pcs->scs->static_config.qp);
+#if FTR_INTRA_COEFF_LVL
+    uint64_t coeff_vlow_level_th = COEFF_LVL_INTER_TH_0;
+    uint64_t coeff_low_level_th  = COEFF_LVL_INTER_TH_1;
+    uint64_t coeff_high_level_th = COEFF_LVL_INTER_TH_2;
+#else
     uint64_t coeff_vlow_level_th = COEFF_LVL_TH_0;
     uint64_t coeff_low_level_th  = COEFF_LVL_TH_1;
     uint64_t coeff_high_level_th = COEFF_LVL_TH_2;
+#endif
     if (pcs->ppcs->input_resolution == INPUT_SIZE_240p_RANGE) {
         coeff_vlow_level_th = (uint64_t)((double)coeff_vlow_level_th * 1.7);
         coeff_low_level_th  = (uint64_t)((double)coeff_low_level_th * 1.7);
@@ -929,9 +968,17 @@ void* svt_aom_mode_decision_configuration_kernel(void* input_ptr) {
             pcs->avg_me_clpx = avg_me_clpx / pcs->ppcs->b64_total_count;
         }
         pcs->coeff_lvl = INVALID_LVL;
+#if FTR_INTRA_COEFF_LVL
+        if (scs->allintra) {
+            derive_intra_coeff_level(pcs);
+        } else if (!scs->static_config.rtc && pcs->slice_type != I_SLICE && !pcs->ppcs->sc_class1) {
+            derive_inter_coeff_level(pcs);
+        }
+#else
         if (!scs->static_config.rtc && pcs->slice_type != I_SLICE && !pcs->ppcs->sc_class1) {
             set_frame_coeff_lvl(pcs);
         }
+#endif
         // -------
         // Scale references if resolution of the reference is different than the input
         // super-res reference frame size is same as original input size, only check current frame scaled flag;
@@ -952,7 +999,17 @@ void* svt_aom_mode_decision_configuration_kernel(void* input_ptr) {
 
         FrameHeader* frm_hdr = &pcs->ppcs->frm_hdr;
         // Mode Decision Configuration Kernel Signal(s) derivation
+#if TUNE_STILL_IMAGE
+        if (scs->allintra) {
+            svt_aom_sig_deriv_mode_decision_config_allintra(scs, pcs);
+        } else if (scs->static_config.rtc) {
+            svt_aom_sig_deriv_mode_decision_config_rtc(scs, pcs);
+        } else {
+            svt_aom_sig_deriv_mode_decision_config_default(scs, pcs);
+        }
+#else
         svt_aom_sig_deriv_mode_decision_config(scs, pcs);
+#endif
 
         if (pcs->slice_type != I_SLICE && scs->mfmv_enabled) {
             av1_setup_motion_field(pcs->ppcs->av1_cm, pcs);

@@ -34,6 +34,28 @@
 extern "C" {
 #endif // __cplusplus
 
+
+#define FTR_INTRA_COEFF_LVL         1 // Add coeff-level for INTRA frames using average input variance and input QP.
+#define FTR_VLPD0                   1 // Use a variance-based cost model directly from spatial statistics
+#define OPT_RDOQ_BIS                1 // Replace the area-based cutoff with an adaptive cutoff that uses both transform size and the coded coefficient length (EOB) towards reducing over-pruning on textured blocks
+#define OPT_PER_BLK_INTRA           1 // Use block and sub-block variances (spread_var) to apply DC-only for only uniform blocks
+#define CLN_REMOVE_VAR_SUB_DEPTH    1 // Remove var-sub-depth skip
+#define CLN_DR                      1 // Remove depth-removal
+#define OPT_DLF                     1 // Bypass DLF application when CDEF, Restoration, and Reconstruction are all disabled
+#define OPT_RATE_ESTIMATION         1 // Opt rate estimation
+#define FIX_INTRA_BC_CONFORMANCE    1 // Fix a conformance issue when intra-BC is ON and Palette is OFF
+#define CLN_INTRABC_LEVEL_DEF       1 // Fix intra-BC level definitions
+#define OPT_SC_ALLINTRA_DETECTION   1 // Update IQ-tune SC detection to support SC classes 4 and 5.
+
+#define FTR_NIC_DREFI_NEW_LVL_DEFS  1 // New NIC/Depth-refinement levels
+
+#define TUNE_STILL_IMAGE            1 // Tune still-image coding and reduce presets to nine: from M0 to M9
+
+#define OPT_Q_CDEF                  1 // Derive CDEF strengh(s) from QP
+
+#define OPT_FD2_ALLINTRA            1 // Tune fd2
+#define TUNE_M7_ALLINTRA            1 // Fix M7
+
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one
 #define DEBUG_TPL               0 // Prints to debug TPL

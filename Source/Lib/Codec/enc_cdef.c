@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2016, Alliance for Open Media. All rights reserved
  *
  * This source code is subject to the terms of the BSD 3-Clause Clear License and
@@ -686,6 +686,62 @@ static uint64_t joint_strength_search_dual(int32_t* best_lev0, int32_t* best_lev
     return best_tot_mse;
 }
 
+#if OPT_Q_CDEF
+// This kernel is ported/adapted from libaom (AV1 reference implementation).
+// Original logic inspired by aom_pick_cdef_from_qp().
+// Adjusted to match SVT-AV1 data structures and pipeline integration.
+static void svt_pick_cdef_from_qp(PictureParentControlSet* ppcs, int32_t is_screen_content, int32_t* pred_y_strength,
+                                  int32_t* pred_uv_strength) {
+    FrameHeader*  frm_hdr    = &ppcs->frm_hdr;
+    const uint8_t bit_depth  = ppcs->enhanced_pic->bit_depth;
+    const int32_t base_q_idx = frm_hdr->quantization_params.base_q_idx;
+
+    int32_t q = svt_aom_ac_quant_qtx(base_q_idx, 0, bit_depth);
+    q >>= (bit_depth - 8);
+
+    int32_t y_f1 = 0, y_f2 = 0;
+    int32_t uv_f1 = 0, uv_f2 = 0;
+
+    const int32_t is_intra = (frm_hdr->frame_type == KEY_FRAME || frm_hdr->frame_type == INTRA_ONLY_FRAME);
+
+    if (is_screen_content) {
+        y_f1 = (int32_t)(5.88217781e-06 * q * q + 6.10391455e-03 * q + 9.95043102e-02);
+
+        y_f2 = (int32_t)(-7.79934857e-06 * q * q + 6.58957830e-03 * q + 8.81045025e-01);
+
+        uv_f1 = (int32_t)(-6.79500136e-06 * q * q + 1.02695586e-02 * q + 1.36126802e-01);
+
+        uv_f2 = (int32_t)(-9.99613695e-08 * q * q - 1.79361339e-05 * q + 1.17022324e+0);
+    } else if (!is_intra) {
+        y_f1 = (int32_t)roundf(q * q * -0.0000023593946f + q * 0.0068615186f + 0.02709886f);
+
+        y_f2 = (int32_t)roundf(q * q * -0.00000057629734f + q * 0.0013993345f + 0.03831067f);
+
+        uv_f1 = (int32_t)roundf(q * q * -0.0000007095069f + q * 0.0034628846f + 0.00887099f);
+
+        uv_f2 = (int32_t)roundf(q * q * 0.00000023874085f + q * 0.00028223585f + 0.05576307f);
+    } else { // Intra
+        y_f1 = (int32_t)roundf(q * q * 0.0000033731974f + q * 0.008070594f + 0.0187634f);
+
+        y_f2 = (int32_t)roundf(q * q * 0.0000029167343f + q * 0.0027798624f + 0.0079405f);
+
+        uv_f1 = (int32_t)roundf(q * q * -0.0000130790995f + q * 0.012892405f - 0.00748388f);
+
+        uv_f2 = (int32_t)roundf(q * q * 0.0000032651783f + q * 0.00035520183f + 0.00228092f);
+    }
+
+    // Clamp to AV1 limits
+    y_f1  = clamp(y_f1, 0, 15);
+    y_f2  = clamp(y_f2, 0, 3);
+    uv_f1 = clamp(uv_f1, 0, 15);
+    uv_f2 = clamp(uv_f2, 0, 3);
+
+    // Pack primary + secondary
+    *pred_y_strength  = y_f1 * CDEF_SEC_STRENGTHS + y_f2;
+    *pred_uv_strength = uv_f1 * CDEF_SEC_STRENGTHS + uv_f2;
+}
+#endif
+
 void finish_cdef_search(PictureControlSet* pcs) {
     PictureParentControlSet* ppcs    = pcs->ppcs;
     FrameHeader*             frm_hdr = &ppcs->frm_hdr;
@@ -699,10 +755,77 @@ void finish_cdef_search(PictureControlSet* pcs) {
     int32_t  nvfb = (mi_rows + MI_SIZE_64X64 - 1) / MI_SIZE_64X64;
     int32_t  nhfb = (mi_cols + MI_SIZE_64X64 - 1) / MI_SIZE_64X64;
     //CDEF Settings
-    CdefSearchControls* cdef_search_ctrls          = &pcs->ppcs->cdef_search_ctrls;
-    CdefReconControls*  cdef_recon_ctrls           = &pcs->ppcs->cdef_recon_ctrls;
-    const int           first_pass_fs_num          = cdef_search_ctrls->first_pass_fs_num;
-    const int           default_second_pass_fs_num = cdef_search_ctrls->default_second_pass_fs_num;
+    CdefSearchControls* cdef_search_ctrls = &pcs->ppcs->cdef_search_ctrls;
+#if OPT_Q_CDEF
+    if (cdef_search_ctrls->use_qp_strength) {
+        int pred_y, pred_uv;
+
+        // Predict Y/UV strengths from QP
+        svt_pick_cdef_from_qp(ppcs, 0, &pred_y, &pred_uv);
+
+        // Frame-level parameters
+        frm_hdr->cdef_params.cdef_bits           = 0; // only one strength index
+        ppcs->nb_cdef_strengths                  = 1;
+        frm_hdr->cdef_params.cdef_y_strength[0]  = pred_y;
+        frm_hdr->cdef_params.cdef_uv_strength[0] = pred_uv;
+        frm_hdr->cdef_params.cdef_damping        = 3 + (frm_hdr->quantization_params.base_q_idx >> 6);
+
+        // Assign strength index 0 to all valid 64x64 blocks
+        for (fbr = 0; fbr < nvfb; ++fbr) {
+            for (fbc = 0; fbc < nhfb; ++fbc) {
+                MbModeInfo* mbmi = pcs->mi_grid_base[MI_SIZE_64X64 * fbr * pcs->mi_stride + MI_SIZE_64X64 * fbc];
+
+                // Skip duplicated 64x64 blocks inside larger 128x128/128x64/64x128
+                if (((fbc & 1) && (mbmi->bsize == BLOCK_128X128 || mbmi->bsize == BLOCK_128X64)) ||
+                    ((fbr & 1) && (mbmi->bsize == BLOCK_128X128 || mbmi->bsize == BLOCK_64X128))) {
+                    continue;
+                }
+
+                // Optional: skip SBs marked as no CDEF
+                if (pcs->skip_cdef_seg && pcs->skip_cdef_seg[fbr * nhfb + fbc]) {
+                    continue;
+                }
+
+                // Only one strength → index 0
+                mbmi->cdef_strength = 0;
+
+                // Duplicate for large blocks in SVT MI map
+                switch (mbmi->bsize) {
+                case BLOCK_128X128:
+                    pcs->mi_grid_base[MI_SIZE_64X64 * fbr * pcs->mi_stride + MI_SIZE_64X64 * fbc + MI_SIZE_64X64]
+                        ->cdef_strength = 0;
+
+                    pcs->mi_grid_base[(MI_SIZE_64X64 * fbr + MI_SIZE_64X64) * pcs->mi_stride + MI_SIZE_64X64 * fbc]
+                        ->cdef_strength = 0;
+
+                    pcs->mi_grid_base[(MI_SIZE_64X64 * fbr + MI_SIZE_64X64) * pcs->mi_stride + MI_SIZE_64X64 * fbc +
+                                      MI_SIZE_64X64]
+                        ->cdef_strength = 0;
+                    break;
+
+                case BLOCK_128X64:
+                    pcs->mi_grid_base[MI_SIZE_64X64 * fbr * pcs->mi_stride + MI_SIZE_64X64 * fbc + MI_SIZE_64X64]
+                        ->cdef_strength = 0;
+                    break;
+
+                case BLOCK_64X128:
+                    pcs->mi_grid_base[(MI_SIZE_64X64 * fbr + MI_SIZE_64X64) * pcs->mi_stride + MI_SIZE_64X64 * fbc]
+                        ->cdef_strength = 0;
+                    break;
+
+                default:
+                    break;
+                }
+            }
+        }
+        return;
+    }
+#endif
+
+    CdefReconControls* cdef_recon_ctrls           = &pcs->ppcs->cdef_recon_ctrls;
+    const int          first_pass_fs_num          = cdef_search_ctrls->first_pass_fs_num;
+    const int          default_second_pass_fs_num = cdef_search_ctrls->default_second_pass_fs_num;
+
     if (cdef_search_ctrls->use_reference_cdef_fs) {
         int32_t* sb_index;
         EB_MALLOC_ARRAY_NO_CHECK(sb_index, nvfb * nhfb);

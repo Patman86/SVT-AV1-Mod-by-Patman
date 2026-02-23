@@ -1091,6 +1091,282 @@ void svt_av1_dilate_block(const uint8_t* src, int src_stride, uint8_t* dilated, 
     }
 }
 
+#if OPT_SC_ALLINTRA_DETECTION
+typedef struct Sc_AA_Counts {
+    int64_t count_photo;
+    int64_t count_palette;
+    int64_t count_intrabc;
+
+    int region_palette[4];
+    int region_intrabc[4];
+    int region_photo[4];
+} Sc_AA_Counts;
+
+static Sc_AA_Counts svt_aom_sc_AA_collect_counts(EbPictureBufferDesc* input_pic, int blk_w, int blk_h,
+                                                 BlockSize               blk_size, // BLOCK_16X16, BLOCK_8X8
+                                                 const AomVarianceFnPtr* fn_ptr, // &svt_aom_mefn_ptr[blk_size]
+                                                 int complex_initial_color_thresh, int simple_color_thresh,
+                                                 int complex_final_color_thresh, int var_thresh, bool fast_detection,
+                                                 uint8_t* dilated_blk) {
+    Sc_AA_Counts output_counts = {0};
+
+    // Skip every other block and weigh each block twice as much when performing
+    // fast detection
+    const int multiplier = fast_detection ? 2 : 1;
+
+    for (int r = 0; r + blk_h <= input_pic->height; r += blk_h) {
+        // Alternate skipping in a "checkerboard" pattern when performing fast detection
+        const int initial_col = (fast_detection && (r / blk_h) % 2) ? blk_w : 0;
+
+        for (int c = initial_col; c + blk_w <= input_pic->width; c += blk_w * multiplier) {
+            // Identify quadrant for this block (2x2 regions)
+            const int w2        = input_pic->width >> 1;
+            const int h2        = input_pic->height >> 1;
+            const int region_id = ((r >= h2) ? 2 : 0) + ((c >= w2) ? 1 : 0);
+
+            uint8_t* src = input_pic->buffer_y + (input_pic->org_y + r) * input_pic->stride_y + input_pic->org_x + c;
+
+            int  number_of_colors;
+            bool is_palette = false;
+            bool is_photo   = false;
+            bool is_intrabc = false;
+
+            // First, find if the block could be palletized
+            if (svt_av1_count_colors_with_threshold(src,
+                                                    /*stride=*/input_pic->stride_y,
+                                                    /*rows=*/blk_h,
+                                                    /*cols=*/blk_w,
+                                                    complex_initial_color_thresh,
+                                                    &number_of_colors) &&
+                number_of_colors > 1) {
+                if (number_of_colors <= simple_color_thresh) {
+                    // Simple block detected, add to block count with no further processing required
+                    is_palette = true;
+
+                    int var = svt_av1_get_sby_perpixel_variance(fn_ptr, src, input_pic->stride_y, blk_size);
+                    if (var > var_thresh) {
+                        is_intrabc = true;
+                    }
+
+                } else {
+                    // Complex block detected, try to find if it's palettizable
+                    // Dilate block with dominant color, to exclude anti-aliased pixels from final palette count
+                    svt_av1_dilate_block(src,
+                                         input_pic->stride_y,
+                                         dilated_blk,
+                                         /*stride=*/blk_w,
+                                         /*rows=*/blk_h,
+                                         /*cols=*/blk_w);
+
+                    if (svt_av1_count_colors_with_threshold(dilated_blk,
+                                                            /*stride=*/blk_w,
+                                                            /*rows=*/blk_h,
+                                                            /*cols=*/blk_w,
+                                                            complex_final_color_thresh,
+                                                            &number_of_colors)) {
+                        int var = svt_av1_get_sby_perpixel_variance(fn_ptr, src, input_pic->stride_y, blk_size);
+                        if (var > var_thresh) {
+                            is_palette = true;
+                            is_intrabc = true;
+                        }
+                    }
+                }
+            } else {
+                if (number_of_colors > complex_initial_color_thresh) {
+                    is_photo = true;
+                }
+            }
+
+            if (is_palette) {
+                ++output_counts.count_palette;
+                ++output_counts.region_palette[region_id];
+            }
+            if (is_intrabc) {
+                ++output_counts.count_intrabc;
+                ++output_counts.region_intrabc[region_id];
+            }
+            if (is_photo) {
+                ++output_counts.count_photo;
+                ++output_counts.region_photo[region_id];
+            }
+        }
+    }
+    if (fast_detection) {
+        output_counts.count_photo *= multiplier;
+        output_counts.count_palette *= multiplier;
+        output_counts.count_intrabc *= multiplier;
+
+        for (int i = 0; i < 4; ++i) {
+            output_counts.region_photo[i] *= multiplier;
+            output_counts.region_palette[i] *= multiplier;
+            output_counts.region_intrabc[i] *= multiplier;
+        }
+    }
+
+    return output_counts;
+}
+
+// Estimates if the source frame is a candidate to enable palette mode
+// and intra block copy, with an accurate detection of anti-aliased text and
+// graphics.
+//
+// Screen content detection is done by dividing frame's luma plane (Y) into
+// small blocks, counting how many unique colors each block contains and
+// their per-pixel variance, and classifying these blocks into three main
+// categories:
+// 1. Palettizable blocks, low variance (can use palette mode)
+// 2. Palettizable blocks, high variance (can use palette mode and IntraBC)
+// 3. Non palettizable, photo-like blocks (can neither use palette mode nor
+//    IntraBC)
+// Finally, this function decides whether the frame could benefit from
+// enabling palette mode with or without IntraBC, based on the ratio of the
+// three categories mentioned above.
+void svt_aom_is_screen_content_antialiasing_aware(PictureParentControlSet* pcs) {
+    enum {
+        blk_w16    = 16,
+        blk_h16    = 16,
+        blk_area16 = 16 * 16,
+        blk_w8     = 8,
+        blk_h8     = 8,
+        blk_area8  = 8 * 8,
+    };
+
+    const bool fast_detection = pcs->scs->fast_aa_aware_screen_detection_mode;
+    // These threshold values are selected experimentally.
+    // Detects text and glyphs without anti-aliasing, and graphics with a 4-color palette
+    const int simple_color_thresh = 4;
+    // Detects potential text and glyphs with anti-aliasing, and graphics with a more extended color palette
+    const int complex_initial_color_thresh = 40;
+    // Detects text and glyphs with anti-aliasing, and graphics with a more extended color palette
+    const int complex_final_color_thresh = 6;
+    // Counts of blocks with no more than final_color_thresh colors
+    const int var_thresh = 5;
+    // Count of blocks that are candidates for using palette mode
+    int64_t count_palette_16 = 0;
+    int64_t count_palette_8  = 0;
+    // Count of blocks that are candidates for using IntraBC than var_thresh
+    int64_t count_intrabc_16 = 0;
+    int64_t count_intrabc_8  = 0;
+    // Count of "photo-like" blocks (i.e. can't use palette mode or IntraBC)
+    int64_t count_photo_16 = 0;
+
+#if DEBUG_AA_SCM
+    FILE* stats_file;
+    stats_file = fopen("aascrdet.stt", "a");
+
+    fprintf(stats_file, "\n");
+    fprintf(stats_file, "AA-aware screen detection image map legend\n");
+    if (fast_detection) {
+        fprintf(stats_file, "Fast detection enabled\n");
+    }
+    fprintf(stats_file, "-------------------------------------------------------\n");
+    fprintf(stats_file, "S: simple block, high var    C: complex block, high var\n");
+    fprintf(stats_file, "-: simple block, low var     =: complex block, low var \n");
+    fprintf(stats_file, "x: photo-like block          .: non-palettizable block \n");
+    fprintf(stats_file, "(whitespace): solid block                              \n");
+    fprintf(stats_file, "-------------------------------------------------------\n");
+#endif
+    const AomVarianceFnPtr* fn_ptr_16 = &svt_aom_mefn_ptr[BLOCK_16X16];
+    const AomVarianceFnPtr* fn_ptr_8  = &svt_aom_mefn_ptr[BLOCK_8X8];
+
+    uint8_t dilated_blk_16[blk_area16];
+    uint8_t dilated_blk_8[blk_area8];
+
+    EbPictureBufferDesc* input_pic = pcs->enhanced_pic;
+    const int64_t        area      = (int64_t)input_pic->width * input_pic->height;
+
+    Sc_AA_Counts counts_16X16 = svt_aom_sc_AA_collect_counts(input_pic,
+                                                             16,
+                                                             16,
+                                                             BLOCK_16X16,
+                                                             fn_ptr_16,
+                                                             complex_initial_color_thresh,
+                                                             simple_color_thresh,
+                                                             complex_final_color_thresh,
+                                                             var_thresh,
+                                                             fast_detection,
+                                                             dilated_blk_16);
+    count_photo_16            = counts_16X16.count_photo;
+    count_palette_16          = counts_16X16.count_palette;
+    count_intrabc_16          = counts_16X16.count_intrabc;
+
+    // SC_class4, SC_class5
+    const int complex_final_color_thresh_8 = 8;
+    const int var_thresh_8                 = 50;
+
+    Sc_AA_Counts counts_8X8 = svt_aom_sc_AA_collect_counts(input_pic,
+                                                           8,
+                                                           8,
+                                                           BLOCK_8X8,
+                                                           fn_ptr_8,
+                                                           complex_initial_color_thresh,
+                                                           simple_color_thresh,
+                                                           complex_final_color_thresh_8,
+                                                           var_thresh_8,
+                                                           fast_detection,
+                                                           dilated_blk_8);
+
+    count_palette_8 = counts_8X8.count_palette;
+    count_intrabc_8 = counts_8X8.count_intrabc;
+
+    // The threshold values are selected experimentally.
+    // Penalize presence of photo-like blocks (1/16th the weight of a palettizable block)
+    pcs->sc_class0 = ((count_palette_16 - count_photo_16 / 16) * blk_area8 * 10 > area);
+
+    // IntraBC would force loop filters off, so we use more strict rules that also
+    // requires that the block has high variance.
+    // Penalize presence of photo-like blocks (1/16th the weight of a palettizable block)
+    pcs->sc_class1 = pcs->sc_class0 && ((count_intrabc_16 - count_photo_16 / 16) * blk_area8 * 12 > area);
+
+    pcs->sc_class2 = pcs->sc_class1 ||
+        (count_palette_16 * blk_area8 * 15 > area * 4 && count_intrabc_16 * blk_area8 * 30 > area);
+
+    pcs->sc_class3 = pcs->sc_class1 ||
+        (count_palette_16 * blk_area8 * 8 > area && count_intrabc_16 * blk_area8 * 50 > area);
+
+    const int64_t region_area = area >> 2; // area/4 for 2x2 regions
+    int           pass        = 0;
+
+    for (int i = 0; i < 4; ++i) {
+        if ((counts_8X8.region_palette[i] * blk_area8 * 18 > region_area) &&
+            (counts_8X8.region_intrabc[i] * blk_area8 * 50 > region_area)) {
+            pass++;
+        }
+    }
+    pcs->sc_class4 = (pass >= 3) && (count_palette_8 * blk_area8 * 5 > area);
+    pcs->sc_class5 = (pass >= 2) &&
+        ((count_palette_8 * blk_area8 * 18 > area) && (count_intrabc_8 * blk_area8 * 50 > area));
+
+#if DEBUG_AA_SCM
+    fprintf(stats_file,
+            "block count palette: %" PRId64 ", count intrabc: %" PRId64 ", count photo: %" PRId64 ", total: %d\n",
+            count_palette,
+            count_intrabc,
+            count_photo,
+            (int)(ceil(input_pic->width / blk_w) * ceil(input_pic->height / blk_h)));
+
+    fprintf(stats_file,
+            "sc palette value: %" PRId64 ", threshold %" PRId64 "\n",
+            (count_palette - count_photo / 16) * blk_area * 10,
+            area);
+
+    fprintf(stats_file,
+            "sc ibc value: %" PRId64 ", threshold %" PRId64 "\n",
+            (count_intrabc - count_photo / 16) * blk_area * 12,
+            area);
+
+    fprintf(stats_file,
+            "is sc_class0: %d, is sc_class1: %d, is sc_class2: %d, "
+            "is sc_class3: %d, is sc_class4: %d, is sc_class5: %d\n",
+            pcs->sc_class0,
+            pcs->sc_class1,
+            pcs->sc_class2,
+            pcs->sc_class3,
+            pcs->sc_class4,
+            pcs->sc_class5);
+#endif
+}
+#else
 // Estimates if the source frame is a candidate to enable palette mode
 // and intra block copy, with an accurate detection of anti-aliased text and
 // graphics.
@@ -1282,7 +1558,7 @@ void svt_aom_is_screen_content_antialiasing_aware(PictureParentControlSet* pcs) 
             pcs->sc_class4);
 #endif
 }
-
+#endif
 // Estimate if the source frame is screen content, based on the portion of
 // blocks that have no more than 4 (experimentally selected) luma colors.
 void svt_aom_is_screen_content(PictureParentControlSet* pcs) {

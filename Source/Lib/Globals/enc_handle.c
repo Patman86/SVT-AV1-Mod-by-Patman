@@ -3523,6 +3523,119 @@ static void validate_scaling_params(SequenceControlSet* scs) {
     }
 }
 
+#if TUNE_STILL_IMAGE
+void set_qp_based_th_scaling_ctrls_default(SequenceControlSet* scs) {
+    QpBasedThScaling* qp_ctrls = &scs->qp_based_th_scaling_ctrls;
+    const EncMode     enc_mode = scs->static_config.enc_mode;
+
+    if (enc_mode <= ENC_MR) {
+        qp_ctrls->tf_me_qp_based_th_scaling        = 0;
+        qp_ctrls->tf_ref_qp_based_th_scaling       = 0;
+        qp_ctrls->depths_qp_based_th_scaling       = 0;
+        qp_ctrls->hme_qp_based_th_scaling          = 0;
+        qp_ctrls->me_qp_based_th_scaling           = 0;
+        qp_ctrls->nsq_qp_based_th_scaling          = 0;
+        qp_ctrls->nic_max_qp_based_th_scaling      = 0;
+        qp_ctrls->nic_pruning_qp_based_th_scaling  = 0;
+        qp_ctrls->pme_qp_based_th_scaling          = 0;
+        qp_ctrls->txt_qp_based_th_scaling          = 0;
+        qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
+        qp_ctrls->lpd0_qp_based_th_scaling         = 1;
+    } else {
+        qp_ctrls->tf_me_qp_based_th_scaling        = 1;
+        qp_ctrls->tf_ref_qp_based_th_scaling       = 1;
+        qp_ctrls->depths_qp_based_th_scaling       = 1;
+        qp_ctrls->hme_qp_based_th_scaling          = 1;
+        qp_ctrls->me_qp_based_th_scaling           = 1;
+        qp_ctrls->nsq_qp_based_th_scaling          = 1;
+        qp_ctrls->nic_max_qp_based_th_scaling      = 1;
+        qp_ctrls->nic_pruning_qp_based_th_scaling  = 1;
+        qp_ctrls->pme_qp_based_th_scaling          = 1;
+        qp_ctrls->txt_qp_based_th_scaling          = 1;
+        qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
+        qp_ctrls->lpd0_qp_based_th_scaling         = 1;
+    }
+}
+
+void set_qp_based_th_scaling_ctrls_rtc(SequenceControlSet* scs) {
+    QpBasedThScaling* qp_ctrls = &scs->qp_based_th_scaling_ctrls;
+    const EncMode     enc_mode = scs->static_config.enc_mode;
+
+    if (enc_mode <= ENC_MR) {
+        qp_ctrls->tf_me_qp_based_th_scaling        = 0;
+        qp_ctrls->tf_ref_qp_based_th_scaling       = 0;
+        qp_ctrls->depths_qp_based_th_scaling       = 0;
+        qp_ctrls->hme_qp_based_th_scaling          = 0;
+        qp_ctrls->me_qp_based_th_scaling           = 0;
+        qp_ctrls->nsq_qp_based_th_scaling          = 0;
+        qp_ctrls->nic_max_qp_based_th_scaling      = 0;
+        qp_ctrls->nic_pruning_qp_based_th_scaling  = 0;
+        qp_ctrls->pme_qp_based_th_scaling          = 0;
+        qp_ctrls->txt_qp_based_th_scaling          = 0;
+        qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
+        qp_ctrls->lpd0_qp_based_th_scaling         = 1;
+    } else {
+        qp_ctrls->tf_me_qp_based_th_scaling        = 1;
+        qp_ctrls->tf_ref_qp_based_th_scaling       = 1;
+        qp_ctrls->depths_qp_based_th_scaling       = 1;
+        qp_ctrls->hme_qp_based_th_scaling          = 1;
+        qp_ctrls->me_qp_based_th_scaling           = 1;
+        qp_ctrls->nsq_qp_based_th_scaling          = 1;
+        qp_ctrls->nic_max_qp_based_th_scaling      = 1;
+        qp_ctrls->nic_pruning_qp_based_th_scaling  = 1;
+        qp_ctrls->pme_qp_based_th_scaling          = 1;
+        qp_ctrls->txt_qp_based_th_scaling          = 1;
+        qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
+        qp_ctrls->lpd0_qp_based_th_scaling         = 1;
+    }
+}
+
+void set_qp_based_th_scaling_ctrls_all_intra(SequenceControlSet* scs) {
+    QpBasedThScaling* qp_ctrls = &scs->qp_based_th_scaling_ctrls;
+    const EncMode     enc_mode = scs->static_config.enc_mode;
+
+    if (enc_mode <= ENC_M3) {
+        qp_ctrls->tf_me_qp_based_th_scaling        = 0;
+        qp_ctrls->tf_ref_qp_based_th_scaling       = 0;
+        qp_ctrls->depths_qp_based_th_scaling       = 0;
+        qp_ctrls->hme_qp_based_th_scaling          = 0;
+        qp_ctrls->me_qp_based_th_scaling           = 0;
+        qp_ctrls->nsq_qp_based_th_scaling          = 0;
+        qp_ctrls->nic_max_qp_based_th_scaling      = 1;
+        qp_ctrls->nic_pruning_qp_based_th_scaling  = 1;
+        qp_ctrls->pme_qp_based_th_scaling          = 0;
+        qp_ctrls->txt_qp_based_th_scaling          = 1;
+        qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
+        qp_ctrls->lpd0_qp_based_th_scaling         = 1;
+    } else if (enc_mode <= ENC_M6) {
+        qp_ctrls->tf_me_qp_based_th_scaling        = 0;
+        qp_ctrls->tf_ref_qp_based_th_scaling       = 0;
+        qp_ctrls->depths_qp_based_th_scaling       = 0;
+        qp_ctrls->hme_qp_based_th_scaling          = 0;
+        qp_ctrls->me_qp_based_th_scaling           = 0;
+        qp_ctrls->nsq_qp_based_th_scaling          = 1;
+        qp_ctrls->nic_max_qp_based_th_scaling      = 1;
+        qp_ctrls->nic_pruning_qp_based_th_scaling  = 1;
+        qp_ctrls->pme_qp_based_th_scaling          = 0;
+        qp_ctrls->txt_qp_based_th_scaling          = 1;
+        qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
+        qp_ctrls->lpd0_qp_based_th_scaling         = 1;
+    } else {
+        qp_ctrls->tf_me_qp_based_th_scaling        = 1;
+        qp_ctrls->tf_ref_qp_based_th_scaling       = 1;
+        qp_ctrls->depths_qp_based_th_scaling       = 1;
+        qp_ctrls->hme_qp_based_th_scaling          = 1;
+        qp_ctrls->me_qp_based_th_scaling           = 1;
+        qp_ctrls->nsq_qp_based_th_scaling          = 1;
+        qp_ctrls->nic_max_qp_based_th_scaling      = 1;
+        qp_ctrls->nic_pruning_qp_based_th_scaling  = 1;
+        qp_ctrls->pme_qp_based_th_scaling          = 1;
+        qp_ctrls->txt_qp_based_th_scaling          = 1;
+        qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
+        qp_ctrls->lpd0_qp_based_th_scaling         = 1;
+    }
+}
+#else
 void set_qp_based_th_scaling_ctrls(SequenceControlSet* scs) {
     QpBasedThScaling* qp_ctrls = &scs->qp_based_th_scaling_ctrls;
     const EncMode     enc_mode = scs->static_config.enc_mode;
@@ -3539,9 +3652,20 @@ void set_qp_based_th_scaling_ctrls(SequenceControlSet* scs) {
             qp_ctrls->nic_pruning_qp_based_th_scaling        = 1;
             qp_ctrls->pme_qp_based_th_scaling                = 0;
             qp_ctrls->txt_qp_based_th_scaling                = 1;
+#if FTR_VLPD0
+#if !CLN_DR
+            qp_ctrls->i_depth_removal_qp_based_th_scaling = 1;
+#endif
+            qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
+#if !CLN_REMOVE_VAR_SUB_DEPTH
+            qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 1;
+#endif
+            qp_ctrls->lpd0_qp_based_th_scaling = 1;
+#else
             qp_ctrls->i_depth_removal_qp_based_th_scaling    = 0;
             qp_ctrls->cap_max_size_qp_based_th_scaling       = 0;
             qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 0;
+#endif
         } else if (enc_mode <= ENC_M5) {
             qp_ctrls->tf_me_qp_based_th_scaling              = 0;
             qp_ctrls->tf_ref_qp_based_th_scaling             = 0;
@@ -3553,9 +3677,20 @@ void set_qp_based_th_scaling_ctrls(SequenceControlSet* scs) {
             qp_ctrls->nic_pruning_qp_based_th_scaling        = 1;
             qp_ctrls->pme_qp_based_th_scaling                = 0;
             qp_ctrls->txt_qp_based_th_scaling                = 1;
+#if FTR_VLPD0
+#if !CLN_DR
+            qp_ctrls->i_depth_removal_qp_based_th_scaling = 1;
+#endif
+            qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
+#if !CLN_REMOVE_VAR_SUB_DEPTH
+            qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 1;
+#endif
+            qp_ctrls->lpd0_qp_based_th_scaling = 1;
+#else
             qp_ctrls->i_depth_removal_qp_based_th_scaling    = 0;
             qp_ctrls->cap_max_size_qp_based_th_scaling       = 0;
             qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 0;
+#endif
         } else {
             qp_ctrls->tf_me_qp_based_th_scaling              = 1;
             qp_ctrls->tf_ref_qp_based_th_scaling             = 1;
@@ -3567,9 +3702,20 @@ void set_qp_based_th_scaling_ctrls(SequenceControlSet* scs) {
             qp_ctrls->nic_pruning_qp_based_th_scaling        = 1;
             qp_ctrls->pme_qp_based_th_scaling                = 1;
             qp_ctrls->txt_qp_based_th_scaling                = 1;
+#if FTR_VLPD0
+#if !CLN_DR
+            qp_ctrls->i_depth_removal_qp_based_th_scaling = 1;
+#endif
+            qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
+#if !CLN_REMOVE_VAR_SUB_DEPTH
+            qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 1;
+#endif
+            qp_ctrls->lpd0_qp_based_th_scaling = 1;
+#else
             qp_ctrls->i_depth_removal_qp_based_th_scaling    = 1;
             qp_ctrls->cap_max_size_qp_based_th_scaling       = 1;
             qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 1;
+#endif
         }
     } else {
         if (enc_mode <= ENC_MR) {
@@ -3583,9 +3729,20 @@ void set_qp_based_th_scaling_ctrls(SequenceControlSet* scs) {
             qp_ctrls->nic_pruning_qp_based_th_scaling        = 0;
             qp_ctrls->pme_qp_based_th_scaling                = 0;
             qp_ctrls->txt_qp_based_th_scaling                = 0;
+#if FTR_VLPD0
+#if !CLN_DR
+            qp_ctrls->i_depth_removal_qp_based_th_scaling = 1;
+#endif
+            qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
+#if !CLN_REMOVE_VAR_SUB_DEPTH
+            qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 1;
+#endif
+            qp_ctrls->lpd0_qp_based_th_scaling = 1;
+#else
             qp_ctrls->i_depth_removal_qp_based_th_scaling    = 0;
             qp_ctrls->cap_max_size_qp_based_th_scaling       = 0;
             qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 0;
+#endif
         } else {
             qp_ctrls->tf_me_qp_based_th_scaling              = 1;
             qp_ctrls->tf_ref_qp_based_th_scaling             = 1;
@@ -3597,16 +3754,30 @@ void set_qp_based_th_scaling_ctrls(SequenceControlSet* scs) {
             qp_ctrls->nic_pruning_qp_based_th_scaling        = 1;
             qp_ctrls->pme_qp_based_th_scaling                = 1;
             qp_ctrls->txt_qp_based_th_scaling                = 1;
+#if FTR_VLPD0
+#if !CLN_DR
+            qp_ctrls->i_depth_removal_qp_based_th_scaling = 1;
+#endif
+            qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
+#if !CLN_REMOVE_VAR_SUB_DEPTH
+            qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 1;
+#endif
+            qp_ctrls->lpd0_qp_based_th_scaling = 1;
+#else
             qp_ctrls->i_depth_removal_qp_based_th_scaling    = 0;
             qp_ctrls->cap_max_size_qp_based_th_scaling       = 0;
             qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 0;
+#endif
         }
     }
 }
+#endif
 
 static void set_param_based_on_input(SequenceControlSet* scs) {
     const bool allintra = scs->allintra;
-
+#if TUNE_STILL_IMAGE
+    const bool rtc_tune = scs->static_config.rtc;
+#endif
     set_multi_pass_params(scs);
 
     // superres_mode and resize_mode may be updated,
@@ -3698,7 +3869,13 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
 
     scs->seq_qp_mod = 2;
 
+#if TUNE_STILL_IMAGE
+    (allintra       ? set_qp_based_th_scaling_ctrls_all_intra
+         : rtc_tune ? set_qp_based_th_scaling_ctrls_rtc
+                    : set_qp_based_th_scaling_ctrls_default)(scs);
+#else
     set_qp_based_th_scaling_ctrls(scs);
+#endif
 
     // Set tune params
     derive_vq_params(scs);
@@ -3780,6 +3957,13 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         (scs->input_resolution == INPUT_SIZE_240p_RANGE) || scs->static_config.enable_variance_boost) {
         scs->super_block_size = 64;
     } else if (allintra) {
+#if TUNE_STILL_IMAGE
+        if (scs->static_config.enc_mode <= ENC_M1) {
+            scs->super_block_size = 128;
+        } else {
+            scs->super_block_size = 64;
+        }
+#else
         if (scs->input_resolution <= INPUT_SIZE_1080p_RANGE) {
             if (scs->static_config.enc_mode <= ENC_M0) {
                 scs->super_block_size = 128;
@@ -3793,6 +3977,7 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
                 scs->super_block_size = 64;
             }
         }
+#endif
     } else if (scs->static_config.enc_mode <= ENC_MR) {
         scs->super_block_size = 128;
     } else if (scs->static_config.enc_mode <= ENC_M5) {
@@ -3853,8 +4038,19 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     uint8_t no_8x4_4x8    = 1;
     uint8_t no_16x8_8x16  = 1;
     for (uint8_t coeff_lvl = 0; coeff_lvl <= HIGH_LVL + 1; coeff_lvl++) {
+#if TUNE_STILL_IMAGE
+        uint8_t nsq_geom_level;
+        if (scs->allintra) {
+            nsq_geom_level = svt_aom_get_nsq_geom_level_allintra(scs->static_config.enc_mode);
+        } else if (scs->static_config.rtc) {
+            nsq_geom_level = svt_aom_get_nsq_geom_level_rtc(scs->static_config.enc_mode);
+        } else {
+            nsq_geom_level = svt_aom_get_nsq_geom_level_default(scs->static_config.enc_mode, coeff_lvl);
+        }
+#else
         uint8_t nsq_geom_level = svt_aom_get_nsq_geom_level(
             allintra, scs->input_resolution, scs->static_config.enc_mode, coeff_lvl, scs->static_config.rtc);
+#endif
         disallow_nsq               = MIN(disallow_nsq, (nsq_geom_level == 0 ? 1 : 0));
         uint8_t temp_allow_HVA_HVB = 0, temp_allow_HV4 = 0;
         svt_aom_set_nsq_geom_ctrls(NULL, nsq_geom_level, &temp_allow_HVA_HVB, &temp_allow_HV4, &min_nsq_bsize);
@@ -3865,12 +4061,28 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         no_16x8_8x16 = no_16x8_8x16 && min_nsq_bsize >= 16;
     }
 
+#if TUNE_STILL_IMAGE
+    bool disallow_8x8;
+    bool disallow_4x4;
+    if (scs->allintra) {
+        disallow_4x4 = svt_aom_get_disallow_4x4_allintra(scs->static_config.enc_mode);
+        disallow_8x8 = svt_aom_get_disallow_8x8_allintra();
+    } else if (scs->static_config.rtc) {
+        disallow_4x4 = svt_aom_get_disallow_4x4_rtc(scs->static_config.enc_mode);
+        disallow_8x8 = svt_aom_get_disallow_8x8_rtc(
+            scs->static_config.enc_mode, scs->max_input_luma_width, scs->max_input_luma_height);
+    } else {
+        disallow_4x4 = svt_aom_get_disallow_4x4_default(scs->static_config.enc_mode);
+        disallow_8x8 = svt_aom_get_disallow_8x8_default();
+    }
+#else
     bool disallow_4x4 = svt_aom_get_disallow_4x4(scs->static_config.enc_mode);
     bool disallow_8x8 = svt_aom_get_disallow_8x8(scs->static_config.enc_mode,
                                                  allintra,
                                                  scs->static_config.rtc,
                                                  scs->max_input_luma_width,
                                                  scs->max_input_luma_height);
+#endif
     if (scs->super_block_size == 128) {
         if (!allow_HVA_HVB && disallow_4x4) {
             scs->svt_aom_geom_idx = GEOM_10;
@@ -4019,8 +4231,6 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
 
     scs->stats_based_sb_lambda_modulation = 1;
 
-    scs->low_latency_kf = (scs->static_config.rtc && scs->static_config.enc_mode <= ENC_M6) ? 1 : 0;
-
     scs->fast_aa_aware_screen_detection_mode = (scs->static_config.enc_mode >= ENC_M3) ? 1 : 0;
 }
 
@@ -4054,12 +4264,31 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->static_config.multiply_keyint     = config_struct->multiply_keyint;
     scs->static_config.intra_refresh_type  = config_struct->intra_refresh_type;
     scs->static_config.enc_mode            = config_struct->enc_mode;
+#if TUNE_STILL_IMAGE
+    if (scs->allintra) {
+        if (scs->static_config.enc_mode == ENC_MR) {
+            SVT_WARN("The lowest supported preset for all-intra and still-image is M0.\n");
+            scs->static_config.enc_mode = ENC_M0;
+        } else if (scs->static_config.enc_mode > ENC_M9) {
+            SVT_WARN("Preset M%d is mapped to M9.\n", scs->static_config.enc_mode);
+            scs->static_config.enc_mode = ENC_M9;
+        }
+    } else if (scs->static_config.rtc) {
+        if (scs->static_config.enc_mode > ENC_M12) {
+            SVT_WARN("Preset M%d is mapped to M12.\n", scs->static_config.enc_mode);
+            scs->static_config.enc_mode = ENC_M12;
+        }
+#else
     if (scs->static_config.rtc || scs->allintra) {
         if (scs->static_config.enc_mode > ENC_M12) {
             SVT_WARN("Preset M%d is mapped to M12.\n", scs->static_config.enc_mode);
             scs->static_config.enc_mode = ENC_M12;
         }
-    } else if (scs->static_config.enc_mode > ENC_M11) {
+
+#endif
+    }
+
+    else if (scs->static_config.enc_mode > ENC_M11) {
         SVT_WARN("Preset M%d is mapped to M11.\n", scs->static_config.enc_mode);
         scs->static_config.enc_mode = ENC_M11;
     }
@@ -4263,7 +4492,17 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->subsampling_x     = (scs->chroma_format_idc == EB_YUV444 ? 0 : 1);
     scs->subsampling_y     = (scs->chroma_format_idc >= EB_YUV422 ? 0 : 1);
     // Force screen-content detection OFF when allintra
+#if OPT_SC_ALLINTRA_DETECTION
+    const bool allintra = scs->allintra;
+    if (allintra) {
+        scs->static_config.screen_content_mode = 0;
+        SVT_WARN("SC is disabled for all-intra coding\n");
+    } else {
+        scs->static_config.screen_content_mode = config_struct->screen_content_mode;
+    }
+#else
     scs->static_config.screen_content_mode = scs->allintra ? 0 : config_struct->screen_content_mode;
+#endif
     // Annex A parameters
     scs->static_config.profile     = config_struct->profile;
     scs->static_config.tier        = config_struct->tier;

@@ -863,6 +863,37 @@ static int8_t allow_refinement_flag[BIPRED_3x3_REFINMENT_POSITIONS] = {1, 0, 1, 
 static int8_t bipred_3x3_x_pos[BIPRED_3x3_REFINMENT_POSITIONS]      = {-1, -1, 0, 1, 1, 1, 0, -1};
 static int8_t bipred_3x3_y_pos[BIPRED_3x3_REFINMENT_POSITIONS]      = {0, 1, 1, 1, 0, -1, -1, -1};
 
+#if OPT_PER_BLK_INTRA
+static INLINE uint8_t is_dc_only_safe(PictureControlSet* pcs, ModeDecisionContext* ctx) {
+    // Early exit if pruning not enabled, SB-128, NSQ
+    if (!ctx->intra_ctrls.prune_using_edge_info || pcs->scs->super_block_size == 128 ||
+        ctx->blk_geom->shape != PART_N) {
+        return 0;
+    }
+
+    // Block variance lookup
+    int blk_idx;
+    int sub_idx[4];
+    svt_aom_get_blk_var_map(ctx->blk_geom->sq_size, ctx->blk_geom->org_x, ctx->blk_geom->org_y, &blk_idx, sub_idx);
+
+    uint16_t* sb_var  = pcs->ppcs->variance[ctx->sb_index];
+    uint32_t  blk_var = sb_var[blk_idx];
+
+    uint32_t min_var = UINT32_MAX;
+    uint32_t max_var = 0;
+
+    for (int i = 0; i < 4; i++) {
+        uint32_t v = sb_var[sub_idx[i]];
+        min_var    = MIN(min_var, v);
+        max_var    = MAX(max_var, v);
+    }
+
+    uint32_t spread_var = max_var - min_var;
+
+    // Safe if uniform block
+    return (blk_var < 2000 && spread_var < 4000);
+}
+#endif
 // Inject inter-intra, WM, OBMC for unipred simple-trans candidate
 //
 // total_cand_count is the index to ctx->fast_cand_array for the next candidate injected (which is the
@@ -3532,7 +3563,11 @@ void generate_md_stage_0_cand_light_pd1(ModeDecisionContext* ctx, uint32_t* cand
     //----------------------
     // Intra
     if (ctx->intra_ctrls.enable_intra && ctx->blk_geom->sq_size < 128) {
+#if OPT_PER_BLK_INTRA // max
+        uint8_t dc_cand_only_flag = ctx->intra_ctrls.intra_mode_end == DC_PRED || is_dc_only_safe(pcs, ctx);
+#else
         uint8_t dc_cand_only_flag = (ctx->intra_ctrls.intra_mode_end == DC_PRED);
+#endif
         if (ctx->cand_reduction_ctrls.cand_elimination_ctrls.enabled && !dc_cand_only_flag &&
             ctx->md_me_dist != (uint32_t)~0) {
             uint32_t th = ctx->cand_reduction_ctrls.cand_elimination_ctrls.dc_only_th;
@@ -3563,16 +3598,24 @@ EbErrorType generate_md_stage_0_cand(PictureControlSet* pcs, ModeDecisionContext
     const SliceType           slice_type     = pcs->slice_type;
     uint32_t                  cand_total_cnt = 0;
     // Reset duplicates variables
-    ctx->injected_mv_count    = 0;
-    ctx->inject_new_me        = 1;
-    ctx->inject_new_pme       = 1;
+    ctx->injected_mv_count = 0;
+    ctx->inject_new_me     = 1;
+    ctx->inject_new_pme    = 1;
+#if !OPT_PER_BLK_INTRA // max
     uint8_t dc_cand_only_flag = ctx->intra_ctrls.enable_intra && (ctx->intra_ctrls.intra_mode_end == DC_PRED);
     if (ctx->cand_reduction_ctrls.cand_elimination_ctrls.enabled) {
         eliminate_candidate_based_on_pme_me_results(ctx, &dc_cand_only_flag);
     }
+#endif
     //----------------------
     // Intra
     if (ctx->intra_ctrls.enable_intra) {
+#if OPT_PER_BLK_INTRA
+        uint8_t dc_cand_only_flag = ctx->intra_ctrls.intra_mode_end == DC_PRED || is_dc_only_safe(pcs, ctx);
+        if (ctx->cand_reduction_ctrls.cand_elimination_ctrls.enabled) {
+            eliminate_candidate_based_on_pme_me_results(ctx, &dc_cand_only_flag);
+        }
+#endif
         if (ctx->blk_geom->sq_size < 128) {
             inject_intra_candidates(pcs, ctx, dc_cand_only_flag, &cand_total_cnt);
         }

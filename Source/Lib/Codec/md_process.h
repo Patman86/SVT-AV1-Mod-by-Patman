@@ -431,6 +431,11 @@ typedef struct NsqPsqTxsCtrls {
 
 typedef struct RdoqCtrls {
     uint8_t enabled;
+#if OPT_RDOQ_BIS
+    // 0: do not apply cutoff; >=1: apply RDOQ only to the percentage of coefficients near EOB defined by cut_off_num / cut_off_denum, skipping the rest (low frequencies)
+    uint16_t cut_off_num;
+    uint16_t cut_off_denum;
+#else
     // 0: do not use cut off div; >=1: limit rdoq to a fixed low-frequency cut-off (DC + first AC coefficients) and skip rdoq on all higher frequencies
     uint16_t cut_off_div;
     // 0: do not use eob_fast for luma inter; 1: use eob_fast for luma inter
@@ -449,6 +454,7 @@ typedef struct RdoqCtrls {
     uint8_t satd_factor;
     // Do not perform rdoq based on an early skip/non-skip cost
     uint8_t early_exit_th;
+#endif
     // [MD Only] 0: RDOQ for both Luma & Chroma, 1: RDOQ for only Luma
     uint8_t skip_uv;
     // [MD Only] 0: RDOQ for All txt type(s), 1: RDOQ for only DCT_DCT
@@ -802,9 +808,12 @@ typedef struct IntraCtrls {
     // 0: angular off; 1: angular full; 2/3: limit num. angular candidates; 4: H + V only
     uint8_t angular_pred_level;
     uint8_t prune_using_best_mode;
-    int8_t  skip_angular_delta1_th;
-    int8_t  skip_angular_delta2_th;
-    int8_t  skip_angular_delta3_th;
+#if OPT_PER_BLK_INTRA
+    bool prune_using_edge_info;
+#endif
+    int8_t skip_angular_delta1_th;
+    int8_t skip_angular_delta2_th;
+    int8_t skip_angular_delta3_th;
 } IntraCtrls;
 
 typedef struct TxShortcutCtrls {
@@ -850,7 +859,7 @@ typedef struct SkipSubDepthCtrls {
     uint8_t coeff_perc;
 
 } SkipSubDepthCtrls;
-
+#if !CLN_REMOVE_VAR_SUB_DEPTH
 typedef struct VarSkipSubDepthCtrls {
     uint8_t  enabled;
     uint32_t coeff_th;
@@ -858,7 +867,7 @@ typedef struct VarSkipSubDepthCtrls {
     uint8_t  max_size;
     uint32_t edge_th[4][3];
 } VarSkipSubDepthCtrls;
-
+#endif
 typedef struct FilterIntraCtrls {
     bool enabled;
     // Set the max filter intra mode to test. The max filter intra level will also depend on ctx->intra_ctrls.intra_mode_end.
@@ -1118,10 +1127,12 @@ typedef struct ModeDecisionContext {
     DepthRemovalCtrls    depth_removal_ctrls;
     DepthRefinementCtrls depth_refinement_ctrls;
     SkipSubDepthCtrls    skip_sub_depth_ctrls;
+#if !CLN_REMOVE_VAR_SUB_DEPTH
     VarSkipSubDepthCtrls var_skip_sub_depth_ctrls;
-    SubresCtrls          subres_ctrls;
-    uint8_t              is_subres_safe;
-    PfCtrls              pf_ctrls;
+#endif
+    SubresCtrls subres_ctrls;
+    uint8_t     is_subres_safe;
+    PfCtrls     pf_ctrls;
     // Control signals for MD sparse search (used for increasing ME search for active clips)
     MdSqMotionSearchCtrls  md_sq_me_ctrls;
     MdNsqMotionSearchCtrls md_nsq_me_ctrls;
@@ -1175,7 +1186,12 @@ typedef struct ModeDecisionContext {
     NicCtrls        nic_ctrls;
     Mv              ref_mv;
     uint16_t        sb_index;
-    bool            mds0_use_hadamard;
+#if OPT_PER_BLK_INTRA
+    bool mds0_use_hadamard_sb;
+    bool mds0_use_hadamard_blk;
+#else
+    bool mds0_use_hadamard;
+#endif
     uint8_t         max_block_size;
     uint64_t        mds0_best_cost_per_class[CAND_CLASS_TOTAL];
     uint64_t        mds0_best_cost;
@@ -1310,6 +1326,9 @@ extern void svt_aom_reset_mode_decision(SequenceControlSet* scs, ModeDecisionCon
 
 extern void svt_aom_mode_decision_configure_sb(ModeDecisionContext* ctx, PictureControlSet* pcs, uint8_t sb_qp,
                                                uint8_t me_sb_qp);
+#if FTR_VLPD0
+void svt_aom_get_blk_var_map(int block_size, int org_x, int org_y, int* blk_idx, int sub_idx[4]);
+#endif
 #ifdef __cplusplus
 }
 #endif
