@@ -1097,6 +1097,28 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
       *  Default is 15 (1x scaling). */
      uint8_t cdef_scaling;
 
+    /**
+     * @brief Photon noise ISO value
+     *
+     * Default is 0.
+     */
+    uint32_t photon_noise_iso;
+
+    /**
+     * @brief Enable chroma noise, which will is scaled based on luma values for generated film grain table.
+     *
+     * 0: disable chroma scaling
+     * 1: enable chroma scaling
+     *
+     * Default is 0.
+     */
+    uint8_t enable_photon_noise_chroma;
+
+    /**
+     * @brief Check if color range is provided by the user
+     */
+    bool color_range_provided;
+
 } EbSvtAv1EncConfiguration;
 
 /**
