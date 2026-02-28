@@ -30,7 +30,12 @@
 #include "enc_mode_config.h"
 #include "global_me.h"
 #include "aom_dsp_rtcd.h"
+
 #define MAX_MESH_SPEED 5 // Max speed setting for mesh motion method
+#define MAX_OFFSET_WIDTH 64
+#define MAX_OFFSET_HEIGHT 0
+#define MFMV_STACK_SIZE 3
+
 static const MeshPattern good_quality_mesh_patterns[MAX_MESH_SPEED + 1][MAX_MESH_STEP] = {
     {{64, 8}, {28, 4}, {15, 1}, {7, 1}},
     {{64, 8}, {28, 4}, {15, 1}, {7, 1}},
@@ -432,8 +437,6 @@ static int get_block_position(Av1Common* cm, int* mi_r, int* mi_c, int blk_row, 
 
     return 1;
 }
-
-#define MFMV_STACK_SIZE 3
 
 // Note: motion_filed_projection finds motion vectors of current frame's
 // reference frame, and projects them to current frame. To make it clear,

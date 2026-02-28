@@ -19,8 +19,12 @@ static const SEG_LVL_FEATURES seg_lvl_lf_lut[MAX_MB_PLANE][2] = {{SEG_LVL_ALT_LF
                                                                  {SEG_LVL_ALT_LF_U, SEG_LVL_ALT_LF_U},
                                                                  {SEG_LVL_ALT_LF_V, SEG_LVL_ALT_LF_V}};
 
-static int svt_aom_seg_feature_active(SegmentationParams* seg, int segment_id, SEG_LVL_FEATURES feature_id) {
+static INLINE int svt_aom_seg_feature_active(SegmentationParams* seg, int segment_id, SEG_LVL_FEATURES feature_id) {
     return seg->segmentation_enabled && seg->feature_enabled[segment_id][feature_id];
+}
+
+static INLINE int get_segdata(SegmentationParams* seg, int segment_id, SEG_LVL_FEATURES feature_id) {
+    return seg->feature_data[segment_id][feature_id];
 }
 
 static INLINE int8_t signed_char_clamp(int32_t t) {

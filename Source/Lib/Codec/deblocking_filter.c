@@ -21,6 +21,8 @@
 #include "reference_object.h"
 #include "common_utils.h"
 #include "ac_bias.h"
+#include "inv_transforms.h"
+
 #define DLF_MAX_LVL 4
 static const int32_t  inter_frame_multiplier[INPUT_SIZE_COUNT]      = {6017, 6017, 6017, 12034, 12034, 12034, 12034};
 static const uint32_t disable_dlf_th[DLF_MAX_LVL][INPUT_SIZE_COUNT] = {{0, 0, 0, 0, 0, 0, 0},
@@ -299,7 +301,7 @@ static TxSize set_lpf_parameters(Av1DeblockingParameters* const params, const ui
 
                 const BlockSize bsize = get_plane_block_size(
                     mbmi->bsize, plane_ptr->subsampling_x, plane_ptr->subsampling_y);
-                assert(bsize < BlockSizeS_ALL);
+                assert(bsize < BLOCK_SIZES_ALL);
                 const int32_t prediction_masks = (edge_dir == VERT_EDGE) ? block_size_wide[bsize] - 1
                                                                          : block_size_high[bsize] - 1;
                 const int32_t pu_edge          = !(coord & prediction_masks);

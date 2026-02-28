@@ -904,7 +904,7 @@ void finish_cdef_search(PictureControlSet* pcs) {
     svt_aom_lambda_assign(pcs,
                           &fast_lambda,
                           &full_lambda,
-                          (uint8_t)pcs->ppcs->enhanced_pic->bit_depth,
+                          pcs->ppcs->enhanced_pic->bit_depth,
                           pcs->ppcs->frm_hdr.quantization_params.base_q_idx,
                           false);
     lambda   = full_lambda;

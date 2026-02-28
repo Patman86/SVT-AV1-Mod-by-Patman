@@ -331,7 +331,6 @@ enum {
 #define MAX_LAD 120 // max lookahead-distance 2x60fps
 #define ROUND_UV(x) (((x) >> 3) << 3)
 #define SWITCHABLE_FILTER_CONTEXTS ((SWITCHABLE_FILTERS + 1) * 4)
-#define MAX_MB_PLANE 3
 #define CFL_BUF_LINE (32)
 #define CFL_BUF_LINE_I128 (CFL_BUF_LINE >> 3)
 #define CFL_BUF_LINE_I256 (CFL_BUF_LINE >> 4)
@@ -514,6 +513,20 @@ typedef int16_t InterpKernel[SUBPEL_TAPS];
 #endif
 #endif
 
+#if defined(__clang__) && defined(__has_warning)
+#if __has_feature(cxx_attributes) && __has_warning("-Wimplicit-fallthrough")
+#define AOM_FALLTHROUGH_INTENDED [[clang::fallthrough]] // NOLINT
+#endif
+#elif defined(__GNUC__) && __GNUC__ >= 7
+#define AOM_FALLTHROUGH_INTENDED __attribute__((fallthrough)) // NOLINT
+#endif
+
+#ifndef AOM_FALLTHROUGH_INTENDED
+#define AOM_FALLTHROUGH_INTENDED \
+    do {                         \
+    } while (0)
+#endif
+
 #ifdef _MSC_VER
 #define AOM_FORCE_INLINE __forceinline
 #define AOM_INLINE __inline
@@ -594,6 +607,10 @@ typedef enum ATTRIBUTE_PACKED {
     COMPONENT_ALL       = 4, // Y+Cb+Cr
     COMPONENT_NONE      = 15
 } COMPONENT_TYPE;
+
+typedef enum ATTRIBUTE_PACKED { AOM_PLANE_Y, AOM_PLANE_U, AOM_PLANE_V, MAX_MB_PLANE } Plane;
+
+typedef enum ATTRIBUTE_PACKED { PLANE_TYPE_Y, PLANE_TYPE_UV, PLANE_TYPES } PlaneType;
 
 static INLINE int32_t clamp(int32_t value, int32_t low, int32_t high) {
     return value < low ? low : (value > high ? high : value);
@@ -810,10 +827,10 @@ typedef enum ATTRIBUTE_PACKED {
     BLOCK_32X8,
     BLOCK_16X64,
     BLOCK_64X16,
-    BlockSizeS_ALL,
-    BlockSizeS    = BLOCK_4X16,
+    BLOCK_SIZES_ALL,
+    BLOCK_SIZES   = BLOCK_4X16,
     BLOCK_INVALID = 255,
-    BLOCK_LARGEST = (BlockSizeS - 1)
+    BLOCK_LARGEST = (BLOCK_SIZES - 1)
 } BlockSize;
 
 typedef enum ATTRIBUTE_PACKED {
@@ -847,109 +864,10 @@ typedef enum ATTRIBUTE_PACKED {
     PART_S
 } Part;
 
-static const PartitionType from_shape_to_part[EXT_PARTITION_TYPES] = {PARTITION_NONE,
-                                                                      PARTITION_HORZ,
-                                                                      PARTITION_VERT,
-                                                                      PARTITION_HORZ_4,
-                                                                      PARTITION_VERT_4,
-                                                                      PARTITION_HORZ_A,
-                                                                      PARTITION_HORZ_B,
-                                                                      PARTITION_VERT_A,
-                                                                      PARTITION_VERT_B,
-                                                                      PARTITION_SPLIT};
-
-static const uint8_t mi_size_wide[BlockSizeS_ALL] = {1,  1,  2,  2,  2,  4, 4, 4, 8, 8, 8,
-                                                     16, 16, 16, 32, 32, 1, 4, 2, 8, 4, 16};
-static const uint8_t mi_size_high[BlockSizeS_ALL] = {1, 2,  1,  2,  4,  2, 4, 8, 4, 8,  16,
-                                                     8, 16, 32, 16, 32, 4, 1, 8, 2, 16, 4};
-
-// 4X4, 8X8, 16X16, 32X32, 64X64, 128X128
-#define SQR_BLOCK_SIZES 6
-
-// Number of sub-partitions in rectangular partition types.
-#define SUB_PARTITIONS_RECT 2
-
-// Number of sub-partitions in split partition type.
-#define SUB_PARTITIONS_SPLIT 4
-
-// Number of sub-partitions in AB partition types.
-#define SUB_PARTITIONS_AB 3
-
-// Number of sub-partitions in 4-way partition types.
-#define SUB_PARTITIONS_PART4 4
-
-// A compressed version of the Partition_Subsize table in the spec (9.3.
-// Conversion tables), for square block sizes only.
-/* clang-format off */
-static const BlockSize subsize_lookup[EXT_PARTITION_TYPES][SQR_BLOCK_SIZES] = {
-  {     // PARTITION_NONE
-    BLOCK_4X4, BLOCK_8X8, BLOCK_16X16,
-    BLOCK_32X32, BLOCK_64X64, BLOCK_128X128
-  }, {  // PARTITION_HORZ
-    BLOCK_INVALID, BLOCK_8X4, BLOCK_16X8,
-    BLOCK_32X16, BLOCK_64X32, BLOCK_128X64
-  }, {  // PARTITION_VERT
-    BLOCK_INVALID, BLOCK_4X8, BLOCK_8X16,
-    BLOCK_16X32, BLOCK_32X64, BLOCK_64X128
-  }, {  // PARTITION_SPLIT
-    BLOCK_INVALID, BLOCK_4X4, BLOCK_8X8,
-    BLOCK_16X16, BLOCK_32X32, BLOCK_64X64
-  }, {  // PARTITION_HORZ_A
-    BLOCK_INVALID, BLOCK_INVALID, BLOCK_16X8,
-    BLOCK_32X16, BLOCK_64X32, BLOCK_128X64
-  }, {  // PARTITION_HORZ_B
-    BLOCK_INVALID, BLOCK_INVALID, BLOCK_16X8,
-    BLOCK_32X16, BLOCK_64X32, BLOCK_128X64
-  }, {  // PARTITION_VERT_A
-    BLOCK_INVALID, BLOCK_INVALID, BLOCK_8X16,
-    BLOCK_16X32, BLOCK_32X64, BLOCK_64X128
-  }, {  // PARTITION_VERT_B
-    BLOCK_INVALID, BLOCK_INVALID, BLOCK_8X16,
-    BLOCK_16X32, BLOCK_32X64, BLOCK_64X128
-  }, {  // PARTITION_HORZ_4
-    BLOCK_INVALID, BLOCK_INVALID, BLOCK_16X4,
-    BLOCK_32X8, BLOCK_64X16, BLOCK_INVALID
-  }, {  // PARTITION_VERT_4
-    BLOCK_INVALID, BLOCK_INVALID, BLOCK_4X16,
-    BLOCK_8X32, BLOCK_16X64, BLOCK_INVALID
-  }
-};
-
-static inline int get_sqr_bsize_idx(BlockSize bsize) {
-    switch (bsize) {
-    case BLOCK_4X4: return 0;
-    case BLOCK_8X8: return 1;
-    case BLOCK_16X16: return 2;
-    case BLOCK_32X32: return 3;
-    case BLOCK_64X64: return 4;
-    case BLOCK_128X128: return 5;
-    default: return SQR_BLOCK_SIZES;
-    }
-}
-// For a square block size 'bsize', returns the size of the sub-blocks used by
-// the given partition type. If the partition produces sub-blocks of different
-// sizes, then the function returns the largest sub-block size.
-// Implements the Partition_Subsize lookup table in the spec (Section 9.3.
-// Conversion tables).
-// Note: the input block size should be square.
-// Otherwise it's considered invalid.
-static inline BlockSize get_partition_subsize(BlockSize bsize,
-    PartitionType partition) {
-    if (partition == PARTITION_INVALID) {
-        return BLOCK_INVALID;
-    }
-    else {
-        const int sqr_bsize_idx = get_sqr_bsize_idx(bsize);
-        return sqr_bsize_idx >= SQR_BLOCK_SIZES
-            ? BLOCK_INVALID
-            : subsize_lookup[partition][sqr_bsize_idx];
-    }
-}
-
 typedef char PartitionContextType;
 #define PARTITION_PLOFFSET 4 // number of probability models per block size
-#define PARTITION_BlockSizeS 5
-#define PARTITION_CONTEXTS (PARTITION_BlockSizeS * PARTITION_PLOFFSET)
+#define PARTITION_BLOCK_SIZES 5
+#define PARTITION_CONTEXTS (PARTITION_BLOCK_SIZES * PARTITION_PLOFFSET)
 
 // block transform size
 #ifdef _MSC_VER
@@ -988,34 +906,6 @@ typedef enum ATTRIBUTE_PACKED {
 #else
 } TxSize;
 #endif
-static const TxSize tx_depth_to_tx_size[3][BlockSizeS_ALL] = {
-    // tx_depth 0
-    {TX_4X4,   TX_4X8,   TX_8X4,   TX_8X8,   TX_8X16,  TX_16X8,  TX_16X16,
-     TX_16X32, TX_32X16, TX_32X32, TX_32X64, TX_64X32, TX_64X64,
-     TX_64X64, //TX_64X128,
-     TX_64X64, //TX_128X64,
-     TX_64X64, //TX_128X128,
-     TX_4X16,  TX_16X4,  TX_8X32,  TX_32X8,  TX_16X64, TX_64X16},
-    // tx_depth 1:
-    {TX_4X4,   TX_4X8,   TX_8X4,   TX_4X4,   TX_8X8,   TX_8X8,   TX_8X8,
-     TX_16X16, TX_16X16, TX_16X16, TX_32X32, TX_32X32, TX_32X32,
-     TX_64X64, //TX_64X128,
-     TX_64X64, //TX_128X64,
-     TX_64X64, //TX_128X128,
-     TX_4X8,   TX_8X4,   TX_8X16,  TX_16X8,  TX_16X32, TX_32X16},
-    // tx_depth 2
-    {TX_4X4,   TX_4X8, TX_8X4, TX_8X8, TX_4X4,   TX_4X4,  TX_4X4, TX_8X8, TX_8X8, TX_8X8, TX_16X16, TX_16X16, TX_16X16,
-     TX_64X64, //TX_64X128,
-     TX_64X64, //TX_128X64,
-     TX_64X64, //TX_128X128,
-     TX_4X4,   TX_4X4, TX_8X8, TX_8X8, TX_16X16, TX_16X16}};
-static const int32_t tx_size_wide[TX_SIZES_ALL] = {
-    4, 8, 16, 32, 64, 4, 8, 8, 16, 16, 32, 32, 64, 4, 16, 8, 32, 16, 64,
-};
-// Transform block height in pixels
-static const int32_t tx_size_high[TX_SIZES_ALL] = {
-    4, 8, 16, 32, 64, 8, 4, 16, 8, 32, 16, 64, 32, 16, 4, 32, 8, 64, 16,
-};
 
 // TranLow  is the datatype used for final transform coefficients.
 typedef int32_t TranLow;
@@ -1028,37 +918,10 @@ typedef enum TxClass {
     TX_CLASSES     = 3,
 } TxClass;
 
-static INLINE TxSize av1_get_adjusted_tx_size(TxSize tx_size) {
-    switch (tx_size) {
-    case TX_64X64:
-    case TX_64X32:
-    case TX_32X64:
-        return TX_32X32;
-    case TX_64X16:
-        return TX_32X16;
-    case TX_16X64:
-        return TX_16X32;
-    default:
-        return tx_size;
-    }
-}
-
-// Transform block width in log2
-static const int32_t tx_size_wide_log2[TX_SIZES_ALL] = {
-    2, 3, 4, 5, 6, 2, 3, 3, 4, 4, 5, 5, 6, 2, 4, 3, 5, 4, 6,
-};
-
-// Transform block height in log2
-static const int32_t tx_size_high_log2[TX_SIZES_ALL] = {
-    2, 3, 4, 5, 6, 3, 2, 4, 3, 5, 4, 6, 5, 4, 2, 5, 3, 6, 4,
-};
 #define ALIGN_POWER_OF_TWO(value, n) (((value) + ((1 << (n)) - 1)) & ~((1 << (n)) - 1))
-#define AOM_PLANE_Y 0 /**< Y (Luminance) plane */
-#define AOM_PLANE_U 1 /**< U (Chroma) plane */
-#define AOM_PLANE_V 2 /**< V (Chroma) plane */
 
-#define CONVERT_TO_SHORTPTR(x) ((uint16_t *)(((uintptr_t)(x)) << 1))
-#define CONVERT_TO_BYTEPTR(x) ((uint8_t *)(((uintptr_t)(x)) >> 1))
+#define CONVERT_TO_SHORTPTR(x) ((uint16_t*)(((uintptr_t)(x)) << 1))
+#define CONVERT_TO_BYTEPTR(x) ((uint8_t*)(((uintptr_t)(x)) >> 1))
 
 #define AOMMIN(x, y) (((x) < (y)) ? (x) : (y))
 #define AOMMAX(x, y) (((x) > (y)) ? (x) : (y))
@@ -1181,8 +1044,6 @@ typedef enum ATTRIBUTE_PACKED {
     BIDIR_COMP_REFERENCE,
     COMP_REFERENCE_TYPES,
 } CompReferenceType;
-
-typedef enum ATTRIBUTE_PACKED { PLANE_TYPE_Y, PLANE_TYPE_UV, PLANE_TYPES } PlaneType;
 
 #define CFL_ALPHABET_SIZE_LOG2 4
 #define CFL_ALPHABET_SIZE (1 << CFL_ALPHABET_SIZE_LOG2)
@@ -1605,67 +1466,6 @@ typedef enum AomCodecErr {
     AOM_CODEC_LIST_END
 } AomCodecErr;
 
-//**********************************************************************************************************************//
-// Common_data.h
-static const uint8_t intra_mode_context[INTRA_MODES] = {
-    0,
-    1,
-    2,
-    3,
-    4,
-    4,
-    4,
-    4,
-    3,
-    0,
-    1,
-    2,
-    0,
-};
-
-static const TxSize txsize_sqr_map[TX_SIZES_ALL] = {
-    TX_4X4, // TX_4X4
-    TX_8X8, // TX_8X8
-    TX_16X16, // TX_16X16
-    TX_32X32, // TX_32X32
-    TX_64X64, // TX_64X64
-    TX_4X4, // TX_4X8
-    TX_4X4, // TX_8X4
-    TX_8X8, // TX_8X16
-    TX_8X8, // TX_16X8
-    TX_16X16, // TX_16X32
-    TX_16X16, // TX_32X16
-    TX_32X32, // TX_32X64
-    TX_32X32, // TX_64X32
-    TX_4X4, // TX_4X16
-    TX_4X4, // TX_16X4
-    TX_8X8, // TX_8X32
-    TX_8X8, // TX_32X8
-    TX_16X16, // TX_16X64
-    TX_16X16, // TX_64X16
-};
-static const TxSize txsize_sqr_up_map[TX_SIZES_ALL] = {
-    TX_4X4, // TX_4X4
-    TX_8X8, // TX_8X8
-    TX_16X16, // TX_16X16
-    TX_32X32, // TX_32X32
-    TX_64X64, // TX_64X64
-    TX_8X8, // TX_4X8
-    TX_8X8, // TX_8X4
-    TX_16X16, // TX_8X16
-    TX_16X16, // TX_16X8
-    TX_32X32, // TX_16X32
-    TX_32X32, // TX_32X16
-    TX_64X64, // TX_32X64
-    TX_64X64, // TX_64X32
-    TX_16X16, // TX_4X16
-    TX_16X16, // TX_16X4
-    TX_32X32, // TX_8X32
-    TX_32X32, // TX_32X8
-    TX_64X64, // TX_16X64
-    TX_64X64, // TX_64X16
-};
-
 // above and left partition
 typedef struct PartitionContext {
     PartitionContextType above;
@@ -1680,7 +1480,7 @@ static const struct
 {
     PartitionContextType above;
     PartitionContextType left;
-} partition_context_lookup[BlockSizeS_ALL] = {
+} partition_context_lookup[BLOCK_SIZES_ALL] = {
     { 31, 31 },  // 4X4   - {0b11111, 0b11111}
     { 31, 30 },  // 4X8   - {0b11111, 0b11110}
     { 30, 31 },  // 8X4   - {0b11110, 0b11111}
@@ -1707,28 +1507,6 @@ static const struct
 
 /* clang-format on */
 
-// Width/height lookup tables in units of various block sizes
-extern const uint8_t block_size_wide[BlockSizeS_ALL];
-extern const uint8_t block_size_high[BlockSizeS_ALL];
-
-// AOMMIN(3, AOMMIN(b_width_log2(bsize), b_height_log2(bsize)))
-extern const uint8_t eb_size_group_lookup[BlockSizeS_ALL];
-
-extern const uint8_t eb_num_pels_log2_lookup[BlockSizeS_ALL];
-extern const TxSize  eb_max_txsize_lookup[BlockSizeS_ALL];
-
-extern const TxSize eb_max_txsize_rect_lookup[BlockSizeS_ALL];
-
-// Transform block width in unit
-extern const int32_t eb_tx_size_wide_unit[TX_SIZES_ALL];
-// Transform block height in unit
-extern const int32_t eb_tx_size_high_unit[TX_SIZES_ALL];
-
-extern const TxSize eb_sub_tx_size_map[TX_SIZES_ALL];
-
-extern const uint8_t mi_size_wide_log2[BlockSizeS_ALL];
-extern const uint8_t mi_size_high_log2[BlockSizeS_ALL];
-
 typedef struct SgrParamsType {
     int32_t r[2]; // radii
     int32_t s[2]; // sgr parameters for r[0] and r[1], based on GenSgrprojVtable()
@@ -1745,45 +1523,6 @@ typedef enum FrameType {
 } FrameType;
 
 typedef int8_t MvReferenceFrame;
-
-// Number of transform types in each set type
-
-extern const int32_t av1_num_ext_tx_set[EXT_TX_SET_TYPES];
-
-extern const int32_t av1_ext_tx_used[EXT_TX_SET_TYPES][TX_TYPES];
-
-static INLINE TxSetType get_ext_tx_set_type(TxSize tx_size, int32_t is_inter, int32_t use_reduced_set) {
-    const TxSize tx_size_sqr_up = txsize_sqr_up_map[tx_size];
-
-    if (tx_size_sqr_up > TX_32X32) {
-        return EXT_TX_SET_DCTONLY;
-    }
-    if (tx_size_sqr_up == TX_32X32) {
-        return is_inter ? EXT_TX_SET_DCT_IDTX : EXT_TX_SET_DCTONLY;
-    }
-    if (use_reduced_set) {
-        return is_inter ? EXT_TX_SET_DCT_IDTX : EXT_TX_SET_DTT4_IDTX;
-    }
-    const TxSize tx_size_sqr = txsize_sqr_map[tx_size];
-    if (is_inter) {
-        return (tx_size_sqr == TX_16X16 ? EXT_TX_SET_DTT9_IDTX_1DDCT : EXT_TX_SET_ALL16);
-    } else {
-        return (tx_size_sqr == TX_16X16 ? EXT_TX_SET_DTT4_IDTX : EXT_TX_SET_DTT4_IDTX_1DDCT);
-    }
-}
-
-static INLINE int32_t get_ext_tx_types(TxSize tx_size, int32_t is_inter, int32_t use_reduced_set) {
-    const int32_t set_type = get_ext_tx_set_type(tx_size, is_inter, use_reduced_set);
-    return av1_num_ext_tx_set[set_type];
-}
-
-// Maps tx set types to the indices.
-extern const int32_t ext_tx_set_index[2][EXT_TX_SET_TYPES];
-
-static INLINE int32_t get_ext_tx_set(TxSize tx_size, int32_t is_inter, int32_t use_reduced_set) {
-    const TxSetType set_type = get_ext_tx_set_type(tx_size, is_inter, use_reduced_set);
-    return ext_tx_set_index[is_inter][set_type];
-}
 
 static INLINE bool is_intra_mode(PredictionMode mode) {
     return mode < INTRA_MODE_END; // && mode >= INTRA_MODE_START; // mode is always greater than INTRA_MODE_START
@@ -1859,7 +1598,6 @@ typedef struct LoopFilter {
 } LoopFilter;
 
 #define MAX_SEGMENTS 8
-#define MAX_MB_PLANE 3
 
 // Need to align this structure so when it is declared and
 // passed it can be loaded into vector registers.

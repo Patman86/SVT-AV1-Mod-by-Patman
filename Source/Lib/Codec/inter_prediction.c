@@ -29,7 +29,7 @@ void svt_aom_pack_block(uint8_t* in8_bit_buffer, uint32_t in8_stride, uint8_t* i
         in8_bit_buffer, in8_stride, inn_bit_buffer, inn_stride, out16_bit_buffer, out_stride, width, height);
 }
 
-static WedgeMasksType wedge_masks[BlockSizeS_ALL][2];
+static WedgeMasksType wedge_masks[BLOCK_SIZES_ALL][2];
 
 int svt_aom_is_masked_compound_type(COMPOUND_TYPE type) {
     return (type == COMPOUND_WEDGE || type == COMPOUND_DIFFWTD);
@@ -1531,7 +1531,7 @@ static const uint8_t wedge_primary_vertical[MASK_PRIMARY_SIZE] = {
     64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
 };
 
-DECLARE_ALIGNED(16, static uint8_t, wedge_signflip_lookup[BlockSizeS_ALL][MAX_WEDGE_TYPES]) = {
+DECLARE_ALIGNED(16, static uint8_t, wedge_signflip_lookup[BLOCK_SIZES_ALL][MAX_WEDGE_TYPES]) = {
     {
         0,
         0,
@@ -1987,7 +1987,7 @@ static const WedgeCodeType wedge_codebook_16_heqw[16] = {
     {WEDGE_OBLIQUE117, 6, 4},
 };
 
-static const WedgeParamsType wedge_params_lookup[BlockSizeS_ALL] = {
+static const WedgeParamsType wedge_params_lookup[BLOCK_SIZES_ALL] = {
     {0, NULL, NULL, NULL},
     {0, NULL, NULL, NULL},
     {0, NULL, NULL, NULL},
@@ -2119,7 +2119,7 @@ static void init_wedge_primary_masks() {
 }
 
 #if !USE_PRECOMPUTED_WEDGE_SIGN
-// If the signs for the wedges for various blocksizes are
+// If the signs for the wedges for various BLOCK_SIZES are
 // inconsistent flip the sign flag. Do it only once for every
 // wedge codebook.
 static void init_wedge_signs() {
@@ -2177,7 +2177,7 @@ static const uint8_t* get_wedge_mask_inplace(int wedge_index, int neg, BlockSize
 static void init_wedge_masks() {
     uint8_t* dst = wedge_mask_buf;
     memset(wedge_masks, 0, sizeof(wedge_masks));
-    for (BlockSize bsize = BLOCK_4X4; bsize < BlockSizeS_ALL; ++bsize) {
+    for (BlockSize bsize = BLOCK_4X4; bsize < BLOCK_SIZES_ALL; ++bsize) {
         const int              bw           = block_size_wide[bsize];
         const int              bh           = block_size_high[bsize];
         const WedgeParamsType* wedge_params = &wedge_params_lookup[bsize];
@@ -2223,7 +2223,7 @@ static const uint8_t ii_weights1d[MAX_SB_SIZE] = {
     2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  1,  1,  1,  1,  1,  1,  1,  1,
     1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1
 };
-static const uint8_t ii_size_scales[BlockSizeS_ALL] = {
+static const uint8_t ii_size_scales[BLOCK_SIZES_ALL] = {
     32, 16, 16, 16, 8, 8, 8, 4,
     4,  4,  2,  2,  2, 1, 1, 1,
     8,  8,  4,  4,  2, 2
@@ -2273,9 +2273,9 @@ static void build_smooth_interintra_mask(uint8_t* mask, int stride, BlockSize pl
 
 // ii_masks stores the actual masks. We use smooth_ii_masks to access ii_masks so that we can index the array
 // directly with the bsize (BlockSize that would be passed when doing the prediction) without using the extra memory
-// to store empty, unused masks for the blocksizes that don't allow inter-intra
+// to store empty, unused masks for the BLOCK_SIZES that don't allow inter-intra
 static uint8_t  ii_masks[BLOCK_32X32 - BLOCK_4X4 + 1][INTERINTRA_MODES][MAX_INTERINTRA_SB_SQUARE];
-static uint8_t* smooth_ii_masks[BlockSizeS_ALL][INTERINTRA_MODES];
+static uint8_t* smooth_ii_masks[BLOCK_SIZES_ALL][INTERINTRA_MODES];
 
 // Initialize the masks used for inter-intra compound blending. Inter-intra is allowed for 8x8-32x32 blocks, but
 // masks must be generated down to 4x4 because of chroma. The stride of each mask is the block width.

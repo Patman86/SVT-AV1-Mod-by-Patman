@@ -100,8 +100,6 @@ typedef struct {
 
 /*!\cond */
 
-struct TileDataEnc;
-
 void svt_av1_twopass_zero_stats(FIRSTPASS_STATS* section);
 void svt_av1_accumulate_stats(FIRSTPASS_STATS* section, const FIRSTPASS_STATS* frame);
 /*!\endcond */

@@ -190,8 +190,8 @@ void* svt_aom_entropy_coding_kernel(void* input_ptr) {
                                                    (y_sb_index + tile_sb_start_y) * pic_width_in_sb);
                     SuperBlock* sb_ptr   = pcs->sb_ptr_array[sb_index];
 
-                    context_ptr->sb_origin_x = (x_sb_index + tile_sb_start_x) << sb_size_log2;
-                    context_ptr->sb_origin_y = (y_sb_index + tile_sb_start_y) << sb_size_log2;
+                    const uint32_t sb_origin_x = (x_sb_index + tile_sb_start_x) << sb_size_log2;
+                    const uint32_t sb_origin_y = (y_sb_index + tile_sb_start_y) << sb_size_log2;
                     if (x_sb_index == 0 && y_sb_index == 0) {
                         svt_av1_reset_loop_restoration(context_ptr);
                         context_ptr->tok = pcs->tile_tok[tile_row][tile_col];
@@ -207,8 +207,8 @@ void* svt_aom_entropy_coding_kernel(void* input_ptr) {
                                            pcs->ec_info[tile_idx]->ec,
                                            coeff_picture_ptr,
                                            sb_ptr->ptree,
-                                           context_ptr->sb_origin_y >> MI_SIZE_LOG2,
-                                           context_ptr->sb_origin_x >> MI_SIZE_LOG2);
+                                           sb_origin_y >> MI_SIZE_LOG2,
+                                           sb_origin_x >> MI_SIZE_LOG2);
                 }
             }
         }

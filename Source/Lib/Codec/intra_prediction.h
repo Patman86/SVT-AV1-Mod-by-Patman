@@ -16,6 +16,7 @@
 #include "EbSvtAv1.h"
 #include "object.h"
 #include "block_structures.h"
+#include "common_utils.h"
 
 #ifdef __cplusplus
 extern "C" {

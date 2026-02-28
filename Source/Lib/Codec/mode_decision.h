@@ -24,9 +24,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#define MAX_MB_PLANE 3
-#define MAX_MPM_CANDIDATES 3
-#define MERGE_PENALTY 10
 
 /*! \brief Holds the motion samples for warp motion model estimation
  */
@@ -125,15 +122,15 @@ EbErrorType svt_aom_mode_decision_scratch_cand_bf_ctor(ModeDecisionCandidateBuff
 uint32_t product_full_mode_decision_light_pd0(struct ModeDecisionContext* ctx, BlkStruct* blk_ptr,
                                               ModeDecisionCandidateBuffer** buffer_ptr_array);
 
-void     svt_aom_product_full_mode_decision_light_pd1(PictureControlSet* pcs, struct ModeDecisionContext* ctx,
-                                                      uint32_t sb_addr, ModeDecisionCandidateBuffer* cand_bf);
-uint32_t svt_aom_product_full_mode_decision(PictureControlSet* pcs, struct ModeDecisionContext* ctx, uint32_t sb_addr,
-                                            ModeDecisionCandidateBuffer** buffer_ptr_array,
-                                            uint32_t candidate_total_count, uint32_t* best_candidate_index_array);
-uint8_t  svt_aom_wm_motion_refinement(PictureControlSet* pcs, struct ModeDecisionContext* ctx,
-                                      ModeDecisionCandidate* cand, const bool shut_approx);
-uint8_t  svt_aom_obmc_motion_refinement(PictureControlSet* pcs, struct ModeDecisionContext* ctx,
-                                        ModeDecisionCandidate* cand, int refine_level);
+void        svt_aom_product_full_mode_decision_light_pd1(PictureControlSet* pcs, struct ModeDecisionContext* ctx,
+                                                         ModeDecisionCandidateBuffer* cand_bf);
+uint32_t    svt_aom_product_full_mode_decision(PictureControlSet* pcs, struct ModeDecisionContext* ctx,
+                                               ModeDecisionCandidateBuffer** buffer_ptr_array,
+                                               uint32_t candidate_total_count, uint32_t* best_candidate_index_array);
+uint8_t     svt_aom_wm_motion_refinement(PictureControlSet* pcs, struct ModeDecisionContext* ctx,
+                                         ModeDecisionCandidate* cand, const bool shut_approx);
+uint8_t     svt_aom_obmc_motion_refinement(PictureControlSet* pcs, struct ModeDecisionContext* ctx,
+                                           ModeDecisionCandidate* cand, int refine_level);
 EbErrorType generate_md_stage_0_cand(PictureControlSet* pcs, struct ModeDecisionContext* ctx,
                                      uint32_t* fast_candidate_total_count);
 void        generate_md_stage_0_cand_light_pd1(struct ModeDecisionContext* ctx, uint32_t* fast_candidate_total_count,
@@ -167,7 +164,8 @@ static const uint32_t me_idx_85[] = {
     0,  1,  5,  21, 22, 29, 30, 6,  23, 24, 31, 32, 9,  37, 38, 45, 46, 10, 39, 40, 47, 48, 2,  7,  25, 26, 33, 34, 8,
     27, 28, 35, 36, 11, 41, 42, 49, 50, 12, 43, 44, 51, 52, 3,  13, 53, 54, 61, 62, 14, 55, 56, 63, 64, 17, 69, 70, 77,
     78, 18, 71, 72, 79, 80, 4,  15, 57, 58, 65, 66, 16, 59, 60, 67, 68, 19, 73, 74, 81, 82, 20, 75, 76, 83, 84};
-uint32_t svt_aom_get_me_block_offset(const BlockGeom* const blk_geom, uint8_t enable_me_8x8, uint8_t enable_me_16x16);
+uint32_t svt_aom_get_me_block_offset(const uint32_t org_x, const uint32_t org_y, const BlockSize bsize,
+                                     const uint8_t enable_me_8x8, const uint8_t enable_me_16x16);
 uint8_t  svt_aom_is_me_data_present(uint32_t me_block_offset, uint32_t me_cand_offset, const MeSbResults* me_results,
                                     uint8_t list_idx, uint8_t ref_idx);
 

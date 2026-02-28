@@ -30,10 +30,10 @@ void svt_av1_update_segmentation_map(PictureControlSet* pcs, BlockSize bsize, ui
 #define MVREF_ROWS 3
 #define MVREF_COLS 3
 
-typedef struct position {
+typedef struct Pos {
     int32_t row;
     int32_t col;
-} Position;
+} Pos;
 
 // clang-format on
 
@@ -41,7 +41,7 @@ static INLINE Mv get_block_mv(const MbModeInfo* candidate, int32_t which_mv) {
     return candidate->block_mi.mv[which_mv];
 }
 
-static INLINE int32_t is_inside(const TileInfo* const tile, int32_t mi_col, int32_t mi_row, const Position* mi_pos) {
+static INLINE int32_t is_inside(const TileInfo* const tile, int32_t mi_col, int32_t mi_row, const Pos* mi_pos) {
     return !(mi_row + mi_pos->row < tile->mi_row_start || mi_col + mi_pos->col < tile->mi_col_start ||
              mi_row + mi_pos->row >= tile->mi_row_end || mi_col + mi_pos->col >= tile->mi_col_end);
 }
@@ -150,7 +150,7 @@ static void scan_row_mbmi(const Av1Common* cm, const MacroBlockD* xd, int32_t mi
     for (i = 0; i < end_mi;) {
         const MbModeInfo* const candidate       = candidate_mi0[col_offset + i];
         const int32_t           candidate_bsize = candidate->bsize;
-        assert(candidate_bsize < BlockSizeS_ALL);
+        assert(candidate_bsize < BLOCK_SIZES_ALL);
         const int32_t n8_w = mi_size_wide[candidate_bsize];
         int32_t       len  = AOMMIN(xd->n8_w, n8_w);
         if (use_step_16) {
@@ -205,7 +205,7 @@ static void scan_col_mbmi(const Av1Common* cm, const MacroBlockD* xd, int32_t mi
     for (i = 0; i < end_mi;) {
         const MbModeInfo* const candidate       = xd->mi[(row_offset + i) * xd->mi_stride + col_offset];
         const int32_t           candidate_bsize = candidate->bsize;
-        assert(candidate_bsize < BlockSizeS_ALL);
+        assert(candidate_bsize < BLOCK_SIZES_ALL);
         const int32_t n8_h = mi_size_high[candidate_bsize];
         int32_t       len  = AOMMIN(xd->n8_h, n8_h);
         if (use_step_16) {
@@ -244,7 +244,7 @@ static void scan_blk_mbmi(const MacroBlockD* xd, const int32_t mi_row, const int
                           uint8_t* newmv_count, Mv* gm_mv_candidates, const WarpedMotionParams* gm_params,
                           uint8_t* refmv_count) {
     const TileInfo* const tile   = &xd->tile;
-    Position              mi_pos = {row_offset, col_offset};
+    Pos                   mi_pos = {row_offset, col_offset};
 
     // Analyze a single 8x8 block motion information.
     if (is_inside(tile, mi_col, mi_row, &mi_pos)) {
@@ -355,7 +355,7 @@ static int add_tpl_ref_mv(const Av1Common* cm, PictureControlSet* pcs, const Mac
                           int cur_offset_1,
 
                           CandidateMv ref_mv_stack[MAX_REF_MV_STACK_SIZE], int16_t* mode_context) {
-    Position mi_pos;
+    Pos mi_pos;
     mi_pos.row = (mi_row & 0x01) ? blk_row : blk_row + 1;
     mi_pos.col = (mi_col & 0x01) ? blk_col : blk_col + 1;
 
@@ -1119,7 +1119,7 @@ void svt_aom_init_xd(PictureControlSet* pcs, ModeDecisionContext* ctx) {
             ? xd->mi[base_mbmi_offset + ss_y * xd->mi_stride - 1]
             : NULL;
     }
-    xd->mi[0]->partition = from_shape_to_part[ctx->blk_geom->shape];
+    xd->mi[0]->partition = from_shape_to_part[ctx->shape];
 }
 
 void svt_aom_generate_av1_mvp_table(ModeDecisionContext* ctx, BlkStruct* blk_ptr, const BlockGeom* blk_geom,
@@ -1334,11 +1334,14 @@ MbModeInfo* get_mbmi(PictureControlSet* pcs, uint32_t blk_org_x, uint32_t blk_or
     return mbmi;
 }
 
-void svt_aom_update_mi_map(BlkStruct* blk_ptr, uint32_t blk_org_x, uint32_t blk_org_y, const BlockGeom* blk_geom,
-                           PictureControlSet* pcs, ModeDecisionContext* ctx) {
-    uint32_t mi_stride = pcs->mi_stride;
-    int32_t  mi_row    = blk_org_y >> MI_SIZE_LOG2;
-    int32_t  mi_col    = blk_org_x >> MI_SIZE_LOG2;
+void svt_aom_update_mi_map(PictureControlSet* pcs, ModeDecisionContext* ctx, const PartitionType part,
+                           const BlockSize bsize, const int mi_row, const int mi_col) {
+    BlkStruct*     blk_ptr   = ctx->blk_ptr;
+    const uint32_t mi_stride = pcs->mi_stride;
+    const int      blk_org_y = mi_row << MI_SIZE_LOG2;
+    const int      blk_org_x = mi_col << MI_SIZE_LOG2;
+    const int      bwidth    = block_size_wide[bsize];
+    const int      bheight   = block_size_high[bsize];
 
     const int32_t offset = mi_row * mi_stride + mi_col;
 
@@ -1355,7 +1358,7 @@ void svt_aom_update_mi_map(BlkStruct* blk_ptr, uint32_t blk_org_x, uint32_t blk_
     // copy mbmi data
     svt_memcpy(block_mi, &blk_ptr->block_mi, sizeof(BlockModeInfo));
 
-    if (svt_av1_allow_palette(pcs->ppcs->palette_level, blk_geom->bsize)) {
+    if (svt_av1_allow_palette(pcs->ppcs->palette_level, bsize)) {
         mbmi->palette_mode_info.palette_size = blk_ptr->palette_size[0];
         svt_memcpy(mbmi->palette_mode_info.palette_colors,
                    blk_ptr->palette_info->pmi.palette_colors,
@@ -1364,8 +1367,8 @@ void svt_aom_update_mi_map(BlkStruct* blk_ptr, uint32_t blk_org_x, uint32_t blk_
         mbmi->palette_mode_info.palette_size = 0;
     }
 
-    mbmi->bsize     = blk_geom->bsize;
-    mbmi->partition = from_shape_to_part[blk_geom->shape];
+    mbmi->bsize     = bsize;
+    mbmi->partition = part;
     assert(IMPLIES(blk_ptr->block_mi.is_interintra_used, block_mi->ref_frame[1] == INTRA_FRAME));
     if (ctx->bypass_encdec && pcs->ppcs->frm_hdr.segmentation_params.segmentation_enabled) {
         if (!blk_ptr->block_has_coeff) {
@@ -1375,16 +1378,13 @@ void svt_aom_update_mi_map(BlkStruct* blk_ptr, uint32_t blk_org_x, uint32_t blk_
                 pcs, blk_ptr->av1xd, blk_org_x, blk_org_y, &cdf_num);
         }
         // update segment id map so svt_av1_get_spatial_seg_prediction() can use the map to predict segment id.
-        svt_av1_update_segmentation_map(pcs, blk_geom->bsize, blk_org_x, blk_org_y, blk_ptr->segment_id);
+        svt_av1_update_segmentation_map(pcs, bsize, blk_org_x, blk_org_y, blk_ptr->segment_id);
         mbmi->segment_id = blk_ptr->segment_id;
     }
     // The data copied into each mi block is the same; therefore, copy the data from the blk_ptr only for the first block_mi
     // then use change the mi block pointers of the remaining blocks ot point to the first block_mi. All data that
     // is used from block_mi should be updated above.
-    svt_copy_mi_map_grid((pcs->mi_grid_base + offset),
-                         mi_stride,
-                         (blk_geom->bheight >> MI_SIZE_LOG2),
-                         (blk_geom->bwidth >> MI_SIZE_LOG2));
+    svt_copy_mi_map_grid((pcs->mi_grid_base + offset), mi_stride, (bheight >> MI_SIZE_LOG2), (bwidth >> MI_SIZE_LOG2));
 }
 
 static INLINE void record_samples(MbModeInfo* mbmi, int* pts, int* pts_inref, int row_offset, int sign_r,
@@ -1524,7 +1524,7 @@ static uint8_t av1_find_samples(const Av1Common* cm, const BlockSize sb_size, Ma
 
     // Top-right block
     if (do_tr && has_top_right(sb_size, xd, mi_row, mi_col, AOMMAX(xd->n4_w, xd->n4_h))) {
-        Position trb_pos = {-1, xd->n4_w};
+        Pos trb_pos = {-1, xd->n4_w};
 
         if (is_inside(tile, mi_col, mi_row, &trb_pos)) {
             int mi_row_offset = -1;

@@ -191,7 +191,7 @@ static void update_eob_context(int eob, TxSize tx_size, TxClass tx_class, PlaneT
         break;
     }
 
-    const int eob_offset_bits = eb_k_eob_offset_bits[eob_pt];
+    const int eob_offset_bits = svt_aom_eob_offset_bits[eob_pt];
     if (eob_offset_bits > 0) {
         const int eob_ctx   = eob_pt - 3;
         const int eob_shift = eob_offset_bits - 1;
@@ -207,7 +207,7 @@ int get_eob_cost(int eob, const LvMapEobCost* txb_eob_costs, const LvMapCoeffCos
     const int eob_multi_ctx = (tx_class == TX_CLASS_2D) ? 0 : 1;
     int       eob_cost      = txb_eob_costs->eob_cost[eob_multi_ctx][eob_pt - 1];
 
-    const int eob_offset_bits = eb_k_eob_offset_bits[eob_pt];
+    const int eob_offset_bits = svt_aom_eob_offset_bits[eob_pt];
     if (eob_offset_bits > 0) {
         const int eob_ctx   = eob_pt - 3;
         const int eob_shift = eob_offset_bits - 1;
@@ -374,9 +374,9 @@ uint64_t svt_av1_cost_coeffs_txb(ModeDecisionContext* ctx, uint8_t allow_update_
     const TxSize  txs_ctx  = (TxSize)((txsize_sqr_map[transform_size] + txsize_sqr_up_map[transform_size] + 1) >> 1);
     const TxClass tx_class = tx_type_to_class[transform_type];
     int32_t       cost;
-    const int32_t bwl    = get_txb_bwl_tab[transform_size];
-    const int32_t width  = get_txb_wide_tab[transform_size];
-    const int32_t height = get_txb_high_tab[transform_size];
+    const int32_t bwl    = get_txb_bwl(transform_size);
+    const int32_t width  = get_txb_wide(transform_size);
+    const int32_t height = get_txb_high(transform_size);
 
     const ScanOrder* const scan_order = get_scan_order(transform_size, transform_type);
     const int16_t* const   scan       = scan_order->scan;
@@ -500,7 +500,7 @@ uint64_t svt_aom_get_intra_uv_fast_rate(PictureControlSet* pcs, ModeDecisionCont
                                         ModeDecisionCandidateBuffer* cand_bf, bool use_accurate_cfl) {
     const BlockGeom* const blk_geom = ctx->blk_geom;
     ModeDecisionCandidate* cand     = cand_bf->cand;
-    assert(blk_geom->has_uv);
+    assert(ctx->has_uv);
     assert(!(svt_aom_allow_intrabc(&pcs->ppcs->frm_hdr, pcs->ppcs->slice_type) && cand->block_mi.use_intrabc));
     MdRateEstimationContext* md_rate_est_ctx = ctx->md_rate_est_ctx;
     const uint8_t            is_cfl_allowed  = (blk_geom->bwidth <= 32 && blk_geom->bheight <= 32) ? 1 : 0;
@@ -641,7 +641,7 @@ uint64_t svt_aom_intra_fast_cost(PictureControlSet* pcs, ModeDecisionContext* ct
                     ctx->md_rate_est_ctx->filter_intra_mode_fac_bits[cand->block_mi.filter_intra_mode];
             }
         }
-        if (blk_geom->has_uv) {
+        if (ctx->has_uv) {
             // CFL info not known in fasta loop, so assume DC mode when CFL is allowed
             chroma_rate = (uint32_t)svt_aom_get_intra_uv_fast_rate(pcs, ctx, cand_bf, 0);
         }
@@ -1522,7 +1522,7 @@ static INLINE int block_signals_txsize(BlockSize bsize) {
 
 static INLINE int get_vartx_max_txsize(/*const MbModeInfo *xd,*/ BlockSize bsize, int plane) {
     /* if (xd->lossless[xd->mi[0]->segment_id]) return TX_4X4;*/
-    const TxSize max_txsize = eb_max_txsize_rect_lookup[bsize];
+    const TxSize max_txsize = blocksize_to_txsize[bsize];
     if (plane == 0) {
         return max_txsize; // luma
     }
@@ -1554,7 +1554,7 @@ static INLINE int max_block_high(const MacroBlockD* xd, BlockSize bsize, int pla
 static INLINE void txfm_partition_update(TXFM_CONTEXT* above_ctx, TXFM_CONTEXT* left_ctx, TxSize tx_size,
                                          TxSize txb_size) {
     BlockSize bsize = txsize_to_bsize[txb_size];
-    assert(bsize < BlockSizeS_ALL);
+    assert(bsize < BLOCK_SIZES_ALL);
     int     bh  = mi_size_high[bsize];
     int     bw  = mi_size_wide[bsize];
     uint8_t txw = tx_size_wide[tx_size];
@@ -1692,7 +1692,7 @@ static INLINE void set_txfm_ctxs(TxSize tx_size, int n8_w, int n8_h, int skip, c
 }
 
 static INLINE int tx_size_to_depth(TxSize tx_size, BlockSize bsize) {
-    TxSize ctx_size = eb_max_txsize_rect_lookup[bsize];
+    TxSize ctx_size = blocksize_to_txsize[bsize];
     int    depth    = 0;
     while (tx_size != ctx_size) {
         depth++;
@@ -1710,7 +1710,7 @@ static INLINE int get_tx_size_context(const MacroBlockD* xd) {
     const MbModeInfo*       mbmi        = xd->mi[0];
     const MbModeInfo* const above_mbmi  = xd->above_mbmi;
     const MbModeInfo* const left_mbmi   = xd->left_mbmi;
-    const TxSize            max_tx_size = eb_max_txsize_rect_lookup[mbmi->bsize];
+    const TxSize            max_tx_size = blocksize_to_txsize[mbmi->bsize];
     const int               max_tx_wide = tx_size_wide[max_tx_size];
     const int               max_tx_high = tx_size_high[max_tx_size];
     const int               has_above   = xd->up_available;
@@ -1750,7 +1750,7 @@ static uint64_t cost_selected_tx_size(const MacroBlockD* xd, MdRateEstimationCon
 
     if (block_signals_txsize(bsize)) {
         const int tx_size_ctx = get_tx_size_context(xd);
-        assert(bsize < BlockSizeS_ALL);
+        assert(bsize < BLOCK_SIZES_ALL);
         const int     depth       = tx_size_to_depth(tx_size, bsize);
         const int32_t tx_size_cat = bsize_to_tx_size_cat(bsize);
         bits += md_rate_est_ctx->tx_size_fac_bits[tx_size_cat][tx_size_ctx][depth];
@@ -1811,6 +1811,7 @@ uint64_t svt_aom_get_tx_size_bits(ModeDecisionCandidateBuffer* candidateBuffer, 
     TxMode       tx_mode = pcs->ppcs->frm_hdr.tx_mode;
     MacroBlockD* xd      = ctx->blk_ptr->av1xd;
     BlockSize    bsize   = ctx->blk_geom->bsize;
+    const TxSize tx_size = tx_depth_to_tx_size[tx_depth][bsize];
     MbModeInfo*  mbmi    = xd->mi[0];
 
     svt_memcpy(ctx->above_txfm_context,
@@ -1832,7 +1833,7 @@ uint64_t svt_aom_get_tx_size_bits(ModeDecisionCandidateBuffer* candidateBuffer, 
                                                ctx->md_rate_est_ctx,
                                                xd,
                                                mbmi,
-                                               ctx->blk_geom->txsize[tx_depth],
+                                               tx_size,
                                                tx_mode,
                                                bsize,
                                                !block_has_coeff,
@@ -1845,26 +1846,20 @@ uint64_t svt_aom_get_tx_size_bits(ModeDecisionCandidateBuffer* candidateBuffer, 
  * av1_partition_rate_cost function is used to generate the rate of signaling the
  * partition type for a given block.
  */
-int64_t svt_aom_partition_rate_cost(PictureParentControlSet* pcs, const BlockSize bsize, const int mi_row,
+int64_t svt_aom_partition_rate_cost(PictureParentControlSet* ppcs, const BlockSize bsize, const int mi_row,
                                     const int mi_col, MdRateEstimationContext* md_rate_est_ctx, PartitionType p,
                                     const PartitionContextType left_ctx, const PartitionContextType above_ctx) {
     assert(mi_size_wide_log2[bsize] == mi_size_high_log2[bsize]);
-    assert(bsize < BlockSizeS_ALL);
-    const bool is_partition_point = (bsize >= BLOCK_8X8);
+    assert(bsize < BLOCK_SIZES_ALL);
 
-    if (!is_partition_point) {
+    if (bsize < BLOCK_8X8) {
         return 0;
     }
 
-    const int blk_org_x = mi_col << 2; // ctx->sb_origin_x + blk_geom->org_x;
-    const int blk_org_y = mi_row << 2; // ctx->sb_origin_y + blk_geom->org_y;
-    const int hbs       = (mi_size_wide[bsize] << 2) >> 1;
-    const int has_rows  = (blk_org_y + hbs) < pcs->aligned_height;
-    const int has_cols  = (blk_org_x + hbs) < pcs->aligned_width;
-    // Don't consider blocks outside the picture
-    if (blk_org_y >= pcs->aligned_height || blk_org_x >= pcs->aligned_width) {
-        return 0;
-    }
+    const int hbs      = mi_size_wide[bsize] >> 1;
+    const int has_rows = (mi_row + hbs) < ppcs->av1_cm->mi_rows;
+    const int has_cols = (mi_col + hbs) < ppcs->av1_cm->mi_cols;
+    // Don't consider invalid partitions or blocks outside the picture
     if (!has_rows && !has_cols) {
         return 0;
     }

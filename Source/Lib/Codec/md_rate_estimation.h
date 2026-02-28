@@ -61,8 +61,8 @@ typedef struct MdRateEstimationContext {
     int32_t ref_mv_mode_fac_bits[REFMV_MODE_CONTEXTS][2];
     int32_t drl_mode_fac_bits[DRL_MODE_CONTEXTS][2];
     int32_t switchable_interp_fac_bitss[SWITCHABLE_FILTER_CONTEXTS][SWITCHABLE_FILTERS];
-    int32_t motion_mode_fac_bits[BlockSizeS_ALL][MOTION_MODES];
-    int32_t motion_mode_fac_bits1[BlockSizeS_ALL][2];
+    int32_t motion_mode_fac_bits[BLOCK_SIZES_ALL][MOTION_MODES];
+    int32_t motion_mode_fac_bits1[BLOCK_SIZES_ALL][2];
 
     int32_t        nmv_vec_cost[MV_JOINTS];
     int32_t        nmv_costs[2][MV_VALS];
@@ -73,7 +73,7 @@ typedef struct MdRateEstimationContext {
 
     // Compouned Mode
     int32_t inter_compound_mode_fac_bits[INTER_MODE_CONTEXTS][INTER_COMPOUND_MODES];
-    int32_t compound_type_fac_bits[BlockSizeS_ALL][MASKED_COMPOUND_TYPES];
+    int32_t compound_type_fac_bits[BLOCK_SIZES_ALL][MASKED_COMPOUND_TYPES];
     int32_t single_ref_fac_bits[REF_CONTEXTS][SINGLE_REFS - 1][2];
     int32_t comp_ref_type_fac_bits[COMP_REF_TYPE_CONTEXTS][2];
     int32_t uni_comp_ref_fac_bits[UNI_COMP_REF_CONTEXTS][UNIDIR_COMP_REFS - 1][2];
@@ -84,15 +84,15 @@ typedef struct MdRateEstimationContext {
     int32_t comp_inter_fac_bits[COMP_INTER_CONTEXTS][2];
 
     // Wedge Mode
-    int32_t wedge_idx_fac_bits[BlockSizeS_ALL][16];
+    int32_t wedge_idx_fac_bits[BLOCK_SIZES_ALL][16];
     int32_t inter_intra_fac_bits[BlockSize_GROUPS][2];
-    int32_t wedge_inter_intra_fac_bits[BlockSizeS_ALL][2];
+    int32_t wedge_inter_intra_fac_bits[BLOCK_SIZES_ALL][2];
     int32_t inter_intra_mode_fac_bits[BlockSize_GROUPS][INTERINTRA_MODES];
 
     // Intra Mode
     int32_t intrabc_fac_bits[2];
     int32_t intra_inter_fac_bits[INTRA_INTER_CONTEXTS][2];
-    int32_t filter_intra_fac_bits[BlockSizeS_ALL][2];
+    int32_t filter_intra_fac_bits[BLOCK_SIZES_ALL][2];
     int32_t filter_intra_mode_fac_bits[FILTER_INTRA_MODES];
     int32_t y_mode_fac_bits[KF_MODE_CONTEXTS][KF_MODE_CONTEXTS][INTRA_MODES];
     int32_t mb_mode_fac_bits[BlockSize_GROUPS][INTRA_MODES];
@@ -195,8 +195,8 @@ void svt_aom_update_stats(struct PictureControlSet* pcs, struct BlkStruct* blk_p
 /*******************************************************************************
  * Updates the partition stats/CDF for the current block
  ******************************************************************************/
-void svt_aom_update_part_stats(struct PictureControlSet* pcs, struct BlkStruct* blk_ptr, uint16_t tile_idx, int mi_row,
-                               int mi_col);
+void svt_aom_update_part_stats(struct PictureControlSet* pcs, const PartitionType partition, const BlockSize bsize,
+                               const uint16_t tile_idx, const uint32_t sb_index, const int mi_row, const int mi_col);
 
 /*
 * Returns the me-based qindex (used for lambda modulation only; not at Q/Q-1)

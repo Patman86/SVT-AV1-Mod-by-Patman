@@ -39,13 +39,14 @@ EbErrorType svt_aom_simple_luma_unipred(SequenceControlSet* scs, ScaleFactors sf
                                         uint16_t dst_origin_y, uint8_t bit_depth, uint8_t subsampling_shift);
 EbErrorType svt_aom_inter_prediction(SequenceControlSet* scs, PictureControlSet* pcs, BlockModeInfo* block_mi,
                                      WarpedMotionParams* wm_params_0, WarpedMotionParams* wm_params_1,
-                                     BlkStruct* blk_ptr, const BlockGeom* blk_geom, bool use_precomputed_obmc,
-                                     bool use_precomputed_ii, struct ModeDecisionContext* ctx,
-                                     NeighborArrayUnit* recon_neigh_y, NeighborArrayUnit* recon_neigh_cb,
-                                     NeighborArrayUnit* recon_neigh_cr, EbPictureBufferDesc* ref_pic_0,
-                                     EbPictureBufferDesc* ref_pic_1, uint16_t ref_origin_x, uint16_t ref_origin_y,
-                                     EbPictureBufferDesc* pred_pic, uint16_t dst_origin_x, uint16_t dst_origin_y,
-                                     uint32_t component_mask, uint8_t bit_depth, uint8_t is_16bit_pipeline);
+                                     BlkStruct* blk_ptr, const BlockSize bsize, const Part shape,
+                                     bool use_precomputed_obmc, bool use_precomputed_ii,
+                                     struct ModeDecisionContext* ctx, NeighborArrayUnit* recon_neigh_y,
+                                     NeighborArrayUnit* recon_neigh_cb, NeighborArrayUnit* recon_neigh_cr,
+                                     EbPictureBufferDesc* ref_pic_0, EbPictureBufferDesc* ref_pic_1,
+                                     uint16_t ref_origin_x, uint16_t ref_origin_y, EbPictureBufferDesc* pred_pic,
+                                     uint16_t dst_origin_x, uint16_t dst_origin_y, uint32_t component_mask,
+                                     uint8_t bit_depth, uint8_t is_16bit_pipeline);
 void        svt_aom_search_compound_diff_wedge(PictureControlSet* pcs, struct ModeDecisionContext* ctx,
                                                ModeDecisionCandidate* cand);
 bool        svt_aom_calc_pred_masked_compound(PictureControlSet* pcs, struct ModeDecisionContext* ctx,

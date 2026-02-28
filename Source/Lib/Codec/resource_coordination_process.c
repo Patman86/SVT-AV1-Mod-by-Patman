@@ -329,11 +329,6 @@ static EbErrorType reset_pcs_av1(PictureParentControlSet* pcs) {
     frm_hdr->frame_type                         = KEY_FRAME;
     frm_hdr->show_frame                         = 1;
     frm_hdr->showable_frame                     = 1; // frame can be used as show existing frame in future
-    // Flag for a frame used as a reference - not written to the Bitstream
-    pcs->is_reference_frame = 0;
-    // Flag signaling that the frame is encoded using only INTRA modes.
-    pcs->intra_only = 0;
-    // uint8_t last_intra_only;
 
     frm_hdr->disable_cdf_update      = 0;
     frm_hdr->allow_high_precision_mv = 0;

@@ -682,13 +682,11 @@ void* svt_aom_picture_manager_kernel(void* input_ptr) {
                 child_pcs->frame_height != child_pcs->scs->max_input_luma_height) {
                 pcs_update_param(child_pcs);
             }
-            child_pcs->picture_qp           = entry_ppcs->picture_qp;
             child_pcs->picture_number       = entry_ppcs->picture_number;
             child_pcs->slice_type           = entry_ppcs->slice_type;
             child_pcs->temporal_layer_index = entry_ppcs->temporal_layer_index;
 
             child_pcs->ppcs->total_num_bits = 0;
-            child_pcs->ppcs->picture_qp     = entry_ppcs->picture_qp;
             child_pcs->enc_mode             = entry_ppcs->enc_mode;
             child_pcs->b64_total_count      = entry_ppcs->b64_total_count;
 
@@ -832,8 +830,8 @@ void* svt_aom_picture_manager_kernel(void* input_ptr) {
             cm->mi_stride = child_pcs->mi_stride;
             // Reset the Reference Lists
             svt_memset(child_pcs->ref_pic_ptr_array, 0, sizeof(child_pcs->ref_pic_ptr_array));
-            svt_memset(child_pcs->ref_pic_qp_array, 0, sizeof(child_pcs->ref_pic_qp_array));
-            svt_memset(child_pcs->ref_slice_type_array, 0, sizeof(child_pcs->ref_slice_type_array));
+            svt_memset(child_pcs->ref_base_q_idx, 0, sizeof(child_pcs->ref_base_q_idx));
+            svt_memset(child_pcs->ref_slice_type, 0, sizeof(child_pcs->ref_slice_type));
             svt_memset(child_pcs->ref_pic_r0, 0, sizeof(child_pcs->ref_pic_r0));
             int8_t ref_index = 0;
             if (entry_ppcs->slice_type == B_SLICE) {
@@ -870,13 +868,11 @@ void* svt_aom_picture_manager_kernel(void* input_ptr) {
                         }
                     }
                     // Set the Reference Object
+                    EbReferenceObject* ref_obj = (EbReferenceObject*)ref_entry->reference_object_ptr->object_ptr;
                     child_pcs->ref_pic_ptr_array[list_idx][ref_idx] = ref_entry->reference_object_ptr;
-                    child_pcs->ref_pic_qp_array[list_idx][ref_idx] =
-                        (uint8_t)((EbReferenceObject*)ref_entry->reference_object_ptr->object_ptr)->qp;
-                    child_pcs->ref_slice_type_array[list_idx][ref_idx] =
-                        ((EbReferenceObject*)ref_entry->reference_object_ptr->object_ptr)->slice_type;
-                    child_pcs->ref_pic_r0[list_idx][ref_idx] =
-                        ((EbReferenceObject*)ref_entry->reference_object_ptr->object_ptr)->r0;
+                    child_pcs->ref_base_q_idx[list_idx][ref_idx]    = ref_obj->base_q_idx;
+                    child_pcs->ref_slice_type[list_idx][ref_idx]    = ref_obj->slice_type;
+                    child_pcs->ref_pic_r0[list_idx][ref_idx]        = ref_obj->r0;
                     // Increment the Reference's liveCount by the number of tiles in the
                     // input picture
                     svt_object_inc_live_count(ref_entry->reference_object_ptr, 1);

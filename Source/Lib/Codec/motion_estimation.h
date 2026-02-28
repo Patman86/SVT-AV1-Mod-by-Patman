@@ -151,16 +151,6 @@ void svt_ext_eight_sad_calculation_32x32_64x64_c(const uint32_t p_sad16x16[16][8
                                                  uint32_t* p_best_sad_64x64, uint32_t* p_best_mv32x32,
                                                  uint32_t* p_best_mv64x64, uint32_t mv, uint32_t p_sad32x32[4][8]);
 
-// Nader - to be replaced by loock-up table
-/*******************************************
-    * svt_aom_get_me_info_index
-    *   search the correct index of the motion
-    *   info that corresponds to the input
-    *   md candidate
-    *******************************************/
-uint32_t svt_aom_get_me_info_index(uint32_t max_me_block, const BlockGeom* blk_geom, uint32_t geom_offset_x,
-                                   uint32_t geom_offset_y);
-
 // factor to slowdown the ME search region growth to MAX
 uint16_t svt_aom_get_scaled_picture_distance(uint16_t dist);
 

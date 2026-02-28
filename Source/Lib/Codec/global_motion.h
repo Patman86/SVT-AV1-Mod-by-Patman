@@ -20,20 +20,6 @@
 extern "C" {
 #endif
 
-#if defined(__clang__) && defined(__has_warning)
-#if __has_feature(cxx_attributes) && __has_warning("-Wimplicit-fallthrough")
-#define AOM_FALLTHROUGH_INTENDED [[clang::fallthrough]] // NOLINT
-#endif
-#elif defined(__GNUC__) && __GNUC__ >= 7
-#define AOM_FALLTHROUGH_INTENDED __attribute__((fallthrough)) // NOLINT
-#endif
-
-#ifndef AOM_FALLTHROUGH_INTENDED
-#define AOM_FALLTHROUGH_INTENDED \
-    do {                         \
-    } while (0)
-#endif
-
 #define MAX_CORNERS 4096
 #define RANSAC_NUM_MOTIONS 1
 

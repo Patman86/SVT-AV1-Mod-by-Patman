@@ -119,7 +119,7 @@ The rate control algorithm in the second pass includes the following main steps:
 4) Assign qindex per frame based on tpl boost and the target number of bits (*rc_pick_q_and_bounds()*)
 5) SB-level QP modification and block-level lambda generation based on TPL (*sb_qp_derivation_tpl_la()*).
 6) Decide to perform re-encode (if applicable) at the end of the Mode Decision process (*recode_loop_decision_maker*).
-7) Update post-encode VBR data after receiving the feedback (*av1_rc_postencode_update()*).
+7) Update post-encode VBR data after receiving the feedback (*svt_av1_rc_postencode_update()*).
 
 ![rc_figure3](./img/rc_figure3.PNG)
 
@@ -582,7 +582,7 @@ Picture arriving from Packetization kernel:
 
 | Main Functions                                                 | Descriptions                                                                     |
 | ------------------------------------------------------------   | ------------------------------                                                   |
-| av1_rc_postencode_update() svt_av1_twopass_postencode_update() | Update the internal RC and TWO_PASS struct stats based on the received feedback  |
+| svt_av1_rc_postencode_update() svt_av1_twopass_postencode_update() | Update the internal RC and TWO_PASS struct stats based on the received feedback  |
 
 More details for some of the main functions:
 

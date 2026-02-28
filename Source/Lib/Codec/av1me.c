@@ -21,7 +21,7 @@
 #include "md_process.h"
 #include "adaptive_mv_pred.h"
 
-AomVarianceFnPtr svt_aom_mefn_ptr[BlockSizeS_ALL];
+AomVarianceFnPtr svt_aom_mefn_ptr[BLOCK_SIZES_ALL];
 
 void init_fn_ptr(void) {
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH

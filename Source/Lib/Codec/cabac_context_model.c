@@ -414,19 +414,19 @@ static const AomCdfProb default_interintra_mode_cdf[BlockSize_GROUPS][CDF_SIZE(I
     {AOM_CDF4(2473, 9996, 26388)},
     {AOM_CDF4(4238, 11537, 25926)}};
 
-static const AomCdfProb default_wedge_interintra_cdf[BlockSizeS_ALL][CDF_SIZE(2)] = {
+static const AomCdfProb default_wedge_interintra_cdf[BLOCK_SIZES_ALL][CDF_SIZE(2)] = {
     {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(20036)}, {AOM_CDF2(24957)}, {AOM_CDF2(26704)},
     {AOM_CDF2(27530)}, {AOM_CDF2(29564)}, {AOM_CDF2(29444)}, {AOM_CDF2(26872)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)},
     {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)},
     {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)}};
 
-static const AomCdfProb default_compound_type_cdf[BlockSizeS_ALL][CDF_SIZE(MASKED_COMPOUND_TYPES)] = {
+static const AomCdfProb default_compound_type_cdf[BLOCK_SIZES_ALL][CDF_SIZE(MASKED_COMPOUND_TYPES)] = {
     {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(23431)}, {AOM_CDF2(13171)}, {AOM_CDF2(11470)},
     {AOM_CDF2(9770)},  {AOM_CDF2(9100)},  {AOM_CDF2(8233)},  {AOM_CDF2(6172)},  {AOM_CDF2(16384)}, {AOM_CDF2(16384)},
     {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)},
     {AOM_CDF2(11820)}, {AOM_CDF2(7701)},  {AOM_CDF2(16384)}, {AOM_CDF2(16384)}};
 
-static const AomCdfProb default_wedge_idx_cdf[BlockSizeS_ALL][CDF_SIZE(16)] = {
+static const AomCdfProb default_wedge_idx_cdf[BLOCK_SIZES_ALL][CDF_SIZE(16)] = {
     {AOM_CDF16(2048, 4096, 6144, 8192, 10240, 12288, 14336, 16384, 18432, 20480, 22528, 24576, 26624, 28672, 30720)},
     {AOM_CDF16(2048, 4096, 6144, 8192, 10240, 12288, 14336, 16384, 18432, 20480, 22528, 24576, 26624, 28672, 30720)},
     {AOM_CDF16(2048, 4096, 6144, 8192, 10240, 12288, 14336, 16384, 18432, 20480, 22528, 24576, 26624, 28672, 30720)},
@@ -450,7 +450,7 @@ static const AomCdfProb default_wedge_idx_cdf[BlockSizeS_ALL][CDF_SIZE(16)] = {
     {AOM_CDF16(2048, 4096, 6144, 8192, 10240, 12288, 14336, 16384, 18432, 20480, 22528, 24576, 26624, 28672, 30720)},
     {AOM_CDF16(2048, 4096, 6144, 8192, 10240, 12288, 14336, 16384, 18432, 20480, 22528, 24576, 26624, 28672, 30720)}};
 
-static const AomCdfProb default_motion_mode_cdf[BlockSizeS_ALL][CDF_SIZE(MOTION_MODES)] = {
+static const AomCdfProb default_motion_mode_cdf[BLOCK_SIZES_ALL][CDF_SIZE(MOTION_MODES)] = {
     {AOM_CDF3(10923, 21845)}, {AOM_CDF3(10923, 21845)}, {AOM_CDF3(10923, 21845)}, {AOM_CDF3(7651, 24760)},
     {AOM_CDF3(4738, 24765)},  {AOM_CDF3(5391, 25528)},  {AOM_CDF3(19419, 26810)}, {AOM_CDF3(5123, 23606)},
     {AOM_CDF3(11606, 24308)}, {AOM_CDF3(26260, 29116)}, {AOM_CDF3(20360, 28062)}, {AOM_CDF3(21679, 26830)},
@@ -458,7 +458,7 @@ static const AomCdfProb default_motion_mode_cdf[BlockSizeS_ALL][CDF_SIZE(MOTION_
     {AOM_CDF3(10923, 21845)}, {AOM_CDF3(10923, 21845)}, {AOM_CDF3(28799, 31390)}, {AOM_CDF3(26431, 30774)},
     {AOM_CDF3(28973, 31594)}, {AOM_CDF3(29742, 31203)}};
 
-static const AomCdfProb default_obmc_cdf[BlockSizeS_ALL][CDF_SIZE(2)] = {
+static const AomCdfProb default_obmc_cdf[BLOCK_SIZES_ALL][CDF_SIZE(2)] = {
     {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(10437)}, {AOM_CDF2(9371)},  {AOM_CDF2(9301)},
     {AOM_CDF2(17432)}, {AOM_CDF2(14423)}, {AOM_CDF2(15142)}, {AOM_CDF2(25817)}, {AOM_CDF2(22823)}, {AOM_CDF2(22083)},
     {AOM_CDF2(30128)}, {AOM_CDF2(31014)}, {AOM_CDF2(31560)}, {AOM_CDF2(32638)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)},
@@ -652,7 +652,7 @@ static const AomCdfProb default_intrabc_cdf[CDF_SIZE(2)] = {AOM_CDF2(30531)};
 static const AomCdfProb default_filter_intra_mode_cdf[CDF_SIZE(FILTER_INTRA_MODES)] = {
     AOM_CDF5(8949, 12776, 17211, 29558)};
 
-static const AomCdfProb default_filter_intra_cdfs[BlockSizeS_ALL][CDF_SIZE(2)] = {
+static const AomCdfProb default_filter_intra_cdfs[BLOCK_SIZES_ALL][CDF_SIZE(2)] = {
     {AOM_CDF2(4621)},  {AOM_CDF2(6743)},  {AOM_CDF2(5893)},  {AOM_CDF2(7866)},  {AOM_CDF2(12551)}, {AOM_CDF2(9394)},
     {AOM_CDF2(12408)}, {AOM_CDF2(14301)}, {AOM_CDF2(12756)}, {AOM_CDF2(22343)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)},
     {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(16384)}, {AOM_CDF2(12770)}, {AOM_CDF2(10368)},

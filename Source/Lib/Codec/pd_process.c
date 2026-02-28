@@ -1567,8 +1567,6 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                   hierarchical_levels, temporal_layer, pic_idx, scs->mrp_ctrls.referencing_scheme, pcs->is_overlay);
     }
 
-    pcs->intra_only = pcs->slice_type == I_SLICE ? 1 : 0;
-
     //Set frame type
     if (pcs->slice_type == I_SLICE) {
         frm_hdr->frame_type                    = pcs->idr_flag ? KEY_FRAME : INTRA_ONLY_FRAME;

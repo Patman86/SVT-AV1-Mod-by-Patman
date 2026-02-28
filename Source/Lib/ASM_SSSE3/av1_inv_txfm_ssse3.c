@@ -9,7 +9,7 @@
  * PATENTS file, you can obtain it at https://www.aomedia.org/license/patent-license.
  */
 
-#include "definitions.h"
+#include "common_utils.h"
 #include "common_dsp_rtcd.h"
 #include <tmmintrin.h>
 #include "inv_transforms.h"

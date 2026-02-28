@@ -18,6 +18,7 @@
 #include "filter.h"
 #include "convolve.h"
 #include "cabac_context_model.h"
+#include "common_utils.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -315,7 +316,7 @@ static INLINE int is_any_masked_compound_used(BlockSize bsize) {
 }
 
 static INLINE int bsize_to_tx_size_cat(BlockSize bsize) {
-    TxSize tx_size = eb_max_txsize_rect_lookup[bsize];
+    TxSize tx_size = blocksize_to_txsize[bsize];
     assert(tx_size != TX_4X4);
     int depth = 0;
     while (tx_size != TX_4X4) {
@@ -328,7 +329,7 @@ static INLINE int bsize_to_tx_size_cat(BlockSize bsize) {
 }
 
 static INLINE int bsize_to_max_depth(BlockSize bsize) {
-    TxSize tx_size = eb_max_txsize_rect_lookup[bsize];
+    TxSize tx_size = blocksize_to_txsize[bsize];
     int    depth   = 0;
     while (depth < MAX_TX_DEPTH && tx_size != TX_4X4) {
         depth++;

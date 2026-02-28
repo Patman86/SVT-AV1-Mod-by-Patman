@@ -37,8 +37,6 @@ extern "C" {
 #define MAX_CU_COST (0xFFFFFFFFFFFFFFFFull >> 1)
 #define MAX_MODE_COST (13754408443200 * 8) // RDCOST(6544618, 128 * 128 * 255 * 255, 128 * 128 * 255 * 255) * 8;
 
-extern const uint32_t intra_luma_to_chroma[INTRA_MODES];
-
 typedef struct {
     Mv      mfmv0;
     uint8_t ref_frame_offset;
@@ -175,21 +173,18 @@ typedef struct BlkStruct {
     // Used when encdec is bypassed
     EbPictureBufferDesc* recon_tmp;
     uint64_t             cost;
-    // Similar to cost but does not get updated @ svt_aom_d1_non_square_block_decision() and
-    // svt_aom_d2_inter_depth_block_decision()
-    uint64_t     default_cost;
-    uint64_t     total_rate;
-    uint64_t     full_dist;
-    QuantDcData  quant_dc;
-    EobData      eob;
-    TxType       tx_type[MAX_TXB_COUNT];
-    TxType       tx_type_uv;
-    uint16_t     y_has_coeff;
-    uint8_t      u_has_coeff;
-    uint8_t      v_has_coeff;
-    PaletteInfo* palette_info;
-    uint8_t      palette_mem; // status of palette info alloc
-    uint8_t      palette_size[2];
+    uint64_t             total_rate;
+    uint64_t             full_dist;
+    QuantDcData          quant_dc;
+    EobData              eob;
+    TxType               tx_type[MAX_TXB_COUNT];
+    TxType               tx_type_uv;
+    uint16_t             y_has_coeff;
+    uint8_t              u_has_coeff;
+    uint8_t              v_has_coeff;
+    PaletteInfo*         palette_info;
+    uint8_t              palette_mem; // status of palette info alloc
+    uint8_t              palette_size[2];
 
     BlockModeInfo block_mi;
 
@@ -202,7 +197,6 @@ typedef struct BlkStruct {
     uint16_t mds_idx;
 
     uint8_t qindex;
-    uint8_t split_flag;
     uint8_t drl_index;
     // Store the drl ctx in coding loop to avoid storing final_ref_mv_stack and ref_mv_count for EC
     int8_t drl_ctx[2];
@@ -210,13 +204,6 @@ typedef struct BlkStruct {
     int8_t drl_ctx_near[2];
 
     uint8_t segment_id;
-
-    PartitionType part;
-    uint16_t      best_d1_blk;
-
-    // Partition contexts for the current block, derived from the neighbouring blocks' partitions
-    PartitionContextType left_part_ctx;
-    PartitionContextType above_part_ctx;
 
     // wm
     WarpedMotionParams wm_params_l0;

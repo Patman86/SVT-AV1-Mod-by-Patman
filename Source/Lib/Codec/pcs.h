@@ -174,10 +174,9 @@ typedef struct PictureControlSet {
 
     // Reference Lists
     EbObjectWrapper* ref_pic_ptr_array[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH];
-    // EB_S64 refPicPocArray[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH];
 
-    uint8_t   ref_pic_qp_array[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH];
-    SliceType ref_slice_type_array[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH];
+    uint8_t   ref_base_q_idx[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH];
+    SliceType ref_slice_type[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH];
     double    ref_pic_r0[MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH];
     // GOP
     uint64_t         picture_number;
@@ -219,8 +218,6 @@ typedef struct PictureControlSet {
     // Slice Type
     SliceType slice_type;
 
-    // Rate Control
-    uint8_t picture_qp;
     // SB Array
     uint16_t b64_total_count;
     uint16_t init_b64_total_count;
@@ -864,11 +861,7 @@ typedef struct PictureParentControlSet {
     int32_t ref_frame_map[REF_FRAMES];
     // index of picture in the mg
     uint32_t pic_idx_in_mg;
-    // Flag for a frame used as a reference - not written to the Bitstream
-    int32_t is_reference_frame;
 
-    // Flag signaling that the frame is encoded using only INTRA modes.
-    uint8_t intra_only;
     /* profile settings */
 #if CONFIG_ENTROPY_STATS
     int32_t coef_cdf_category;

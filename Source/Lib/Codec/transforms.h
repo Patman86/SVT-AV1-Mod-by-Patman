@@ -25,14 +25,20 @@ extern "C" {
 #define UNIT_QUANT_SHIFT 2
 #define UNIT_QUANT_FACTOR (1 << UNIT_QUANT_SHIFT)
 
-static const int8_t fwd_cos_bit_col[MAX_TXWH_IDX /*txw_idx*/][MAX_TXWH_IDX /*txh_idx*/] = {
-    {13, 13, 13, 0, 0}, {13, 13, 13, 12, 0}, {13, 13, 13, 12, 13}, {0, 13, 13, 12, 13}, {0, 0, 13, 12, 13}};
-static const int8_t fwd_cos_bit_row[MAX_TXWH_IDX /*txw_idx*/][MAX_TXWH_IDX /*txh_idx*/] = {
-    {13, 13, 12, 0, 0}, {13, 13, 13, 12, 0}, {13, 13, 12, 13, 12}, {0, 12, 13, 12, 11}, {0, 0, 12, 11, 10}};
+extern const int8_t fwd_cos_bit_col[MAX_TXWH_IDX /*txw_idx*/][MAX_TXWH_IDX /*txh_idx*/];
+extern const int8_t fwd_cos_bit_row[MAX_TXWH_IDX /*txw_idx*/][MAX_TXWH_IDX /*txh_idx*/];
 
 extern const int8_t* fwd_txfm_shift_ls[TX_SIZES_ALL];
 
-#define BLOCK_SIZES_ALL 22
+extern const uint8_t tx_blocks_per_depth[BLOCK_SIZES_ALL][MAX_VARTX_DEPTH + 1];
+
+typedef struct Position {
+    int x;
+    int y;
+} Position;
+
+// origin is block - separate tables for INTRA (idx 0) and INTER (idx 1) needed b/c of tx depth 2
+extern const Position tx_org[BLOCK_SIZES_ALL][2 /*is_inter*/][MAX_VARTX_DEPTH + 1][MAX_TXB_COUNT];
 
 static INLINE int is_rect_tx(TxSize tx_size) {
     return tx_size >= TX_SIZES;

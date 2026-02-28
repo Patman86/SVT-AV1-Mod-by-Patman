@@ -712,10 +712,6 @@ typedef struct BlockLocation {
     uint32_t input_origin_index;
     // chroma block location in picture
     uint32_t input_cb_origin_in_index;
-    // luma block location in SB
-    uint32_t blk_origin_index;
-    // chroma block location in SB
-    uint32_t blk_chroma_origin_index;
 } BlockLocation;
 
 typedef struct Lpd0Ctrls {
@@ -932,6 +928,14 @@ typedef struct PC_TREE {
     BlkStruct*      block_data[PART_S][4 /*max blocks per shape*/]; // doesn't include split
     struct PC_TREE* split[4];
     int             index; // should be written once when struct is initialized, then never overwritten
+    struct PC_TREE* parent; // this_pc_tree->parent->split[this_pc_tree->index] == this_pc_tree
+    bool (*tested_blk)[4]; // tested_blk[PART_S][4]
+    // Origin of the current depth (square shape)
+    int mi_row;
+    int mi_col;
+    // Partition contexts for the current block, derived from the neighbouring blocks' partitions
+    PartitionContextType left_part_ctx;
+    PartitionContextType above_part_ctx;
 } PC_TREE;
 
 typedef struct ModeDecisionContext {
@@ -946,8 +950,11 @@ typedef struct ModeDecisionContext {
     MdRateEstimationContext*      md_rate_est_ctx;
     MdRateEstimationContext*      rate_est_table;
     BlkStruct*                    md_blk_arr_nsq;
-    uint8_t*                      avail_blk_flag;
-    uint8_t*                      cost_avail;
+    // used to set the array in PC_TREE by the same name. Implemented as a separate allocation
+    // to easily zero out the whole array (for all blocks) without looping over entire pc_tree.
+    bool (*tested_blk)[PART_S][4];
+    // Number of allocated tested_blk, pc_tree, and mds entries
+    int blocks_to_alloc;
     // Used to track which blocks should be tested in MD in each PD stage
     MdScan* mds;
     // Used to store results of MD
@@ -1007,6 +1014,8 @@ typedef struct ModeDecisionContext {
     uint32_t         sb_origin_y;
     uint32_t         round_origin_x;
     uint32_t         round_origin_y;
+    bool             has_uv;
+    Part             shape;
     uint8_t          hbd_md;
     uint8_t          encoder_bit_depth;
     uint8_t          qp_index;

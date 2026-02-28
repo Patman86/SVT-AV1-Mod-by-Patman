@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
 
 #if ARCH_AARCH64
-    const int caps = svt_aom_get_cpu_flags_to_use();
+    const EbCpuFlags caps = svt_aom_get_cpu_flags_to_use();
     if (!(caps & EB_CPU_FLAGS_ARM_CRC32))
         append_negative_gtest_filter("ARM_CRC32");
     if (!(caps & EB_CPU_FLAGS_NEON_DOTPROD))
@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
 #endif  // ARCH_AARCH64
 
 #if ARCH_X86_64
-    const int simd_caps = svt_aom_get_cpu_flags_to_use();
+    const EbCpuFlags simd_caps = svt_aom_get_cpu_flags_to_use();
     if (!(simd_caps & EB_CPU_FLAGS_MMX))
         append_negative_gtest_filter("MMX");
     if (!(simd_caps & EB_CPU_FLAGS_SSE))

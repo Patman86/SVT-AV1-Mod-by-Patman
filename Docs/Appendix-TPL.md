@@ -603,14 +603,14 @@ picture would be.
   ```
   r0 = r0 / (used_tpl_frame_num x r0_adjust_factor)
   ```
-  Further adjustments in r0 are introduced to account for the prediction structure by dividing r0 by tpl_hl_islice_div_factor in the case of an I_SLICE,
-  or by tpl_hl_base_frame_div_factor in the case of a base layer picture, where tpl_hl_islice_div_factor and tpl_hl_base_frame_div_factor are given in the
+  Further adjustments in r0 are introduced to account for the prediction structure by dividing r0 by svt_av1_tpl_hl_islice_div_factor in the case of an I_SLICE,
+  or by svt_av1_tpl_hl_base_frame_div_factor in the case of a base layer picture, where svt_av1_tpl_hl_islice_div_factor and svt_av1_tpl_hl_base_frame_div_factor are given in the
   table below.
 
   |**Hierarchical level**|**0**|**1**|**2**|**3**|**4**|**5**|
   | --- | --- | --- | --- | --- | --- | --- |
-  |**tpl_hl_islice_div_factor**| 1 | 2 | 2 | 1 | 1 | 0.7 |
-  |**tpl_hl_base_frame_div_factor**| 1 | 3 | 3 | 2 | 1 | 1 |
+  |**svt_av1_tpl_hl_islice_div_factor**| 1 | 2 | 2 | 1 | 1 | 0.7 |
+  |**svt_av1_tpl_hl_base_frame_div_factor**| 1 | 3 | 3 | 2 | 1 | 1 |
 
 - qstep_ratio:
   ```

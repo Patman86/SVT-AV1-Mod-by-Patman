@@ -1057,31 +1057,6 @@ void hme_level_2(MeContext*           me_ctx, // ME context Ptr, used to get/upd
     return;
 }
 
-// Nader - to be replaced by loock-up table
-/*******************************************
- * svt_aom_get_me_info_index
- *   search the correct index of the motion
- *   info that corresponds to the input
- *   md candidate
- *******************************************/
-uint32_t svt_aom_get_me_info_index(uint32_t max_me_block, const BlockGeom* blk_geom, uint32_t geom_offset_x,
-                                   uint32_t geom_offset_y) {
-    // search for motion info
-    uint32_t block_index;
-    uint32_t me_info_index = 0xFFFFFFF;
-
-    for (block_index = 0; block_index < max_me_block; block_index++) {
-        if ((blk_geom->bwidth == partition_width[block_index]) &&
-            (blk_geom->bheight == partition_height[block_index]) &&
-            ((blk_geom->org_x - geom_offset_x) == pu_search_index_map[block_index][0]) &&
-            ((blk_geom->org_y - geom_offset_y) == pu_search_index_map[block_index][1])) {
-            me_info_index = block_index;
-            break;
-        }
-    }
-    return me_info_index;
-}
-
 uint32_t check_00_center(EbPictureBufferDesc* ref_pic_ptr, MeContext* me_ctx, uint32_t sb_origin_x,
                          uint32_t sb_origin_y, uint32_t sb_width, uint32_t sb_height, int16_t* x_search_center,
                          int16_t* y_search_center, uint32_t zz_sad)

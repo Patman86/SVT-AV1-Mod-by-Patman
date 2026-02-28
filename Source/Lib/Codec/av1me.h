@@ -66,7 +66,7 @@ typedef struct aom_variance_vtable {
 
 } AomVarianceFnPtr;
 
-extern AomVarianceFnPtr svt_aom_mefn_ptr[BlockSizeS_ALL];
+extern AomVarianceFnPtr svt_aom_mefn_ptr[BLOCK_SIZES_ALL];
 
 void av1_init_dsmotion_compensation(SearchSiteConfig* cfg, int stride);
 void svt_av1_init3smotion_compensation(SearchSiteConfig* cfg, int stride);

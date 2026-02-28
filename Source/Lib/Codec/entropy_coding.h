@@ -91,33 +91,10 @@ static INLINE void set_dc_sign(int32_t* cul_level, int32_t dc_val) {
     }
 }
 
-static const uint8_t eob_to_pos_small[33] = {
-    0, 1, 2, // 0-2
-    3, 3, // 3-4
-    4, 4, 4, 4, // 5-8
-    5, 5, 5, 5, 5, 5, 5, 5, // 9-16
-    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6 // 17-32
-};
-
-static const uint8_t eob_to_pos_large[17] = {
-    6, // place holder
-    7, // 33-64
-    8,
-    8, // 65-128
-    9,
-    9,
-    9,
-    9, // 129-256
-    10,
-    10,
-    10,
-    10,
-    10,
-    10,
-    10,
-    10, // 257-512
-    11 // 513-
-};
+extern const uint8_t eob_to_pos_small[33];
+extern const int16_t eob_group_start[12];
+extern const int16_t svt_aom_eob_offset_bits[12];
+extern const uint8_t eob_to_pos_large[17];
 
 static INLINE int get_eob_pos_token(const int eob, int* const extra) {
     int t;
@@ -129,7 +106,7 @@ static INLINE int get_eob_pos_token(const int eob, int* const extra) {
         t           = eob_to_pos_large[e];
     }
 
-    *extra = eob - eb_k_eob_group_start[t];
+    *extra = eob - eob_group_start[t];
 
     return t;
 }
@@ -138,6 +115,10 @@ static INLINE int get_eob_pos_token(const int eob, int* const extra) {
 //encoder.h
 static INLINE int32_t get_ref_frame_map_idx(const PictureParentControlSet* pcs, MvReferenceFrame ref_frame) {
     return pcs->av1_ref_signal.ref_dpb_index[ref_frame - LAST_FRAME]; //LAST-LAST2-LAST3-GOLDEN-BWD-ALT2-ALT
+}
+
+static INLINE TxSize get_txsize_entropy_ctx(TxSize txsize) {
+    return (TxSize)((txsize_sqr_map[txsize] + txsize_sqr_up_map[txsize] + 1) >> 1);
 }
 
 //*******************************************************************************************//

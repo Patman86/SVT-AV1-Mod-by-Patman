@@ -90,7 +90,7 @@ class CompBlendTest : public ::testing::TestWithParam<BlendTestParam> {
             mask_[i] = mask_rnd.random();
 
         for (int k = 0; k < iterations; ++k) {
-            for (int block_size = BLOCK_4X4; block_size < BlockSizeS_ALL;
+            for (int block_size = BLOCK_4X4; block_size < BLOCK_SIZES_ALL;
                  block_size += 1) {
                 w_ = block_size_wide[block_size];
                 h_ = block_size_high[block_size];
@@ -795,13 +795,13 @@ TEST_P(BuildCompDiffwtdMaskTest, MatchTest) {
 INSTANTIATE_TEST_SUITE_P(
     SSE4_1, BuildCompDiffwtdMaskTest,
     ::testing::Combine(
-        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+        ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
         ::testing::Values(svt_av1_build_compound_diffwtd_mask_sse4_1)));
 
 INSTANTIATE_TEST_SUITE_P(
     AVX2, BuildCompDiffwtdMaskTest,
     ::testing::Combine(
-        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+        ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
         ::testing::Values(svt_av1_build_compound_diffwtd_mask_avx2)));
 #endif  // ARCH_X86_64
 
@@ -809,7 +809,7 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     NEON, BuildCompDiffwtdMaskTest,
     ::testing::Combine(
-        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+        ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
         ::testing::Values(svt_av1_build_compound_diffwtd_mask_neon)));
 #endif  // ARCH_AARCH64
 
@@ -890,13 +890,13 @@ TEST_P(BuildCompDiffwtdMaskHighbdTest, MatchTest) {
 INSTANTIATE_TEST_SUITE_P(
     SSSE3, BuildCompDiffwtdMaskHighbdTest,
     ::testing::Combine(
-        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+        ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
         ::testing::Values(svt_av1_build_compound_diffwtd_mask_highbd_ssse3)));
 
 INSTANTIATE_TEST_SUITE_P(
     AVX2, BuildCompDiffwtdMaskHighbdTest,
     ::testing::Combine(
-        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+        ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
         ::testing::Values(svt_av1_build_compound_diffwtd_mask_highbd_avx2)));
 #endif  // ARCH_X86_64
 
@@ -904,7 +904,7 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     NEON, BuildCompDiffwtdMaskHighbdTest,
     ::testing::Combine(
-        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+        ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
         ::testing::Values(svt_av1_build_compound_diffwtd_mask_highbd_neon)));
 #endif  // ARCH_AARCH64
 
@@ -1002,14 +1002,14 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(
         ::testing::Range(8, 11, 2),
         ::testing::Values(svt_av1_build_compound_diffwtd_mask_d16_sse4_1),
-        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL)));
+        ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL)));
 
 INSTANTIATE_TEST_SUITE_P(
     AVX2, BuildCompDiffwtdMaskD16Test,
     ::testing::Combine(
         ::testing::Range(8, 11, 2),
         ::testing::Values(svt_av1_build_compound_diffwtd_mask_d16_avx2),
-        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL)));
+        ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL)));
 #endif  // ARCH_X86_64
 
 #ifdef ARCH_AARCH64
@@ -1018,7 +1018,7 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(
         ::testing::Range(8, 11, 2),
         ::testing::Values(svt_av1_build_compound_diffwtd_mask_d16_neon),
-        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL)));
+        ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL)));
 #endif  // ARCH_AARCH64
 
 typedef int64_t (*AomSseFunc)(const uint8_t *, int, const uint8_t *, int, int,
@@ -1069,20 +1069,20 @@ TEST_P(AomSseTest, MatchTest) {
 #ifdef ARCH_X86_64
 INSTANTIATE_TEST_SUITE_P(
     AVX2, AomSseTest,
-    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
                        ::testing::Values(svt_aom_sse_avx2)));
 #endif  // ARCH_X86_64
 
 #ifdef ARCH_AARCH64
 INSTANTIATE_TEST_SUITE_P(
     NEON, AomSseTest,
-    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
                        ::testing::Values(svt_aom_sse_neon)));
 
 #if HAVE_NEON_DOTPROD
 INSTANTIATE_TEST_SUITE_P(
     NEON_DOTPROD, AomSseTest,
-    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
                        ::testing::Values(svt_aom_sse_neon_dotprod)));
 #endif  // HAVE_NEON_DOTPROD
 #endif  // ARCH_AARCH64
@@ -1104,18 +1104,18 @@ class AomSseHighbdTest : public ::testing::TestWithParam<AomSseParam> {
         int run_times = 100;
         int width;
         int height;
-        if (block_size < BlockSizeS_ALL) {
+        if (block_size < BLOCK_SIZES_ALL) {
             width = block_size_wide[block_size];
             height = block_size_high[block_size];
         } else {
             run_times = 10;
             // unusual sizes
-            if (block_size > BlockSizeS_ALL) {
-                // block_size == BlockSizeS_ALL +1
+            if (block_size > BLOCK_SIZES_ALL) {
+                // block_size == BLOCK_SIZES_ALL +1
                 width = 36;
                 height = 36;
             } else {
-                // block_size == BlockSizeS_ALL
+                // block_size == BLOCK_SIZES_ALL
                 width = 40;
                 height = 40;
             }
@@ -1155,7 +1155,7 @@ TEST_P(AomSseHighbdTest, MatchTest) {
 INSTANTIATE_TEST_SUITE_P(
     AVX2, AomSseHighbdTest,
     ::testing::Combine(::testing::Range(BLOCK_4X4,
-                                        (BlockSize)(BlockSizeS_ALL + 2)),
+                                        (BlockSize)(BLOCK_SIZES_ALL + 2)),
                        ::testing::Values(svt_aom_highbd_sse_avx2)));
 #endif  // ARCH_X86_64
 
@@ -1163,13 +1163,13 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     NEON, AomSseHighbdTest,
     ::testing::Combine(::testing::Range(BLOCK_4X4,
-                                        (BlockSize)(BlockSizeS_ALL + 2)),
+                                        (BlockSize)(BLOCK_SIZES_ALL + 2)),
                        ::testing::Values(svt_aom_highbd_sse_neon)));
 #if HAVE_SVE
 INSTANTIATE_TEST_SUITE_P(
     SVE, AomSseHighbdTest,
     ::testing::Combine(::testing::Range(BLOCK_4X4,
-                                        (BlockSize)(BlockSizeS_ALL + 2)),
+                                        (BlockSize)(BLOCK_SIZES_ALL + 2)),
                        ::testing::Values(svt_aom_highbd_sse_sve)));
 #endif  // HAVE_SVE
 #endif  // ARCH_AARCH64
@@ -1230,19 +1230,19 @@ TEST_P(AomSubtractBlockTest, MatchTest) {
 #ifdef ARCH_X86_64
 INSTANTIATE_TEST_SUITE_P(
     SSE2, AomSubtractBlockTest,
-    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
                        ::testing::Values(svt_aom_subtract_block_sse2)));
 
 INSTANTIATE_TEST_SUITE_P(
     AVX2, AomSubtractBlockTest,
-    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
                        ::testing::Values(svt_aom_subtract_block_avx2)));
 #endif  // ARCH_X86_64
 
 #ifdef ARCH_AARCH64
 INSTANTIATE_TEST_SUITE_P(
     NEON, AomSubtractBlockTest,
-    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
                        ::testing::Values(svt_aom_subtract_block_neon)));
 #endif  // ARCH_AARCH64
 
@@ -1318,14 +1318,14 @@ TEST_P(AomHighbdSubtractBlockTest, MatchTest) {
 #ifdef ARCH_X86_64
 INSTANTIATE_TEST_SUITE_P(
     SSE2, AomHighbdSubtractBlockTest,
-    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
                        ::testing::Values(svt_aom_highbd_subtract_block_sse2)));
 #endif  // ARCH_X86_64
 
 #ifdef ARCH_AARCH64
 INSTANTIATE_TEST_SUITE_P(
     NEON, AomHighbdSubtractBlockTest,
-    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
                        ::testing::Values(svt_aom_highbd_subtract_block_neon)));
 #endif  // ARCH_AARCH64
 

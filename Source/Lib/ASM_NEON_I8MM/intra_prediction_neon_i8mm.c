@@ -13,7 +13,7 @@
 #include <assert.h>
 
 #include "common_dsp_rtcd.h"
-#include "definitions.h"
+#include "common_utils.h"
 #include "mem_neon.h"
 
 #define FILTER_INTRA_SCALE_BITS 4

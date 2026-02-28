@@ -345,10 +345,6 @@ static void result_model_store(PictureParentControlSet* pcs, TplStats* tpl_stats
     }
 }
 
-double svt_av1_convert_qindex_to_q(int32_t qindex, EbBitDepth bit_depth);
-
-int32_t svt_av1_compute_qdelta(double qstart, double qtarget, EbBitDepth bit_depth);
-
 /*
     TPL Dispenser SB based (sz 64x64)
 */
@@ -1345,7 +1341,7 @@ static void tpl_mc_flow_dispenser(EncodeContext* enc_ctx, SequenceControlSet* sc
     qIndex = AOMMIN(MAXQ, qIndex);
 
     if (pcs->tpl_ctrls.enable_tpl_qps) {
-        const double delta_rate_new[7][6] = {
+        static const double delta_rate_new[7][6] = {
             {1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, // 1L
             {0.6, 1.0, 1.0, 1.0, 1.0, 1.0}, // 2L
             {0.6, 0.8, 1.0, 1.0, 1.0, 1.0}, // 3L

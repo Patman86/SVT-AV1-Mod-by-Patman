@@ -13,7 +13,7 @@
 #ifndef EbInvTransforms_h
 #define EbInvTransforms_h
 
-#include "definitions.h"
+#include "common_utils.h"
 #include "coefficients.h"
 
 #ifdef __cplusplus

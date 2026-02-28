@@ -688,13 +688,13 @@ typedef struct FrameContexts {
     AomCdfProb drl_cdf[DRL_MODE_CONTEXTS][CDF_SIZE(2)];
 
     AomCdfProb inter_compound_mode_cdf[INTER_MODE_CONTEXTS][CDF_SIZE(INTER_COMPOUND_MODES)];
-    AomCdfProb compound_type_cdf[BlockSizeS_ALL][CDF_SIZE(MASKED_COMPOUND_TYPES)];
-    AomCdfProb wedge_idx_cdf[BlockSizeS_ALL][CDF_SIZE(16)];
+    AomCdfProb compound_type_cdf[BLOCK_SIZES_ALL][CDF_SIZE(MASKED_COMPOUND_TYPES)];
+    AomCdfProb wedge_idx_cdf[BLOCK_SIZES_ALL][CDF_SIZE(16)];
     AomCdfProb interintra_cdf[BlockSize_GROUPS][CDF_SIZE(2)];
-    AomCdfProb wedge_interintra_cdf[BlockSizeS_ALL][CDF_SIZE(2)];
+    AomCdfProb wedge_interintra_cdf[BLOCK_SIZES_ALL][CDF_SIZE(2)];
     AomCdfProb interintra_mode_cdf[BlockSize_GROUPS][CDF_SIZE(INTERINTRA_MODES)];
-    AomCdfProb motion_mode_cdf[BlockSizeS_ALL][CDF_SIZE(MOTION_MODES)];
-    AomCdfProb obmc_cdf[BlockSizeS_ALL][CDF_SIZE(2)];
+    AomCdfProb motion_mode_cdf[BLOCK_SIZES_ALL][CDF_SIZE(MOTION_MODES)];
+    AomCdfProb obmc_cdf[BLOCK_SIZES_ALL][CDF_SIZE(2)];
     AomCdfProb palette_y_size_cdf[PALATTE_BSIZE_CTXS][CDF_SIZE(PALETTE_SIZES)];
     AomCdfProb palette_uv_size_cdf[PALATTE_BSIZE_CTXS][CDF_SIZE(PALETTE_SIZES)];
     AomCdfProb palette_y_color_index_cdf[PALETTE_SIZES][PALETTE_COLOR_INDEX_CONTEXTS][CDF_SIZE(PALETTE_COLORS)];
@@ -718,7 +718,7 @@ typedef struct FrameContexts {
     NmvContext                ndvc;
     AomCdfProb                intrabc_cdf[CDF_SIZE(2)];
     struct segmentation_probs seg;
-    AomCdfProb                filter_intra_cdfs[BlockSizeS_ALL][CDF_SIZE(2)];
+    AomCdfProb                filter_intra_cdfs[BLOCK_SIZES_ALL][CDF_SIZE(2)];
     AomCdfProb                filter_intra_mode_cdf[CDF_SIZE(FILTER_INTRA_MODES)];
     AomCdfProb                switchable_restore_cdf[CDF_SIZE(RESTORE_SWITCHABLE_TYPES)];
     AomCdfProb                wiener_restore_cdf[CDF_SIZE(2)];

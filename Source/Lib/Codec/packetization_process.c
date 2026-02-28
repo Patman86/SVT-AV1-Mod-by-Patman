@@ -493,10 +493,10 @@ void* svt_aom_packetization_kernel(void* input_ptr) {
             int64_t bits = (int64_t)svt_aom_bitstream_get_bytes_count(pcs->bitstream_ptr) << 3;
             int64_t rate = bits << 5; // To match scale.
             svt_aom_bitstream_reset(pcs->bitstream_ptr);
-            int64_t sse       = ppcs->luma_sse;
-            uint8_t bit_depth = pcs->hbd_md ? 10 : 8;
-            uint8_t qindex    = ppcs->frm_hdr.quantization_params.base_q_idx;
-            int32_t rdmult    = svt_aom_compute_rd_mult(pcs, qindex, qindex, bit_depth);
+            int64_t    sse       = ppcs->luma_sse;
+            EbBitDepth bit_depth = pcs->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT;
+            uint8_t    qindex    = ppcs->frm_hdr.quantization_params.base_q_idx;
+            int32_t    rdmult    = svt_aom_compute_rd_mult(pcs, qindex, qindex, bit_depth);
 
             double rdcost = RDCOST_DBL_WITH_NATIVE_BD_DIST(rdmult, rate, sse, scs->static_config.encoder_bit_depth);
 

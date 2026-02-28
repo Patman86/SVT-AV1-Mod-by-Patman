@@ -12,6 +12,7 @@
 #include <smmintrin.h>
 #include "common_dsp_rtcd.h"
 #include "synonyms.h"
+#include "common_utils.h"
 
 extern const int8_t eb_av1_filter_intra_taps[FILTER_INTRA_MODES][8][8];
 #define FILTER_INTRA_SCALE_BITS 4

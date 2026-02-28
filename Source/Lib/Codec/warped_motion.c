@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "common_utils.h"
 #include "aom_dsp_rtcd.h"
 #include "warped_motion.h"
 #include "bitstream_unit.h"

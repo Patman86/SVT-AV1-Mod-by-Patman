@@ -789,7 +789,7 @@ void svt_av1_get_nz_map_contexts_avx2(const uint8_t* const levels, const int16_t
         }
     }
 
-    const int32_t bwl = get_txb_bwl_tab[tx_size];
+    const int32_t bwl = get_txb_bwl(tx_size);
     const int32_t pos = scan[last_idx];
     if (last_idx <= (height << bwl) / 8) {
         coeff_contexts[pos] = 1;

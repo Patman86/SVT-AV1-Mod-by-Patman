@@ -19,8 +19,8 @@
 #include "rc_process.h"
 #include "utility.h"
 
-void svt_aom_apply_segmentation_based_quantization(const BlockGeom* blk_geom, PictureControlSet* pcs,
-                                                   SuperBlock* sb_ptr, BlkStruct* blk_ptr);
+void svt_aom_apply_segmentation_based_quantization(PictureControlSet* pcs, SuperBlock* sb_ptr, BlkStruct* blk_ptr,
+                                                   const BlockSize bsize, const int org_x, const int org_y);
 
 void svt_aom_setup_segmentation(PictureControlSet* pcs, SequenceControlSet* scs);
 

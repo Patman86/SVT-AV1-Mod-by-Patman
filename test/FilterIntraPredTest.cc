@@ -25,6 +25,7 @@
 #include "random.h"
 #include "util.h"
 #include "utility.h"
+#include "common_utils.h"
 
 using std::tuple;
 using svt_av1_test_tool::SVTRandom;  // to generate the random

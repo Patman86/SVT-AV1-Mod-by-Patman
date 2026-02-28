@@ -3730,7 +3730,7 @@ static void set_depth_removal_level_controls(PictureControlSet* pcs, ModeDecisio
             }
 
             //dev_16x16_to_8x8_th , dev_32x32_to_16x16_th = f(me_8x8_cost_variance)
-            me_8x8_cost_variance /= MAX((MAX(63 - (pcs->picture_qp + 10), 1)), 1);
+            me_8x8_cost_variance /= MAX((MAX(63 - (pcs->ppcs->picture_qp + 10), 1)), 1);
             if (me_8x8_cost_variance < LOW_8x8_DIST_VAR_TH) {
                 dev_16x16_to_8x8_th = dev_16x16_to_8x8_th << 2;
             } else if (me_8x8_cost_variance < HIGH_8x8_DIST_VAR_TH) {
@@ -3742,8 +3742,8 @@ static void set_depth_removal_level_controls(PictureControlSet* pcs, ModeDecisio
             }
 
             //dev_16x16_to_8x8_th , dev_32x32_to_16x16_th = f(QP)
-            dev_16x16_to_8x8_th *= MAX((MAX(63 - (pcs->picture_qp + 10), 1) >> 4), 1) * qp_scale_factor;
-            dev_32x32_to_16x16_th *= MAX((MAX(63 - (pcs->picture_qp + 10), 1) >> 4), 1) * qp_scale_factor;
+            dev_16x16_to_8x8_th *= MAX((MAX(63 - (pcs->ppcs->picture_qp + 10), 1) >> 4), 1) * qp_scale_factor;
+            dev_32x32_to_16x16_th *= MAX((MAX(63 - (pcs->ppcs->picture_qp + 10), 1) >> 4), 1) * qp_scale_factor;
             // dev_32x32_to_8x8_th = f(dev_32x32_to_16x16_th); a bit higher
             dev_32x32_to_8x8_th = (dev_32x32_to_16x16_th * ((1 << 2) + 1)) >> 2;
 
@@ -8332,7 +8332,7 @@ void svt_aom_sig_deriv_enc_dec_light_pd1(PictureControlSet* pcs, ModeDecisionCon
     const SliceType          slice_type        = pcs->slice_type;
     const bool               is_not_last_layer = !ppcs->is_highest_layer;
     // Get ref info, used to set some feature levels
-    const uint32_t picture_qp           = pcs->picture_qp;
+    const uint32_t picture_qp           = ppcs->picture_qp;
     uint32_t       me_8x8_cost_variance = (uint32_t)~0;
     uint32_t       me_64x64_distortion  = (uint32_t)~0;
     uint8_t        l0_was_skip = 0, l1_was_skip = 0;
@@ -8600,7 +8600,7 @@ void svt_aom_sig_deriv_enc_dec_default(PictureControlSet* pcs, ModeDecisionConte
     uint8_t                  pd_pass              = ctx->pd_pass;
     PictureParentControlSet* ppcs                 = pcs->ppcs;
     const uint8_t            sc_class1            = ppcs->sc_class1;
-    const uint32_t           picture_qp           = pcs->picture_qp;
+    const uint32_t           picture_qp           = ppcs->picture_qp;
     uint32_t                 me_8x8_cost_variance = (uint32_t)~0;
     uint32_t                 me_64x64_distortion  = (uint32_t)~0;
     uint8_t                  l0_was_skip = 0, l1_was_skip = 0;
@@ -8816,7 +8816,7 @@ void svt_aom_sig_deriv_enc_dec_rtc(PictureControlSet* pcs, ModeDecisionContext* 
     uint8_t                  pd_pass              = ctx->pd_pass;
     PictureParentControlSet* ppcs                 = pcs->ppcs;
     const uint8_t            sc_class1            = ppcs->sc_class1;
-    const uint32_t           picture_qp           = pcs->picture_qp;
+    const uint32_t           picture_qp           = ppcs->picture_qp;
     uint32_t                 me_8x8_cost_variance = (uint32_t)~0;
     uint32_t                 me_64x64_distortion  = (uint32_t)~0;
     uint8_t                  l0_was_skip = 0, l1_was_skip = 0;
@@ -9033,7 +9033,7 @@ void svt_aom_sig_deriv_enc_dec_rtc(PictureControlSet* pcs, ModeDecisionContext* 
 void svt_aom_sig_deriv_enc_dec_allintra(PictureControlSet* pcs, ModeDecisionContext* ctx) {
     EncMode        enc_mode             = pcs->enc_mode;
     uint8_t        pd_pass              = ctx->pd_pass;
-    const uint32_t picture_qp           = pcs->picture_qp;
+    const uint32_t picture_qp           = pcs->ppcs->picture_qp;
     uint32_t       me_8x8_cost_variance = (uint32_t)~0;
     uint32_t       me_64x64_distortion  = (uint32_t)~0;
     uint8_t        l0_was_skip = 0, l1_was_skip = 0;
@@ -9212,7 +9212,7 @@ void svt_aom_sig_deriv_enc_dec(SequenceControlSet* scs, PictureControlSet* pcs, 
     uint8_t                  pd_pass              = ctx->pd_pass;
     PictureParentControlSet* ppcs                 = pcs->ppcs;
     const uint8_t            sc_class1            = ppcs->sc_class1;
-    const uint32_t           picture_qp           = pcs->picture_qp;
+    const uint32_t           picture_qp           = ppcs->picture_qp;
     uint32_t                 me_8x8_cost_variance = (uint32_t)~0;
     uint32_t                 me_64x64_distortion  = (uint32_t)~0;
     uint8_t                  l0_was_skip = 0, l1_was_skip = 0;
@@ -11320,14 +11320,14 @@ void svt_aom_sig_deriv_mode_decision_config_default(SequenceControlSet* scs, Pic
         // with gradual ramp-down for the lowest and highest QPs
         // Lower QP cutoff: QP 18 = (QP) * 4
         // Upper QP cutoff: QP 39 = (63 - QP) * 3
-        pcs->lambda_weight = CLIP3(0, 72, MIN(pcs->picture_qp * 4, (63 - pcs->picture_qp) * 3)) + 128;
+        pcs->lambda_weight = CLIP3(0, 72, MIN(ppcs->picture_qp * 4, (63 - ppcs->picture_qp) * 3)) + 128;
     } else { // Tune 0 to 2
         if (!(enc_mode <= ENC_MR)) {
-            if (!is_islice && pcs->picture_qp >= 62) {
+            if (!is_islice && ppcs->picture_qp >= 62) {
                 pcs->lambda_weight = 300;
-            } else if (pcs->picture_qp >= 56) {
+            } else if (ppcs->picture_qp >= 56) {
                 pcs->lambda_weight = 175;
-            } else if (pcs->picture_qp >= 16) {
+            } else if (ppcs->picture_qp >= 16) {
                 pcs->lambda_weight = 150;
             }
         }
@@ -11818,7 +11818,7 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
         // with gradual ramp-down for the lowest and highest QPs
         // Lower QP cutoff: QP 18 = (QP) * 4
         // Upper QP cutoff: QP 39 = (63 - QP) * 3
-        pcs->lambda_weight = CLIP3(0, 72, MIN(pcs->picture_qp * 4, (63 - pcs->picture_qp) * 3)) + 128;
+        pcs->lambda_weight = CLIP3(0, 72, MIN(ppcs->picture_qp * 4, (63 - pcs->ppcs->picture_qp) * 3)) + 128;
     }
     // Extended CRF range (63.25 - 70), increase lambda weight toward further bit saving
     // Max lambda weight increase: 28 * 28 = 784
@@ -12063,11 +12063,11 @@ void svt_aom_sig_deriv_mode_decision_config_allintra(SequenceControlSet* scs, Pi
         // with gradual ramp-down for the lowest and highest QPs
         // Lower QP cutoff: QP 18 = (QP) * 4
         // Upper QP cutoff: QP 39 = (63 - QP) * 3
-        pcs->lambda_weight = CLIP3(0, 72, MIN(pcs->picture_qp * 4, (63 - pcs->picture_qp) * 3)) + 128;
+        pcs->lambda_weight = CLIP3(0, 72, MIN(ppcs->picture_qp * 4, (63 - ppcs->picture_qp) * 3)) + 128;
     } else { // Tune 0 to 2
-        if (pcs->picture_qp >= 56) {
+        if (ppcs->picture_qp >= 56) {
             pcs->lambda_weight = 175;
-        } else if (pcs->picture_qp >= 16) {
+        } else if (ppcs->picture_qp >= 16) {
             pcs->lambda_weight = 150;
         }
     }
@@ -12163,8 +12163,8 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet* scs, PictureCont
         : 0;
     // Set Warped Motion level and enabled flag
     pcs->wm_level = 0;
-    if (frm_hdr->frame_type == KEY_FRAME || frm_hdr->frame_type == INTRA_ONLY_FRAME || frm_hdr->error_resilient_mode ||
-        pcs->ppcs->frame_superres_enabled || pcs->ppcs->frame_resize_enabled) {
+    if (frame_is_intra_only(ppcs) || frm_hdr->error_resilient_mode || pcs->ppcs->frame_superres_enabled ||
+        pcs->ppcs->frame_resize_enabled) {
         pcs->wm_level = 0;
     } else {
         if (rtc_tune) {
@@ -12201,10 +12201,8 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet* scs, PictureCont
     bool enable_wm = pcs->wm_level ? 1 : 0;
     // Note: local warp should be disabled when super-res or resize is ON
     // according to the AV1 spec 5.11.27
-    frm_hdr->allow_warped_motion = enable_wm &&
-        !(frm_hdr->frame_type == KEY_FRAME || frm_hdr->frame_type == INTRA_ONLY_FRAME) &&
-        !frm_hdr->error_resilient_mode && !pcs->ppcs->frame_superres_enabled &&
-        scs->static_config.resize_mode == RESIZE_NONE;
+    frm_hdr->allow_warped_motion = enable_wm && !frame_is_intra_only(ppcs) && !frm_hdr->error_resilient_mode &&
+        !pcs->ppcs->frame_superres_enabled && scs->static_config.resize_mode == RESIZE_NONE;
 
     frm_hdr->is_motion_mode_switchable = frm_hdr->allow_warped_motion;
     ppcs->pic_obmc_level               = svt_aom_get_obmc_level(enc_mode, sq_qp, scs->seq_qp_mod);
@@ -12857,14 +12855,14 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet* scs, PictureCont
         // with gradual ramp-down for the lowest and highest QPs
         // Lower QP cutoff: QP 18 = (QP) * 4
         // Upper QP cutoff: QP 39 = (63 - QP) * 3
-        pcs->lambda_weight = CLIP3(0, 72, MIN(pcs->picture_qp * 4, (63 - pcs->picture_qp) * 3)) + 128;
+        pcs->lambda_weight = CLIP3(0, 72, MIN(ppcs->picture_qp * 4, (63 - ppcs->picture_qp) * 3)) + 128;
     } else { // Tune 0 to 2
         if (!rtc_tune && !(enc_mode <= ENC_MR)) {
-            if (!is_islice && pcs->picture_qp >= 62) {
+            if (!is_islice && ppcs->picture_qp >= 62) {
                 pcs->lambda_weight = 300;
-            } else if (pcs->picture_qp >= 56) {
+            } else if (ppcs->picture_qp >= 56) {
                 pcs->lambda_weight = 175;
-            } else if (pcs->picture_qp >= 16) {
+            } else if (ppcs->picture_qp >= 16) {
                 pcs->lambda_weight = 150;
             }
         }

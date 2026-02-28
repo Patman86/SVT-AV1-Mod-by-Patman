@@ -81,8 +81,6 @@ static const uint32_t idx_32x32_to_idx_8x8[4][4][4] = {
 // clang-format on
 
 int32_t svt_aom_get_frame_update_type(SequenceControlSet* scs, PictureParentControlSet* pcs);
-int32_t svt_av1_compute_qdelta_fp(int32_t qstart_fp8, int32_t qtarget_fp8, EbBitDepth bit_depth);
-int32_t svt_av1_compute_qdelta(double qstart, double qtarget, EbBitDepth bit_depth);
 #if DEBUG_SCALING
 // save YUV to file - auxiliary function for debug
 void save_YUV_to_file(char* filename, EbByte buffer_y, EbByte buffer_u, EbByte buffer_v, uint16_t width,
@@ -2147,16 +2145,12 @@ static void tf_64x64_inter_prediction(PictureParentControlSet* pcs, MeContext* m
         reference_ptr.buffer_bit_inc_cr = NULL;
     }
 
-    uint32_t bsize = 64;
-
     uint16_t local_origin_x = 0;
     uint16_t local_origin_y = 0;
     uint16_t pu_origin_x    = sb_origin_x + local_origin_x;
     uint16_t pu_origin_y    = sb_origin_y + local_origin_y;
     int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
     int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
-    blk_ptr.mds_idx         = svt_aom_get_mds_idx(
-        pcs->scs->blk_geom_mds, pcs->scs->max_block_cnt, local_origin_x, local_origin_y, bsize);
 
     const int32_t bw                 = mi_size_wide[BLOCK_64X64];
     const int32_t bh                 = mi_size_high[BLOCK_64X64];
@@ -2167,22 +2161,22 @@ static void tf_64x64_inter_prediction(PictureParentControlSet* pcs, MeContext* m
 
     // Perform final pass using the 1/8 MV
     // AV1 MVs are always in 1/8th pel precision.
-    BlockModeInfo    block_mi = {.mv[0]              = {{me_ctx->tf_64x64_mv_x, me_ctx->tf_64x64_mv_y}},
-                                 .ref_frame[0]       = LAST_FRAME,
-                                 .ref_frame[1]       = NONE_FRAME,
-                                 .is_interintra_used = 0,
-                                 .motion_mode        = SIMPLE_TRANSLATION,
-                                 .interp_filters     = (uint32_t)interp_filters,
-                                 .mode               = NEWMV,
-                                 .use_intrabc        = 0};
-    const BlockGeom* blk_geom = get_blk_geom_mds(scs->blk_geom_mds, blk_ptr.mds_idx);
+    BlockModeInfo block_mi = {.mv[0]              = {{me_ctx->tf_64x64_mv_x, me_ctx->tf_64x64_mv_y}},
+                              .ref_frame[0]       = LAST_FRAME,
+                              .ref_frame[1]       = NONE_FRAME,
+                              .is_interintra_used = 0,
+                              .motion_mode        = SIMPLE_TRANSLATION,
+                              .interp_filters     = (uint32_t)interp_filters,
+                              .mode               = NEWMV,
+                              .use_intrabc        = 0};
     svt_aom_inter_prediction(scs,
                              NULL, //pcs,
                              &block_mi,
                              NULL, // wm_params
                              NULL, // wm_params
                              &blk_ptr,
-                             blk_geom,
+                             BLOCK_64X64,
+                             PART_N,
                              false, // use_precomputed_obmc
                              false, // use_precomputed_ii
                              NULL, // ctx
@@ -2263,8 +2257,6 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
                     uint16_t pu_origin_y    = sb_origin_y + local_origin_y;
                     int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
                     int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
-                    blk_ptr.mds_idx         = svt_aom_get_mds_idx(
-                        pcs->scs->blk_geom_mds, pcs->scs->max_block_cnt, local_origin_x, local_origin_y, bsize);
 
                     const int32_t bw                 = mi_size_wide[BLOCK_8X8];
                     const int32_t bh                 = mi_size_high[BLOCK_8X8];
@@ -2284,7 +2276,6 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
                         .interp_filters     = (uint32_t)interp_filters,
                         .mode               = NEWMV,
                         .use_intrabc        = 0};
-                    const BlockGeom* blk_geom = get_blk_geom_mds(scs->blk_geom_mds, blk_ptr.mds_idx);
                     svt_aom_inter_prediction(
                         scs,
                         NULL, //pcs,
@@ -2292,7 +2283,8 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
                         NULL, // wm_params
                         NULL, // wm_params
                         &blk_ptr,
-                        blk_geom,
+                        BLOCK_8X8,
+                        PART_N,
                         false, // use_precomputed_obmc
                         false, // use_precomputed_ii
                         NULL, // ctx
@@ -2322,8 +2314,6 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
                 uint16_t pu_origin_y    = sb_origin_y + local_origin_y;
                 int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
                 int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
-                blk_ptr.mds_idx         = svt_aom_get_mds_idx(
-                    pcs->scs->blk_geom_mds, pcs->scs->max_block_cnt, local_origin_x, local_origin_y, bsize);
 
                 const int32_t bw                 = mi_size_wide[BLOCK_16X16];
                 const int32_t bh                 = mi_size_high[BLOCK_16X16];
@@ -2333,16 +2323,15 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
                 blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
                 // Perform final pass using the 1/8 MV
                 //AV1 MVs are always in 1/8th pel precision.
-                BlockModeInfo    block_mi = {.mv[0]              = {{me_ctx->tf_16x16_mv_x[idx_32x32 * 4 + idx_16x16],
-                                                                     me_ctx->tf_16x16_mv_y[idx_32x32 * 4 + idx_16x16]}},
-                                             .ref_frame[0]       = LAST_FRAME,
-                                             .ref_frame[1]       = NONE_FRAME,
-                                             .is_interintra_used = 0,
-                                             .motion_mode        = SIMPLE_TRANSLATION,
-                                             .interp_filters     = (uint32_t)interp_filters,
-                                             .mode               = NEWMV,
-                                             .use_intrabc        = 0};
-                const BlockGeom* blk_geom = get_blk_geom_mds(scs->blk_geom_mds, blk_ptr.mds_idx);
+                BlockModeInfo block_mi = {.mv[0]              = {{me_ctx->tf_16x16_mv_x[idx_32x32 * 4 + idx_16x16],
+                                                                  me_ctx->tf_16x16_mv_y[idx_32x32 * 4 + idx_16x16]}},
+                                          .ref_frame[0]       = LAST_FRAME,
+                                          .ref_frame[1]       = NONE_FRAME,
+                                          .is_interintra_used = 0,
+                                          .motion_mode        = SIMPLE_TRANSLATION,
+                                          .interp_filters     = (uint32_t)interp_filters,
+                                          .mode               = NEWMV,
+                                          .use_intrabc        = 0};
                 svt_aom_inter_prediction(
                     scs,
                     NULL, //pcs,
@@ -2350,7 +2339,8 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
                     NULL, // wm_params
                     NULL, // wm_params
                     &blk_ptr,
-                    blk_geom,
+                    BLOCK_16X16,
+                    PART_N,
                     false, // use_precomputed_obmc
                     false, // use_precomputed_ii
                     NULL, // ctx
@@ -2381,8 +2371,6 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
         uint16_t pu_origin_y    = sb_origin_y + local_origin_y;
         int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
         int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
-        blk_ptr.mds_idx         = svt_aom_get_mds_idx(
-            pcs->scs->blk_geom_mds, pcs->scs->max_block_cnt, local_origin_x, local_origin_y, bsize);
 
         const int32_t bw                 = mi_size_wide[BLOCK_32X32];
         const int32_t bh                 = mi_size_high[BLOCK_32X32];
@@ -2393,22 +2381,22 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
 
         // Perform final pass using the 1/8 MV
         //AV1 MVs are always in 1/8th pel precision.
-        BlockModeInfo    block_mi = {.mv[0] = {{me_ctx->tf_32x32_mv_x[idx_32x32], me_ctx->tf_32x32_mv_y[idx_32x32]}},
-                                     .ref_frame[0]       = LAST_FRAME,
-                                     .ref_frame[1]       = NONE_FRAME,
-                                     .is_interintra_used = 0,
-                                     .motion_mode        = SIMPLE_TRANSLATION,
-                                     .interp_filters     = (uint32_t)interp_filters,
-                                     .mode               = NEWMV,
-                                     .use_intrabc        = 0};
-        const BlockGeom* blk_geom = get_blk_geom_mds(scs->blk_geom_mds, blk_ptr.mds_idx);
+        BlockModeInfo block_mi = {.mv[0] = {{me_ctx->tf_32x32_mv_x[idx_32x32], me_ctx->tf_32x32_mv_y[idx_32x32]}},
+                                  .ref_frame[0]       = LAST_FRAME,
+                                  .ref_frame[1]       = NONE_FRAME,
+                                  .is_interintra_used = 0,
+                                  .motion_mode        = SIMPLE_TRANSLATION,
+                                  .interp_filters     = (uint32_t)interp_filters,
+                                  .mode               = NEWMV,
+                                  .use_intrabc        = 0};
         svt_aom_inter_prediction(scs,
                                  NULL, //pcs,
                                  &block_mi,
                                  NULL, // wm_params
                                  NULL, // wm_params
                                  &blk_ptr,
-                                 blk_geom,
+                                 BLOCK_32X32,
+                                 PART_N,
                                  false, // use_precomputed_obmc
                                  false, // use_precomputed_ii
                                  NULL, // ctx

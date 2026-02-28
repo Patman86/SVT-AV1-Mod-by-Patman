@@ -42,14 +42,6 @@ void    svt_aom_inv_transform_recon_wrapper(PictureControlSet* pcs, ModeDecision
 uint8_t svt_aom_do_md_recon(PictureParentControlSet* pcs, ModeDecisionContext* ctx);
 
 extern const int av1_get_tx_scale_tab[TX_SIZES_ALL];
-
-extern const TxSize get_txsize_entropy_ctx_tab[TX_SIZES_ALL];
-
-extern const int get_txb_bwl_tab[TX_SIZES_ALL];
-
-extern const int get_txb_wide_tab[TX_SIZES_ALL];
-
-extern const int get_txb_high_tab[TX_SIZES_ALL];
 #ifdef __cplusplus
 }
 #endif

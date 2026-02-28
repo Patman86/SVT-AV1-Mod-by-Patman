@@ -14,6 +14,7 @@
 #include "svt_psnr.h"
 #include "pcs.h"
 #include "aom_dsp_rtcd.h"
+#include "entropy_coding.h"
 #include "restoration.h"
 #include "restoration_pick.h"
 
@@ -1317,9 +1318,7 @@ static void search_wiener_seg(const RestorationTileLimits* limits, const Av1Pixe
     memset(&rui, 0, sizeof(rui));
     rui.restoration_type = RESTORE_WIENER;
     // Check whether you can use the filter coeffs from previous frames; if not, must generate new coeffs
-    if (wn_ctrls->use_prev_frame_coeffs &&
-        (cm->child_pcs->ppcs->frm_hdr.frame_type != KEY_FRAME &&
-         cm->child_pcs->ppcs->frm_hdr.frame_type != INTRA_ONLY_FRAME) &&
+    if (wn_ctrls->use_prev_frame_coeffs && !frame_is_intra_only(cm->child_pcs->ppcs) &&
         cm->child_pcs->rst_info[rsc->plane].unit_info[rest_unit_idx].restoration_type == RESTORE_WIENER) {
         // Copy filter info, stored from previous frame(s)
         rui.wiener_info = cm->child_pcs->rst_info[rsc->plane].unit_info[rest_unit_idx].wiener_info;

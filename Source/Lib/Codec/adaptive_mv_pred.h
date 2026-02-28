@@ -34,8 +34,8 @@ void        svt_aom_get_av1_mv_pred_drl(struct ModeDecisionContext* ctx, BlkStru
                                         uint8_t is_compound, PredictionMode mode, uint8_t drl_index, Mv nearestmv[2],
                                         Mv nearmv[2], Mv ref_mv[2]);
 MbModeInfo* get_mbmi(PictureControlSet* pcs, uint32_t blk_org_x, uint32_t blk_org_y);
-void        svt_aom_update_mi_map(BlkStruct* blk_ptr, uint32_t blk_org_x, uint32_t blk_org_y, const BlockGeom* blk_geom,
-                                  PictureControlSet* pcs, struct ModeDecisionContext* ctx);
+void        svt_aom_update_mi_map(PictureControlSet* pcs, struct ModeDecisionContext* ctx, const PartitionType part,
+                                  const BlockSize bsize, const int mi_row, const int mi_col);
 bool        svt_aom_warped_motion_parameters(struct ModeDecisionContext* ctx, const Mv mv, const BlockGeom* blk_geom,
                                              const MvReferenceFrame ref_frame, WarpedMotionParams* wm_params,
                                              uint8_t* num_samples, uint16_t lower_band_th, uint16_t upper_band_th,

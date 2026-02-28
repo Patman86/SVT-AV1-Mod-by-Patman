@@ -10,7 +10,7 @@
 */
 
 //#include "utility.h"
-#include "definitions.h"
+#include "common_utils.h"
 #include "common_dsp_rtcd.h"
 #define FILTER_INTRA_SCALE_BITS 4
 

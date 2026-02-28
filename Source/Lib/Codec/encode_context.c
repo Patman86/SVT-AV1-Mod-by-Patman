@@ -129,7 +129,9 @@ EbErrorType svt_aom_encode_context_ctor(EncodeContext* enc_ctx, EbPtr object_ini
                svt_aom_rate_control_coded_frames_stats_context_ctor,
                picture_index);
     }
+#if DEBUG_RC_CAP_LOG
     enc_ctx->rc.min_bit_actual_per_gop = 0xfffffffffffff;
+#endif
     EB_MALLOC_2D(enc_ctx->rc_param_queue, (int32_t)PARALLEL_GOP_MAX_NUMBER, 1);
 
     for (int interval_index = 0; interval_index < PARALLEL_GOP_MAX_NUMBER; interval_index++) {

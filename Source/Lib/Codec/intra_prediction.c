@@ -606,7 +606,7 @@ static uint8_t has_tr_32x8[8] = {
 static uint8_t has_tr_16x64[2] = {255, 127};
 static uint8_t has_tr_64x16[2] = {3, 1};
 
-static const uint8_t* const has_tr_tables[BlockSizeS_ALL] = {
+static const uint8_t* const has_tr_tables[BLOCK_SIZES_ALL] = {
     // 4X4
     has_tr_4x4,
     // 4X8,       8X4,            8X8
@@ -664,7 +664,7 @@ static uint8_t has_tr_vert_64x64[1] = {3};
 //
 // There are tables for each of the square sizes. Vertical rectangles (like
 // BLOCK_16X32) use their respective "non-vert" table
-static const uint8_t* const has_tr_vert_tables[BlockSizeS] = {
+static const uint8_t* const has_tr_vert_tables[BLOCK_SIZES] = {
     // 4X4
     NULL,
     // 4X8,      8X4,         8X8
@@ -693,7 +693,7 @@ static const uint8_t* get_has_tr_table(PartitionType partition, BlockSize bsize)
     const uint8_t* ret = NULL;
     // If this is a mixed vertical partition, look up bsize in orders_vert.
     if (partition == PARTITION_VERT_A || partition == PARTITION_VERT_B) {
-        assert(bsize < BlockSizeS);
+        assert(bsize < BLOCK_SIZES);
         ret = has_tr_vert_tables[bsize];
     } else {
         ret = has_tr_tables[bsize];
@@ -868,7 +868,7 @@ static uint8_t has_bl_32x8[8] = {
 static uint8_t has_bl_16x64[2] = {0, 0};
 static uint8_t has_bl_64x16[2] = {42, 42};
 
-static const uint8_t* const has_bl_tables[BlockSizeS_ALL] = {
+static const uint8_t* const has_bl_tables[BLOCK_SIZES_ALL] = {
     // 4X4
     has_bl_4x4,
     // 4X8,         8X4,         8X8
@@ -926,7 +926,7 @@ static uint8_t has_bl_vert_64x64[1] = {2};
 //
 // There are tables for each of the square sizes. Vertical rectangles (like
 // BLOCK_16X32) use their respective "non-vert" table
-static const uint8_t* const has_bl_vert_tables[BlockSizeS] = {
+static const uint8_t* const has_bl_vert_tables[BLOCK_SIZES] = {
     // 4X4
     NULL,
     // 4X8,     8X4,         8X8
@@ -955,7 +955,7 @@ static const uint8_t* get_has_bl_table(PartitionType partition, BlockSize bsize)
     const uint8_t* ret = NULL;
     // If this is a mixed vertical partition, look up bsize in orders_vert.
     if (partition == PARTITION_VERT_A || partition == PARTITION_VERT_B) {
-        assert(bsize < BlockSizeS);
+        assert(bsize < BLOCK_SIZES);
         ret = has_bl_vert_tables[bsize];
     } else {
         ret = has_bl_tables[bsize];

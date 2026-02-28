@@ -13,7 +13,7 @@
 #include <assert.h>
 #include <smmintrin.h> /* SSE4.1 */
 
-#include "definitions.h"
+#include "common_utils.h"
 #include "common_dsp_rtcd.h"
 
 #include "highbd_txfm_utility_sse4.h"

@@ -25,33 +25,9 @@
  * Enc Dec Context
  **************************************/
 typedef struct EntropyCodingContext {
-    EbDctor  dctor;
-    EbFifo*  enc_dec_input_fifo_ptr;
-    EbFifo*  entropy_coding_output_fifo_ptr; // to packetization
-    uint32_t sb_total_count;
-    // Coding Unit Workspace---------------------------
-    EbPictureBufferDesc* coeff_buffer_sb; //Used to hold quantized coeff for one TB in EncPass.
-
-    //  Context Variables---------------------------------
-    BlkStruct* blk_ptr;
-    //const CodedBlockStats           *cu_stats;
-    uint32_t blk_index;
-    uint8_t  cu_depth;
-    uint32_t cu_size;
-    uint32_t cu_size_log2;
-    uint32_t blk_org_x;
-    uint32_t blk_org_y;
-    uint32_t sb_origin_x;
-    uint32_t sb_origin_y;
-    uint32_t pu_origin_x;
-    uint32_t pu_origin_y;
-    uint32_t pu_width;
-    uint32_t pu_height;
-
-    uint32_t txb_itr;
-    uint32_t txb_origin_x;
-    uint32_t txb_origin_y;
-    uint32_t txb_size;
+    EbDctor dctor;
+    EbFifo* enc_dec_input_fifo_ptr;
+    EbFifo* entropy_coding_output_fifo_ptr; // to packetization
 
     // MCP Context
     bool        is_16bit; //enable 10 bit encode in CL
