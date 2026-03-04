@@ -4598,25 +4598,6 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
         scs->static_config.variance_boost_curve = 3;
     }
 
-    // Override settings for Film Grain tune
-    if (scs->static_config.tune == TUNE_FILM_GRAIN) {
-        SVT_WARN("Tune 4: Film Grain is opinionated! Works best with 1080p, 4k and 8k content.\n");
-        SVT_WARN("Tune 4: Film Grain turns off: TF, CDEF, rest. filtering, and enables complex HVS, TX bias and strong AC bias.\n");
-        scs->static_config.enable_tf = 0;
-        scs->static_config.cdef_level = 0;
-        scs->static_config.enable_restoration_filtering = 0;
-        scs->static_config.complex_hvs = 1;
-        scs->static_config.ac_bias = 4.0;
-        scs->static_config.tx_bias = 1;
-    }
-
-    // Override Variance Boost curve for PQ transfer
-    if (scs->static_config.enable_variance_boost &&
-        scs->static_config.transfer_characteristics == EB_CICP_TC_SMPTE_2084) {
-        SVT_INFO("HDR content with PQ transfer detected, switching to PQ-optimized curve\n");
-        scs->static_config.variance_boost_curve = 3;
-    }
-
     return;
 }
 

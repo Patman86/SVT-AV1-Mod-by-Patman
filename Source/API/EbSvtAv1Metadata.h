@@ -12,6 +12,11 @@
 #ifndef EbSvtAv1Metadata_h
 #define EbSvtAv1Metadata_h
 
+#ifndef _MSC_VER
+#define fscanf_s  fscanf
+#define sscanf_s  sscanf
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
