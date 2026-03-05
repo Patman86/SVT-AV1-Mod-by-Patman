@@ -810,7 +810,9 @@ void svt_aom_sig_deriv_me(SequenceControlSet *scs, PictureParentControlSet *pcs,
         else
             me_ref_prune_level = 6;
     } else {
-        if (enc_mode <= ENC_M0) {
+        if (enc_mode <= ENC_MR) {
+            me_ref_prune_level = 0;
+        } else if (enc_mode <= ENC_M0) {
             me_ref_prune_level = is_base ? 1 : 4;
         } else if (enc_mode <= ENC_M5) {
             me_ref_prune_level = is_base ? 1 : 5;
@@ -1427,9 +1429,7 @@ static uint8_t get_dlf_level(PictureControlSet *pcs, EncMode enc_mode, uint8_t i
     const uint8_t sc_class1       = pcs->ppcs->sc_class1;
     uint8_t       dlf_level       = 0;
     uint8_t       modulation_mode = 0; // 0: off, 1: only towards bd-rate, 2: both sides; , 3: only towards speed
-    if (pcs->scs->static_config.enable_dlf_flag == 3) {
-        return 1;
-    }
+
     const bool    rtc_tune        = pcs->scs->static_config.rtc;
     const bool    flat_rtc        = rtc_tune && pcs->scs->use_flat_ipp;
 
@@ -8139,7 +8139,7 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet *scs, PictureCont
         } else {
             pcs->txs_level = is_islice ? 4 : 0;
         }
-    } else if (enc_mode <= ENC_M2) {
+    } else if (enc_mode <= ENC_M1) {
         pcs->txs_level = 2;
     } else if (enc_mode <= ENC_M2) {
         pcs->txs_level = is_not_last_layer ? 2 : 3;

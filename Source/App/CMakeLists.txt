@@ -106,9 +106,9 @@ target_link_libraries(SvtAv1EncApp
         SvtAv1Enc
         $<$<BOOL:${LIBDOVI_FOUND}>:dovi::dovi>
         $<$<BOOL:${LIBHDR10PLUS_RS_FOUND}>:hdr10plus::hdr10plus>
-        ws2_32
-        userenv
-        ntdll
+        $<$<OR:$<BOOL:${LIBDOVI_FOUND}>,$<BOOL:${LIBHDR10PLUS_RS_FOUND}>>:ws2_32>
+        $<$<OR:$<BOOL:${LIBDOVI_FOUND}>,$<BOOL:${LIBHDR10PLUS_RS_FOUND}>>:userenv>
+        $<$<OR:$<BOOL:${LIBDOVI_FOUND}>,$<BOOL:${LIBHDR10PLUS_RS_FOUND}>>:ntdll>
 )
 
 install(TARGETS SvtAv1EncApp RUNTIME COMPONENT Runtime DESTINATION ${CMAKE_INSTALL_BINDIR})

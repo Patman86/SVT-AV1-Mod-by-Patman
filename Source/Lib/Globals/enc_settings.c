@@ -267,31 +267,14 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_ERROR("The intra period must be > 0 for RateControlMode %d\n", config->rate_control_mode);
         return_error = EB_ErrorBadParameter;
     }
-    if ((config->min_intra_period_length < -1 || config->min_intra_period_length > 2 * ((1 << 30) - 1)) &&
-        config->rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF) {
-        SVT_ERROR("The minimum intra period must be [-1, 2^31-2]  \n");
-        return_error = EB_ErrorBadParameter;
-    }
-    if (scs->static_config.scene_change_detection != 0) {
-        if ((config->min_intra_period_length > config->intra_period_length) || (config->intra_period_length < 0 &&
-            config->min_intra_period_length > 0)) {
-            SVT_ERROR("Instance %u: The minimum intra period must be lower than "
-                "the maximum intra period. \n");
-            return_error = EB_ErrorBadParameter;
-        }
-        if (config->min_intra_period_length < (1 << config->hierarchical_levels)) {
-            SVT_WARN("A higher min-keyint is recommended to avoid excessive "
-                    "key frames placement.\n");
-        }
-    }
 
     if (config->intra_refresh_type > 2 || config->intra_refresh_type < 1) {
         SVT_ERROR("Invalid intra Refresh Type [1-2]\n");
         return_error = EB_ErrorBadParameter;
     }
 
-    if (config->enable_dlf_flag > 3) {
-        SVT_ERROR("Invalid LoopFilterEnable. LoopFilterEnable must be [0 - 3]\n");
+    if (config->enable_dlf_flag > 2) {
+        SVT_ERROR("Invalid LoopFilterEnable. LoopFilterEnable must be [0 - 2]\n");
         return_error = EB_ErrorBadParameter;
     }
 
@@ -796,15 +779,13 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_WARN("Non-RTC M10+ are meant for automation tooling usage. Visual artifacts may occur otherwise.\n");
     }
 
-    if (scs->static_config.avif == 1) {
+    if (scs->static_config.scene_change_detection) {
         scs->static_config.scene_change_detection = 0;
-        SVT_WARN("SCD was set to 0 as avif mode is enabled.\n");
+        SVT_WARN(
+            "SVT-AV1 has an integrated mode decision mechanism to handle scene changes and will "
+            "not insert a key frame at scene changes\n");
     }
-    if (scs->static_config.scene_change_detection == 0) {
-        scs->static_config.min_intra_period_length = 0;
-        SVT_WARN("min-keyint was set to 0 as SCD is disabled.\n");
-    }
-    if (config->fast_decode < 1 && config->auto_tiling == 0 && (config->tile_columns > 0 || config->tile_rows > 0)) {
+    if (config->fast_decode < 1 && (config->tile_columns > 0 || config->tile_rows > 0)) {
         SVT_WARN(
             "If you are using tiles with the intent of increasing the decoder speed, please also "
             "consider using --fast-decode 1 or 2, especially if the intended decoder is running with "
@@ -969,7 +950,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
 
     for (int i = 0; i < SVT_AV1_FRAME_UPDATE_TYPES; i++) config_ptr->lambda_scale_factors[i] = 128;
 
-    config_ptr->scene_change_detection       = 1;
+    config_ptr->scene_change_detection       = 0;
     config_ptr->rate_control_mode            = SVT_AV1_RC_MODE_CQP_OR_CRF;
     config_ptr->look_ahead_distance          = (uint32_t)~0;
     config_ptr->target_bit_rate              = 2000513;
@@ -979,7 +960,6 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->aq_mode                      = 2;
     config_ptr->enc_mode                     = ENC_M4;
     config_ptr->intra_period_length          = -2;
-    config_ptr->min_intra_period_length      = -1;
     config_ptr->multiply_keyint              = false;
     config_ptr->intra_refresh_type           = 2;
     config_ptr->hierarchical_levels          = HIERARCHICAL_LEVELS_AUTO;
@@ -1103,10 +1083,6 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->tx_bias                           = 0;
     config_ptr->complex_hvs                       = 0;
     config_ptr->noise_adaptive_filtering          = 2;
-    config_ptr->auto_tiling                       = true;
-    config_ptr->zones                             = NULL;
-    config_ptr->parsed_zones                      = NULL;
-    config_ptr->num_zones                         = 0;
     config_ptr->cdef_scaling                      = 15;
     return return_error;
 }
@@ -1170,14 +1146,11 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                  config->pred_structure == LOW_DELAY           ? "low delay"
                      : config->pred_structure == RANDOM_ACCESS ? "random access"
                                                                : "Unknown pred structure");
-        PRINT_CONFIG("max / min gop size / mini-gop size / type", "%d / %d / %d / %s",
-            config->intra_period_length < 0 ? config->intra_period_length
-                : config->intra_period_length + 1,
-            config->min_intra_period_length < 0 ? config->min_intra_period_length
-                : config->min_intra_period_length + 1,
+        PRINT_CONFIG("gop size / mini-gop size / key-frame type", "%d / %d / %s",
+            config->intra_period_length + 1,
             (1 << config->hierarchical_levels),
-            config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH    ? "Open GOP"
-                : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "Closed GOP"
+            config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH    ? "FWD key frame"
+                : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "key frame"
                                                                    : "Unknown key frame type");
         if (config->lossless) {
             PRINT_CONFIG("BRC mode", "Lossless Coding");
@@ -1264,12 +1237,6 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
             PRINT_CONFIG("Noise Normalization Strength", "%d",
                 config->noise_norm_strength);
         }
-
-        PRINT_CONFIG("auto tiling / columns / rows", "%d / %d / %d",
-                 config->auto_tiling,
-                 config->tile_columns,
-                 config->tile_rows);
-
         if (config->cdef_scaling != 15 && config->cdef_level != 0) {
             PRINT_CONFIG("CDEF scaling (ratio)", "%d (%.2fx)",
 
@@ -1964,76 +1931,6 @@ static EbErrorType str_to_resz_denoms(const char *nptr, SvtAv1FrameScaleEvts *ev
     return parse_list_uint32(nptr, evts->resize_denoms, param_count);
 }
 
-static EbErrorType parse_zones_string(const char* zones_str, QualityZone** zones_out, uint16_t* num_zones_out) {
-    if (!zones_str || !*zones_str) {
-        *zones_out = NULL;
-        *num_zones_out = 0;
-        return EB_ErrorNone;
-    }
-
-    // Count semicolons to determine number of zones
-    uint16_t zone_count = 1;
-    for (const char* p = zones_str; *p; p++) {
-        if (*p == ';') zone_count++;
-    }
-
-    // Allocate memory for zones
-    QualityZone* zones = (QualityZone*)malloc(zone_count * sizeof(QualityZone));
-    if (!zones) {
-        return EB_ErrorInsufficientResources;
-    }
-
-    // Parse zones
-    char* zones_copy = _strdup(zones_str);
-    if (!zones_copy) {
-        free(zones);
-        return EB_ErrorInsufficientResources;
-   }
-
-    char* saveptr = NULL;
-    char* zone_token = strtok_s(zones_copy, ";", &saveptr);
-    uint16_t parsed_zones = 0;
-
-    while (zone_token && parsed_zones < zone_count) {
-        uint64_t start, end;
-        int32_t quality;
-
-        if (sscanf_s(zone_token, "%llu,%llu,%d", &start, &end, &quality) != 3) {
-            free(zones);
-            free(zones_copy);
-            return EB_ErrorBadParameter;
-        }
-
-        // Validate zone parameters
-        if (start > end) {
-            SVT_ERROR("Invalid zone: start frame (%llu) > end frame (%llu)\n", start, end);
-            free(zones);
-            free(zones_copy);
-            return EB_ErrorBadParameter;
-        }
-
-        if (quality < 1 || quality > 63) {
-            SVT_ERROR("Invalid QP value (%d) in zone, must be 1-63\n", quality);
-            free(zones);
-            free(zones_copy);
-            return EB_ErrorBadParameter;
-        }
-
-        zones[parsed_zones].start_frame = (uint32_t)start;
-        zones[parsed_zones].end_frame = (uint32_t)end;
-        zones[parsed_zones].zone_quality = (uint8_t)quality;
-        parsed_zones++;
-
-        zone_token = strtok_s(NULL, ";", &saveptr);
-    }
-
-    free(zones_copy);
-
-    *zones_out = zones;
-    *num_zones_out = parsed_zones;
-    return EB_ErrorNone;
-}
-
 static EbErrorType str_to_sframe_posi(const char *nptr, SvtAv1SFramePositions *posis) {
     const uint32_t param_count = count_params(nptr);
     if ((posis->sframe_num != 0 && posis->sframe_num != param_count) || param_count == 0) {
@@ -2131,9 +2028,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
     if (!strcmp(name, "keyint"))
         return str_to_keyint(value, &config_struct->intra_period_length, &config_struct->multiply_keyint);
 
-    if (!strcmp(name, "min-keyint"))
-        return str_to_keyint(value, &config_struct->min_intra_period_length, &config_struct->multiply_keyint);
-
     if (!strcmp(name, "tbr"))
         return str_to_bitrate(value, &config_struct->target_bit_rate);
 
@@ -2214,52 +2108,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
 
     if (!strcmp(name, "frame-resz-denoms"))
         return str_to_resz_denoms(value, &config_struct->frame_scale_evts);
-
-    if (!strcmp(name, "zones")) {
-        if (config_struct->zones) {
-            free(config_struct->zones);
-            if (config_struct->parsed_zones) {
-                free(config_struct->parsed_zones);
-                config_struct->parsed_zones = NULL;
-            }
-        }
-        config_struct->zones = _strdup(value);
-
-        // Parse zones immediately
-        EbErrorType err = parse_zones_string(config_struct->zones,
-                                            &config_struct->parsed_zones,
-                                            &config_struct->num_zones);
-        if (err != EB_ErrorNone) {
-            SVT_ERROR("Failed to parse zones parameter: %s\n", value);
-            return err;
-        }
-
-        // Print parsed zones for verification
-        if (config_struct->num_zones > 0) {
-            if (config_struct->num_zones == 1) {
-                SVT_INFO("Parsed %d zone:\n", config_struct->num_zones);
-            } else if (config_struct->num_zones > 1) {
-                SVT_INFO("Parsed %d zones:\n", config_struct->num_zones);
-            }
-            for (int i = 0; i < config_struct->num_zones; i++) {
-                if (config_struct->aq_mode == 0 && config_struct->enable_variance_boost == 0) {
-                    SVT_INFO("  Zone %d: frames %llu-%llu, CQP %d\n",
-                            i + 1,
-                            config_struct->parsed_zones[i].start_frame,
-                            config_struct->parsed_zones[i].end_frame,
-                            config_struct->parsed_zones[i].zone_quality);
-                } else {
-                    SVT_INFO("  Zone %d: frames %llu-%llu, CRF %d\n",
-                            i + 1,
-                            config_struct->parsed_zones[i].start_frame,
-                            config_struct->parsed_zones[i].end_frame,
-                            config_struct->parsed_zones[i].zone_quality);
-                }
-            }
-        }
-
-        return EB_ErrorNone;
-    }
 
     if (!strcmp(name, "sframe-posi"))
         return str_to_sframe_posi(value, &config_struct->sframe_posi);
@@ -2421,7 +2269,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"enable-restoration", &config_struct->enable_restoration_filtering},
         {"enable-mfmv", &config_struct->enable_mfmv},
         {"intra-period", &config_struct->intra_period_length},
-        {"min-keyint", &config_struct->min_intra_period_length},
         {"tile-rows", &config_struct->tile_rows},
         {"tile-columns", &config_struct->tile_columns},
         {"sframe-dist", &config_struct->sframe_dist},
@@ -2479,7 +2326,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"adaptive-film-grain", &config_struct->adaptive_film_grain},
         {"alt-lambda-factors", &config_struct->alt_lambda_factors},
         {"alt-ssim-tuning", &config_struct->alt_ssim_tuning},
-        {"auto-tiling", &config_struct->auto_tiling},
     };
     const size_t bool_opts_size = sizeof(bool_opts) / sizeof(bool_opts[0]);
 

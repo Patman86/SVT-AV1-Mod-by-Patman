@@ -1195,9 +1195,6 @@ typedef struct PictureControlSetInitData {
     uint8_t hbd_mds;
     uint8_t tx_bias;
     uint8_t complex_hvs;
-    bool    auto_tiling;
-    QualityZone* zones;
-    uint16_t num_zones;
 } PictureControlSetInitData;
 
 /**************************************

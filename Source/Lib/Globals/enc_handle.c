@@ -1347,9 +1347,6 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component)
         input_data.static_config = scs->static_config;
         input_data.allintra = scs->allintra;
         input_data.use_flat_ipp = scs->use_flat_ipp;
-        input_data.auto_tiling = scs->static_config.auto_tiling;
-        input_data.zones = scs->static_config.parsed_zones;
-        input_data.num_zones = scs->static_config.num_zones;
         EB_NEW(
             enc_handle_ptr->picture_parent_control_set_pool_ptr,
             svt_system_resource_ctor,
@@ -2218,20 +2215,6 @@ static int32_t compute_default_intra_period(
 
     return intra_period;
 }
-static int32_t compute_default_min_intra_period(
-    SequenceControlSet       *scs){
-    int32_t min_intra_period           = 0;
-    EbSvtAv1EncConfiguration   *config = &scs->static_config;
-    double fps                         = scs->frame_rate;
-    int32_t mini_gop_size              = (1 << (config->hierarchical_levels));
-
-    min_intra_period                   = ((int)((fps + mini_gop_size) / mini_gop_size)*mini_gop_size);
-    if (config->intra_refresh_type == 1)
-        min_intra_period -= 1;
-
-    return min_intra_period;
-}
-
 /*
 Calculates the default LAD value
 */
@@ -4014,7 +3997,7 @@ static void set_param_based_on_input(SequenceControlSet *scs)
 
     // Throws a warning when scene change is on, as the feature is not optimal and may produce false detections
     if (scs->static_config.scene_change_detection == 1)
-        SVT_WARN("SCD has been optimized on the encoder defaults. Accuracy cannot be guaranteed otherwise.\n");
+        SVT_WARN("Scene Change is not optimal and may produce suboptimal keyframe placements\n");
     // MRP level
     uint8_t mrp_level;
     if (scs->static_config.rtc) {
@@ -4193,9 +4176,6 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
 
     // MD Parameters
     scs->enable_hbd_mode_decision = config_struct->encoder_bit_depth > 8 ? DEFAULT : 0;
-
-    // Auto tiling
-    scs->static_config.auto_tiling = config_struct->auto_tiling;
     {
         if (config_struct->tile_rows == DEFAULT && config_struct->tile_columns == DEFAULT) {
 
@@ -4204,9 +4184,6 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
 
         }
         else {
-            if (scs->static_config.auto_tiling) {
-                SVT_WARN("Tiles set manually will be ignored when auto tiling is enabled!\n");
-            }
             if (config_struct->tile_rows == DEFAULT) {
                 scs->static_config.tile_rows = 0;
                 scs->static_config.tile_columns = config_struct->tile_columns;
@@ -4220,30 +4197,7 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
                 scs->static_config.tile_columns = config_struct->tile_columns;
             }
         }
-        if (scs->static_config.auto_tiling) {
-            if (scs->max_input_luma_width >= 3840 && scs->max_input_luma_height >= 2160) {
-                scs->static_config.tile_rows = 0;
-                scs->static_config.tile_columns = 2;
-            }
-            else if (scs->max_input_luma_width >= 2160 && scs->max_input_luma_height >= 3840) {
-                scs->static_config.tile_rows = 2;
-                scs->static_config.tile_columns = 0;
-            }
-            else if (scs->max_input_luma_width >= 1920 && scs->max_input_luma_height >= 1080) {
-                scs->static_config.tile_rows = 0;
-                scs->static_config.tile_columns = 1;
-            }
-            else if (scs->max_input_luma_width >= 1080 && scs->max_input_luma_height >= 1920) {
-                scs->static_config.tile_rows = 1;
-                scs->static_config.tile_columns = 0;
-            }
-        }
     }
-
-    // Zones
-    scs->static_config.zones = config_struct->zones;
-    scs->static_config.parsed_zones = config_struct->parsed_zones;
-    scs->static_config.num_zones = config_struct->num_zones;
 
     // Rate Control
     scs->static_config.scene_change_detection = config_struct->scene_change_detection;
@@ -4389,12 +4343,6 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
             scs->static_config.frame_rate_denominator;
         scs->static_config.intra_period_length =
             (int32_t)(fps * scs->static_config.intra_period_length);
-    }
-    if (scs->static_config.intra_period_length == -1)
-        scs->static_config.min_intra_period_length = 0;
-    else {
-        if (scs->static_config.min_intra_period_length == -1)
-            scs->static_config.min_intra_period_length = compute_default_min_intra_period(scs);
     }
     if (scs->static_config.look_ahead_distance == (uint32_t)~0)
         scs->static_config.look_ahead_distance = compute_default_look_ahead(&scs->static_config);

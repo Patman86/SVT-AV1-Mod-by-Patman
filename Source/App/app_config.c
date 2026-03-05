@@ -145,7 +145,6 @@
 #define QP_FILE_NEW_TOKEN "--qpfile"
 #define INPUT_DEPTH_TOKEN "--input-depth"
 #define KEYINT_TOKEN "--keyint"
-#define MIN_KEYINT_TOKEN "--min-keyint"
 #define LOOKAHEAD_NEW_TOKEN "--lookahead"
 #define SVTAV1_PARAMS "--svtav1-params"
 
@@ -216,7 +215,6 @@
 #define MAX_TX_SIZE_TOKEN "--max-tx-size"
 #define AC_BIAS_TOKEN "--ac-bias"
 #define NOISE_NORM_STRENGTH_TOKEN "--noise-norm-strength"
-#define AUTO_TILING "--auto-tiling"
 #define KF_TF_STRENGTH_FILTER_TOKEN "--kf-tf-strength"
 #define ALT_LAMBDA_FACTORS_TOKEN "--alt-lambda-factors"
 #define SHARP_TX_TOKEN "--sharp-tx"
@@ -225,7 +223,6 @@
 #define TX_BIAS_TOKEN "--tx-bias"
 #define COMPLEX_HVS_TOKEN "--complex-hvs"
 #define NOISE_ADAPTIVE_FILTERING_TOKEN "--noise-adaptive-filtering"
-#define ZONES_TOKEN "--zones"
 #define CDEF_SCALING_TOKEN "--cdef-scaling"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
@@ -447,7 +444,6 @@ static EbErrorType set_cfg_fgs_table_path(EbConfig *cfg, const char *token, cons
 
 #ifdef LIBDOVI_FOUND
 static EbErrorType set_cfg_dovi_rpu(EbConfig *cfg, const char *token, const char *value) {
-    (void)token;
     SVT_INFO("Parsing Dolby Vision RPU file...\n");
     const DoviRpuOpaqueList *rpus = dovi_parse_rpu_bin_file(value);
     if (rpus->error) {
@@ -463,7 +459,6 @@ static EbErrorType set_cfg_dovi_rpu(EbConfig *cfg, const char *token, const char
 
 #ifdef LIBHDR10PLUS_RS_FOUND
 static EbErrorType set_cfg_hdr10plus_json(EbConfig *cfg, const char *token, const char *value) {
-    (void)token;
     SVT_INFO("Parsing HDR10+ JSON file...\n");
     Hdr10PlusRsJsonOpaque *hdr10plus_json = hdr10plus_rs_parse_json(value);
     const char            *error          = hdr10plus_rs_json_get_error(hdr10plus_json);
@@ -547,21 +542,6 @@ err:
     for (size_t i = 0; i < fkf.count; ++i) free(fkf.specifiers[i]);
     free(fkf.specifiers);
     return EB_ErrorBadParameter;
-}
-static EbErrorType set_cfg_quality_zones(EbConfig *cfg, const char *token, const char *value) {
-    (void)token;
-
-    if (!value || strlen(value) == 0) {
-        return svt_av1_enc_parse_parameter(&cfg->config, "zones", "");
-    }
-
-    EbErrorType err = svt_av1_enc_parse_parameter(&cfg->config, "zones", value);
-    if (err != EB_ErrorNone) {
-        fprintf(stderr, "Error: Failed to parse quality zones from config file: %s\n", value);
-        return err;
-    }
-
-    return EB_ErrorNone;
 }
 static EbErrorType set_no_progress(EbConfig *cfg, const char *token, const char *value) {
     (void)token;
@@ -862,9 +842,6 @@ ConfigDescription config_entry_rc[] = {
     {LUMINANCE_QP_BIAS_TOKEN, "Adjusts a frame's QP based on its average luma value, default is 0 [0-100]"},
     // Sharpness
     {SHARPNESS_TOKEN, "Bias towards decreased/increased sharpness, default is 1 [-7 to 7]"},
-    // Zones
-    {ZONES_TOKEN,
-     "CRF/CQP zones, format: start,end,quality;start,end,quality;..., default is none",},
     // Termination
     {NULL, NULL}};
 
@@ -882,11 +859,8 @@ ConfigDescription config_entry_2p[] = {
 
 ConfigDescription config_entry_intra_refresh[] = {
     {KEYINT_TOKEN,
-     "Max GOP size (frames), default is -2 [-2: ~10 seconds - up to 305 frames), -1: \"infinite\" and only applicable for "
+     "GOP size (frames), default is -2 [-2: ~10 seconds - up to 305 frames), -1: \"infinite\" and only applicable for "
      "CRF, 0: same as -1]"},
-    {MIN_KEYINT_TOKEN,
-     "Min GOP size (frames), default is -1 [-1: multiple of the mini-gop length (automatic), "
-     "0: no minimum]"},
     {INTRA_REFRESH_TYPE_TOKEN, "Intra refresh type, default is 2 [1: FWD Frame (Open GOP), 2: KEY Frame (Closed GOP)]"},
     {SCENE_CHANGE_DETECTION_TOKEN, "Scene change detection control, default is 0 [0-1]"},
     {LOOKAHEAD_NEW_TOKEN,
@@ -997,8 +971,6 @@ ConfigDescription config_entry_specific[] = {
     // --- end: REFERENCE SCALING SUPPORT
     {LOSSLESS_TOKEN, "Enable lossless coding, default is 0 [0-1]"},
     {AVIF_TOKEN, "Enable still-picture coding, default is 0 [0-1]"},
-    // Auto tiling
-    {AUTO_TILING, "Auto tiling, default is 1 [0-1]"},
     // Termination
     {NULL, NULL}};
 
@@ -1173,7 +1145,6 @@ ConfigEntry config_entry[] = {
     // GOP size and type Options
     {INTRA_PERIOD_TOKEN, "IntraPeriod", set_cfg_generic_token},
     {KEYINT_TOKEN, "Keyint", set_cfg_generic_token},
-    {MIN_KEYINT_TOKEN, "MinKeyint", set_cfg_generic_token},
     {INTRA_REFRESH_TYPE_TOKEN, "IntraRefreshType", set_cfg_generic_token},
     {SCENE_CHANGE_DETECTION_TOKEN, "SceneChangeDetection", set_cfg_generic_token},
     {LOOKAHEAD_NEW_TOKEN, "Lookahead", set_cfg_generic_token},
@@ -1204,9 +1175,6 @@ ConfigEntry config_entry[] = {
     {FGS_TABLE_TOKEN, "FilmGrainTable", set_cfg_fgs_table_path},
     {PHOTON_NOISE_TOKEN, "PhotonNoise", set_cfg_generic_token},
     {PHOTON_NOISE_CHROMA_TOKEN, "PhotonNoiseChroma", set_cfg_generic_token},
-#endif
-#ifdef LIBHDR10PLUS_RS_FOUND
-    {HDR10PLUS_JSON_TOKEN, "Hdr10PlusJson", set_cfg_hdr10plus_json},
 #endif
 
     //   Super-resolution support
@@ -1239,9 +1207,6 @@ ConfigEntry config_entry[] = {
     {CHROMA_SAMPLE_POSITION_TOKEN, "ChromaSamplePosition", set_cfg_generic_token},
     {MASTERING_DISPLAY_TOKEN, "MasteringDisplay", set_cfg_generic_token},
     {CONTENT_LIGHT_LEVEL_TOKEN, "ContentLightLevel", set_cfg_generic_token},
-#ifdef LIBDOVI_FOUND
-    {DOLBY_VISION_RPU_TOKEN, "DolbyVisionRpu", set_cfg_dovi_rpu},
-#endif
 
 #if CONFIG_ENABLE_QUANT_MATRIX
     // QM
@@ -1314,18 +1279,13 @@ ConfigEntry config_entry[] = {
     // Noise adaptive filtering
     {NOISE_ADAPTIVE_FILTERING_TOKEN, "NoiseAdaptiveFiltering", set_cfg_generic_token},
 
-    // Auto tiling
-    {AUTO_TILING, "AutoTiling", set_cfg_generic_token},
-
-    // Zones
-    {ZONES_TOKEN, "Zones", set_cfg_quality_zones},
     // CDEF scaling
-
     {CDEF_SCALING_TOKEN, "CDEFScaling", set_cfg_generic_token},
 
 #ifdef LIBDOVI_FOUND
     {DOLBY_VISION_RPU_TOKEN, "DolbyVisionRpu", set_cfg_dovi_rpu},
 #endif
+
 #ifdef LIBHDR10PLUS_RS_FOUND
     {HDR10PLUS_JSON_TOKEN, "Hdr10PlusJson", set_cfg_hdr10plus_json},
 #endif

@@ -130,6 +130,7 @@ if -%1-==-- (
     set "text=Setting environment for Clang with Visual Studio"
     set dir=ClangVS
     set "tool="-T LLVM_V143""
+    set "PATH=%LLVM_ROOT%\bin;%PATH%"
     set "flags=/MD /MT /O2 /Ot /Gw /GA /DNDEBUG /W0"
     shift
 ) else if /I "%1"=="Clang" (
@@ -213,7 +214,7 @@ if -%1-==-- (
     set "cmake_eflags=%cmake_eflags% -DLIBHDR10PLUS_RS_FOUND=1"
     shift
 ) else if /I "%1"=="pgo" (
-    set "cmake_eflags=%cmake_eflags% -DSVT_AV1_PGO=ON -DSVT_AV1_PGO_CUSTOM_VIDEOS="D:/""
+    set "cmake_eflags=%cmake_eflags% -DSVT_AV1_PGO=ON"
     set "pgo=--target RunPGO"
     shift
 ) else if /I "%1"=="ext-lib-static" (
