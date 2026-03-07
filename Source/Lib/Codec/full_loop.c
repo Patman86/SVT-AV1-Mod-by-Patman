@@ -1330,15 +1330,15 @@ void svt_aom_quantize_inv_quantize_light(PictureControlSet* pcs, int32_t* coeff,
 
     int32_t qmatrix_level = (IS_2D_TRANSFORM(tx_type) && pcs->ppcs->frm_hdr.quantization_params.using_qmatrix)
 
-        ? pcs->ppcs->frm_hdr.quantization_params.qm[AOM_PLANE_Y]
+        ? pcs->ppcs->frm_hdr.quantization_params.qm[PLANE_Y]
 
         : NUM_QM_LEVELS - 1;
 
     TxSize adjusted_tx_size = aom_av1_get_adjusted_tx_size(txsize);
 
-    const QmVal* q_matrix = pcs->ppcs->gqmatrix[qmatrix_level][AOM_PLANE_Y][adjusted_tx_size];
+    const QmVal* q_matrix = pcs->ppcs->gqmatrix[qmatrix_level][PLANE_Y][adjusted_tx_size];
 
-    const QmVal* iq_matrix = pcs->ppcs->giqmatrix[qmatrix_level][AOM_PLANE_Y][adjusted_tx_size];
+    const QmVal* iq_matrix = pcs->ppcs->giqmatrix[qmatrix_level][PLANE_Y][adjusted_tx_size];
 
     if (q_matrix == NULL && iq_matrix == NULL) {
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
@@ -1447,9 +1447,8 @@ uint8_t svt_aom_quantize_inv_quantize(PictureControlSet* pcs, ModeDecisionContex
                                       uint32_t lambda, bool is_encode_pass) {
     SequenceControlSet* scs     = pcs->scs;
     EncodeContext*      enc_ctx = scs->enc_ctx;
-    int32_t             plane   = component_type == COMPONENT_LUMA
-                      ? AOM_PLANE_Y
-                      : (component_type == COMPONENT_CHROMA_CB ? AOM_PLANE_U : AOM_PLANE_V);
+    int32_t             plane   = component_type == COMPONENT_LUMA ? PLANE_Y
+                                                                   : (component_type == COMPONENT_CHROMA_CB ? PLANE_U : PLANE_V);
 
     int32_t qmatrix_level = (IS_2D_TRANSFORM(tx_type) && pcs->ppcs->frm_hdr.quantization_params.using_qmatrix)
         ? pcs->ppcs->frm_hdr.quantization_params.qm[plane]
@@ -1735,7 +1734,7 @@ void svt_aom_full_loop_chroma_light_pd1(PictureControlSet* pcs, ModeDecisionCont
     const int    tx_width_uv  = tx_size_wide[tx_size_uv];
     const int    tx_height_uv = tx_size_high[tx_size_uv];
 
-    EB_TRANS_COEFF_SHAPE pf_shape = ctx->pf_ctrls.pf_shape;
+    TxCoeffShape pf_shape = ctx->pf_ctrls.pf_shape;
     // If Cb component not detected as complex, can use TX shortcuts
     if (ctx->use_tx_shortcuts_mds3 &&
         (ctx->chroma_complexity == COMPONENT_LUMA || ctx->chroma_complexity == COMPONENT_CHROMA_CR)) {
@@ -1760,15 +1759,15 @@ void svt_aom_full_loop_chroma_light_pd1(PictureControlSet* pcs, ModeDecisionCont
         bheight = (bheight >> pf_shape);
     }
     if (component_type == COMPONENT_CHROMA || component_type == COMPONENT_CHROMA_CB) {
-        svt_aom_residual_kernel(input_pic->buffer_cb,
+        svt_aom_residual_kernel(input_pic->u_buffer,
                                 input_cb_origin_in_index,
-                                input_pic->stride_cb,
-                                cand_bf->pred->buffer_cb,
+                                input_pic->u_stride,
+                                cand_bf->pred->u_buffer,
                                 blk_chroma_origin_index,
-                                cand_bf->pred->stride_cb,
-                                (int16_t*)cand_bf->residual->buffer_cb,
+                                cand_bf->pred->u_stride,
+                                (int16_t*)cand_bf->residual->u_buffer,
                                 blk_chroma_origin_index,
-                                cand_bf->residual->stride_cb,
+                                cand_bf->residual->u_stride,
                                 ctx->hbd_md,
                                 ctx->blk_geom->bwidth_uv,
                                 ctx->blk_geom->bheight_uv);
@@ -1776,9 +1775,9 @@ void svt_aom_full_loop_chroma_light_pd1(PictureControlSet* pcs, ModeDecisionCont
         // Cb Transform
         svt_aom_estimate_transform(pcs,
                                    ctx,
-                                   &(((int16_t*)cand_bf->residual->buffer_cb)[blk_chroma_origin_index]),
-                                   cand_bf->residual->stride_cb,
-                                   &(((int32_t*)ctx->tx_coeffs->buffer_cb)[0]),
+                                   &(((int16_t*)cand_bf->residual->u_buffer)[blk_chroma_origin_index]),
+                                   cand_bf->residual->u_stride,
+                                   &(((int32_t*)ctx->tx_coeffs->u_buffer)[0]),
                                    NOT_USED_VALUE,
                                    tx_size_uv,
                                    &ctx->three_quad_energy,
@@ -1788,9 +1787,9 @@ void svt_aom_full_loop_chroma_light_pd1(PictureControlSet* pcs, ModeDecisionCont
                                    pf_shape);
         cand_bf->quant_dc.u[0] = svt_aom_quantize_inv_quantize(pcs,
                                                                ctx,
-                                                               &(((int32_t*)ctx->tx_coeffs->buffer_cb)[0]),
-                                                               &(((int32_t*)cand_bf->quant->buffer_cb)[0]),
-                                                               &(((int32_t*)cand_bf->rec_coeff->buffer_cb)[0]),
+                                                               &(((int32_t*)ctx->tx_coeffs->u_buffer)[0]),
+                                                               &(((int32_t*)cand_bf->quant->u_buffer)[0]),
+                                                               &(((int32_t*)cand_bf->rec_coeff->u_buffer)[0]),
                                                                chroma_qindex,
                                                                0,
                                                                tx_size_uv,
@@ -1804,8 +1803,8 @@ void svt_aom_full_loop_chroma_light_pd1(PictureControlSet* pcs, ModeDecisionCont
                                                                full_lambda,
                                                                false);
 
-        svt_aom_picture_full_distortion32_bits_single(&(((int32_t*)ctx->tx_coeffs->buffer_cb)[0]),
-                                                      &(((int32_t*)cand_bf->rec_coeff->buffer_cb)[0]),
+        svt_aom_picture_full_distortion32_bits_single(&(((int32_t*)ctx->tx_coeffs->u_buffer)[0]),
+                                                      &(((int32_t*)cand_bf->rec_coeff->u_buffer)[0]),
                                                       tx_width_uv,
                                                       bwidth,
                                                       bheight,
@@ -1843,24 +1842,24 @@ void svt_aom_full_loop_chroma_light_pd1(PictureControlSet* pcs, ModeDecisionCont
 
     if (component_type == COMPONENT_CHROMA || component_type == COMPONENT_CHROMA_CR) {
         //Cr Residual
-        svt_aom_residual_kernel(input_pic->buffer_cr,
+        svt_aom_residual_kernel(input_pic->v_buffer,
                                 input_cb_origin_in_index,
-                                input_pic->stride_cr,
-                                cand_bf->pred->buffer_cr,
+                                input_pic->v_stride,
+                                cand_bf->pred->v_buffer,
                                 blk_chroma_origin_index,
-                                cand_bf->pred->stride_cr,
-                                (int16_t*)cand_bf->residual->buffer_cr,
+                                cand_bf->pred->v_stride,
+                                (int16_t*)cand_bf->residual->v_buffer,
                                 blk_chroma_origin_index,
-                                cand_bf->residual->stride_cr,
+                                cand_bf->residual->v_stride,
                                 ctx->hbd_md,
                                 ctx->blk_geom->bwidth_uv,
                                 ctx->blk_geom->bheight_uv);
         // Cr Transform
         svt_aom_estimate_transform(pcs,
                                    ctx,
-                                   &(((int16_t*)cand_bf->residual->buffer_cr)[blk_chroma_origin_index]),
-                                   cand_bf->residual->stride_cr,
-                                   &(((int32_t*)ctx->tx_coeffs->buffer_cr)[0]),
+                                   &(((int16_t*)cand_bf->residual->v_buffer)[blk_chroma_origin_index]),
+                                   cand_bf->residual->v_stride,
+                                   &(((int32_t*)ctx->tx_coeffs->v_buffer)[0]),
                                    NOT_USED_VALUE,
                                    tx_size_uv,
                                    &ctx->three_quad_energy,
@@ -1870,9 +1869,9 @@ void svt_aom_full_loop_chroma_light_pd1(PictureControlSet* pcs, ModeDecisionCont
                                    pf_shape);
         cand_bf->quant_dc.v[0] = svt_aom_quantize_inv_quantize(pcs,
                                                                ctx,
-                                                               &(((int32_t*)ctx->tx_coeffs->buffer_cr)[0]),
-                                                               &(((int32_t*)cand_bf->quant->buffer_cr)[0]),
-                                                               &(((int32_t*)cand_bf->rec_coeff->buffer_cr)[0]),
+                                                               &(((int32_t*)ctx->tx_coeffs->v_buffer)[0]),
+                                                               &(((int32_t*)cand_bf->quant->v_buffer)[0]),
+                                                               &(((int32_t*)cand_bf->rec_coeff->v_buffer)[0]),
                                                                chroma_qindex,
                                                                0,
                                                                tx_size_uv,
@@ -1886,8 +1885,8 @@ void svt_aom_full_loop_chroma_light_pd1(PictureControlSet* pcs, ModeDecisionCont
                                                                full_lambda,
                                                                false);
 
-        svt_aom_picture_full_distortion32_bits_single(&(((int32_t*)ctx->tx_coeffs->buffer_cr)[0]),
-                                                      &(((int32_t*)cand_bf->rec_coeff->buffer_cr)[0]),
+        svt_aom_picture_full_distortion32_bits_single(&(((int32_t*)ctx->tx_coeffs->v_buffer)[0]),
+                                                      &(((int32_t*)cand_bf->rec_coeff->v_buffer)[0]),
                                                       tx_width_uv,
                                                       bwidth,
                                                       bheight,
@@ -1968,12 +1967,12 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
             (uint32_t)tx_height_uv,
             (pcs->ppcs->aligned_height >> 1) - ((ROUND_UV(ctx->blk_org_y + txb_origin_y)) >> 1));
         uint32_t tu_cb_origin_index = (ROUND_UV(txb_origin_x) +
-                                       (ROUND_UV(txb_origin_y) * cand_bf->residual->stride_cb)) >>
+                                       (ROUND_UV(txb_origin_y) * cand_bf->residual->u_stride)) >>
             1;
         uint32_t tu_cr_origin_index = (ROUND_UV(txb_origin_x) +
-                                       (ROUND_UV(txb_origin_y) * cand_bf->residual->stride_cr)) >>
+                                       (ROUND_UV(txb_origin_y) * cand_bf->residual->v_stride)) >>
             1;
-        EB_TRANS_COEFF_SHAPE pf_shape = ctx->pf_ctrls.pf_shape;
+        TxCoeffShape pf_shape = ctx->pf_ctrls.pf_shape;
         if (ctx->md_stage == MD_STAGE_3 && ctx->use_tx_shortcuts_mds3 && ctx->chroma_complexity == COMPONENT_LUMA) {
             pf_shape = N4_SHAPE;
         }
@@ -2009,14 +2008,14 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
             }
             // Configure the Chroma Residual Ptr
 
-            chroma_residual_ptr = &(((int16_t*)cand_bf->residual->buffer_cb)[tu_cb_origin_index]);
+            chroma_residual_ptr = &(((int16_t*)cand_bf->residual->u_buffer)[tu_cb_origin_index]);
 
             // Cb Transform
             svt_aom_estimate_transform(pcs,
                                        ctx,
                                        chroma_residual_ptr,
-                                       cand_bf->residual->stride_cb,
-                                       &(((int32_t*)ctx->tx_coeffs->buffer_cb)[txb_1d_offset]),
+                                       cand_bf->residual->u_stride,
+                                       &(((int32_t*)ctx->tx_coeffs->u_buffer)[txb_1d_offset]),
                                        NOT_USED_VALUE,
                                        tx_size_uv,
                                        &ctx->three_quad_energy,
@@ -2031,9 +2030,9 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
             cand_bf->quant_dc.u[txb_itr] = svt_aom_quantize_inv_quantize(
                 pcs,
                 ctx,
-                &(((int32_t*)ctx->tx_coeffs->buffer_cb)[txb_1d_offset]),
-                &(((int32_t*)cand_bf->quant->buffer_cb)[txb_1d_offset]),
-                &(((int32_t*)cand_bf->rec_coeff->buffer_cb)[txb_1d_offset]),
+                &(((int32_t*)ctx->tx_coeffs->u_buffer)[txb_1d_offset]),
+                &(((int32_t*)cand_bf->quant->u_buffer)[txb_1d_offset]),
+                &(((int32_t*)cand_bf->rec_coeff->u_buffer)[txb_1d_offset]),
                 chroma_qindex,
                 seg_qp,
                 tx_size_uv,
@@ -2053,13 +2052,13 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
                 if (cb_has_coeff) {
                     svt_aom_inv_transform_recon_wrapper(pcs,
                                                         ctx,
-                                                        cand_bf->pred->buffer_cb,
+                                                        cand_bf->pred->u_buffer,
                                                         tu_cb_origin_index,
-                                                        cand_bf->pred->stride_cb,
-                                                        cand_bf->recon->buffer_cb,
+                                                        cand_bf->pred->u_stride,
+                                                        cand_bf->recon->u_buffer,
                                                         tu_cb_origin_index,
-                                                        cand_bf->recon->stride_cb,
-                                                        (int32_t*)cand_bf->rec_coeff->buffer_cb,
+                                                        cand_bf->recon->u_stride,
+                                                        (int32_t*)cand_bf->rec_coeff->u_buffer,
                                                         txb_1d_offset,
                                                         ctx->hbd_md,
                                                         tx_size_uv,
@@ -2076,33 +2075,32 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
                                             ctx->hbd_md);
                 }
 
-                const uint32_t input_chroma_txb_origin_index =
-                    ((ROUND_UV(ctx->blk_org_x + txb_origin_x) + input_pic->org_x) >> 1) +
-                    ((ROUND_UV(ctx->blk_org_y + txb_origin_y) + input_pic->org_y) >> 1) * input_pic->stride_cb;
+                const uint32_t input_chroma_txb_origin_index = ((ROUND_UV(ctx->blk_org_x + txb_origin_x)) >> 1) +
+                    ((ROUND_UV(ctx->blk_org_y + txb_origin_y)) >> 1) * input_pic->u_stride;
                 const int32_t txb_uv_origin_index = (ROUND_UV(txb_origin_x) +
-                                                     (ROUND_UV(txb_origin_y) * cand_bf->quant->stride_cb)) >>
+                                                     (ROUND_UV(txb_origin_y) * cand_bf->quant->u_stride)) >>
                     1;
 
                 if (ssim_level == SSIM_LVL_1 || ssim_level == SSIM_LVL_3) {
                     txb_full_distortion[DIST_SSIM][1][DIST_CALC_PREDICTION] = svt_spatial_full_distortion_ssim_kernel(
-                        input_pic->buffer_cb,
+                        input_pic->u_buffer,
                         input_chroma_txb_origin_index,
-                        input_pic->stride_cb,
-                        cand_bf->pred->buffer_cb,
+                        input_pic->u_stride,
+                        cand_bf->pred->u_buffer,
                         txb_uv_origin_index,
-                        cand_bf->pred->stride_cb,
+                        cand_bf->pred->u_stride,
                         cropped_tx_width_uv,
                         cropped_tx_height_uv,
                         ctx->hbd_md,
                         effective_ac_bias);
 
                     txb_full_distortion[DIST_SSIM][1][DIST_CALC_RESIDUAL] = svt_spatial_full_distortion_ssim_kernel(
-                        input_pic->buffer_cb,
+                        input_pic->u_buffer,
                         input_chroma_txb_origin_index,
-                        input_pic->stride_cb,
-                        cand_bf->recon->buffer_cb,
+                        input_pic->u_stride,
+                        cand_bf->recon->u_buffer,
                         txb_uv_origin_index,
-                        cand_bf->recon->stride_cb,
+                        cand_bf->recon->u_stride,
                         cropped_tx_width_uv,
                         cropped_tx_height_uv,
                         ctx->hbd_md,
@@ -2112,22 +2110,22 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
                     txb_full_distortion[DIST_SSIM][1][DIST_CALC_RESIDUAL] <<= 4;
                 }
                 txb_full_distortion[DIST_SSD][1][DIST_CALC_PREDICTION] = spatial_full_dist_type_fun(
-                    input_pic->buffer_cb,
+                    input_pic->u_buffer,
                     input_chroma_txb_origin_index,
-                    input_pic->stride_cb,
-                    cand_bf->pred->buffer_cb,
+                    input_pic->u_stride,
+                    cand_bf->pred->u_buffer,
                     txb_uv_origin_index,
-                    cand_bf->pred->stride_cb,
+                    cand_bf->pred->u_stride,
                     cropped_tx_width_uv,
                     cropped_tx_height_uv);
                 if (effective_ac_bias) {
                     txb_full_distortion[DIST_SSD][1][DIST_CALC_PREDICTION] += get_svt_psy_full_dist(
-                        input_pic->buffer_cb,
+                        input_pic->u_buffer,
                         input_chroma_txb_origin_index,
-                        input_pic->stride_cb,
-                        cand_bf->pred->buffer_cb,
+                        input_pic->u_stride,
+                        cand_bf->pred->u_buffer,
                         txb_uv_origin_index,
-                        cand_bf->pred->stride_cb,
+                        cand_bf->pred->u_stride,
                         cropped_tx_width_uv,
                         cropped_tx_height_uv,
                         ctx->hbd_md,
@@ -2135,22 +2133,22 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
                 }
 
                 txb_full_distortion[DIST_SSD][1][DIST_CALC_RESIDUAL] = spatial_full_dist_type_fun(
-                    input_pic->buffer_cb,
+                    input_pic->u_buffer,
                     input_chroma_txb_origin_index,
-                    input_pic->stride_cb,
-                    cand_bf->recon->buffer_cb,
+                    input_pic->u_stride,
+                    cand_bf->recon->u_buffer,
                     txb_uv_origin_index,
-                    cand_bf->recon->stride_cb,
+                    cand_bf->recon->u_stride,
                     cropped_tx_width_uv,
                     cropped_tx_height_uv);
                 if (effective_ac_bias) {
                     txb_full_distortion[DIST_SSD][1][DIST_CALC_RESIDUAL] += get_svt_psy_full_dist(
-                        input_pic->buffer_cb,
+                        input_pic->u_buffer,
                         input_chroma_txb_origin_index,
-                        input_pic->stride_cb,
-                        cand_bf->recon->buffer_cb,
+                        input_pic->u_stride,
+                        cand_bf->recon->u_buffer,
                         txb_uv_origin_index,
-                        cand_bf->recon->stride_cb,
+                        cand_bf->recon->u_stride,
                         cropped_tx_width_uv,
                         cropped_tx_height_uv,
                         ctx->hbd_md,
@@ -2171,8 +2169,8 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
                     bheight = (bheight >> pf_shape);
                 }
                 svt_aom_picture_full_distortion32_bits_single(
-                    &(((int32_t*)ctx->tx_coeffs->buffer_cb)[txb_1d_offset]),
-                    &(((int32_t*)cand_bf->rec_coeff->buffer_cb)[txb_1d_offset]),
+                    &(((int32_t*)ctx->tx_coeffs->u_buffer)[txb_1d_offset]),
+                    &(((int32_t*)cand_bf->rec_coeff->u_buffer)[txb_1d_offset]),
                     tx_width_uv,
                     bwidth,
                     bheight,
@@ -2212,14 +2210,14 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
             }
             // Configure the Chroma Residual Ptr
 
-            chroma_residual_ptr = &(((int16_t*)cand_bf->residual->buffer_cr)[tu_cr_origin_index]);
+            chroma_residual_ptr = &(((int16_t*)cand_bf->residual->v_buffer)[tu_cr_origin_index]);
 
             // Cr Transform
             svt_aom_estimate_transform(pcs,
                                        ctx,
                                        chroma_residual_ptr,
-                                       cand_bf->residual->stride_cr,
-                                       &(((int32_t*)ctx->tx_coeffs->buffer_cr)[txb_1d_offset]),
+                                       cand_bf->residual->v_stride,
+                                       &(((int32_t*)ctx->tx_coeffs->v_buffer)[txb_1d_offset]),
                                        NOT_USED_VALUE,
                                        tx_size_uv,
                                        &ctx->three_quad_energy,
@@ -2233,9 +2231,9 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
             cand_bf->quant_dc.v[txb_itr] = svt_aom_quantize_inv_quantize(
                 pcs,
                 ctx,
-                &(((int32_t*)ctx->tx_coeffs->buffer_cr)[txb_1d_offset]),
-                &(((int32_t*)cand_bf->quant->buffer_cr)[txb_1d_offset]),
-                &(((int32_t*)cand_bf->rec_coeff->buffer_cr)[txb_1d_offset]),
+                &(((int32_t*)ctx->tx_coeffs->v_buffer)[txb_1d_offset]),
+                &(((int32_t*)cand_bf->quant->v_buffer)[txb_1d_offset]),
+                &(((int32_t*)cand_bf->rec_coeff->v_buffer)[txb_1d_offset]),
                 chroma_qindex,
                 seg_qp,
                 tx_size_uv,
@@ -2254,13 +2252,13 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
                 if (cr_has_coeff) {
                     svt_aom_inv_transform_recon_wrapper(pcs,
                                                         ctx,
-                                                        cand_bf->pred->buffer_cr,
+                                                        cand_bf->pred->v_buffer,
                                                         tu_cr_origin_index,
-                                                        cand_bf->pred->stride_cr,
-                                                        cand_bf->recon->buffer_cr,
+                                                        cand_bf->pred->v_stride,
+                                                        cand_bf->recon->v_buffer,
                                                         tu_cr_origin_index,
-                                                        cand_bf->recon->stride_cr,
-                                                        (int32_t*)cand_bf->rec_coeff->buffer_cr,
+                                                        cand_bf->recon->v_stride,
+                                                        (int32_t*)cand_bf->rec_coeff->v_buffer,
                                                         txb_1d_offset,
                                                         ctx->hbd_md,
                                                         tx_size_uv,
@@ -2276,33 +2274,32 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
                                             tx_height_uv,
                                             ctx->hbd_md);
                 }
-                const uint32_t input_chroma_txb_origin_index =
-                    ((ROUND_UV(ctx->blk_org_x + txb_origin_x) + input_pic->org_x) >> 1) +
-                    ((ROUND_UV(ctx->blk_org_y + txb_origin_y) + input_pic->org_y) >> 1) * input_pic->stride_cr;
+                const uint32_t input_chroma_txb_origin_index = ((ROUND_UV(ctx->blk_org_x + txb_origin_x)) >> 1) +
+                    ((ROUND_UV(ctx->blk_org_y + txb_origin_y)) >> 1) * input_pic->v_stride;
                 const int32_t txb_uv_origin_index = (ROUND_UV(txb_origin_x) +
-                                                     (ROUND_UV(txb_origin_y) * cand_bf->quant->stride_cr)) >>
+                                                     (ROUND_UV(txb_origin_y) * cand_bf->quant->v_stride)) >>
                     1;
 
                 if (ssim_level == SSIM_LVL_1 || ssim_level == SSIM_LVL_3) {
                     txb_full_distortion[DIST_SSIM][2][DIST_CALC_PREDICTION] = svt_spatial_full_distortion_ssim_kernel(
-                        input_pic->buffer_cr,
+                        input_pic->v_buffer,
                         input_chroma_txb_origin_index,
-                        input_pic->stride_cr,
-                        cand_bf->pred->buffer_cr,
+                        input_pic->v_stride,
+                        cand_bf->pred->v_buffer,
                         txb_uv_origin_index,
-                        cand_bf->pred->stride_cr,
+                        cand_bf->pred->v_stride,
                         cropped_tx_width_uv,
                         cropped_tx_height_uv,
                         ctx->hbd_md,
                         effective_ac_bias);
 
                     txb_full_distortion[DIST_SSIM][2][DIST_CALC_RESIDUAL] = svt_spatial_full_distortion_ssim_kernel(
-                        input_pic->buffer_cr,
+                        input_pic->v_buffer,
                         input_chroma_txb_origin_index,
-                        input_pic->stride_cr,
-                        cand_bf->recon->buffer_cr,
+                        input_pic->v_stride,
+                        cand_bf->recon->v_buffer,
                         txb_uv_origin_index,
-                        cand_bf->recon->stride_cr,
+                        cand_bf->recon->v_stride,
                         cropped_tx_width_uv,
                         cropped_tx_height_uv,
                         ctx->hbd_md,
@@ -2312,22 +2309,22 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
                     txb_full_distortion[DIST_SSIM][2][DIST_CALC_RESIDUAL] <<= 4;
                 }
                 txb_full_distortion[DIST_SSD][2][DIST_CALC_PREDICTION] = spatial_full_dist_type_fun(
-                    input_pic->buffer_cr,
+                    input_pic->v_buffer,
                     input_chroma_txb_origin_index,
-                    input_pic->stride_cr,
-                    cand_bf->pred->buffer_cr,
+                    input_pic->v_stride,
+                    cand_bf->pred->v_buffer,
                     txb_uv_origin_index,
-                    cand_bf->pred->stride_cr,
+                    cand_bf->pred->v_stride,
                     cropped_tx_width_uv,
                     cropped_tx_height_uv);
                 if (effective_ac_bias) {
                     txb_full_distortion[DIST_SSD][2][DIST_CALC_PREDICTION] += get_svt_psy_full_dist(
-                        input_pic->buffer_cr,
+                        input_pic->v_buffer,
                         input_chroma_txb_origin_index,
-                        input_pic->stride_cr,
-                        cand_bf->pred->buffer_cr,
+                        input_pic->v_stride,
+                        cand_bf->pred->v_buffer,
                         txb_uv_origin_index,
-                        cand_bf->pred->stride_cr,
+                        cand_bf->pred->v_stride,
                         cropped_tx_width_uv,
                         cropped_tx_height_uv,
                         ctx->hbd_md,
@@ -2335,22 +2332,22 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
                 }
 
                 txb_full_distortion[DIST_SSD][2][DIST_CALC_RESIDUAL] = spatial_full_dist_type_fun(
-                    input_pic->buffer_cr,
+                    input_pic->v_buffer,
                     input_chroma_txb_origin_index,
-                    input_pic->stride_cr,
-                    cand_bf->recon->buffer_cr,
+                    input_pic->v_stride,
+                    cand_bf->recon->v_buffer,
                     txb_uv_origin_index,
-                    cand_bf->recon->stride_cr,
+                    cand_bf->recon->v_stride,
                     cropped_tx_width_uv,
                     cropped_tx_height_uv);
                 if (effective_ac_bias) {
                     txb_full_distortion[DIST_SSD][2][DIST_CALC_RESIDUAL] += get_svt_psy_full_dist(
-                        input_pic->buffer_cr,
+                        input_pic->v_buffer,
                         input_chroma_txb_origin_index,
-                        input_pic->stride_cr,
-                        cand_bf->recon->buffer_cr,
+                        input_pic->v_stride,
+                        cand_bf->recon->v_buffer,
                         txb_uv_origin_index,
-                        cand_bf->recon->stride_cr,
+                        cand_bf->recon->v_stride,
                         cropped_tx_width_uv,
                         cropped_tx_height_uv,
                         ctx->hbd_md,
@@ -2371,8 +2368,8 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
                     bheight = (bheight >> pf_shape);
                 }
                 svt_aom_picture_full_distortion32_bits_single(
-                    &(((int32_t*)ctx->tx_coeffs->buffer_cr)[txb_1d_offset]),
-                    &(((int32_t*)cand_bf->rec_coeff->buffer_cr)[txb_1d_offset]),
+                    &(((int32_t*)ctx->tx_coeffs->v_buffer)[txb_1d_offset]),
+                    &(((int32_t*)cand_bf->rec_coeff->v_buffer)[txb_1d_offset]),
                     tx_width_uv,
                     bwidth,
                     bheight,
@@ -2395,7 +2392,7 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
                 txb_full_distortion[DIST_SSD][2][DIST_CALC_PREDICTION];
         }
 
-        const uint32_t txb_origin_index = txb_origin_x + txb_origin_y * cand_bf->quant->stride_y;
+        const uint32_t txb_origin_index = txb_origin_x + txb_origin_y * cand_bf->quant->y_stride;
 
         // Reset the Bit Costs
         uint64_t y_txb_coeff_bits  = 0;

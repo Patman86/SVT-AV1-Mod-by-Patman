@@ -14,7 +14,7 @@
 #include <emmintrin.h>
 
 #include "definitions.h"
-#include "temporal_filtering_constants.h"
+#include "temporal_filtering.h"
 #include "utility.h"
 
 /*value [i:0-15] (sqrt((float)i)*65536.0*/
@@ -58,8 +58,6 @@ static const int32_t expf_tab_fp16[] = {
     236,   222,   208,   195,   184,   172,   162,   152,   143,   134,   126,   118,   111,   104,   98,
     92,    86,    81,    76,    72,    67,    63,    59,    56,    52,    49,    46,    43,    41,    38,
     36,    34,    31,    30,    28,    26,    24,    23,    21};
-
-#define SSE_STRIDE (BW + 2)
 
 static uint32_t calculate_squared_errors_sum_no_div_sse4_1(const uint8_t* s, int s_stride, const uint8_t* p,
                                                            int p_stride, unsigned int w, unsigned int h) {
@@ -243,7 +241,7 @@ void svt_av1_apply_zz_based_temporal_filter_planewise_medium_sse4_1(
                                                                            (unsigned int)block_height,
                                                                            y_accum,
                                                                            y_count,
-                                                                           me_ctx->tf_decay_factor_fp16[C_Y]);
+                                                                           me_ctx->tf_decay_factor_fp16[PLANE_Y]);
 
     if (me_ctx->tf_chroma) {
         svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_sse4_1(me_ctx,
@@ -253,7 +251,7 @@ void svt_av1_apply_zz_based_temporal_filter_planewise_medium_sse4_1(
                                                                                (unsigned int)block_height >> ss_y,
                                                                                u_accum,
                                                                                u_count,
-                                                                               me_ctx->tf_decay_factor_fp16[C_U]);
+                                                                               me_ctx->tf_decay_factor_fp16[PLANE_U]);
 
         svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_sse4_1(me_ctx,
                                                                                v_pre,
@@ -262,7 +260,7 @@ void svt_av1_apply_zz_based_temporal_filter_planewise_medium_sse4_1(
                                                                                (unsigned int)block_height >> ss_y,
                                                                                v_accum,
                                                                                v_count,
-                                                                               me_ctx->tf_decay_factor_fp16[C_V]);
+                                                                               me_ctx->tf_decay_factor_fp16[PLANE_V]);
     }
 }
 
@@ -407,7 +405,7 @@ void svt_av1_apply_temporal_filter_planewise_medium_sse4_1(
                                                                   (unsigned int)block_height,
                                                                   y_accum,
                                                                   y_count,
-                                                                  me_ctx->tf_decay_factor_fp16[C_Y],
+                                                                  me_ctx->tf_decay_factor_fp16[PLANE_Y],
                                                                   luma_window_error_quad_fp8,
                                                                   0);
 
@@ -421,7 +419,7 @@ void svt_av1_apply_temporal_filter_planewise_medium_sse4_1(
                                                                       (unsigned int)block_height >> ss_y,
                                                                       u_accum,
                                                                       u_count,
-                                                                      me_ctx->tf_decay_factor_fp16[C_U],
+                                                                      me_ctx->tf_decay_factor_fp16[PLANE_U],
                                                                       luma_window_error_quad_fp8,
                                                                       1);
 
@@ -434,7 +432,7 @@ void svt_av1_apply_temporal_filter_planewise_medium_sse4_1(
                                                                       (unsigned int)block_height >> ss_y,
                                                                       v_accum,
                                                                       v_count,
-                                                                      me_ctx->tf_decay_factor_fp16[C_V],
+                                                                      me_ctx->tf_decay_factor_fp16[PLANE_V],
                                                                       luma_window_error_quad_fp8,
                                                                       1);
     }
@@ -516,28 +514,30 @@ void svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_sse4_1(
                                                                                (unsigned int)block_height,
                                                                                y_accum,
                                                                                y_count,
-                                                                               me_ctx->tf_decay_factor_fp16[C_Y],
+                                                                               me_ctx->tf_decay_factor_fp16[PLANE_Y],
                                                                                encoder_bit_depth);
     if (me_ctx->tf_chroma) {
-        svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_partial_sse4_1(me_ctx,
-                                                                                   u_pre,
-                                                                                   uv_pre_stride,
-                                                                                   (unsigned int)block_width >> ss_x,
-                                                                                   (unsigned int)block_height >> ss_y,
-                                                                                   u_accum,
-                                                                                   u_count,
-                                                                                   me_ctx->tf_decay_factor_fp16[C_U],
-                                                                                   encoder_bit_depth);
+        svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_partial_sse4_1(
+            me_ctx,
+            u_pre,
+            uv_pre_stride,
+            (unsigned int)block_width >> ss_x,
+            (unsigned int)block_height >> ss_y,
+            u_accum,
+            u_count,
+            me_ctx->tf_decay_factor_fp16[PLANE_U],
+            encoder_bit_depth);
 
-        svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_partial_sse4_1(me_ctx,
-                                                                                   v_pre,
-                                                                                   uv_pre_stride,
-                                                                                   (unsigned int)block_width >> ss_x,
-                                                                                   (unsigned int)block_height >> ss_y,
-                                                                                   v_accum,
-                                                                                   v_count,
-                                                                                   me_ctx->tf_decay_factor_fp16[C_V],
-                                                                                   encoder_bit_depth);
+        svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_partial_sse4_1(
+            me_ctx,
+            v_pre,
+            uv_pre_stride,
+            (unsigned int)block_width >> ss_x,
+            (unsigned int)block_height >> ss_y,
+            v_accum,
+            v_count,
+            me_ctx->tf_decay_factor_fp16[PLANE_V],
+            encoder_bit_depth);
     }
 }
 
@@ -693,7 +693,7 @@ void svt_av1_apply_temporal_filter_planewise_medium_hbd_sse4_1(
                                                                       (unsigned int)block_height,
                                                                       y_accum,
                                                                       y_count,
-                                                                      me_ctx->tf_decay_factor_fp16[C_Y],
+                                                                      me_ctx->tf_decay_factor_fp16[PLANE_Y],
                                                                       luma_window_error_quad_fp8,
                                                                       0,
                                                                       encoder_bit_depth);
@@ -707,7 +707,7 @@ void svt_av1_apply_temporal_filter_planewise_medium_hbd_sse4_1(
                                                                           (unsigned int)block_height >> ss_y,
                                                                           u_accum,
                                                                           u_count,
-                                                                          me_ctx->tf_decay_factor_fp16[C_U],
+                                                                          me_ctx->tf_decay_factor_fp16[PLANE_U],
                                                                           luma_window_error_quad_fp8,
                                                                           1,
                                                                           encoder_bit_depth);
@@ -721,7 +721,7 @@ void svt_av1_apply_temporal_filter_planewise_medium_hbd_sse4_1(
                                                                           (unsigned int)block_height >> ss_y,
                                                                           v_accum,
                                                                           v_count,
-                                                                          me_ctx->tf_decay_factor_fp16[C_V],
+                                                                          me_ctx->tf_decay_factor_fp16[PLANE_V],
                                                                           luma_window_error_quad_fp8,
                                                                           1,
                                                                           encoder_bit_depth);
@@ -806,45 +806,53 @@ void svt_aom_get_final_filtered_pixels_sse4_1(MeContext* me_ctx, EbByte* src_cen
                                               const uint32_t* stride, int blk_y_src_offset, int blk_ch_src_offset,
                                               uint16_t blk_width_ch, uint16_t blk_height_ch, bool is_highbd) {
     assert(blk_width_ch % 16 == 0);
-    assert(BW % 16 == 0);
+    assert(TF_BW % 16 == 0);
 
     if (!is_highbd) {
         //Process luma
-        process_block_lbd_sse4_1(
-            BH, BW, &src_center_ptr_start[C_Y][blk_y_src_offset], accum[C_Y], count[C_Y], stride[C_Y] - BW);
+        process_block_lbd_sse4_1(TF_BH,
+                                 TF_BW,
+                                 &src_center_ptr_start[PLANE_Y][blk_y_src_offset],
+                                 accum[PLANE_Y],
+                                 count[PLANE_Y],
+                                 stride[PLANE_Y] - TF_BW);
         // Process chroma
         if (me_ctx->tf_chroma) {
             process_block_lbd_sse4_1(blk_height_ch,
                                      blk_width_ch,
-                                     &src_center_ptr_start[C_U][blk_ch_src_offset],
-                                     accum[C_U],
-                                     count[C_U],
-                                     stride[C_U] - blk_width_ch);
+                                     &src_center_ptr_start[PLANE_U][blk_ch_src_offset],
+                                     accum[PLANE_U],
+                                     count[PLANE_U],
+                                     stride[PLANE_U] - blk_width_ch);
             process_block_lbd_sse4_1(blk_height_ch,
                                      blk_width_ch,
-                                     &src_center_ptr_start[C_V][blk_ch_src_offset],
-                                     accum[C_V],
-                                     count[C_V],
-                                     stride[C_V] - blk_width_ch);
+                                     &src_center_ptr_start[PLANE_V][blk_ch_src_offset],
+                                     accum[PLANE_V],
+                                     count[PLANE_V],
+                                     stride[PLANE_V] - blk_width_ch);
         }
     } else {
         // Process luma
-        process_block_hbd_sse4_1(
-            BH, BW, &altref_buffer_highbd_start[C_Y][blk_y_src_offset], accum[C_Y], count[C_Y], stride[C_Y] - BW);
+        process_block_hbd_sse4_1(TF_BH,
+                                 TF_BW,
+                                 &altref_buffer_highbd_start[PLANE_Y][blk_y_src_offset],
+                                 accum[PLANE_Y],
+                                 count[PLANE_Y],
+                                 stride[PLANE_Y] - TF_BW);
         // Process chroma
         if (me_ctx->tf_chroma) {
             process_block_hbd_sse4_1(blk_height_ch,
                                      blk_width_ch,
-                                     &altref_buffer_highbd_start[C_U][blk_ch_src_offset],
-                                     accum[C_U],
-                                     count[C_U],
-                                     stride[C_U] - blk_width_ch);
+                                     &altref_buffer_highbd_start[PLANE_U][blk_ch_src_offset],
+                                     accum[PLANE_U],
+                                     count[PLANE_U],
+                                     stride[PLANE_U] - blk_width_ch);
             process_block_hbd_sse4_1(blk_height_ch,
                                      blk_width_ch,
-                                     &altref_buffer_highbd_start[C_V][blk_ch_src_offset],
-                                     accum[C_V],
-                                     count[C_V],
-                                     stride[C_V] - blk_width_ch);
+                                     &altref_buffer_highbd_start[PLANE_V][blk_ch_src_offset],
+                                     accum[PLANE_V],
+                                     count[PLANE_V],
+                                     stride[PLANE_V] - blk_width_ch);
         }
     }
 }
@@ -891,18 +899,20 @@ static void apply_filtering_central_loop_hbd(uint16_t w, uint16_t h, uint16_t* s
 void svt_aom_apply_filtering_central_sse4_1(MeContext* me_ctx, EbPictureBufferDesc* input_picture_ptr_central,
                                             EbByte* src, uint32_t** accum, uint16_t** count, uint16_t blk_width,
                                             uint16_t blk_height, uint32_t ss_x, uint32_t ss_y) {
-    uint16_t src_stride_y = input_picture_ptr_central->stride_y;
+    uint16_t src_stride_y = input_picture_ptr_central->y_stride;
 
     // Luma
-    apply_filtering_central_loop_lbd(blk_width, blk_height, src[C_Y], src_stride_y, accum[C_Y], count[C_Y]);
+    apply_filtering_central_loop_lbd(blk_width, blk_height, src[PLANE_Y], src_stride_y, accum[PLANE_Y], count[PLANE_Y]);
 
     // Chroma
     if (me_ctx->tf_chroma) {
         uint16_t blk_height_ch = blk_height >> ss_y;
         uint16_t blk_width_ch  = blk_width >> ss_x;
         uint16_t src_stride_ch = src_stride_y >> ss_x;
-        apply_filtering_central_loop_lbd(blk_width_ch, blk_height_ch, src[C_U], src_stride_ch, accum[C_U], count[C_U]);
-        apply_filtering_central_loop_lbd(blk_width_ch, blk_height_ch, src[C_V], src_stride_ch, accum[C_V], count[C_V]);
+        apply_filtering_central_loop_lbd(
+            blk_width_ch, blk_height_ch, src[PLANE_U], src_stride_ch, accum[PLANE_U], count[PLANE_U]);
+        apply_filtering_central_loop_lbd(
+            blk_width_ch, blk_height_ch, src[PLANE_V], src_stride_ch, accum[PLANE_V], count[PLANE_V]);
     }
 }
 
@@ -911,10 +921,11 @@ void svt_aom_apply_filtering_central_highbd_sse4_1(MeContext* me_ctx, EbPictureB
                                                    uint16_t** src_16bit, uint32_t** accum, uint16_t** count,
                                                    uint16_t blk_width, uint16_t blk_height, uint32_t ss_x,
                                                    uint32_t ss_y) {
-    uint16_t src_stride_y = input_picture_ptr_central->stride_y;
+    uint16_t src_stride_y = input_picture_ptr_central->y_stride;
 
     // Luma
-    apply_filtering_central_loop_hbd(blk_width, blk_height, src_16bit[C_Y], src_stride_y, accum[C_Y], count[C_Y]);
+    apply_filtering_central_loop_hbd(
+        blk_width, blk_height, src_16bit[PLANE_Y], src_stride_y, accum[PLANE_Y], count[PLANE_Y]);
 
     // Chroma
     if (me_ctx->tf_chroma) {
@@ -922,8 +933,8 @@ void svt_aom_apply_filtering_central_highbd_sse4_1(MeContext* me_ctx, EbPictureB
         uint16_t blk_width_ch  = blk_width >> ss_x;
         uint16_t src_stride_ch = src_stride_y >> ss_x;
         apply_filtering_central_loop_hbd(
-            blk_width_ch, blk_height_ch, src_16bit[C_U], src_stride_ch, accum[C_U], count[C_U]);
+            blk_width_ch, blk_height_ch, src_16bit[PLANE_U], src_stride_ch, accum[PLANE_U], count[PLANE_U]);
         apply_filtering_central_loop_hbd(
-            blk_width_ch, blk_height_ch, src_16bit[C_V], src_stride_ch, accum[C_V], count[C_V]);
+            blk_width_ch, blk_height_ch, src_16bit[PLANE_V], src_stride_ch, accum[PLANE_V], count[PLANE_V]);
     }
 }

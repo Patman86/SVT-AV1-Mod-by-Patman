@@ -1,13 +1,15 @@
 [Top level](../README.md)
 
-# Build and Install for aarch64 targets
+# Build and Install for AArch64 targets
 
 ## Builds using cross compilers
 
 - __Build Requirements__
   - CMake 3.23 or later
-  - Toolchain (download [here](https://snapshots.linaro.org/gnu-toolchain/13.0-2022.09-1/aarch64-linux-gnu/gcc-linaro-13.0.0-2022.09-x86_64_aarch64-linux-gnu.tar.xz))
-  - The environment variable `PATH` ought to include the folder in the toolchain that contains `aarch64-linux-gnu-gcc`.
+  - Toolchain (Clang or [GCC](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads))
+  - For best performance the latest version of a given compiler should be used.
+
+### GCC builds
 
 - __Build Instructions__
   - Run the following commands
@@ -25,12 +27,26 @@
       cmake --build Bin/Debug -j
       ```
 
-## Native builds on an aarch64 Linux machine
+### Clang builds
+
+- Create a new file called `aarch64_clang_toolchain.cmake` and put the following in it (change the clang path to your preferred version):
+  ```bash
+  set(CMAKE_SYSTEM_NAME Linux)
+  set(CMAKE_SYSTEM_PROCESSOR arm64)
+  set(TRIPLE aarch64-linux-gnu)
+  set(CMAKE_C_COMPILER clang-19)
+  set(CMAKE_C_COMPILER_TARGET ${TRIPLE})
+  set(CMAKE_CXX_COMPILER clang++-19)
+  set(CMAKE_CXX_COMPILER_TARGET ${TRIPLE})
+  set(CMAKE_ASM_FLAGS "--target=${TRIPLE}")
+  ```
+- Then Release/Debug builds commands are the same as for GCC.
+
+## Native builds on an AArch64 Linux machine
 
 - __Build Requirements__
-  - GCC 5.4.0 or later
+  - GCC 8.1.0 or later
   - CMake 3.23 or later
-  - YASM Assembler version 1.2.0 or later
 
 - __Build Instructions__
   - Run the following commands

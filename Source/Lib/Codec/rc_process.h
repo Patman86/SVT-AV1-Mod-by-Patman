@@ -268,7 +268,7 @@ int svt_av1_get_q_index_from_qstep_ratio(int leaf_qindex, double qstep_ratio, in
 int svt_av1_compute_qdelta_by_rate(struct RATE_CONTROL* rc, FrameType frame_type, int qindex, double rate_target_ratio,
                                    int bit_depth, int is_screen_content_type);
 
-int svt_av1_get_cqp_kf_boost_from_r0(double r0, int frames_to_key, EbInputResolution input_resolution);
+int svt_av1_get_cqp_kf_boost_from_r0(double r0, int frames_to_key, ResolutionRange input_resolution);
 int svt_av1_get_gfu_boost_from_r0_lap(double min_factor, double max_factor, double r0, int frames_to_key);
 
 uint32_t svt_aom_compute_rd_mult(struct PictureControlSet* pcs, uint8_t q_index, uint8_t me_q_index,

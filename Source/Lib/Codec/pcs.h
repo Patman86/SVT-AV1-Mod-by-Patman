@@ -356,7 +356,7 @@ typedef struct PictureControlSet {
 
     RestUnitSearchInfo* rusi_picture[3]; // for 3 planes
 
-    RestorationInfo rst_info[MAX_MB_PLANE];
+    RestorationInfo rst_info[MAX_PLANES];
     // rst_end_stripe[i] is one more than the index of the bottom stripe
     // for tile row i.
     int32_t  rst_end_stripe[MAX_TILE_ROWS];
@@ -440,7 +440,7 @@ typedef struct TplControls {
     uint8_t              enable_tpl_qps; // 0:OFF 1:ON - QPS in TPL
     uint8_t              disable_intra_pred_nref; // 0:OFF 1:ON - Disable intra prediction in NREF
     PredictionMode       intra_mode_end; // The MAX intra mode to be tested in TPL
-    EB_TRANS_COEFF_SHAPE pf_shape;
+    TxCoeffShape         pf_shape;
     // Use SAD as a distortion metric when searching the best mode (based on src pic). If false, will use SATD
     uint8_t use_sad_in_src_search;
     int8_t  reduced_tpl_group;
@@ -947,15 +947,14 @@ typedef struct PictureParentControlSet {
     struct PictureParentControlSet* overlay_ppcs_ptr;
 
     struct PictureParentControlSet* alt_ref_ppcs_ptr;
-    int32_t                         noise_levels_log1p_fp16[MAX_MB_PLANE];
+    int32_t                         noise_levels_log1p_fp16[MAX_PLANES];
     int32_t                         pic_decision_reorder_queue_idx;
     struct PictureParentControlSet* temp_filt_pcs_list[ALTREF_MAX_NFRAMES];
-    EbByte                          save_source_picture_ptr[3];
-    EbByte                          save_source_picture_bit_inc_ptr[3];
-    uint16_t                        save_source_picture_width;
-    uint16_t                        save_source_picture_height;
-    EbHandle                        temp_filt_done_semaphore;
-    EbHandle                        temp_filt_mutex;
+    // Buffer that can be allocated in TF to store the original source picture in, if
+    // it will be needed.
+    EbPictureBufferDesc* saved_src_pic;
+    EbHandle             temp_filt_done_semaphore;
+    EbHandle             temp_filt_mutex;
 
     uint8_t  temp_filt_prep_done;
     uint16_t temp_filt_seg_acc;
@@ -978,10 +977,10 @@ typedef struct PictureParentControlSet {
     // Contains info for 64x64 blocks, NOT SB info.  Should not be used in MD; use sb_geom instead.
     B64Geom* b64_geom;
     // Contains SB info (adapts automatically when SB 128x128 is used). This should be used in MD.
-    SbGeom*           sb_geom;
-    EbInputResolution input_resolution;
-    uint16_t          picture_sb_width;
-    uint16_t          picture_sb_height;
+    SbGeom*         sb_geom;
+    ResolutionRange input_resolution;
+    uint16_t        picture_sb_width;
+    uint16_t        picture_sb_height;
 
     // Picture dimensions (resized or not)
     // aligned to be a multiple of 8 pixels
@@ -1132,10 +1131,7 @@ typedef struct TplDispResults {
 typedef struct PictureControlSetInitData {
     uint16_t      picture_width;
     uint16_t      picture_height;
-    uint16_t      left_padding;
-    uint16_t      right_padding;
-    uint16_t      top_padding;
-    uint16_t      bot_padding;
+    uint16_t      border;
     EbBitDepth    bit_depth;
     EbColorFormat color_format;
     uint32_t      b64_size;

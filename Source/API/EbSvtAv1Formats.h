@@ -102,7 +102,6 @@ typedef enum EbBitDepth {
     EB_EIGHT_BIT     = 8,
     EB_TEN_BIT       = 10,
     EB_TWELVE_BIT    = 12,
-    EB_FOURTEEN_BIT  = 14, // Not supported
     EB_SIXTEEN_BIT   = 16, // Not supported
     EB_THIRTYTWO_BIT = 32, // Not supported
 } EbBitDepth;

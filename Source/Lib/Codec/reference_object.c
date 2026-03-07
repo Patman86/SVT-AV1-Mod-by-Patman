@@ -18,58 +18,40 @@
 #include "utility.h"
 #include "enc_mode_config.h"
 
-void initialize_samples_neighboring_reference_picture_8bit(EbByte recon_samples_buffer_ptr, uint16_t stride,
-                                                           uint16_t recon_width, uint16_t recon_height,
-                                                           uint16_t left_padding, uint16_t top_padding) {
+static void initialize_samples_neighboring_reference_picture_8bit(EbByte recon_samples_buffer_ptr, uint16_t stride,
+                                                                  uint16_t recon_width, uint16_t recon_height) {
     uint8_t* recon_samples_ptr;
     uint16_t sample_count;
 
     // 1. zero out the top row
-    recon_samples_ptr = recon_samples_buffer_ptr + (top_padding - 1) * stride + left_padding - 1;
+    recon_samples_ptr = recon_samples_buffer_ptr - stride - 1;
     svt_memset(recon_samples_ptr, 0, sizeof(uint8_t) * (1 + recon_width + 1));
 
     // 2. zero out the bottom row
-    recon_samples_ptr = recon_samples_buffer_ptr + (top_padding + recon_height) * stride + left_padding - 1;
+    recon_samples_ptr = recon_samples_buffer_ptr + (recon_height)*stride - 1;
     svt_memset(recon_samples_ptr, 0, sizeof(uint8_t) * (1 + recon_width + 1));
 
     // 3. zero out the left column
-    recon_samples_ptr = recon_samples_buffer_ptr + top_padding * stride + left_padding - 1;
+    recon_samples_ptr = recon_samples_buffer_ptr - 1;
     for (sample_count = 0; sample_count < recon_height; sample_count++) {
         recon_samples_ptr[sample_count * stride] = 0;
     }
     // 4. zero out the right column
-    recon_samples_ptr = recon_samples_buffer_ptr + top_padding * stride + left_padding + recon_width;
+    recon_samples_ptr = recon_samples_buffer_ptr + recon_width;
     for (sample_count = 0; sample_count < recon_height; sample_count++) {
         recon_samples_ptr[sample_count * stride] = 0;
     }
 }
 
-static void initialize_samples_neighboring_reference_picture(
-    EbReferenceObject* ref_object, EbPictureBufferDescInitData* picture_buffer_desc_init_data_ptr,
-    EbBitDepth bit_depth) {
-    UNUSED(bit_depth);
-    {
-        initialize_samples_neighboring_reference_picture_8bit(ref_object->reference_picture->buffer_y,
-                                                              ref_object->reference_picture->stride_y,
-                                                              ref_object->reference_picture->width,
-                                                              ref_object->reference_picture->height,
-                                                              picture_buffer_desc_init_data_ptr->left_padding,
-                                                              picture_buffer_desc_init_data_ptr->top_padding);
+static void initialize_samples_neighboring_reference_picture(EbPictureBufferDesc* ref_pic) {
+    initialize_samples_neighboring_reference_picture_8bit(
+        ref_pic->y_buffer, ref_pic->y_stride, ref_pic->width, ref_pic->height);
 
-        initialize_samples_neighboring_reference_picture_8bit(ref_object->reference_picture->buffer_cb,
-                                                              ref_object->reference_picture->stride_cb,
-                                                              ref_object->reference_picture->width >> 1,
-                                                              ref_object->reference_picture->height >> 1,
-                                                              picture_buffer_desc_init_data_ptr->left_padding >> 1,
-                                                              picture_buffer_desc_init_data_ptr->top_padding >> 1);
+    initialize_samples_neighboring_reference_picture_8bit(
+        ref_pic->u_buffer, ref_pic->u_stride, ref_pic->width >> 1, ref_pic->height >> 1);
 
-        initialize_samples_neighboring_reference_picture_8bit(ref_object->reference_picture->buffer_cr,
-                                                              ref_object->reference_picture->stride_cr,
-                                                              ref_object->reference_picture->width >> 1,
-                                                              ref_object->reference_picture->height >> 1,
-                                                              picture_buffer_desc_init_data_ptr->left_padding >> 1,
-                                                              picture_buffer_desc_init_data_ptr->top_padding >> 1);
-    }
+    initialize_samples_neighboring_reference_picture_8bit(
+        ref_pic->v_buffer, ref_pic->v_stride, ref_pic->width >> 1, ref_pic->height >> 1);
 }
 
 static void svt_reference_object_dctor(EbPtr p) {
@@ -115,10 +97,7 @@ EbErrorType svt_reference_param_update(EbReferenceObject* ref_object, SequenceCo
         padding += scs->super_block_size;
     }
 
-    picture_buffer_desc_init_data_ptr.left_padding      = padding;
-    picture_buffer_desc_init_data_ptr.right_padding     = padding;
-    picture_buffer_desc_init_data_ptr.top_padding       = padding;
-    picture_buffer_desc_init_data_ptr.bot_padding       = padding;
+    picture_buffer_desc_init_data_ptr.border            = padding;
     picture_buffer_desc_init_data_ptr.mfmv              = scs->mfmv_enabled;
     picture_buffer_desc_init_data_ptr.is_16bit_pipeline = scs->is_16bit_pipeline;
 
@@ -137,8 +116,7 @@ EbErrorType svt_reference_param_update(EbReferenceObject* ref_object, SequenceCo
         picture_buffer_desc_init_data_ptr.split_mode = false;
         svt_picture_buffer_desc_update(ref_object->reference_picture, (EbPtr)&picture_buffer_desc_init_data_ptr);
 
-        initialize_samples_neighboring_reference_picture(
-            ref_object, &picture_buffer_desc_init_data_ptr, picture_buffer_desc_init_data_ptr.bit_depth);
+        initialize_samples_neighboring_reference_picture(ref_object->reference_picture);
     }
 
     ref_object->mi_rows = ref_object->reference_picture->height >> MI_SIZE_LOG2;
@@ -172,13 +150,12 @@ EbErrorType svt_reference_object_ctor(EbReferenceObject* ref_object, EbPtr objec
         picture_buffer_desc_init_data_ptr->split_mode = false;
         EB_NEW(ref_object->reference_picture, svt_picture_buffer_desc_ctor, (EbPtr)picture_buffer_desc_init_data_ptr);
 
-        initialize_samples_neighboring_reference_picture(
-            ref_object, picture_buffer_desc_init_data_ptr, picture_buffer_desc_init_data_16bit_ptr.bit_depth);
+        initialize_samples_neighboring_reference_picture(ref_object->reference_picture);
     }
     uint32_t mi_rows = ref_object->reference_picture->height >> MI_SIZE_LOG2;
     uint32_t mi_cols = ref_object->reference_picture->width >> MI_SIZE_LOG2;
     // there should be one unit info per plane and per rest unit
-    EB_MALLOC_2D(ref_object->unit_info, MAX_MB_PLANE, picture_buffer_desc_init_data_ptr->rest_units_per_tile);
+    EB_MALLOC_2D(ref_object->unit_info, MAX_PLANES, picture_buffer_desc_init_data_ptr->rest_units_per_tile);
 
     if (picture_buffer_desc_init_data_ptr->mfmv) {
         //MFMV map is 8x8 based.
@@ -266,10 +243,7 @@ EbErrorType svt_pa_reference_param_update(EbPaReferenceObject* pa_ref_obj, Seque
     // it points directly to the Luma input samples of the app data
     ref_pic_buf_desc_init_data.buffer_enable_mask = 0;
 
-    ref_pic_buf_desc_init_data.left_padding        = scs->left_padding;
-    ref_pic_buf_desc_init_data.right_padding       = scs->right_padding;
-    ref_pic_buf_desc_init_data.top_padding         = scs->top_padding;
-    ref_pic_buf_desc_init_data.bot_padding         = scs->bot_padding;
+    ref_pic_buf_desc_init_data.border              = scs->border;
     ref_pic_buf_desc_init_data.split_mode          = false;
     ref_pic_buf_desc_init_data.rest_units_per_tile = scs->rest_units_per_tile;
     ref_pic_buf_desc_init_data.mfmv                = 0;
@@ -280,10 +254,7 @@ EbErrorType svt_pa_reference_param_update(EbPaReferenceObject* pa_ref_obj, Seque
     quart_pic_buf_desc_init_data.bit_depth           = EB_EIGHT_BIT;
     quart_pic_buf_desc_init_data.color_format        = EB_YUV420;
     quart_pic_buf_desc_init_data.buffer_enable_mask  = PICTURE_BUFFER_DESC_LUMA_MASK;
-    quart_pic_buf_desc_init_data.left_padding        = scs->b64_size >> 1;
-    quart_pic_buf_desc_init_data.right_padding       = scs->b64_size >> 1;
-    quart_pic_buf_desc_init_data.top_padding         = scs->b64_size >> 1;
-    quart_pic_buf_desc_init_data.bot_padding         = scs->b64_size >> 1;
+    quart_pic_buf_desc_init_data.border              = scs->b64_size >> 1;
     quart_pic_buf_desc_init_data.split_mode          = false;
     quart_pic_buf_desc_init_data.rest_units_per_tile = scs->rest_units_per_tile;
     quart_pic_buf_desc_init_data.mfmv                = 0;
@@ -294,10 +265,7 @@ EbErrorType svt_pa_reference_param_update(EbPaReferenceObject* pa_ref_obj, Seque
     sixteenth_pic_buf_desc_init_data.bit_depth           = EB_EIGHT_BIT;
     sixteenth_pic_buf_desc_init_data.color_format        = EB_YUV420;
     sixteenth_pic_buf_desc_init_data.buffer_enable_mask  = PICTURE_BUFFER_DESC_LUMA_MASK;
-    sixteenth_pic_buf_desc_init_data.left_padding        = scs->b64_size >> 2;
-    sixteenth_pic_buf_desc_init_data.right_padding       = scs->b64_size >> 2;
-    sixteenth_pic_buf_desc_init_data.top_padding         = scs->b64_size >> 2;
-    sixteenth_pic_buf_desc_init_data.bot_padding         = scs->b64_size >> 2;
+    sixteenth_pic_buf_desc_init_data.border              = scs->b64_size >> 2;
     sixteenth_pic_buf_desc_init_data.split_mode          = false;
     sixteenth_pic_buf_desc_init_data.rest_units_per_tile = scs->rest_units_per_tile;
     sixteenth_pic_buf_desc_init_data.mfmv                = 0;
@@ -375,10 +343,7 @@ EbErrorType svt_tpl_reference_param_update(EbTplReferenceObject* tpl_ref_obj, Se
     // Allocate one ref pic to be used in TPL
     ref_pic_buf_desc_init_data.buffer_enable_mask = PICTURE_BUFFER_DESC_Y_FLAG;
 
-    ref_pic_buf_desc_init_data.left_padding      = TPL_PADX;
-    ref_pic_buf_desc_init_data.right_padding     = TPL_PADX;
-    ref_pic_buf_desc_init_data.top_padding       = TPL_PADY;
-    ref_pic_buf_desc_init_data.bot_padding       = TPL_PADY;
+    ref_pic_buf_desc_init_data.border            = TPL_PAD;
     ref_pic_buf_desc_init_data.split_mode        = false;
     ref_pic_buf_desc_init_data.mfmv              = 0;
     ref_pic_buf_desc_init_data.is_16bit_pipeline = false;

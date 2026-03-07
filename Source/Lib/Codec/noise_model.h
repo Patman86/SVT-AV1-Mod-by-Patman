@@ -207,9 +207,9 @@ typedef struct DenoiseAndModelInitData {
 
     uint16_t width;
     uint16_t height;
-    uint16_t stride_y;
-    uint16_t stride_cb;
-    uint16_t stride_cr;
+    uint16_t y_stride;
+    uint16_t u_stride;
+    uint16_t v_stride;
     uint8_t  denoise_apply;
     bool     adaptive_film_grain;
 } DenoiseAndModelInitData;

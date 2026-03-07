@@ -109,7 +109,7 @@ static void init_rsc_seg(Yv12BufferConfig* org_fts, const Yv12BufferConfig* src,
     rsc->org_frame_to_show = org_fts;
 
     const Yv12BufferConfig* dgd   = org_fts;
-    const int32_t           is_uv = plane != AOM_PLANE_Y;
+    const int32_t           is_uv = plane != PLANE_Y;
     rsc->plane_width              = src->crop_widths[is_uv];
     rsc->plane_height             = src->crop_heights[is_uv];
     rsc->src_buffer               = src->buffers[plane];
@@ -1160,7 +1160,7 @@ static void search_switchable(const RestorationTileLimits* limits, const Av1Pixe
 
     const Macroblock* const x = rsc->x;
 
-    const int32_t wiener_win = (rsc->plane == AOM_PLANE_Y) ? WIENER_WIN : WIENER_WIN_CHROMA;
+    const int32_t wiener_win = (rsc->plane == PLANE_Y) ? WIENER_WIN : WIENER_WIN_CHROMA;
 
     double          best_cost  = 0;
     int64_t         best_bits  = 0;
@@ -1312,7 +1312,7 @@ static void search_wiener_seg(const RestorationTileLimits* limits, const Av1Pixe
     assert(wn_ctrls->filter_tap_lvl == 1 || wn_ctrls->filter_tap_lvl == 2);
     const int32_t wn_luma = wn_ctrls->filter_tap_lvl == 1 ? WIENER_WIN : WIENER_WIN_CHROMA;
 
-    const int32_t wiener_win = rsc->plane == AOM_PLANE_Y ? wn_luma : WIENER_WIN_CHROMA;
+    const int32_t wiener_win = rsc->plane == PLANE_Y ? wn_luma : WIENER_WIN_CHROMA;
 
     RestorationUnitInfo rui;
     memset(&rui, 0, sizeof(rui));
@@ -1390,7 +1390,7 @@ static void search_wiener_finish(const RestorationTileLimits* limits, const Av1P
     const WnFilterCtrls* const wn_ctrls = &cm->wn_filter_ctrls;
     assert(wn_ctrls->filter_tap_lvl == 1 || wn_ctrls->filter_tap_lvl == 2);
     const int32_t           wn_luma    = wn_ctrls->filter_tap_lvl == 1 ? WIENER_WIN : WIENER_WIN_CHROMA;
-    const int32_t           wiener_win = rsc->plane == AOM_PLANE_Y ? wn_luma : WIENER_WIN_CHROMA;
+    const int32_t           wiener_win = rsc->plane == PLANE_Y ? wn_luma : WIENER_WIN_CHROMA;
     const Macroblock* const x          = rsc->x;
     const int64_t           bits_none  = x->wiener_restore_cost[0];
 
@@ -1485,11 +1485,11 @@ void restoration_seg_search(int32_t* rst_tmpbuf, Yv12BufferConfig* org_fts, cons
     RestSearchCtxt  rsc; //this context is specific for this segment
     RestSearchCtxt* rsc_p = &rsc;
 
-    const int32_t plane_start = AOM_PLANE_Y;
+    const int32_t plane_start = PLANE_Y;
     const int32_t plane_end   = ((cm->wn_filter_ctrls.enabled && cm->wn_filter_ctrls.use_chroma) ||
                                (cm->sg_filter_ctrls.enabled && cm->sg_filter_ctrls.use_chroma))
-          ? AOM_PLANE_V
-          : AOM_PLANE_Y;
+          ? PLANE_V
+          : PLANE_Y;
 
     for (int32_t plane = plane_start; plane <= plane_end; ++plane) {
         RestUnitSearchInfo* rusi = pcs->rusi_picture[plane];
@@ -1581,11 +1581,11 @@ void rest_finish_search(PictureControlSet* pcs) {
     memset(rusi, 0, sizeof(*rusi) * ntiles[0]);
 
     RestSearchCtxt rsc;
-    const int32_t  plane_start = AOM_PLANE_Y;
+    const int32_t  plane_start = PLANE_Y;
     const int32_t  plane_end   = ((cm->wn_filter_ctrls.enabled && cm->wn_filter_ctrls.use_chroma) ||
                                (cm->sg_filter_ctrls.enabled && cm->sg_filter_ctrls.use_chroma))
-           ? AOM_PLANE_V
-           : AOM_PLANE_Y;
+           ? PLANE_V
+           : PLANE_Y;
 
     for (int32_t plane = plane_start; plane <= plane_end; ++plane) {
         //init rsc context for this plane
@@ -1637,7 +1637,7 @@ void rest_finish_search(PictureControlSet* pcs) {
     }
 
     // if restoration performed for luma only, set chroma to RESTORE_NONE
-    if (plane_end == AOM_PLANE_Y) {
+    if (plane_end == PLANE_Y) {
         pcs->rst_info[1].frame_restoration_type = RESTORE_NONE;
         pcs->rst_info[2].frame_restoration_type = RESTORE_NONE;
     }

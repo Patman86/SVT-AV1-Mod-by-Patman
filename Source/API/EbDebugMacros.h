@@ -54,8 +54,8 @@ extern "C" {
 
 #define OPT_FD2_ALLINTRA            1 // Tune fd2
 #define TUNE_M7_ALLINTRA            1 // Fix M7
-
 #define FIX_IS_DC_ONLY_SAFE         1 // Skip the spread check for 8x8 blocks when determining whether DC-only is safe, as 4x4 sub-block variance is unavailable
+
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one
 #define DEBUG_TPL               0 // Prints to debug TPL

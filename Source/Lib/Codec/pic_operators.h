@@ -98,25 +98,24 @@ void svt_aom_yv12_copy_y_c(const Yv12BufferConfig* src_ybc, Yv12BufferConfig* ds
 void svt_aom_yv12_copy_u_c(const Yv12BufferConfig* src_bc, Yv12BufferConfig* dst_bc);
 void svt_aom_yv12_copy_v_c(const Yv12BufferConfig* src_bc, Yv12BufferConfig* dst_bc);
 void svt_aom_pack_highbd_pic(const EbPictureBufferDesc* pic_ptr, uint16_t* buffer_16bit[3], uint32_t ss_x,
-                             uint32_t ss_y, bool include_padding);
-void svt_aom_unpack_highbd_pic(uint16_t* buffer_highbd[3], EbPictureBufferDesc* pic_ptr, uint32_t ss_x, uint32_t ss_y,
-                               bool include_padding);
+                             uint32_t ss_y);
+void svt_aom_unpack_highbd_pic(uint16_t* buffer_highbd[3], EbPictureBufferDesc* pic_ptr, uint32_t ss_x, uint32_t ss_y);
 
 static inline void svt_av1_picture_copy_y(EbPictureBufferDesc* src, uint32_t src_origin_index, EbPictureBufferDesc* dst,
                                           uint32_t dst_origin_index, uint32_t area_width, uint32_t area_height,
                                           bool hbd) {
     if (hbd) {
-        svt_av1_copy_wxh_16bit((uint16_t*)src->buffer_y + src_origin_index,
-                               src->stride_y,
-                               (uint16_t*)dst->buffer_y + dst_origin_index,
-                               dst->stride_y,
+        svt_av1_copy_wxh_16bit((uint16_t*)src->y_buffer + src_origin_index,
+                               src->y_stride,
+                               (uint16_t*)dst->y_buffer + dst_origin_index,
+                               dst->y_stride,
                                area_height,
                                area_width);
     } else {
-        svt_av1_copy_wxh_8bit(src->buffer_y + src_origin_index,
-                              src->stride_y,
-                              dst->buffer_y + dst_origin_index,
-                              dst->stride_y,
+        svt_av1_copy_wxh_8bit(src->y_buffer + src_origin_index,
+                              src->y_stride,
+                              dst->y_buffer + dst_origin_index,
+                              dst->y_stride,
                               area_height,
                               area_width);
     }
@@ -126,17 +125,17 @@ static inline void svt_av1_picture_copy_cb(EbPictureBufferDesc* src, uint32_t sr
                                            EbPictureBufferDesc* dst, uint32_t dst_origin_index, uint32_t area_width,
                                            uint32_t area_height, bool hbd) {
     if (hbd) {
-        svt_av1_copy_wxh_16bit((uint16_t*)src->buffer_cb + src_origin_index,
-                               src->stride_cb,
-                               (uint16_t*)dst->buffer_cb + dst_origin_index,
-                               dst->stride_cb,
+        svt_av1_copy_wxh_16bit((uint16_t*)src->u_buffer + src_origin_index,
+                               src->u_stride,
+                               (uint16_t*)dst->u_buffer + dst_origin_index,
+                               dst->u_stride,
                                area_height,
                                area_width);
     } else {
-        svt_av1_copy_wxh_8bit(src->buffer_cb + src_origin_index,
-                              src->stride_cb,
-                              dst->buffer_cb + dst_origin_index,
-                              dst->stride_cb,
+        svt_av1_copy_wxh_8bit(src->u_buffer + src_origin_index,
+                              src->u_stride,
+                              dst->u_buffer + dst_origin_index,
+                              dst->u_stride,
                               area_height,
                               area_width);
     }
@@ -146,17 +145,17 @@ static inline void svt_av1_picture_copy_cr(EbPictureBufferDesc* src, uint32_t sr
                                            EbPictureBufferDesc* dst, uint32_t dst_origin_index, uint32_t area_width,
                                            uint32_t area_height, bool hbd) {
     if (hbd) {
-        svt_av1_copy_wxh_16bit((uint16_t*)src->buffer_cr + src_origin_index,
-                               src->stride_cr,
-                               (uint16_t*)dst->buffer_cr + dst_origin_index,
-                               dst->stride_cr,
+        svt_av1_copy_wxh_16bit((uint16_t*)src->v_buffer + src_origin_index,
+                               src->v_stride,
+                               (uint16_t*)dst->v_buffer + dst_origin_index,
+                               dst->v_stride,
                                area_height,
                                area_width);
     } else {
-        svt_av1_copy_wxh_8bit(src->buffer_cr + src_origin_index,
-                              src->stride_cr,
-                              dst->buffer_cr + dst_origin_index,
-                              dst->stride_cr,
+        svt_av1_copy_wxh_8bit(src->v_buffer + src_origin_index,
+                              src->v_stride,
+                              dst->v_buffer + dst_origin_index,
+                              dst->v_stride,
                               area_height,
                               area_width);
     }

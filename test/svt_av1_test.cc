@@ -40,14 +40,22 @@ int main(int argc, char **argv) {
 
 #if ARCH_AARCH64
     const EbCpuFlags caps = svt_aom_get_cpu_flags_to_use();
+    // Note: Disable testing for Neoverse V2-only implementations if the
+    // required ISA extensions don't exist on the test platform. Currently the
+    // required ISA extensions in the Neoverse V2-only paths are NEON_DOTPROD
+    // and SVE.
     if (!(caps & EB_CPU_FLAGS_ARM_CRC32))
         append_negative_gtest_filter("ARM_CRC32");
-    if (!(caps & EB_CPU_FLAGS_NEON_DOTPROD))
+    if (!(caps & EB_CPU_FLAGS_NEON_DOTPROD)) {
         append_negative_gtest_filter("NEON_DOTPROD");
+        append_negative_gtest_filter("NEOVERSE_V2");
+    }
     if (!(caps & EB_CPU_FLAGS_NEON_I8MM))
         append_negative_gtest_filter("NEON_I8MM");
-    if (!(caps & EB_CPU_FLAGS_SVE))
+    if (!(caps & EB_CPU_FLAGS_SVE)) {
         append_negative_gtest_filter("SVE");
+        append_negative_gtest_filter("NEOVERSE_V2");
+    }
     if (!(caps & EB_CPU_FLAGS_SVE2))
         append_negative_gtest_filter("SVE2");
 #endif  // ARCH_AARCH64

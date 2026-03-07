@@ -279,8 +279,8 @@ void svt_cdef_filter_fb(uint8_t* dst8, uint16_t* dst16, int32_t dstride, uint16_
     int32_t bi;
     int32_t pri_strength = level << coeff_shift;
     sec_strength <<= coeff_shift;
-    sec_damping += coeff_shift - (pli != AOM_PLANE_Y);
-    pri_damping += coeff_shift - (pli != AOM_PLANE_Y);
+    sec_damping += coeff_shift - (pli != PLANE_Y);
+    pri_damping += coeff_shift - (pli != PLANE_Y);
 
     int32_t bsize  = ydec ? (xdec ? BLOCK_4X4 : BLOCK_8X4) : (xdec ? BLOCK_4X8 : BLOCK_8X8);
     int32_t bsizex = 3 - xdec;

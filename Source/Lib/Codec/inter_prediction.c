@@ -2124,7 +2124,7 @@ static void init_wedge_primary_masks() {
 // wedge codebook.
 static void init_wedge_signs() {
     memset(wedge_signflip_lookup, 0, sizeof(wedge_signflip_lookup));
-    for (BLOCK_SIZE bsize = BLOCK_4X4; bsize < BLOCK_SIZES_ALL; ++bsize) {
+    for (BlockSize bsize = BLOCK_4X4; bsize < BLOCK_SIZES_ALL; ++bsize) {
         const int               bw           = block_size_wide[bsize];
         const int               bh           = block_size_high[bsize];
         const wedge_params_type wedge_params = wedge_params_lookup[bsize];

@@ -122,9 +122,12 @@ void svt_remove_mem_entry(void* ptr, EbPtrType type);
     } while (0)
 #define EB_ADD_MEM_ENTRY(p, type, count) \
     do {                                 \
+        (void)(p);                       \
+        (void)(count);                   \
     } while (0)
 #define EB_REMOVE_MEM_ENTRY(p, type) \
     do {                             \
+        (void)(p);                   \
     } while (0)
 
 #endif //DEBUG_MEMORY_USAGE
@@ -227,17 +230,18 @@ void svt_remove_mem_entry(void* ptr, EbPtrType type);
         pa = p_ra;                             \
     } while (0)
 
-#define EB_REALLOC_ARRAY_NO_CHECK(pa, count)           \
-    do {                                               \
-        size_t s_ra = sizeof(*(pa)) * (count);         \
-        void*  p_ra = realloc(pa, s_ra);               \
-        if (p_ra) {                                    \
-            EB_REMOVE_MEM_ENTRY(pa, EB_N_PTR);         \
-            EB_NO_THROW_ADD_MEM(p_ra, s_ra, EB_N_PTR); \
-        } else {                                       \
-            EB_FREE(pa);                               \
-        }                                              \
-        pa = p_ra;                                     \
+#define EB_REALLOC_ARRAY_NO_CHECK(pa, count)            \
+    do {                                                \
+        size_t    s_ra = sizeof(*(pa)) * (count);       \
+        uintptr_t pa_i = (uintptr_t)pa;                 \
+        void*     p_ra = realloc(pa, s_ra);             \
+        if (p_ra) {                                     \
+            EB_REMOVE_MEM_ENTRY((void*)pa_i, EB_N_PTR); \
+            EB_NO_THROW_ADD_MEM(p_ra, s_ra, EB_N_PTR);  \
+        } else {                                        \
+            EB_FREE(pa);                                \
+        }                                               \
+        pa = p_ra;                                      \
     } while (0)
 
 #define EB_CALLOC_ARRAY(pa, count)           \

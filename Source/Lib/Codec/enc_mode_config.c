@@ -137,7 +137,7 @@ static void get_sb128_variance(PictureControlSet* pcs, ModeDecisionContext* ctx,
 }
 
 // use this function to set the enable_me_8x8 level
-uint8_t svt_aom_get_enable_me_8x8(EncMode enc_mode, EbInputResolution input_resolution, const bool rtc_tune,
+uint8_t svt_aom_get_enable_me_8x8(EncMode enc_mode, ResolutionRange input_resolution, const bool rtc_tune,
                                   const bool flat_rtc_tune) {
     uint8_t enable_me_8x8 = 0;
     if (enc_mode <= ENC_M5) {
@@ -198,7 +198,7 @@ uint8_t svt_aom_derive_gm_level(PictureParentControlSet* pcs, bool super_res_off
 /************************************************
  * Set HME Search area parameters
  ************************************************/
-static void set_hme_search_params(PictureParentControlSet* pcs, MeContext* me_ctx, EbInputResolution input_resolution) {
+static void set_hme_search_params(PictureParentControlSet* pcs, MeContext* me_ctx, ResolutionRange input_resolution) {
     const bool rtc_tune = pcs->scs->static_config.rtc;
     // Set number of HME level 0 search regions to use
     me_ctx->num_hme_sa_w = 2;
@@ -276,7 +276,7 @@ static void set_hme_search_params(PictureParentControlSet* pcs, MeContext* me_ct
  * Set ME Search area parameters
  ************************************************/
 static void set_me_search_params(SequenceControlSet* scs, PictureParentControlSet* pcs, MeContext* me_ctx,
-                                 EbInputResolution input_resolution) {
+                                 ResolutionRange input_resolution) {
     const EncMode enc_mode  = pcs->enc_mode;
     const uint8_t sc_class1 = pcs->sc_class1;
     const bool    rtc_tune  = scs->static_config.rtc;
@@ -760,13 +760,13 @@ static void tf_set_me_hme_params_oq(MeContext* me_ctx, PictureParentControlSet* 
   Output  : ME Kernel signal(s)
 ******************************************************/
 void svt_aom_sig_deriv_me(SequenceControlSet* scs, PictureParentControlSet* pcs, MeContext* me_ctx) {
-    EncMode           enc_mode         = pcs->enc_mode;
-    const uint8_t     sc_class1        = pcs->sc_class1;
-    const uint8_t     sc_class4        = pcs->sc_class4;
-    EbInputResolution input_resolution = scs->input_resolution;
-    const bool        rtc_tune         = scs->static_config.rtc;
-    const bool        is_base          = pcs->temporal_layer_index == 0;
-    const bool        flat_rtc         = rtc_tune && scs->use_flat_ipp;
+    EncMode         enc_mode         = pcs->enc_mode;
+    const uint8_t   sc_class1        = pcs->sc_class1;
+    const uint8_t   sc_class4        = pcs->sc_class4;
+    ResolutionRange input_resolution = scs->input_resolution;
+    const bool      rtc_tune         = scs->static_config.rtc;
+    const bool      is_base          = pcs->temporal_layer_index == 0;
+    const bool      flat_rtc         = rtc_tune && scs->use_flat_ipp;
     // Set ME search area
     set_me_search_params(scs, pcs, me_ctx, input_resolution);
 
@@ -1613,7 +1613,7 @@ static void dlf_level_modulation(PictureControlSet* pcs, uint8_t* default_dlf_le
 }
 #if TUNE_STILL_IMAGE
 static uint8_t get_dlf_level_default(PictureControlSet* pcs, EncMode enc_mode, uint8_t is_not_last_layer,
-                                     uint8_t fast_decode, EbInputResolution resolution, int is_base) {
+                                     uint8_t fast_decode, ResolutionRange resolution, int is_base) {
     const uint8_t sc_class1       = pcs->ppcs->sc_class1;
     uint8_t       dlf_level       = 0;
     uint8_t       modulation_mode = 0; // 0: off, 1: only towards bd-rate, 2: both sides; , 3: only towards speed
@@ -1699,7 +1699,7 @@ static uint8_t get_dlf_level_rtc(PictureControlSet* pcs, EncMode enc_mode, uint8
     return dlf_level;
 }
 
-static uint8_t get_dlf_level_allintra(EncMode enc_mode, uint8_t fast_decode, EbInputResolution resolution) {
+static uint8_t get_dlf_level_allintra(EncMode enc_mode, uint8_t fast_decode, ResolutionRange resolution) {
     uint8_t dlf_level = 0;
     if (fast_decode <= 1 || resolution <= INPUT_SIZE_360p_RANGE) {
         if (enc_mode <= ENC_M3) {
@@ -1721,7 +1721,7 @@ static uint8_t get_dlf_level_allintra(EncMode enc_mode, uint8_t fast_decode, EbI
 }
 #else
 static uint8_t get_dlf_level(PictureControlSet* pcs, EncMode enc_mode, uint8_t is_not_last_layer, uint8_t fast_decode,
-                             EbInputResolution resolution, bool allintra, int is_base) {
+                             ResolutionRange resolution, bool allintra, int is_base) {
     const uint8_t sc_class1       = pcs->ppcs->sc_class1;
     uint8_t       dlf_level       = 0;
     uint8_t       modulation_mode = 0; // 0: off, 1: only towards bd-rate, 2: both sides; , 3: only towards speed
@@ -2111,7 +2111,7 @@ void svt_aom_sig_deriv_multi_processes_default(SequenceControlSet* scs, PictureP
     EncMode                 enc_mode          = pcs->enc_mode;
     const uint8_t           is_islice         = pcs->slice_type == I_SLICE;
     const uint8_t           is_base           = pcs->temporal_layer_index == 0;
-    const EbInputResolution input_resolution  = pcs->input_resolution;
+    const ResolutionRange   input_resolution  = pcs->input_resolution;
     const uint8_t           fast_decode       = scs->static_config.fast_decode;
     const uint8_t           sc_class1         = pcs->sc_class1;
     const uint8_t           is_not_last_layer = !pcs->is_highest_layer;
@@ -2247,7 +2247,7 @@ void svt_aom_sig_deriv_multi_processes_default(SequenceControlSet* scs, PictureP
         // changes should not impact enabling restoration. For some presets, restoration is off for 8K
         // and above and memory allocation is not performed. So, if we switch to smaller resolution, we need
         // to keep restoration off.
-        EbInputResolution init_input_resolution;
+        ResolutionRange init_input_resolution;
         svt_aom_derive_input_resolution(&init_input_resolution,
                                         scs->max_initial_input_luma_width * scs->max_initial_input_luma_height);
 
@@ -2414,7 +2414,7 @@ void svt_aom_sig_deriv_multi_processes_rtc(SequenceControlSet* scs, PictureParen
         // changes should not impact enabling restoration. For some presets, restoration is off for 8K
         // and above and memory allocation is not performed. So, if we switch to smaller resolution, we need
         // to keep restoration off.
-        EbInputResolution init_input_resolution;
+        ResolutionRange init_input_resolution;
         svt_aom_derive_input_resolution(&init_input_resolution,
                                         scs->max_initial_input_luma_width * scs->max_initial_input_luma_height);
 
@@ -2455,10 +2455,10 @@ void svt_aom_sig_deriv_multi_processes_rtc(SequenceControlSet* scs, PictureParen
 }
 
 void svt_aom_sig_deriv_multi_processes_allintra(SequenceControlSet* scs, PictureParentControlSet* pcs) {
-    FrameHeader*            frm_hdr          = &pcs->frm_hdr;
-    EncMode                 enc_mode         = pcs->enc_mode;
-    const EbInputResolution input_resolution = pcs->input_resolution;
-    const uint8_t           fast_decode      = scs->static_config.fast_decode;
+    FrameHeader*          frm_hdr          = &pcs->frm_hdr;
+    EncMode               enc_mode         = pcs->enc_mode;
+    const ResolutionRange input_resolution = pcs->input_resolution;
+    const uint8_t         fast_decode      = scs->static_config.fast_decode;
 
     // Set the Multi-Pass PD level
     pcs->multi_pass_pd_level = MULTI_PASS_PD_ON;
@@ -2554,7 +2554,7 @@ void svt_aom_sig_deriv_multi_processes_allintra(SequenceControlSet* scs, Picture
         // changes should not impact enabling restoration. For some presets, restoration is off for 8K
         // and above and memory allocation is not performed. So, if we switch to smaller resolution, we need
         // to keep restoration off.
-        EbInputResolution init_input_resolution;
+        ResolutionRange init_input_resolution;
         svt_aom_derive_input_resolution(&init_input_resolution,
                                         scs->max_initial_input_luma_width * scs->max_initial_input_luma_height);
 
@@ -2581,7 +2581,7 @@ void svt_aom_sig_deriv_multi_processes(SequenceControlSet* scs, PictureParentCon
     EncMode                 enc_mode          = pcs->enc_mode;
     const uint8_t           is_islice         = pcs->slice_type == I_SLICE;
     const uint8_t           is_base           = pcs->temporal_layer_index == 0;
-    const EbInputResolution input_resolution  = pcs->input_resolution;
+    const ResolutionRange   input_resolution  = pcs->input_resolution;
     const uint8_t           fast_decode       = scs->static_config.fast_decode;
     const bool              rtc_tune          = scs->static_config.rtc;
     const uint8_t           sc_class1         = pcs->sc_class1;
@@ -2816,7 +2816,7 @@ void svt_aom_sig_deriv_multi_processes(SequenceControlSet* scs, PictureParentCon
         // changes should not impact enabling restoration. For some presets, restoration is off for 8K
         // and above and memory allocation is not performed. So, if we switch to smaller resolution, we need
         // to keep restoration off.
-        EbInputResolution init_input_resolution;
+        ResolutionRange init_input_resolution;
         svt_aom_derive_input_resolution(&init_input_resolution,
                                         scs->max_initial_input_luma_width * scs->max_initial_input_luma_height);
 
@@ -3170,7 +3170,7 @@ void svt_aom_sig_deriv_pre_analysis_scs(SequenceControlSet* scs) {
     const bool   rtc_tune = scs->static_config.rtc;
     const bool   allintra = scs->allintra;
 #if !TUNE_STILL_IMAGE
-    const EbInputResolution input_resolution = scs->input_resolution;
+    const ResolutionRange input_resolution = scs->input_resolution;
 #endif
     // initialize sequence level enable_superres
     scs->seq_header.enable_superres = scs->static_config.superres_mode > SUPERRES_NONE ? 1 : 0;
@@ -3263,7 +3263,7 @@ void svt_aom_sig_deriv_pre_analysis_scs(SequenceControlSet* scs) {
         // changes should not impact enabling restoration. For some presets, restoration is off for 8K
         // and above and memory allocation is not performed. So, if we switch to smaller resolution, we need
         // to keep restoration off
-        EbInputResolution init_input_resolution;
+        ResolutionRange init_input_resolution;
         svt_aom_derive_input_resolution(&init_input_resolution,
                                         scs->max_initial_input_luma_width * scs->max_initial_input_luma_height);
 #if TUNE_STILL_IMAGE
@@ -4660,34 +4660,19 @@ static void set_interpolation_search_level_ctrls(ModeDecisionContext* ctx, uint8
 
     switch (interpolation_search_level) {
     case 0:
-        ifs_ctrls->level                 = IFS_OFF;
-        ifs_ctrls->subsampled_distortion = 0;
-        ifs_ctrls->skip_sse_rd_model     = 0;
+        ifs_ctrls->level = IFS_OFF;
         break;
     case 1:
-        ifs_ctrls->level                 = IFS_MDS0;
-        ifs_ctrls->subsampled_distortion = 0;
-        ifs_ctrls->skip_sse_rd_model     = 0;
+        ifs_ctrls->level = IFS_MDS0;
         break;
     case 2:
-        ifs_ctrls->level                 = IFS_MDS1;
-        ifs_ctrls->subsampled_distortion = 0;
-        ifs_ctrls->skip_sse_rd_model     = 0;
+        ifs_ctrls->level = IFS_MDS1;
         break;
     case 3:
-        ifs_ctrls->level                 = IFS_MDS2;
-        ifs_ctrls->subsampled_distortion = 0;
-        ifs_ctrls->skip_sse_rd_model     = 0;
+        ifs_ctrls->level = IFS_MDS2;
         break;
     case 4:
-        ifs_ctrls->level                 = IFS_MDS3;
-        ifs_ctrls->subsampled_distortion = 0;
-        ifs_ctrls->skip_sse_rd_model     = 0;
-        break;
-    case 5:
-        ifs_ctrls->level                 = IFS_MDS3;
-        ifs_ctrls->subsampled_distortion = 1;
-        ifs_ctrls->skip_sse_rd_model     = 1;
+        ifs_ctrls->level = IFS_MDS3;
         break;
     default:
         assert(0);
@@ -8327,7 +8312,7 @@ void svt_aom_sig_deriv_enc_dec_light_pd0(SequenceControlSet* scs, PictureControl
 void svt_aom_sig_deriv_enc_dec_light_pd1(PictureControlSet* pcs, ModeDecisionContext* ctx) {
     Pd1Level                 lpd1_level        = ctx->lpd1_ctrls.pd1_level;
     PictureParentControlSet* ppcs              = pcs->ppcs;
-    const EbInputResolution  input_resolution  = ppcs->input_resolution;
+    const ResolutionRange    input_resolution  = ppcs->input_resolution;
     const uint8_t            is_islice         = pcs->slice_type == I_SLICE;
     const SliceType          slice_type        = pcs->slice_type;
     const bool               is_not_last_layer = !ppcs->is_highest_layer;
@@ -10143,7 +10128,7 @@ uint8_t svt_aom_get_update_cdf_level_allintra(EncMode enc_mode) {
 }
 #else
 uint8_t svt_aom_get_update_cdf_level(EncMode enc_mode, SliceType is_islice, uint8_t is_base, uint8_t sc_class1,
-                                     const EbInputResolution input_resolution, bool allintra) {
+                                     const ResolutionRange input_resolution, bool allintra) {
     uint8_t update_cdf_level = 0;
     if (allintra) {
         if (input_resolution <= INPUT_SIZE_1080p_RANGE) {
@@ -10265,7 +10250,7 @@ static void set_pic_lpd0_lvl_default(PictureControlSet* pcs, EncMode enc_mode) {
     const uint8_t            is_islice          = pcs->slice_type == I_SLICE;
     const bool               transition_present = (ppcs->transition_present == 1);
     InputCoeffLvl            coeff_lvl          = pcs->coeff_lvl;
-    const EbInputResolution  input_resolution   = ppcs->input_resolution;
+    const ResolutionRange    input_resolution   = ppcs->input_resolution;
     uint8_t                  ldp0_lvl_offset[4] = {2, 2, 1, 0};
     uint8_t                  qp_band_idx        = 0;
     const uint8_t            seq_qp_mod         = pcs->scs->seq_qp_mod;
@@ -10384,7 +10369,7 @@ static void set_pic_lpd0_lvl_rtc(PictureControlSet* pcs, EncMode enc_mode) {
     const uint8_t            is_islice          = pcs->slice_type == I_SLICE;
     const bool               transition_present = (ppcs->transition_present == 1);
     const uint8_t            sc_class1          = ppcs->sc_class1;
-    const EbInputResolution  input_resolution   = ppcs->input_resolution;
+    const ResolutionRange    input_resolution   = ppcs->input_resolution;
 
     if (sc_class1) {
         if (enc_mode <= ENC_M9) {
@@ -10439,7 +10424,7 @@ static void set_pic_lpd0_lvl(PictureControlSet* pcs, EncMode enc_mode) {
     const uint8_t           sc_class1          = ppcs->sc_class1;
     const bool              rtc_tune           = pcs->scs->static_config.rtc;
     InputCoeffLvl           coeff_lvl          = pcs->coeff_lvl;
-    const EbInputResolution input_resolution   = ppcs->input_resolution;
+    const ResolutionRange   input_resolution   = ppcs->input_resolution;
     uint8_t                 ldp0_lvl_offset[4] = {2, 2, 1, 0};
     uint8_t                 qp_band_idx        = 0;
     const uint8_t           seq_qp_mod         = pcs->scs->seq_qp_mod;
@@ -10768,7 +10753,7 @@ void svt_aom_sig_deriv_mode_decision_config_default(SequenceControlSet* scs, Pic
     const uint8_t            is_ref              = ppcs->is_ref;
     const uint8_t            is_base             = ppcs->temporal_layer_index == 0;
     const uint8_t            is_layer1           = ppcs->temporal_layer_index == 1;
-    const EbInputResolution  input_resolution    = ppcs->input_resolution;
+    const ResolutionRange    input_resolution    = ppcs->input_resolution;
     const uint8_t            is_islice           = pcs->slice_type == I_SLICE;
     const uint8_t            sc_class1           = ppcs->sc_class1;
     const uint8_t            fast_decode         = scs->static_config.fast_decode;
@@ -11361,7 +11346,7 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
     EncMode                  enc_mode            = pcs->enc_mode;
     const uint8_t            is_ref              = ppcs->is_ref;
     const uint8_t            is_base             = ppcs->temporal_layer_index == 0;
-    const EbInputResolution  input_resolution    = ppcs->input_resolution;
+    const ResolutionRange    input_resolution    = ppcs->input_resolution;
     const uint8_t            is_islice           = pcs->slice_type == I_SLICE;
     const uint8_t            sc_class1           = ppcs->sc_class1;
     const uint8_t            fast_decode         = scs->static_config.fast_decode;
@@ -11846,7 +11831,7 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
 void svt_aom_sig_deriv_mode_decision_config_allintra(SequenceControlSet* scs, PictureControlSet* pcs) {
     PictureParentControlSet* ppcs             = pcs->ppcs;
     EncMode                  enc_mode         = pcs->enc_mode;
-    const EbInputResolution  input_resolution = ppcs->input_resolution;
+    const ResolutionRange    input_resolution = ppcs->input_resolution;
     const uint8_t            fast_decode      = scs->static_config.fast_decode;
     const uint32_t           sq_qp            = scs->static_config.qp;
     FrameHeader*             frm_hdr          = &ppcs->frm_hdr;
@@ -12099,7 +12084,7 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet* scs, PictureCont
     const uint8_t            is_ref              = ppcs->is_ref;
     const uint8_t            is_base             = ppcs->temporal_layer_index == 0;
     const uint8_t            is_layer1           = ppcs->temporal_layer_index == 1;
-    const EbInputResolution  input_resolution    = ppcs->input_resolution;
+    const ResolutionRange    input_resolution    = ppcs->input_resolution;
     const uint8_t            is_islice           = pcs->slice_type == I_SLICE;
     const uint8_t            sc_class1           = ppcs->sc_class1;
     const uint8_t            fast_decode         = scs->static_config.fast_decode;

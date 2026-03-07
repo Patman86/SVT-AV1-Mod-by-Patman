@@ -285,7 +285,7 @@ typedef struct SubresCtrls {
 } SubresCtrls;
 
 typedef struct PfCtrls {
-    EB_TRANS_COEFF_SHAPE pf_shape;
+    TxCoeffShape pf_shape;
 } PfCtrls;
 
 typedef struct MdNsqMotionSearchCtrls {
@@ -682,12 +682,6 @@ typedef struct InterpolationSearchCtrls {
     // IFS_MDS1, IFS_MDS2, or IFS_MDS3 for respectively MD Stage 0, MD Stage 1, MD Stage 2, and MD
     // Stage 3)
     IfsLevel level;
-    // Specifies whether sub-sampled input/prediction will be used at the distortion computation (0:
-    // OFF, 1: ON, NA for block height 16 and lower)
-    uint8_t subsampled_distortion;
-    // Specifies whether a model wll be used for rate estimation or not (0: NO (assume rate is 0),
-    // 1: estimate rate from distortion)
-    uint8_t skip_sse_rd_model;
 } InterpolationSearchCtrls;
 
 typedef struct SpatialSSECtrls {

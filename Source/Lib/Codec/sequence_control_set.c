@@ -117,7 +117,7 @@ EbErrorType svt_aom_scs_set_creator(EbPtr* object_dbl_ptr, EbPtr object_init_dat
     return EB_ErrorNone;
 }
 
-EbErrorType svt_aom_derive_input_resolution(EbInputResolution* input_resolution, uint32_t inputSize) {
+EbErrorType svt_aom_derive_input_resolution(ResolutionRange* input_resolution, uint32_t inputSize) {
     EbErrorType return_error = EB_ErrorNone;
     if (inputSize < INPUT_SIZE_240p_TH) {
         *input_resolution = INPUT_SIZE_240p_RANGE;

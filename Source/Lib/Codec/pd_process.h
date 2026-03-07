@@ -114,8 +114,8 @@ typedef struct PictureDecisionContext {
     bool                     gm_pp_last_detected;
     int64_t                  mg_progress_id;
 
-    int32_t last_i_noise_levels_log1p_fp16[MAX_MB_PLANE];
-    double  last_i_noise_levels[MAX_MB_PLANE];
+    int32_t last_i_noise_levels_log1p_fp16[MAX_PLANES];
+    double  last_i_noise_levels[MAX_PLANES];
 
     // for switch frame feature
     uint32_t ref_order_hint[REF_FRAMES]; // spec 6.8.2

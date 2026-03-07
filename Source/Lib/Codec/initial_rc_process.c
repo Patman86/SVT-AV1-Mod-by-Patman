@@ -317,9 +317,9 @@ static uint8_t get_tpl_params_level(int8_t enc_mode) {
 }
 
 static void set_tpl_params(PictureParentControlSet* pcs, uint8_t tpl_level) {
-    TplControls*            tpl_ctrls  = &pcs->tpl_ctrls;
-    SequenceControlSet*     scs        = pcs->scs;
-    const EbInputResolution resolution = scs->input_resolution;
+    TplControls*          tpl_ctrls  = &pcs->tpl_ctrls;
+    SequenceControlSet*   scs        = pcs->scs;
+    const ResolutionRange resolution = scs->input_resolution;
 
     switch (tpl_level) {
     case 0:

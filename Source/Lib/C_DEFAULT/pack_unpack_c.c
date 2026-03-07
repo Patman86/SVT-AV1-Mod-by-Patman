@@ -150,11 +150,11 @@ void svt_unpack_and_2bcompress_c(uint16_t* in16b_buffer, uint32_t in16b_stride, 
 data: 4 pixels in 1 byte to 4 1pixel-bytes
 ************************************************/
 void svt_c_unpack_compressed_10bit(const uint8_t* inn_bit_buffer, uint32_t inn_stride, uint8_t* in_compn_bit_buffer,
-                                   uint32_t out_stride, uint32_t height) {
+                                   uint32_t out_stride, uint32_t width, uint32_t height) {
     uint32_t row_index, col_index;
 
     for (row_index = 0; row_index < height; row_index++) {
-        for (col_index = 0; col_index < out_stride; col_index++) {
+        for (col_index = 0; col_index < width; col_index++) {
             uint32_t data_byte = inn_bit_buffer[row_index * inn_stride + col_index / 4];
 
             uint8_t uncompressed_byte = 0;

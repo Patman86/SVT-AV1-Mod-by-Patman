@@ -16,19 +16,12 @@
 #include "pcs.h"
 #include "me_process.h"
 
-// ALT-REF debug-specific defines
-
-#define COLOR_CHANNELS 3
-#define C_Y 0
-#define C_U 1
-#define C_V 2
-
 #define EDGE_THRESHOLD 50
 #define SQRT_PI_BY_2_FP16 82137
 #define SMOOTH_THRESHOLD 16
 // Block size used in temporal filtering
-#define BW 64
-#define BH 64
+#define TF_BW 64
+#define TF_BH 64
 #define BLK_PELS 4096 // Pixels in the block
 // A scale factor used in plane-wise temporal filtering to raise the filter
 // weight from `double` with range [0, 1] to `int` with range [0, 1000].

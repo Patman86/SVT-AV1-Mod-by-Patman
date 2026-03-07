@@ -59,8 +59,8 @@ typedef struct EntropyCodingContext {
    * is, we transmit the delta between the actual values in
    * pcs->rst_info[plane].unit_info[runit_idx] and these reference values.
    */
-    WienerInfo  wiener_info[MAX_MB_PLANE];
-    SgrprojInfo sgrproj_info[MAX_MB_PLANE];
+    WienerInfo  wiener_info[MAX_PLANES];
+    SgrprojInfo sgrproj_info[MAX_PLANES];
 } EntropyCodingContext;
 
 /**************************************

@@ -223,7 +223,7 @@ int32_t svt_av1_compute_qdelta(double qstart, double qtarget, EbBitDepth bit_dep
     return target_index - start_index;
 }
 
-int svt_av1_get_cqp_kf_boost_from_r0(double r0, int frames_to_key, EbInputResolution input_resolution) {
+int svt_av1_get_cqp_kf_boost_from_r0(double r0, int frames_to_key, ResolutionRange input_resolution) {
     double factor;
     // when frames_to_key not available, it is set to -1. In this case the factor is set to average of min and max
     if (frames_to_key == -1) {

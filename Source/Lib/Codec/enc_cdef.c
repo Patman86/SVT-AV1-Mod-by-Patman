@@ -240,14 +240,6 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
     EbPictureBufferDesc* recon_pic;
     svt_aom_get_recon_pic(pcs, &recon_pic, is_16bit);
 
-    const uint32_t offset_y       = recon_pic->org_x + recon_pic->org_y * recon_pic->stride_y;
-    EbByte         recon_buffer_y = recon_pic->buffer_y + (offset_y << is_16bit);
-
-    const uint32_t offset_cb       = (recon_pic->org_x + recon_pic->org_y * recon_pic->stride_cb) >> 1;
-    EbByte         recon_buffer_cb = recon_pic->buffer_cb + (offset_cb << is_16bit);
-    const uint32_t offset_cr       = (recon_pic->org_x + recon_pic->org_y * recon_pic->stride_cr) >> 1;
-    EbByte         recon_buffer_cr = recon_pic->buffer_cr + (offset_cr << is_16bit);
-
     const int32_t num_planes = av1_num_planes(&scs->seq_header.color_config);
     DECLARE_ALIGNED(16, uint16_t, src[CDEF_INBUF_SIZE]);
     uint16_t*      linebuf[3];
@@ -388,26 +380,11 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
                 }
 
                 coffset             = fbc * MI_SIZE_64X64 << mi_wide_l2[pli];
-                EbByte   rec_buff   = 0;
-                uint32_t rec_stride = 0;
-
-                switch (pli) {
-                case 0:
-                    rec_buff   = recon_buffer_y;
-                    rec_stride = recon_pic->stride_y;
-                    break;
-                case 1:
-                    rec_buff     = recon_buffer_cb;
-                    rec_stride   = recon_pic->stride_cb;
+                EbByte   rec_buff   = recon_pic->buffer[pli];
+                uint32_t rec_stride = recon_pic->stride[pli];
+                if (pli) {
                     level        = uv_level;
                     sec_strength = uv_sec_strength;
-                    break;
-                case 2:
-                    rec_buff     = recon_buffer_cr;
-                    rec_stride   = recon_pic->stride_cr;
-                    level        = uv_level;
-                    sec_strength = uv_sec_strength;
-                    break;
                 }
 
                 /* Copy in the pixels we need from the current superblock for

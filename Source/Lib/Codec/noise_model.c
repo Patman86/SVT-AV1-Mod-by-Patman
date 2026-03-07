@@ -2181,7 +2181,7 @@ EbErrorType svt_aom_denoise_and_model_ctor(AomDenoiseAndModel* object_ptr, EbPtr
     DenoiseAndModelInitData* init_data_ptr = (DenoiseAndModelInitData*)object_init_data_ptr;
     EbErrorType              return_error  = EB_ErrorNone;
     uint32_t                 use_highbd    = init_data_ptr->encoder_bit_depth > EB_EIGHT_BIT ? 1 : 0;
-    EbInputResolution        input_resolution;
+    ResolutionRange          input_resolution;
 
     int32_t chroma_sub_log2[2] = {1, 1}; //todo: send chroma subsampling
     chroma_sub_log2[0]         = (init_data_ptr->encoder_color_format == EB_YUV444 ? 0 : 1);
@@ -2207,8 +2207,8 @@ EbErrorType svt_aom_denoise_and_model_ctor(AomDenoiseAndModel* object_ptr, EbPtr
 
     object_ptr->width     = init_data_ptr->width;
     object_ptr->height    = init_data_ptr->height;
-    object_ptr->y_stride  = init_data_ptr->stride_y;
-    object_ptr->uv_stride = init_data_ptr->stride_cb;
+    object_ptr->y_stride  = init_data_ptr->y_stride;
+    object_ptr->uv_stride = init_data_ptr->u_stride;
 
     //todo: consider replacing with EbPictureBuffersDesc
 
@@ -2264,42 +2264,39 @@ static int32_t denoise_and_model_realloc_if_necessary(struct AomDenoiseAndModel*
 }
 
 static void unpack_2d_pic(uint8_t* packed[3], EbPictureBufferDesc* outputPicturePtr) {
-    uint32_t luma_buffer_offset = ((outputPicturePtr->org_y) * outputPicturePtr->stride_y) + (outputPicturePtr->org_x);
-    uint32_t chroma_buffer_offset = (((outputPicturePtr->org_y) >> 1) * outputPicturePtr->stride_cb) +
-        ((outputPicturePtr->org_x) >> 1);
-    uint32_t bit_inc_luma_offset = ((outputPicturePtr->org_y) * outputPicturePtr->stride_bit_inc_y >> 2) +
-        (outputPicturePtr->org_x >> 2);
-    uint32_t bit_inc_chroma_offset = (((outputPicturePtr->org_y) >> 1) * outputPicturePtr->stride_bit_inc_cb >> 2) +
-        ((outputPicturePtr->org_x >> 2) >> 1);
-    uint16_t luma_width    = (uint16_t)(outputPicturePtr->width);
-    uint16_t chroma_width  = luma_width >> 1;
-    uint16_t luma_height   = (uint16_t)(outputPicturePtr->height);
-    uint16_t chroma_height = luma_height >> 1;
+    uint32_t luma_buffer_offset    = 0;
+    uint32_t chroma_buffer_offset  = 0;
+    uint32_t bit_inc_luma_offset   = 0;
+    uint32_t bit_inc_chroma_offset = 0;
+    uint16_t luma_width            = (uint16_t)(outputPicturePtr->width);
+    uint16_t chroma_width          = luma_width >> 1;
+    uint16_t luma_height           = (uint16_t)(outputPicturePtr->height);
+    uint16_t chroma_height         = luma_height >> 1;
 
     svt_unpack_and_2bcompress((uint16_t*)(packed[0]),
-                              outputPicturePtr->stride_y,
-                              outputPicturePtr->buffer_y + luma_buffer_offset,
-                              outputPicturePtr->stride_y,
-                              outputPicturePtr->buffer_bit_inc_y + bit_inc_luma_offset,
-                              outputPicturePtr->stride_bit_inc_y >> 2,
+                              outputPicturePtr->y_stride,
+                              outputPicturePtr->y_buffer + luma_buffer_offset,
+                              outputPicturePtr->y_stride,
+                              outputPicturePtr->y_buffer_bit_inc + bit_inc_luma_offset,
+                              outputPicturePtr->y_stride_bit_inc >> 2,
                               luma_width,
                               luma_height);
 
     svt_unpack_and_2bcompress((uint16_t*)(packed[1]),
-                              outputPicturePtr->stride_cb,
-                              outputPicturePtr->buffer_cb + chroma_buffer_offset,
-                              outputPicturePtr->stride_cb,
-                              outputPicturePtr->buffer_bit_inc_cb + bit_inc_chroma_offset,
-                              outputPicturePtr->stride_bit_inc_cb >> 2,
+                              outputPicturePtr->u_stride,
+                              outputPicturePtr->u_buffer + chroma_buffer_offset,
+                              outputPicturePtr->u_stride,
+                              outputPicturePtr->u_buffer_bit_inc + bit_inc_chroma_offset,
+                              outputPicturePtr->u_stride_bit_inc >> 2,
                               chroma_width,
                               chroma_height);
 
     svt_unpack_and_2bcompress((uint16_t*)(packed[2]),
-                              outputPicturePtr->stride_cr,
-                              outputPicturePtr->buffer_cr + chroma_buffer_offset,
-                              outputPicturePtr->stride_cr,
-                              outputPicturePtr->buffer_bit_inc_cr + bit_inc_chroma_offset,
-                              outputPicturePtr->stride_bit_inc_cr >> 2,
+                              outputPicturePtr->v_stride,
+                              outputPicturePtr->v_buffer + chroma_buffer_offset,
+                              outputPicturePtr->v_stride,
+                              outputPicturePtr->v_buffer_bit_inc + bit_inc_chroma_offset,
+                              outputPicturePtr->v_stride_bit_inc >> 2,
                               chroma_width,
                               chroma_height);
 }
@@ -2309,7 +2306,7 @@ int32_t svt_aom_denoise_and_model_run(struct AomDenoiseAndModel* ctx, EbPictureB
     const int32_t block_size = ctx->block_size;
     uint8_t*      raw_data[3];
     int32_t       chroma_sub_log2[2] = {1, 1}; //todo: send chroma subsampling
-    int32_t       strides[3]         = {sd->stride_y, sd->stride_cb, sd->stride_cr};
+    int32_t       strides[3]         = {sd->y_stride, sd->u_stride, sd->v_stride};
 
     if (!denoise_and_model_realloc_if_necessary(ctx, sd, use_highbd)) {
         SVT_ERROR("Unable to realloc buffers\n");
@@ -2317,11 +2314,9 @@ int32_t svt_aom_denoise_and_model_run(struct AomDenoiseAndModel* ctx, EbPictureB
     }
 
     if (!use_highbd) { // 8 bits input
-        raw_data[0] = sd->buffer_y + sd->org_y * sd->stride_y + sd->org_x;
-        raw_data[1] = sd->buffer_cb + sd->stride_cb * (sd->org_y >> chroma_sub_log2[0]) +
-            (sd->org_x >> chroma_sub_log2[1]);
-        raw_data[2] = sd->buffer_cr + sd->stride_cr * (sd->org_y >> chroma_sub_log2[0]) +
-            (sd->org_x >> chroma_sub_log2[1]);
+        raw_data[0] = sd->y_buffer;
+        raw_data[1] = sd->u_buffer;
+        raw_data[2] = sd->v_buffer;
     } else { // 10 bits input
         svt_aom_pack_2d_pic(sd, ctx->packed);
 

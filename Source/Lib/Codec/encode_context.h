@@ -32,8 +32,7 @@
 // *Note - the queues are small for testing purposes.  They should be increased when they are done.
 #define PRE_ASSIGNMENT_MAX_DEPTH 128 // should be large enough to hold an entire prediction period
 
-#define TPL_PADX 32
-#define TPL_PADY 32
+#define TPL_PAD 32
 // RC Groups: They should be a power of 2, so we can replace % by &.
 // Instead of using x % y, we use x && (y-1)
 #define PARALLEL_GOP_MAX_NUMBER 256

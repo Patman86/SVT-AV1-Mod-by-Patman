@@ -333,11 +333,11 @@ void search_palette_luma(PictureControlSet* pcs, ModeDecisionContext* ctx, Palet
     bool is16bit = ctx->hbd_md > 0;
 
     EbPictureBufferDesc* src_pic    = is16bit ? pcs->input_frame16bit : pcs->ppcs->enhanced_pic;
-    const int            src_stride = src_pic->stride_y;
+    const int            src_stride = src_pic->y_stride;
     // bit depth for palette search
     unsigned             bit_depth_pal = is16bit ? EB_TEN_BIT : EB_EIGHT_BIT;
-    const uint8_t* const src           = src_pic->buffer_y +
-        (((ctx->blk_org_x + src_pic->org_x) + (ctx->blk_org_y + src_pic->org_y) * src_pic->stride_y) << is16bit);
+    const uint8_t* const src           = src_pic->y_buffer +
+        (((ctx->blk_org_x) + (ctx->blk_org_y) * src_pic->y_stride) << is16bit);
     int          block_width, block_height, rows, cols;
     MacroBlockD* xd    = ctx->blk_ptr->av1xd;
     BlockSize    bsize = ctx->blk_geom->bsize;

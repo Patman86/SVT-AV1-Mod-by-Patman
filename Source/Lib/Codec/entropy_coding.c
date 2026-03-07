@@ -600,7 +600,7 @@ static EbErrorType av1_encode_tx_coef_y(PictureControlSet* pcs, EntropyCodingCon
 
         const uint32_t coeff1d_offset = ec_ctx->coded_area_sb;
 
-        int32_t* coeff_buffer = (int32_t*)coeff_ptr->buffer_y + coeff1d_offset;
+        int32_t* coeff_buffer = (int32_t*)coeff_ptr->y_buffer + coeff1d_offset;
 
         int16_t txb_skip_ctx = 0;
         int16_t dc_sign_ctx  = 0;
@@ -625,7 +625,7 @@ static EbErrorType av1_encode_tx_coef_y(PictureControlSet* pcs, EntropyCodingCon
                                                       txb_itr,
                                                       intraLumaDir,
                                                       coeff_buffer,
-                                                      coeff_ptr->stride_y,
+                                                      coeff_ptr->y_stride,
                                                       COMPONENT_LUMA,
                                                       txb_skip_ctx,
                                                       dc_sign_ctx,
@@ -668,7 +668,7 @@ static void av1_encode_tx_coef_uv(PictureControlSet* pcs, EntropyCodingContext* 
 
     for (unsigned tx_index = 0; tx_index < txb_count; ++tx_index) {
         // cb
-        int32_t* coeff_buffer = (int32_t*)coeff_ptr->buffer_cb + ec_ctx->coded_area_sb_uv;
+        int32_t* coeff_buffer = (int32_t*)coeff_ptr->u_buffer + ec_ctx->coded_area_sb_uv;
         int16_t  txb_skip_ctx = 0;
         int16_t  dc_sign_ctx  = 0;
 
@@ -692,14 +692,14 @@ static void av1_encode_tx_coef_uv(PictureControlSet* pcs, EntropyCodingContext* 
                                                        tx_index,
                                                        intraLumaDir,
                                                        coeff_buffer,
-                                                       coeff_ptr->stride_cb,
+                                                       coeff_ptr->u_stride,
                                                        COMPONENT_CHROMA,
                                                        txb_skip_ctx,
                                                        dc_sign_ctx,
                                                        blk_ptr->eob.u[tx_index]);
 
         // cr
-        coeff_buffer = (int32_t*)coeff_ptr->buffer_cr + ec_ctx->coded_area_sb_uv;
+        coeff_buffer = (int32_t*)coeff_ptr->v_buffer + ec_ctx->coded_area_sb_uv;
         txb_skip_ctx = 0;
         dc_sign_ctx  = 0;
 
@@ -723,7 +723,7 @@ static void av1_encode_tx_coef_uv(PictureControlSet* pcs, EntropyCodingContext* 
                                                        tx_index,
                                                        intraLumaDir,
                                                        coeff_buffer,
-                                                       coeff_ptr->stride_cr,
+                                                       coeff_ptr->v_stride,
                                                        COMPONENT_CHROMA,
                                                        txb_skip_ctx,
                                                        dc_sign_ctx,
@@ -806,7 +806,7 @@ static EbErrorType av1_encode_coeff_1d(PictureControlSet* pcs, EntropyCodingCont
 
             const uint32_t coeff1d_offset = ec_ctx->coded_area_sb;
 
-            coeff_buffer = (int32_t*)coeff_ptr->buffer_y + coeff1d_offset;
+            coeff_buffer = (int32_t*)coeff_ptr->y_buffer + coeff1d_offset;
 
             {
                 int16_t txb_skip_ctx = 0;
@@ -832,7 +832,7 @@ static EbErrorType av1_encode_coeff_1d(PictureControlSet* pcs, EntropyCodingCont
                                                       txb_itr,
                                                       intraLumaDir,
                                                       coeff_buffer,
-                                                      coeff_ptr->stride_y,
+                                                      coeff_ptr->y_stride,
                                                       COMPONENT_LUMA,
                                                       txb_skip_ctx,
                                                       dc_sign_ctx,
@@ -842,7 +842,7 @@ static EbErrorType av1_encode_coeff_1d(PictureControlSet* pcs, EntropyCodingCont
             if (has_uv) {
                 const BlockSize bsize_uv = get_plane_block_size(luma_bsize, 1, 1);
                 // cb
-                coeff_buffer = (int32_t*)coeff_ptr->buffer_cb + ec_ctx->coded_area_sb_uv;
+                coeff_buffer = (int32_t*)coeff_ptr->u_buffer + ec_ctx->coded_area_sb_uv;
                 {
                     int16_t txb_skip_ctx = 0;
                     int16_t dc_sign_ctx  = 0;
@@ -867,7 +867,7 @@ static EbErrorType av1_encode_coeff_1d(PictureControlSet* pcs, EntropyCodingCont
                                                            txb_itr,
                                                            intraLumaDir,
                                                            coeff_buffer,
-                                                           coeff_ptr->stride_cb,
+                                                           coeff_ptr->u_stride,
                                                            COMPONENT_CHROMA,
                                                            txb_skip_ctx,
                                                            dc_sign_ctx,
@@ -875,7 +875,7 @@ static EbErrorType av1_encode_coeff_1d(PictureControlSet* pcs, EntropyCodingCont
                 }
 
                 // cr
-                coeff_buffer = (int32_t*)coeff_ptr->buffer_cr + ec_ctx->coded_area_sb_uv;
+                coeff_buffer = (int32_t*)coeff_ptr->v_buffer + ec_ctx->coded_area_sb_uv;
                 {
                     int16_t txb_skip_ctx = 0;
                     int16_t dc_sign_ctx  = 0;
@@ -900,7 +900,7 @@ static EbErrorType av1_encode_coeff_1d(PictureControlSet* pcs, EntropyCodingCont
                                                            txb_itr,
                                                            intraLumaDir,
                                                            coeff_buffer,
-                                                           coeff_ptr->stride_cr,
+                                                           coeff_ptr->v_stride,
                                                            COMPONENT_CHROMA,
                                                            txb_skip_ctx,
                                                            dc_sign_ctx,
@@ -2405,28 +2405,28 @@ static void write_delta_q(AomWriteBitBuffer* wb, int32_t delta_q) {
 static void encode_quantization(const PictureParentControlSet* const pcs, AomWriteBitBuffer* wb) {
     const FrameHeader* frm_hdr = &pcs->frm_hdr;
     svt_aom_wb_write_literal(wb, frm_hdr->quantization_params.base_q_idx, QINDEX_BITS);
-    write_delta_q(wb, frm_hdr->quantization_params.delta_q_dc[AOM_PLANE_Y]);
-    int32_t diff_uv_delta = (frm_hdr->quantization_params.delta_q_dc[AOM_PLANE_U] !=
-                             frm_hdr->quantization_params.delta_q_dc[AOM_PLANE_V]) ||
-        (frm_hdr->quantization_params.delta_q_ac[AOM_PLANE_U] != frm_hdr->quantization_params.delta_q_ac[AOM_PLANE_V]);
+    write_delta_q(wb, frm_hdr->quantization_params.delta_q_dc[PLANE_Y]);
+    int32_t diff_uv_delta = (frm_hdr->quantization_params.delta_q_dc[PLANE_U] !=
+                             frm_hdr->quantization_params.delta_q_dc[PLANE_V]) ||
+        (frm_hdr->quantization_params.delta_q_ac[PLANE_U] != frm_hdr->quantization_params.delta_q_ac[PLANE_V]);
 
     if (diff_uv_delta) {
         svt_aom_wb_write_bit(wb, diff_uv_delta);
     }
-    write_delta_q(wb, frm_hdr->quantization_params.delta_q_dc[AOM_PLANE_U]);
-    write_delta_q(wb, frm_hdr->quantization_params.delta_q_ac[AOM_PLANE_U]);
+    write_delta_q(wb, frm_hdr->quantization_params.delta_q_dc[PLANE_U]);
+    write_delta_q(wb, frm_hdr->quantization_params.delta_q_ac[PLANE_U]);
     if (diff_uv_delta) {
-        write_delta_q(wb, frm_hdr->quantization_params.delta_q_dc[AOM_PLANE_V]);
-        write_delta_q(wb, frm_hdr->quantization_params.delta_q_ac[AOM_PLANE_V]);
+        write_delta_q(wb, frm_hdr->quantization_params.delta_q_dc[PLANE_V]);
+        write_delta_q(wb, frm_hdr->quantization_params.delta_q_ac[PLANE_V]);
     }
     svt_aom_wb_write_bit(wb, frm_hdr->quantization_params.using_qmatrix);
     if (frm_hdr->quantization_params.using_qmatrix) {
-        svt_aom_wb_write_literal(wb, frm_hdr->quantization_params.qm[AOM_PLANE_Y], QM_LEVEL_BITS);
-        svt_aom_wb_write_literal(wb, frm_hdr->quantization_params.qm[AOM_PLANE_U], QM_LEVEL_BITS);
+        svt_aom_wb_write_literal(wb, frm_hdr->quantization_params.qm[PLANE_Y], QM_LEVEL_BITS);
+        svt_aom_wb_write_literal(wb, frm_hdr->quantization_params.qm[PLANE_U], QM_LEVEL_BITS);
         if (!diff_uv_delta) {
-            assert(frm_hdr->quantization_params.qm[AOM_PLANE_U] == frm_hdr->quantization_params.qm[AOM_PLANE_V]);
+            assert(frm_hdr->quantization_params.qm[PLANE_U] == frm_hdr->quantization_params.qm[PLANE_V]);
         } else {
-            svt_aom_wb_write_literal(wb, frm_hdr->quantization_params.qm[AOM_PLANE_V], QM_LEVEL_BITS);
+            svt_aom_wb_write_literal(wb, frm_hdr->quantization_params.qm[PLANE_V], QM_LEVEL_BITS);
         }
     }
 }
@@ -3329,7 +3329,7 @@ static void write_uncompressed_header_obu(SequenceControlSet* scs /*Av1Comp *cpi
             //const int32_t frame_to_show = cm->ref_frame_map[cpi->show_existing_frame];
 
             //if (frame_to_show < 0 || frame_bufs[frame_to_show].ref_count < 1) {
-            //    aom_internal_error(&cm->error, AOM_CODEC_UNSUP_BITSTREAM,
+            //    aom_internal_error(&cm->error, SVT_AOM_CODEC_UNSUP_BITSTREAM,
             //        "Buffer %d does not contain a reconstructed frame",
             //        frame_to_show);
             //}
@@ -3347,7 +3347,7 @@ static void write_uncompressed_header_obu(SequenceControlSet* scs /*Av1Comp *cpi
             //        if (cm->reset_decoder_state &&
             //            frame_bufs[frame_to_show].frame_type != KEY_FRAME) {
             //            aom_internal_error(
-            //                &cm->error, AOM_CODEC_UNSUP_BITSTREAM,
+            //                &cm->error, SVT_AOM_CODEC_UNSUP_BITSTREAM,
             //                "show_existing_frame to reset state on KEY_FRAME only");
             //        }
 
@@ -3401,7 +3401,7 @@ static void write_uncompressed_header_obu(SequenceControlSet* scs /*Av1Comp *cpi
 
         //if (cm->width > cm->seq_params.max_frame_width ||
         //    cm->height > cm->seq_params.max_frame_height) {
-        //    aom_internal_error(&cm->error, AOM_CODEC_UNSUP_BITSTREAM,
+        //    aom_internal_error(&cm->error, SVT_AOM_CODEC_UNSUP_BITSTREAM,
         //        "Frame dimensions are larger than the maximum values");
         //}
 
@@ -3682,10 +3682,10 @@ static int32_t write_uleb_obu_size(uint32_t obu_header_size, uint32_t obu_payloa
     size_t         coded_obu_size = 0;
 
     if (svt_aom_uleb_encode(obu_size, sizeof(obu_size), dest + offset, &coded_obu_size) != 0) {
-        return AOM_CODEC_ERROR;
+        return SVT_AOM_CODEC_ERROR;
     }
 
-    return AOM_CODEC_OK;
+    return SVT_AOM_CODEC_OK;
 }
 
 static size_t obu_mem_move(uint32_t obu_header_size, uint32_t obu_payload_size, uint8_t* data) {
@@ -3860,7 +3860,7 @@ EbErrorType svt_aom_write_metadata_av1(Bitstream* bitstream_ptr, SvtMetadataArra
             curr_data_size += write_obu_metadata(current_metadata, data + curr_data_size);
             const uint32_t obu_payload_size  = curr_data_size - obu_header_size;
             const size_t   length_field_size = obu_mem_move(obu_header_size, obu_payload_size, data);
-            if (write_uleb_obu_size(obu_header_size, obu_payload_size, data) != AOM_CODEC_OK) {
+            if (write_uleb_obu_size(obu_header_size, obu_payload_size, data) != SVT_AOM_CODEC_OK) {
                 assert(0);
             }
             curr_data_size += (int32_t)length_field_size;
@@ -3931,7 +3931,7 @@ EbErrorType svt_aom_write_frame_header_av1(Bitstream* bitstream_ptr, SequenceCon
     }
     const uint32_t obu_payload_size  = curr_data_size - obu_header_size;
     const size_t   length_field_size = obu_mem_move(obu_header_size, obu_payload_size, data);
-    if (write_uleb_obu_size(obu_header_size, obu_payload_size, data) != AOM_CODEC_OK) {
+    if (write_uleb_obu_size(obu_header_size, obu_payload_size, data) != SVT_AOM_CODEC_OK) {
         assert(0);
     }
     curr_data_size += (int32_t)length_field_size;
@@ -3958,8 +3958,8 @@ EbErrorType svt_aom_encode_sps_av1(Bitstream* bitstream_ptr, SequenceControlSet*
     obu_payload_size = write_sequence_header_obu(scs, /*cpi,*/ data + obu_header_size, enhancement_layers_count);
 
     const size_t length_field_size = obu_mem_move(obu_header_size, obu_payload_size, data);
-    if (write_uleb_obu_size(obu_header_size, obu_payload_size, data) != AOM_CODEC_OK) {
-        // return AOM_CODEC_ERROR;
+    if (write_uleb_obu_size(obu_header_size, obu_payload_size, data) != SVT_AOM_CODEC_OK) {
+        // return SVT_AOM_CODEC_ERROR;
     }
 
     data += obu_header_size + obu_payload_size + length_field_size;
@@ -4032,7 +4032,7 @@ static void write_cdef(SequenceControlSet* scs, PictureControlSet* pcs, EntropyC
 }
 
 void svt_av1_reset_loop_restoration(EntropyCodingContext* ctx) {
-    for (int32_t p = 0; p < MAX_MB_PLANE; ++p) {
+    for (int32_t p = 0; p < MAX_PLANES; ++p) {
         set_default_wiener(ctx->wiener_info + p);
         set_default_sgrproj(ctx->sgrproj_info + p);
     }

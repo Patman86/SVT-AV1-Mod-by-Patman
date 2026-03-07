@@ -97,17 +97,17 @@ static void encode_pass_update_recon_sample_neighbour_arrays(
     NeighborArrayUnit* lumaReconSampleNeighborArray, NeighborArrayUnit* cbReconSampleNeighborArray,
     NeighborArrayUnit* crReconSampleNeighborArray, EbPictureBufferDesc* recon_buffer, uint32_t org_x, uint32_t org_y,
     uint32_t width, uint32_t height, uint32_t bwidth_uv, uint32_t bheight_uv, uint32_t component_mask, bool is_16bit) {
-    uint32_t round_origin_x = (org_x >> 3) << 3; // for Chroma blocks with size of 4
-    uint32_t round_origin_y = (org_y >> 3) << 3; // for Chroma blocks with size of 4
+    uint32_t round_origin_x = ROUND_UV(org_x); // for Chroma blocks with size of 4
+    uint32_t round_origin_y = ROUND_UV(org_y); // for Chroma blocks with size of 4
 
     if (is_16bit == true) {
         if (component_mask & PICTURE_BUFFER_DESC_LUMA_MASK) {
             // Recon Samples - Luma
             svt_aom_neighbor_array_unit16bit_sample_write(lumaReconSampleNeighborArray,
-                                                          (uint16_t*)(recon_buffer->buffer_y),
-                                                          recon_buffer->stride_y,
-                                                          recon_buffer->org_x + org_x,
-                                                          recon_buffer->org_y + org_y,
+                                                          (uint16_t*)(recon_buffer->y_buffer),
+                                                          recon_buffer->y_stride,
+                                                          org_x,
+                                                          org_y,
                                                           org_x,
                                                           org_y,
                                                           width,
@@ -118,10 +118,10 @@ static void encode_pass_update_recon_sample_neighbour_arrays(
         if (component_mask & PICTURE_BUFFER_DESC_CHROMA_MASK) {
             // Recon Samples - Cb
             svt_aom_neighbor_array_unit16bit_sample_write(cbReconSampleNeighborArray,
-                                                          (uint16_t*)(recon_buffer->buffer_cb),
-                                                          recon_buffer->stride_cb,
-                                                          (recon_buffer->org_x + round_origin_x) >> 1,
-                                                          (recon_buffer->org_y + round_origin_y) >> 1,
+                                                          (uint16_t*)(recon_buffer->u_buffer),
+                                                          recon_buffer->u_stride,
+                                                          round_origin_x >> 1,
+                                                          round_origin_y >> 1,
                                                           round_origin_x >> 1,
                                                           round_origin_y >> 1,
                                                           bwidth_uv,
@@ -130,10 +130,10 @@ static void encode_pass_update_recon_sample_neighbour_arrays(
 
             // Recon Samples - Cr
             svt_aom_neighbor_array_unit16bit_sample_write(crReconSampleNeighborArray,
-                                                          (uint16_t*)(recon_buffer->buffer_cr),
-                                                          recon_buffer->stride_cr,
-                                                          (recon_buffer->org_x + round_origin_x) >> 1,
-                                                          (recon_buffer->org_y + round_origin_y) >> 1,
+                                                          (uint16_t*)(recon_buffer->v_buffer),
+                                                          recon_buffer->v_stride,
+                                                          round_origin_x >> 1,
+                                                          round_origin_y >> 1,
                                                           round_origin_x >> 1,
                                                           round_origin_y >> 1,
                                                           bwidth_uv,
@@ -144,10 +144,10 @@ static void encode_pass_update_recon_sample_neighbour_arrays(
         if (component_mask & PICTURE_BUFFER_DESC_LUMA_MASK) {
             // Recon Samples - Luma
             svt_aom_neighbor_array_unit_sample_write(lumaReconSampleNeighborArray,
-                                                     recon_buffer->buffer_y,
-                                                     recon_buffer->stride_y,
-                                                     recon_buffer->org_x + org_x,
-                                                     recon_buffer->org_y + org_y,
+                                                     recon_buffer->y_buffer,
+                                                     recon_buffer->y_stride,
+                                                     org_x,
+                                                     org_y,
                                                      org_x,
                                                      org_y,
                                                      width,
@@ -158,10 +158,10 @@ static void encode_pass_update_recon_sample_neighbour_arrays(
         if (component_mask & PICTURE_BUFFER_DESC_CHROMA_MASK) {
             // Recon Samples - Cb
             svt_aom_neighbor_array_unit_sample_write(cbReconSampleNeighborArray,
-                                                     recon_buffer->buffer_cb,
-                                                     recon_buffer->stride_cb,
-                                                     (recon_buffer->org_x + round_origin_x) >> 1,
-                                                     (recon_buffer->org_y + round_origin_y) >> 1,
+                                                     recon_buffer->u_buffer,
+                                                     recon_buffer->u_stride,
+                                                     round_origin_x >> 1,
+                                                     round_origin_y >> 1,
                                                      round_origin_x >> 1,
                                                      round_origin_y >> 1,
                                                      bwidth_uv,
@@ -170,10 +170,10 @@ static void encode_pass_update_recon_sample_neighbour_arrays(
 
             // Recon Samples - Cr
             svt_aom_neighbor_array_unit_sample_write(crReconSampleNeighborArray,
-                                                     recon_buffer->buffer_cr,
-                                                     recon_buffer->stride_cr,
-                                                     (recon_buffer->org_x + round_origin_x) >> 1,
-                                                     (recon_buffer->org_y + round_origin_y) >> 1,
+                                                     recon_buffer->v_buffer,
+                                                     recon_buffer->v_stride,
+                                                     round_origin_x >> 1,
+                                                     round_origin_y >> 1,
                                                      round_origin_x >> 1,
                                                      round_origin_y >> 1,
                                                      bwidth_uv,
@@ -181,8 +181,6 @@ static void encode_pass_update_recon_sample_neighbour_arrays(
                                                      NEIGHBOR_ARRAY_UNIT_FULL_MASK);
         }
     }
-
-    return;
 }
 
 /**********************************************************
@@ -207,21 +205,20 @@ static void av1_encode_generate_cfl_prediction(EbPictureBufferDesc* pred_samples
 
     EbPictureBufferDesc* recon_samples = pred_samples;
 
-    uint32_t recon_luma_offset = (recon_samples->org_y + round_origin_y) * recon_samples->stride_y +
-        (recon_samples->org_x + round_origin_x);
+    uint32_t recon_luma_offset = (round_origin_y * recon_samples->y_stride) + round_origin_x;
 
     // Down sample Luma
     if (is_16bit) {
         svt_cfl_luma_subsampling_420_hbd(
-            ((uint16_t*)recon_samples->buffer_y) + recon_luma_offset,
-            recon_samples->stride_y,
+            ((uint16_t*)recon_samples->y_buffer) + recon_luma_offset,
+            recon_samples->y_stride,
             ed_ctx->md_ctx->pred_buf_q3,
             blk_geom->bwidth_uv == blk_geom->bwidth ? (blk_geom->bwidth_uv << 1) : blk_geom->bwidth,
             blk_geom->bheight_uv == blk_geom->bheight ? (blk_geom->bheight_uv << 1) : blk_geom->bheight);
     } else {
         svt_cfl_luma_subsampling_420_lbd(
-            recon_samples->buffer_y + recon_luma_offset,
-            recon_samples->stride_y,
+            recon_samples->y_buffer + recon_luma_offset,
+            recon_samples->y_stride,
             ed_ctx->md_ctx->pred_buf_q3,
             blk_geom->bwidth_uv == blk_geom->bwidth ? (blk_geom->bwidth_uv << 1) : blk_geom->bwidth,
             blk_geom->bheight_uv == blk_geom->bheight ? (blk_geom->bheight_uv << 1) : blk_geom->bheight);
@@ -248,40 +245,40 @@ static void av1_encode_generate_cfl_prediction(EbPictureBufferDesc* pred_samples
 
     if (is_16bit) {
         svt_cfl_predict_hbd(ed_ctx->md_ctx->pred_buf_q3,
-                            ((uint16_t*)pred_samples->buffer_cb) + pred_cb_offset,
-                            pred_samples->stride_cb,
-                            ((uint16_t*)pred_samples->buffer_cb) + pred_cb_offset,
-                            pred_samples->stride_cb,
+                            ((uint16_t*)pred_samples->u_buffer) + pred_cb_offset,
+                            pred_samples->u_stride,
+                            ((uint16_t*)pred_samples->u_buffer) + pred_cb_offset,
+                            pred_samples->u_stride,
                             alpha_q3_cb,
                             ed_ctx->bit_depth,
                             tx_width_uv,
                             tx_height_uv);
 
         svt_cfl_predict_hbd(ed_ctx->md_ctx->pred_buf_q3,
-                            ((uint16_t*)pred_samples->buffer_cr) + pred_cr_offset,
-                            pred_samples->stride_cr,
-                            ((uint16_t*)pred_samples->buffer_cr) + pred_cr_offset,
-                            pred_samples->stride_cr,
+                            ((uint16_t*)pred_samples->v_buffer) + pred_cr_offset,
+                            pred_samples->v_stride,
+                            ((uint16_t*)pred_samples->v_buffer) + pred_cr_offset,
+                            pred_samples->v_stride,
                             alpha_q3_cr,
                             ed_ctx->bit_depth,
                             tx_width_uv,
                             tx_height_uv);
     } else {
         svt_cfl_predict_lbd(ed_ctx->md_ctx->pred_buf_q3,
-                            pred_samples->buffer_cb + pred_cb_offset,
-                            pred_samples->stride_cb,
-                            pred_samples->buffer_cb + pred_cb_offset,
-                            pred_samples->stride_cb,
+                            pred_samples->u_buffer + pred_cb_offset,
+                            pred_samples->u_stride,
+                            pred_samples->u_buffer + pred_cb_offset,
+                            pred_samples->u_stride,
                             alpha_q3_cb,
                             8,
                             tx_width_uv,
                             tx_height_uv);
 
         svt_cfl_predict_lbd(ed_ctx->md_ctx->pred_buf_q3,
-                            pred_samples->buffer_cr + pred_cr_offset,
-                            pred_samples->stride_cr,
-                            pred_samples->buffer_cr + pred_cr_offset,
-                            pred_samples->stride_cr,
+                            pred_samples->v_buffer + pred_cr_offset,
+                            pred_samples->v_stride,
+                            pred_samples->v_buffer + pred_cr_offset,
+                            pred_samples->v_stride,
                             alpha_q3_cr,
                             8,
                             tx_width_uv,
@@ -338,38 +335,33 @@ static void av1_encode_loop(PictureControlSet* pcs, EncDecContext* ed_ctx, uint3
     uint32_t pred_luma_offset, pred_cb_offset, pred_cr_offset;
     uint32_t scratch_luma_offset, scratch_cb_offset, scratch_cr_offset;
     if (is_16bit) {
-        input_luma_offset = tx_org_x + tx_org_y * input_samples->stride_y;
-        input_cb_offset   = ROUND_UV(tx_org_x) / 2 + ROUND_UV(tx_org_y) / 2 * input_samples->stride_cb;
-        input_cr_offset   = ROUND_UV(tx_org_x) / 2 + ROUND_UV(tx_org_y) / 2 * input_samples->stride_cr;
-        pred_luma_offset  = ((pred_samples->org_y + org_y) * pred_samples->stride_y) + (pred_samples->org_x + org_x);
-        pred_cb_offset    = ((pred_samples->org_x + round_origin_x) >> 1) +
-            (((pred_samples->org_y + round_origin_y) >> 1) * pred_samples->stride_cb);
-        pred_cr_offset = ((pred_samples->org_x + round_origin_x) >> 1) +
-            (((pred_samples->org_y + round_origin_y) >> 1) * pred_samples->stride_cr);
+        input_luma_offset = tx_org_x + tx_org_y * input_samples->y_stride;
+        input_cb_offset   = ROUND_UV(tx_org_x) / 2 + ROUND_UV(tx_org_y) / 2 * input_samples->u_stride;
+        input_cr_offset   = ROUND_UV(tx_org_x) / 2 + ROUND_UV(tx_org_y) / 2 * input_samples->v_stride;
+        pred_luma_offset  = (org_y * pred_samples->y_stride) + org_x;
+        pred_cb_offset    = (round_origin_x >> 1) + ((round_origin_y >> 1) * pred_samples->u_stride);
+        pred_cr_offset    = (round_origin_x >> 1) + ((round_origin_y >> 1) * pred_samples->v_stride);
     } else {
-        input_luma_offset = ((org_y + input_samples->org_y) * input_samples->stride_y) + (org_x + input_samples->org_x);
-        input_cb_offset   = (((round_origin_y + input_samples->org_y) >> 1) * input_samples->stride_cb) +
-            ((round_origin_x + input_samples->org_x) >> 1);
-        input_cr_offset = (((round_origin_y + input_samples->org_y) >> 1) * input_samples->stride_cr) +
-            ((round_origin_x + input_samples->org_x) >> 1);
-        pred_luma_offset = (pred_samples->org_x + org_x) + ((pred_samples->org_y + org_y) * pred_samples->stride_y);
-        pred_cb_offset   = ((pred_samples->org_x + round_origin_x) >> 1) +
-            (((pred_samples->org_y + round_origin_y) >> 1) * pred_samples->stride_cb);
-        pred_cr_offset = ((pred_samples->org_x + round_origin_x) >> 1) +
-            (((pred_samples->org_y + round_origin_y) >> 1) * pred_samples->stride_cr);
+        input_luma_offset = (org_y * input_samples->y_stride) + org_x;
+        input_cb_offset   = ((round_origin_y >> 1) * input_samples->u_stride) + (round_origin_x >> 1);
+        input_cr_offset   = ((round_origin_y >> 1) * input_samples->v_stride) + (round_origin_x >> 1);
+
+        pred_luma_offset = org_x + (org_y * pred_samples->y_stride);
+        pred_cb_offset   = (round_origin_x >> 1) + ((round_origin_y >> 1) * pred_samples->u_stride);
+        pred_cr_offset   = (round_origin_x >> 1) + ((round_origin_y >> 1) * pred_samples->v_stride);
     }
 
     if (bit_depth != EB_EIGHT_BIT) {
         // Get the block origin coordinates within the SB (not frame)
         const uint16_t blk_org_x_in_sb = md_ctx->blk_org_x - md_ctx->sb_origin_x;
         const uint16_t blk_org_y_in_sb = md_ctx->blk_org_y - md_ctx->sb_origin_y;
-        scratch_luma_offset            = blk_org_x_in_sb + blk_org_y_in_sb * residual16bit->stride_y;
-        scratch_cb_offset = ROUND_UV(blk_org_x_in_sb) / 2 + ROUND_UV(blk_org_y_in_sb) / 2 * residual16bit->stride_cb;
-        scratch_cr_offset = ROUND_UV(blk_org_x_in_sb) / 2 + ROUND_UV(blk_org_y_in_sb) / 2 * residual16bit->stride_cr;
+        scratch_luma_offset            = blk_org_x_in_sb + blk_org_y_in_sb * residual16bit->y_stride;
+        scratch_cb_offset = ROUND_UV(blk_org_x_in_sb) / 2 + ROUND_UV(blk_org_y_in_sb) / 2 * residual16bit->u_stride;
+        scratch_cr_offset = ROUND_UV(blk_org_x_in_sb) / 2 + ROUND_UV(blk_org_y_in_sb) / 2 * residual16bit->v_stride;
     } else {
-        scratch_luma_offset = tx_org_x + tx_org_y * residual16bit->stride_y;
-        scratch_cb_offset   = ROUND_UV(tx_org_x) / 2 + ROUND_UV(tx_org_y) / 2 * residual16bit->stride_cb;
-        scratch_cr_offset   = ROUND_UV(tx_org_x) / 2 + ROUND_UV(tx_org_y) / 2 * residual16bit->stride_cr;
+        scratch_luma_offset = tx_org_x + tx_org_y * residual16bit->y_stride;
+        scratch_cb_offset   = ROUND_UV(tx_org_x) / 2 + ROUND_UV(tx_org_y) / 2 * residual16bit->u_stride;
+        scratch_cr_offset   = ROUND_UV(tx_org_x) / 2 + ROUND_UV(tx_org_y) / 2 * residual16bit->v_stride;
     }
     ed_ctx->three_quad_energy = 0;
 
@@ -400,23 +392,23 @@ static void av1_encode_loop(PictureControlSet* pcs, EncDecContext* ed_ctx, uint3
             const TxSize tx_size   = tx_depth_to_tx_size[tx_depth][blk_geom->bsize];
             const int    tx_width  = tx_size_wide[tx_size];
             const int    tx_height = tx_size_high[tx_size];
-            svt_aom_residual_kernel(input_samples->buffer_y,
+            svt_aom_residual_kernel(input_samples->y_buffer,
                                     input_luma_offset,
-                                    input_samples->stride_y,
-                                    pred_samples->buffer_y,
+                                    input_samples->y_stride,
+                                    pred_samples->y_buffer,
                                     pred_luma_offset,
-                                    pred_samples->stride_y,
-                                    ((int16_t*)residual16bit->buffer_y),
+                                    pred_samples->y_stride,
+                                    ((int16_t*)residual16bit->y_buffer),
                                     scratch_luma_offset,
-                                    residual16bit->stride_y,
+                                    residual16bit->y_stride,
                                     is_16bit, // hbd
                                     tx_width,
                                     tx_height);
             svt_aom_estimate_transform(pcs,
                                        ed_ctx->md_ctx,
-                                       ((int16_t*)residual16bit->buffer_y) + scratch_luma_offset,
-                                       residual16bit->stride_y,
-                                       ((TranLow*)transform16bit->buffer_y) + ed_ctx->coded_area_sb,
+                                       ((int16_t*)residual16bit->y_buffer) + scratch_luma_offset,
+                                       residual16bit->y_stride,
+                                       ((TranLow*)transform16bit->y_buffer) + ed_ctx->coded_area_sb,
                                        NOT_USED_VALUE,
                                        tx_size,
                                        &ed_ctx->three_quad_energy,
@@ -428,9 +420,9 @@ static void av1_encode_loop(PictureControlSet* pcs, EncDecContext* ed_ctx, uint3
             blk_ptr->quant_dc.y[ed_ctx->txb_itr] = svt_aom_quantize_inv_quantize(
                 pcs,
                 md_ctx,
-                ((int32_t*)transform16bit->buffer_y) + ed_ctx->coded_area_sb,
-                ((int32_t*)coeff_samples_sb->buffer_y) + ed_ctx->coded_area_sb,
-                ((int32_t*)inverse_quant_buffer->buffer_y) + ed_ctx->coded_area_sb,
+                ((int32_t*)transform16bit->y_buffer) + ed_ctx->coded_area_sb,
+                ((int32_t*)coeff_samples_sb->y_buffer) + ed_ctx->coded_area_sb,
+                ((int32_t*)inverse_quant_buffer->y_buffer) + ed_ctx->coded_area_sb,
                 qindex,
                 seg_qp,
                 tx_size,
@@ -481,23 +473,23 @@ static void av1_encode_loop(PictureControlSet* pcs, EncDecContext* ed_ctx, uint3
             //**********************************
             // Cb
             //**********************************
-            svt_aom_residual_kernel(input_samples->buffer_cb,
+            svt_aom_residual_kernel(input_samples->u_buffer,
                                     input_cb_offset,
-                                    input_samples->stride_cb,
-                                    pred_samples->buffer_cb,
+                                    input_samples->u_stride,
+                                    pred_samples->u_buffer,
                                     pred_cb_offset,
-                                    pred_samples->stride_cb,
-                                    ((int16_t*)residual16bit->buffer_cb),
+                                    pred_samples->u_stride,
+                                    ((int16_t*)residual16bit->u_buffer),
                                     scratch_cb_offset,
-                                    residual16bit->stride_cb,
+                                    residual16bit->u_stride,
                                     is_16bit, // hbd
                                     tx_width_uv,
                                     tx_height_uv);
             svt_aom_estimate_transform(pcs,
                                        ed_ctx->md_ctx,
-                                       ((int16_t*)residual16bit->buffer_cb) + scratch_cb_offset,
-                                       residual16bit->stride_cb,
-                                       ((TranLow*)transform16bit->buffer_cb) + ed_ctx->coded_area_sb_uv,
+                                       ((int16_t*)residual16bit->u_buffer) + scratch_cb_offset,
+                                       residual16bit->u_stride,
+                                       ((TranLow*)transform16bit->u_buffer) + ed_ctx->coded_area_sb_uv,
                                        NOT_USED_VALUE,
                                        tx_size_uv,
                                        &ed_ctx->three_quad_energy,
@@ -509,9 +501,9 @@ static void av1_encode_loop(PictureControlSet* pcs, EncDecContext* ed_ctx, uint3
             blk_ptr->quant_dc.u[ed_ctx->txb_itr] = svt_aom_quantize_inv_quantize(
                 pcs,
                 md_ctx,
-                ((int32_t*)transform16bit->buffer_cb) + ed_ctx->coded_area_sb_uv,
-                ((int32_t*)coeff_samples_sb->buffer_cb) + ed_ctx->coded_area_sb_uv,
-                ((int32_t*)inverse_quant_buffer->buffer_cb) + ed_ctx->coded_area_sb_uv,
+                ((int32_t*)transform16bit->u_buffer) + ed_ctx->coded_area_sb_uv,
+                ((int32_t*)coeff_samples_sb->u_buffer) + ed_ctx->coded_area_sb_uv,
+                ((int32_t*)inverse_quant_buffer->u_buffer) + ed_ctx->coded_area_sb_uv,
                 qindex,
                 seg_qp,
                 tx_size_uv,
@@ -528,23 +520,23 @@ static void av1_encode_loop(PictureControlSet* pcs, EncDecContext* ed_ctx, uint3
             //**********************************
             // Cr
             //**********************************
-            svt_aom_residual_kernel(input_samples->buffer_cr,
+            svt_aom_residual_kernel(input_samples->v_buffer,
                                     input_cr_offset,
-                                    input_samples->stride_cr,
-                                    pred_samples->buffer_cr,
+                                    input_samples->v_stride,
+                                    pred_samples->v_buffer,
                                     pred_cr_offset,
-                                    pred_samples->stride_cr,
-                                    ((int16_t*)residual16bit->buffer_cr),
+                                    pred_samples->v_stride,
+                                    ((int16_t*)residual16bit->v_buffer),
                                     scratch_cr_offset,
-                                    residual16bit->stride_cr,
+                                    residual16bit->v_stride,
                                     is_16bit, // hbd
                                     tx_width_uv,
                                     tx_height_uv);
             svt_aom_estimate_transform(pcs,
                                        ed_ctx->md_ctx,
-                                       ((int16_t*)residual16bit->buffer_cr) + scratch_cb_offset,
-                                       residual16bit->stride_cr,
-                                       ((TranLow*)transform16bit->buffer_cr) + ed_ctx->coded_area_sb_uv,
+                                       ((int16_t*)residual16bit->v_buffer) + scratch_cb_offset,
+                                       residual16bit->v_stride,
+                                       ((TranLow*)transform16bit->v_buffer) + ed_ctx->coded_area_sb_uv,
                                        NOT_USED_VALUE,
                                        tx_size_uv,
                                        &ed_ctx->three_quad_energy,
@@ -556,9 +548,9 @@ static void av1_encode_loop(PictureControlSet* pcs, EncDecContext* ed_ctx, uint3
             blk_ptr->quant_dc.v[ed_ctx->txb_itr] = svt_aom_quantize_inv_quantize(
                 pcs,
                 md_ctx,
-                ((int32_t*)transform16bit->buffer_cr) + ed_ctx->coded_area_sb_uv,
-                ((int32_t*)coeff_samples_sb->buffer_cr) + ed_ctx->coded_area_sb_uv,
-                ((int32_t*)inverse_quant_buffer->buffer_cr) + ed_ctx->coded_area_sb_uv,
+                ((int32_t*)transform16bit->v_buffer) + ed_ctx->coded_area_sb_uv,
+                ((int32_t*)coeff_samples_sb->v_buffer) + ed_ctx->coded_area_sb_uv,
+                ((int32_t*)inverse_quant_buffer->v_buffer) + ed_ctx->coded_area_sb_uv,
                 qindex,
                 seg_qp,
                 tx_size_uv,
@@ -613,17 +605,16 @@ static void av1_encode_generate_recon(PictureControlSet* pcs, EncDecContext* ed_
     if (component_mask & PICTURE_BUFFER_DESC_LUMA_MASK) {
         if ((blk_ptr->y_has_coeff & (1 << ed_ctx->txb_itr)) && blk_ptr->block_mi.skip_mode == false) {
             const TxSize   tx_size          = tx_depth_to_tx_size[blk_ptr->block_mi.tx_depth][ed_ctx->blk_geom->bsize];
-            const uint32_t pred_luma_offset = (pred_samples->org_y + org_y) * pred_samples->stride_y +
-                (pred_samples->org_x + org_x);
+            const uint32_t pred_luma_offset = (org_y * pred_samples->y_stride) + org_x;
             svt_aom_inv_transform_recon_wrapper(pcs,
                                                 ed_ctx->md_ctx,
-                                                pred_samples->buffer_y,
+                                                pred_samples->y_buffer,
                                                 pred_luma_offset,
-                                                pred_samples->stride_y,
-                                                pred_samples->buffer_y,
+                                                pred_samples->y_stride,
+                                                pred_samples->y_buffer,
                                                 pred_luma_offset,
-                                                pred_samples->stride_y,
-                                                ((int32_t*)residual16bit->buffer_y),
+                                                pred_samples->y_stride,
+                                                ((int32_t*)residual16bit->y_buffer),
                                                 ed_ctx->coded_area_sb,
                                                 ed_ctx->bit_depth == EB_TEN_BIT ? 1 : 0, // hbd
                                                 tx_size,
@@ -638,24 +629,23 @@ static void av1_encode_generate_recon(PictureControlSet* pcs, EncDecContext* ed_
     //**********************************
     if (component_mask & PICTURE_BUFFER_DESC_CHROMA_MASK) {
         const TxSize   tx_size_uv     = av1_get_max_uv_txsize(ed_ctx->blk_geom->bsize, 1, 1);
-        const uint32_t round_origin_x = (org_x >> 3) << 3; // for Chroma blocks with size of 4
-        const uint32_t round_origin_y = (org_y >> 3) << 3; // for Chroma blocks with size of 4
+        const uint32_t round_origin_x = ROUND_UV(org_x); // for Chroma blocks with size of 4
+        const uint32_t round_origin_y = ROUND_UV(org_y); // for Chroma blocks with size of 4
 
         //**********************************
         // Cb
         //**********************************
         if ((blk_ptr->u_has_coeff & (1 << ed_ctx->txb_itr)) && blk_ptr->block_mi.skip_mode == false) {
-            const uint32_t pred_offset_cb = (((pred_samples->org_y + round_origin_y) >> 1) * pred_samples->stride_cb) +
-                ((pred_samples->org_x + round_origin_x) >> 1);
+            const uint32_t pred_offset_cb = ((round_origin_y >> 1) * pred_samples->u_stride) + (round_origin_x >> 1);
             svt_aom_inv_transform_recon_wrapper(pcs,
                                                 ed_ctx->md_ctx,
-                                                pred_samples->buffer_cb,
+                                                pred_samples->u_buffer,
                                                 pred_offset_cb,
-                                                pred_samples->stride_cb,
-                                                pred_samples->buffer_cb,
+                                                pred_samples->u_stride,
+                                                pred_samples->u_buffer,
                                                 pred_offset_cb,
-                                                pred_samples->stride_cb,
-                                                ((int32_t*)residual16bit->buffer_cb),
+                                                pred_samples->u_stride,
+                                                ((int32_t*)residual16bit->u_buffer),
                                                 ed_ctx->coded_area_sb_uv,
                                                 ed_ctx->bit_depth == EB_TEN_BIT ? 1 : 0, // hbd
                                                 tx_size_uv,
@@ -668,17 +658,16 @@ static void av1_encode_generate_recon(PictureControlSet* pcs, EncDecContext* ed_
         // Cr
         //**********************************
         if ((blk_ptr->v_has_coeff & (1 << ed_ctx->txb_itr)) && blk_ptr->block_mi.skip_mode == false) {
-            const uint32_t pred_offset_cr = (((pred_samples->org_y + round_origin_y) >> 1) * pred_samples->stride_cr) +
-                ((pred_samples->org_x + round_origin_x) >> 1);
+            const uint32_t pred_offset_cr = ((round_origin_y >> 1) * pred_samples->v_stride) + (round_origin_x >> 1);
             svt_aom_inv_transform_recon_wrapper(pcs,
                                                 ed_ctx->md_ctx,
-                                                pred_samples->buffer_cr,
+                                                pred_samples->v_buffer,
                                                 pred_offset_cr,
-                                                pred_samples->stride_cr,
-                                                pred_samples->buffer_cr,
+                                                pred_samples->v_stride,
+                                                pred_samples->v_buffer,
                                                 pred_offset_cr,
-                                                pred_samples->stride_cr,
-                                                ((int32_t*)residual16bit->buffer_cr),
+                                                pred_samples->v_stride,
+                                                ((int32_t*)residual16bit->v_buffer),
                                                 ed_ctx->coded_area_sb_uv,
                                                 ed_ctx->bit_depth == EB_TEN_BIT ? 1 : 0, // hbd
                                                 tx_size_uv,
@@ -687,8 +676,6 @@ static void av1_encode_generate_recon(PictureControlSet* pcs, EncDecContext* ed_
                                                 eob[2]);
         }
     }
-
-    return;
 }
 
 void svt_aom_store16bit_input_src(EbPictureBufferDesc* input_sample16bit_buffer, PictureControlSet* pcs, uint32_t sb_x,
@@ -697,13 +684,12 @@ void svt_aom_store16bit_input_src(EbPictureBufferDesc* input_sample16bit_buffer,
     uint16_t* from_ptr;
     uint16_t* to_ptr;
 
-    from_ptr = (uint16_t*)input_sample16bit_buffer->buffer_y;
-    to_ptr   = (uint16_t*)pcs->input_frame16bit->buffer_y + (sb_x + pcs->input_frame16bit->org_x) +
-        (sb_y + pcs->input_frame16bit->org_y) * pcs->input_frame16bit->stride_y;
+    from_ptr = (uint16_t*)input_sample16bit_buffer->y_buffer;
+    to_ptr   = (uint16_t*)pcs->input_frame16bit->y_buffer + sb_x + (sb_y * pcs->input_frame16bit->y_stride);
 
     for (row_it = 0; row_it < sb_h; row_it++) {
-        svt_memcpy(to_ptr + row_it * pcs->input_frame16bit->stride_y,
-                   from_ptr + row_it * input_sample16bit_buffer->stride_y,
+        svt_memcpy(to_ptr + row_it * pcs->input_frame16bit->y_stride,
+                   from_ptr + row_it * input_sample16bit_buffer->y_stride,
                    sb_w * 2);
     }
 
@@ -712,23 +698,21 @@ void svt_aom_store16bit_input_src(EbPictureBufferDesc* input_sample16bit_buffer,
     sb_w = sb_w / 2;
     sb_h = sb_h / 2;
 
-    from_ptr = (uint16_t*)input_sample16bit_buffer->buffer_cb;
-    to_ptr   = (uint16_t*)pcs->input_frame16bit->buffer_cb + (sb_x + pcs->input_frame16bit->org_x / 2) +
-        (sb_y + pcs->input_frame16bit->org_y / 2) * pcs->input_frame16bit->stride_cb;
+    from_ptr = (uint16_t*)input_sample16bit_buffer->u_buffer;
+    to_ptr   = (uint16_t*)pcs->input_frame16bit->u_buffer + sb_x + (sb_y * pcs->input_frame16bit->u_stride);
 
     for (row_it = 0; row_it < sb_h; row_it++) {
-        svt_memcpy(to_ptr + row_it * pcs->input_frame16bit->stride_cb,
-                   from_ptr + row_it * input_sample16bit_buffer->stride_cb,
+        svt_memcpy(to_ptr + row_it * pcs->input_frame16bit->u_stride,
+                   from_ptr + row_it * input_sample16bit_buffer->u_stride,
                    sb_w * 2);
     }
 
-    from_ptr = (uint16_t*)input_sample16bit_buffer->buffer_cr;
-    to_ptr   = (uint16_t*)pcs->input_frame16bit->buffer_cr + (sb_x + pcs->input_frame16bit->org_x / 2) +
-        (sb_y + pcs->input_frame16bit->org_y / 2) * pcs->input_frame16bit->stride_cb;
+    from_ptr = (uint16_t*)input_sample16bit_buffer->v_buffer;
+    to_ptr   = (uint16_t*)pcs->input_frame16bit->v_buffer + sb_x + (sb_y * pcs->input_frame16bit->v_stride);
 
     for (row_it = 0; row_it < sb_h; row_it++) {
-        svt_memcpy(to_ptr + row_it * pcs->input_frame16bit->stride_cr,
-                   from_ptr + row_it * input_sample16bit_buffer->stride_cr,
+        svt_memcpy(to_ptr + row_it * pcs->input_frame16bit->v_stride,
+                   from_ptr + row_it * input_sample16bit_buffer->v_stride,
                    sb_w * 2);
     }
 }
@@ -833,7 +817,7 @@ static void perform_intra_coding_loop(PictureControlSet* pcs, EncDecContext* ed_
                                     recon_buffer,
                                     (tx_org[ed_ctx->blk_geom->bsize][is_inter][tx_depth][ed_ctx->txb_itr].x) >> 2,
                                     (tx_org[ed_ctx->blk_geom->bsize][is_inter][tx_depth][ed_ctx->txb_itr].y) >> 2,
-                                    AOM_PLANE_Y,
+                                    PLANE_Y,
                                     ed_ctx->md_ctx->shape,
                                     txb_origin_x,
                                     txb_origin_y,
@@ -926,7 +910,7 @@ static void perform_intra_coding_loop(PictureControlSet* pcs, EncDecContext* ed_
                             &ed_ctx->md_ctx->cr_dc_sign_context);
 
         // Generate prediction for both chroma planes
-        for (Plane plane = AOM_PLANE_U; plane <= AOM_PLANE_V; ++plane) {
+        for (Plane plane = PLANE_U; plane <= PLANE_V; ++plane) {
             uint8_t top_neigh_array[(64 * 2 + 1) << 1];
             uint8_t left_neigh_array[(64 * 2 + 1) << 1];
 
@@ -1105,42 +1089,35 @@ void svt_aom_convert_recon_16bit_to_8bit(PictureControlSet* pcs, EncDecContext* 
     uint32_t pred_buf_x_offest = ctx->blk_org_x;
     uint32_t pred_buf_y_offest = ctx->blk_org_y;
 
-    uint16_t* dst_16bit = (uint16_t*)(recon_buffer_16bit->buffer_y) + pred_buf_x_offest + recon_buffer_16bit->org_x +
-        (pred_buf_y_offest + recon_buffer_16bit->org_y) * recon_buffer_16bit->stride_y;
-    int32_t dst_stride_16bit = recon_buffer_16bit->stride_y;
+    uint16_t* dst_16bit = (uint16_t*)(recon_buffer_16bit->y_buffer) + pred_buf_x_offest +
+        (pred_buf_y_offest * recon_buffer_16bit->y_stride);
+    int32_t dst_stride_16bit = recon_buffer_16bit->y_stride;
 
-    uint8_t* dst;
-    int32_t  dst_stride;
-
-    dst = recon_buffer_8bit->buffer_y + pred_buf_x_offest + recon_buffer_8bit->org_x +
-        (pred_buf_y_offest + recon_buffer_8bit->org_y) * recon_buffer_8bit->stride_y;
-    dst_stride = recon_buffer_8bit->stride_y;
+    uint8_t* dst = recon_buffer_8bit->y_buffer + pred_buf_x_offest + (pred_buf_y_offest * recon_buffer_8bit->y_stride);
+    int32_t  dst_stride = recon_buffer_8bit->y_stride;
 
     svt_convert_16bit_to_8bit(
         dst_16bit, dst_stride_16bit, dst, dst_stride, ctx->blk_geom->bwidth, ctx->blk_geom->bheight);
 
     //copy recon from 16bit to 8bit
-    pred_buf_x_offest = ((ctx->blk_org_x >> 3) << 3) >> 1;
-    pred_buf_y_offest = ((ctx->blk_org_y >> 3) << 3) >> 1;
+    pred_buf_x_offest = ROUND_UV(ctx->blk_org_x) >> 1;
+    pred_buf_y_offest = ROUND_UV(ctx->blk_org_y) >> 1;
 
-    dst_16bit = (uint16_t*)(recon_buffer_16bit->buffer_cb) + pred_buf_x_offest + recon_buffer_16bit->org_x / 2 +
-        (pred_buf_y_offest + recon_buffer_16bit->org_y / 2) * recon_buffer_16bit->stride_cb;
-    dst_stride_16bit = recon_buffer_16bit->stride_cb;
+    dst_16bit = (uint16_t*)(recon_buffer_16bit->u_buffer) + pred_buf_x_offest +
+        (pred_buf_y_offest * recon_buffer_16bit->u_stride);
+    dst_stride_16bit = recon_buffer_16bit->u_stride;
 
-    dst = recon_buffer_8bit->buffer_cb + pred_buf_x_offest + recon_buffer_8bit->org_x / 2 +
-        (pred_buf_y_offest + recon_buffer_8bit->org_y / 2) * recon_buffer_8bit->stride_cb;
-    dst_stride = recon_buffer_8bit->stride_cb;
+    dst        = recon_buffer_8bit->u_buffer + pred_buf_x_offest + (pred_buf_y_offest * recon_buffer_8bit->u_stride);
+    dst_stride = recon_buffer_8bit->u_stride;
 
     svt_convert_16bit_to_8bit(
         dst_16bit, dst_stride_16bit, dst, dst_stride, ctx->blk_geom->bwidth_uv, ctx->blk_geom->bheight_uv);
 
-    dst_16bit = (uint16_t*)(recon_buffer_16bit->buffer_cr) +
-        (pred_buf_x_offest + recon_buffer_16bit->org_x / 2 +
-         (pred_buf_y_offest + recon_buffer_16bit->org_y / 2) * recon_buffer_16bit->stride_cr);
-    dst_stride_16bit = recon_buffer_16bit->stride_cr;
-    dst              = recon_buffer_8bit->buffer_cr + pred_buf_x_offest + recon_buffer_8bit->org_x / 2 +
-        (pred_buf_y_offest + recon_buffer_8bit->org_y / 2) * recon_buffer_8bit->stride_cr;
-    dst_stride = recon_buffer_8bit->stride_cr;
+    dst_16bit = (uint16_t*)(recon_buffer_16bit->v_buffer) +
+        (pred_buf_x_offest + (pred_buf_y_offest * recon_buffer_16bit->v_stride));
+    dst_stride_16bit = recon_buffer_16bit->v_stride;
+    dst        = recon_buffer_8bit->v_buffer + pred_buf_x_offest + (pred_buf_y_offest * recon_buffer_8bit->v_stride);
+    dst_stride = recon_buffer_8bit->v_stride;
 
     svt_convert_16bit_to_8bit(
         dst_16bit, dst_stride_16bit, dst, dst_stride, ctx->blk_geom->bwidth_uv, ctx->blk_geom->bheight_uv);
@@ -1374,82 +1351,76 @@ static void copy_recon(PictureControlSet* pcs, ModeDecisionContext* ctx, BlkStru
     EbPictureBufferDesc* recon_buffer;
     svt_aom_get_recon_pic(pcs, &recon_buffer, is_16bit);
     if (ctx->encoder_bit_depth > EB_EIGHT_BIT) {
-        uint32_t recon_luma_offset = (recon_buffer->org_y + ctx->blk_org_y) * recon_buffer->stride_y +
-            (recon_buffer->org_x + ctx->blk_org_x);
-        uint16_t* ep_recon = ((uint16_t*)(recon_buffer->buffer_y)) + recon_luma_offset;
-        uint16_t* md_recon = (uint16_t*)(blk_ptr->recon_tmp->buffer_y);
+        uint32_t  recon_luma_offset = (ctx->blk_org_y * recon_buffer->y_stride) + ctx->blk_org_x;
+        uint16_t* ep_recon          = ((uint16_t*)(recon_buffer->y_buffer)) + recon_luma_offset;
+        uint16_t* md_recon          = (uint16_t*)(blk_ptr->recon_tmp->y_buffer);
 
         for (uint32_t i = 0; i < ctx->blk_geom->bheight; i++) {
-            svt_memcpy(ep_recon + i * recon_buffer->stride_y,
-                       md_recon + i * blk_ptr->recon_tmp->stride_y,
+            svt_memcpy(ep_recon + i * recon_buffer->y_stride,
+                       md_recon + i * blk_ptr->recon_tmp->y_stride,
                        ctx->blk_geom->bwidth * sizeof(uint16_t));
         }
 
         if (ctx->has_uv) {
-            uint32_t round_origin_x = (ctx->blk_org_x >> 3) << 3; // for Chroma blocks with size of 4
-            uint32_t round_origin_y = (ctx->blk_org_y >> 3) << 3; // for Chroma blocks with size of 4
+            uint32_t round_origin_x = ROUND_UV(ctx->blk_org_x); // for Chroma blocks with size of 4
+            uint32_t round_origin_y = ROUND_UV(ctx->blk_org_y); // for Chroma blocks with size of 4
 
             // Cr
-            uint32_t recon_cr_offset = (((recon_buffer->org_y + round_origin_y) >> 1) * recon_buffer->stride_cr) +
-                ((recon_buffer->org_x + round_origin_x) >> 1);
-            uint16_t* ep_recon_cr = ((uint16_t*)(recon_buffer->buffer_cr)) + recon_cr_offset;
-            uint16_t* md_recon_cr = (uint16_t*)(blk_ptr->recon_tmp->buffer_cr);
+            uint32_t  recon_cr_offset = ((round_origin_y >> 1) * recon_buffer->v_stride) + (round_origin_x >> 1);
+            uint16_t* ep_recon_cr     = ((uint16_t*)(recon_buffer->v_buffer)) + recon_cr_offset;
+            uint16_t* md_recon_cr     = (uint16_t*)(blk_ptr->recon_tmp->v_buffer);
 
             for (uint32_t i = 0; i < ctx->blk_geom->bheight_uv; i++) {
-                svt_memcpy(ep_recon_cr + i * recon_buffer->stride_cr,
-                           md_recon_cr + i * blk_ptr->recon_tmp->stride_cr,
+                svt_memcpy(ep_recon_cr + i * recon_buffer->v_stride,
+                           md_recon_cr + i * blk_ptr->recon_tmp->v_stride,
                            ctx->blk_geom->bwidth_uv * sizeof(uint16_t));
             }
 
             // Cb
-            uint32_t recon_cb_offset = (((recon_buffer->org_y + round_origin_y) >> 1) * recon_buffer->stride_cb) +
-                ((recon_buffer->org_x + round_origin_x) >> 1);
-            uint16_t* ep_recon_cb = ((uint16_t*)(recon_buffer->buffer_cb)) + recon_cb_offset;
-            uint16_t* md_recon_cb = (uint16_t*)(blk_ptr->recon_tmp->buffer_cb);
+            uint32_t  recon_cb_offset = ((round_origin_y >> 1) * recon_buffer->u_stride) + (round_origin_x >> 1);
+            uint16_t* ep_recon_cb     = ((uint16_t*)(recon_buffer->u_buffer)) + recon_cb_offset;
+            uint16_t* md_recon_cb     = (uint16_t*)(blk_ptr->recon_tmp->u_buffer);
 
             for (uint32_t i = 0; i < ctx->blk_geom->bheight_uv; i++) {
-                svt_memcpy(ep_recon_cb + i * recon_buffer->stride_cb,
-                           md_recon_cb + i * blk_ptr->recon_tmp->stride_cb,
+                svt_memcpy(ep_recon_cb + i * recon_buffer->u_stride,
+                           md_recon_cb + i * blk_ptr->recon_tmp->u_stride,
                            ctx->blk_geom->bwidth_uv * sizeof(uint16_t));
             }
         }
     } else {
-        uint32_t recon_luma_offset = (recon_buffer->org_y + ctx->blk_org_y) * recon_buffer->stride_y +
-            (recon_buffer->org_x + ctx->blk_org_x);
-        uint8_t* ep_recon = recon_buffer->buffer_y + recon_luma_offset;
-        uint8_t* md_recon = blk_ptr->recon_tmp->buffer_y;
+        uint32_t recon_luma_offset = (ctx->blk_org_y * recon_buffer->y_stride) + ctx->blk_org_x;
+        uint8_t* ep_recon          = recon_buffer->y_buffer + recon_luma_offset;
+        uint8_t* md_recon          = blk_ptr->recon_tmp->y_buffer;
 
         for (uint32_t i = 0; i < ctx->blk_geom->bheight; i++) {
-            svt_memcpy(ep_recon + i * recon_buffer->stride_y,
-                       md_recon + i * blk_ptr->recon_tmp->stride_y,
+            svt_memcpy(ep_recon + i * recon_buffer->y_stride,
+                       md_recon + i * blk_ptr->recon_tmp->y_stride,
                        ctx->blk_geom->bwidth * sizeof(uint8_t));
         }
 
         if (ctx->has_uv) {
-            uint32_t round_origin_x = (ctx->blk_org_x >> 3) << 3; // for Chroma blocks with size of 4
-            uint32_t round_origin_y = (ctx->blk_org_y >> 3) << 3; // for Chroma blocks with size of 4
+            uint32_t round_origin_x = ROUND_UV(ctx->blk_org_x); // for Chroma blocks with size of 4
+            uint32_t round_origin_y = ROUND_UV(ctx->blk_org_y); // for Chroma blocks with size of 4
 
             // Cr
-            uint32_t recon_cr_offset = (((recon_buffer->org_y + round_origin_y) >> 1) * recon_buffer->stride_cr) +
-                ((recon_buffer->org_x + round_origin_x) >> 1);
-            uint8_t* ep_recon_cr = recon_buffer->buffer_cr + recon_cr_offset;
-            uint8_t* md_recon_cr = blk_ptr->recon_tmp->buffer_cr;
+            uint32_t recon_cr_offset = ((round_origin_y >> 1) * recon_buffer->v_stride) + (round_origin_x >> 1);
+            uint8_t* ep_recon_cr     = recon_buffer->v_buffer + recon_cr_offset;
+            uint8_t* md_recon_cr     = blk_ptr->recon_tmp->v_buffer;
 
             for (uint32_t i = 0; i < ctx->blk_geom->bheight_uv; i++) {
-                svt_memcpy(ep_recon_cr + i * recon_buffer->stride_cr,
-                           md_recon_cr + i * blk_ptr->recon_tmp->stride_cr,
+                svt_memcpy(ep_recon_cr + i * recon_buffer->v_stride,
+                           md_recon_cr + i * blk_ptr->recon_tmp->v_stride,
                            ctx->blk_geom->bwidth_uv * sizeof(uint8_t));
             }
 
             // Cb
-            uint32_t recon_cb_offset = (((recon_buffer->org_y + round_origin_y) >> 1) * recon_buffer->stride_cb) +
-                ((recon_buffer->org_x + round_origin_x) >> 1);
-            uint8_t* ep_recon_cb = recon_buffer->buffer_cb + recon_cb_offset;
-            uint8_t* md_recon_cb = blk_ptr->recon_tmp->buffer_cb;
+            uint32_t recon_cb_offset = ((round_origin_y >> 1) * recon_buffer->u_stride) + (round_origin_x >> 1);
+            uint8_t* ep_recon_cb     = recon_buffer->u_buffer + recon_cb_offset;
+            uint8_t* md_recon_cb     = blk_ptr->recon_tmp->u_buffer;
 
             for (uint32_t i = 0; i < ctx->blk_geom->bheight_uv; i++) {
-                svt_memcpy(ep_recon_cb + i * recon_buffer->stride_cb,
-                           md_recon_cb + i * blk_ptr->recon_tmp->stride_cb,
+                svt_memcpy(ep_recon_cb + i * recon_buffer->u_stride,
+                           md_recon_cb + i * blk_ptr->recon_tmp->u_stride,
                            ctx->blk_geom->bwidth_uv * sizeof(uint8_t));
             }
         }
@@ -1466,8 +1437,8 @@ static void copy_qcoeffs(PictureControlSet* pcs, EncDecContext* ctx, BlkStruct* 
     const uint8_t        txb_itr         = ctx->txb_itr;
     const uint8_t        uv_pass         = tx_depth && txb_itr ? 0 : 1; //NM: 128x128 exeption
 
-    int32_t* ep_coeff = ((int32_t*)coeff_buffer_sb->buffer_y) + ctx->coded_area_sb_update;
-    int32_t* md_coeff = ((int32_t*)blk_ptr->coeff_tmp->buffer_y) + blk_coded_area;
+    int32_t* ep_coeff = ((int32_t*)coeff_buffer_sb->y_buffer) + ctx->coded_area_sb_update;
+    int32_t* md_coeff = ((int32_t*)blk_ptr->coeff_tmp->y_buffer) + blk_coded_area;
 
     if ((blk_ptr->y_has_coeff & (1 << txb_itr))) {
         const TxSize tx_size   = tx_depth_to_tx_size[tx_depth][blk_geom->bsize];
@@ -1480,15 +1451,15 @@ static void copy_qcoeffs(PictureControlSet* pcs, EncDecContext* ctx, BlkStruct* 
         const TxSize tx_size_uv   = av1_get_max_uv_txsize(blk_geom->bsize, 1, 1);
         const int    tx_width_uv  = tx_size_wide[tx_size_uv];
         const int    tx_height_uv = tx_size_high[tx_size_uv];
-        int32_t*     ep_coeff_cb  = ((int32_t*)coeff_buffer_sb->buffer_cb) + ctx->coded_area_sb_uv_update;
-        int32_t*     md_coeff_cb  = ((int32_t*)blk_ptr->coeff_tmp->buffer_cb) + blk_coded_area_uv;
+        int32_t*     ep_coeff_cb  = ((int32_t*)coeff_buffer_sb->u_buffer) + ctx->coded_area_sb_uv_update;
+        int32_t*     md_coeff_cb  = ((int32_t*)blk_ptr->coeff_tmp->u_buffer) + blk_coded_area_uv;
 
         if ((blk_ptr->u_has_coeff & (1 << txb_itr))) {
             svt_memcpy(ep_coeff_cb, md_coeff_cb, sizeof(int32_t) * tx_height_uv * tx_width_uv);
         }
 
-        int32_t* ep_coeff_cr = ((int32_t*)coeff_buffer_sb->buffer_cr) + ctx->coded_area_sb_uv_update;
-        int32_t* md_coeff_cr = ((int32_t*)blk_ptr->coeff_tmp->buffer_cr) + blk_coded_area_uv;
+        int32_t* ep_coeff_cr = ((int32_t*)coeff_buffer_sb->v_buffer) + ctx->coded_area_sb_uv_update;
+        int32_t* md_coeff_cr = ((int32_t*)blk_ptr->coeff_tmp->v_buffer) + blk_coded_area_uv;
 
         if ((blk_ptr->v_has_coeff & (1 << txb_itr))) {
             svt_memcpy(ep_coeff_cr, md_coeff_cr, sizeof(int32_t) * tx_height_uv * tx_width_uv);

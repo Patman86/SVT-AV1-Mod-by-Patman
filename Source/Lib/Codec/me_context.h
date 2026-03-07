@@ -352,7 +352,7 @@ typedef struct MeContext {
     uint32_t interpolated_full_stride[MAX_NUM_OF_REF_PIC_LIST][MAX_REF_IDX];
     uint32_t me_distortion[SQUARE_PU_COUNT];
 
-    uint32_t   tf_decay_factor_fp16[MAX_MB_PLANE];
+    uint32_t   tf_decay_factor_fp16[MAX_PLANES];
     double     tf_decay_factor[3];
     TfControls tf_ctrls;
 

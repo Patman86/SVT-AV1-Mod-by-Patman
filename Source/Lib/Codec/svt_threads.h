@@ -135,12 +135,19 @@ typedef void (*OnceFn)(void);
 // Macro to define a lazily-initialized mutex with once control
 // Usage: DEFINE_ONCE_MUTEX(my_mutex)
 // Then call: RUN_ONCE_MUTEX(my_mutex) before using svt_block_on_mutex(my_mutex)
-#define DEFINE_ONCE_MUTEX(mutex_name)    \
-    static EbHandle mutex_name = NULL;   \
-    ONCE_ROUTINE(init_##mutex_name) {    \
-        mutex_name = svt_create_mutex(); \
-        ONCE_ROUTINE_EPILOG;             \
-    }                                    \
+#define DEFINE_ONCE_MUTEX(mutex_name)           \
+    static EbHandle mutex_name = NULL;          \
+    static void     deinit_##mutex_name(void) { \
+        if (mutex_name) {                   \
+            svt_destroy_mutex(mutex_name);  \
+            mutex_name = NULL;              \
+        }                                   \
+    }                                           \
+    ONCE_ROUTINE(init_##mutex_name) {           \
+        mutex_name = svt_create_mutex();        \
+        atexit(deinit_##mutex_name);            \
+        ONCE_ROUTINE_EPILOG;                    \
+    }                                           \
     DEFINE_ONCE(mutex_name##_once)
 
 #define RUN_ONCE_MUTEX(mutex_name) svt_run_once(&mutex_name##_once, init_##mutex_name)

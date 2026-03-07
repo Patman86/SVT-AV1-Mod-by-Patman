@@ -33,45 +33,71 @@ extern "C" {
      ************************************/
 typedef struct EbPictureBufferDesc {
     EbDctor dctor;
-    // Buffer Ptrs
-    EbByte buffer_y; // pointer to the Y luma buffer
-    EbByte buffer_cb; // pointer to the U chroma buffer
-    EbByte buffer_cr; // pointer to the V chroma buffer
-    //Bit increment
-    EbByte buffer_bit_inc_y; // pointer to the Y luma buffer Bit increment
-    EbByte buffer_bit_inc_cb; // pointer to the U chroma buffer Bit increment
-    EbByte buffer_bit_inc_cr; // pointer to the V chroma buffer Bit increment
 
-    uint16_t stride_y; // pointer to the Y luma buffer
-    uint16_t stride_cb; // pointer to the U chroma buffer
-    uint16_t stride_cr; // pointer to the V chroma buffer
+    // Buffer Ptrs point to the start of the picture. If there are borders, the left and above borders
+    // will be accessed using a negative offset.
+    union {
+        struct {
+            uint8_t* y_buffer; // pointer to the Y luma buffer
+            uint8_t* u_buffer; // pointer to the U (Cb) chroma buffer
+            uint8_t* v_buffer; // pointer to the V (Cr) chroma buffer
+        };
 
-    uint16_t stride_bit_inc_y; // pointer to the Y luma buffer Bit increment
-    uint16_t stride_bit_inc_cb; // pointer to the U chroma buffer Bit increment
-    uint16_t stride_bit_inc_cr; // pointer to the V chroma buffer Bit increment
+        uint8_t* buffer[MAX_PLANES];
+    };
+
+    // Bit increment buffers point to the start of the picture. If there are borders, the left and above borders
+    // will be accessed using a negative offset.
+    union {
+        struct {
+            uint8_t* y_buffer_bit_inc; // pointer to the Y luma buffer bit increment
+            uint8_t* u_buffer_bit_inc; // pointer to the U (Cb) chroma buffer bit increment
+            uint8_t* v_buffer_bit_inc; // pointer to the V (Cr) chroma buffer bit increment
+        };
+
+        uint8_t* buffer_bit_inc[MAX_PLANES];
+    };
+
+    // Strides
+    union {
+        struct {
+            uint16_t y_stride; // stride for the Y luma buffer
+            uint16_t u_stride; // stride for the U (Cb) luma buffer
+            uint16_t v_stride; // stride for the V (Cr) luma buffer
+        };
+
+        uint16_t stride[MAX_PLANES];
+    };
+
+    // Bit increment strides
+    union {
+        struct {
+            uint16_t y_stride_bit_inc; // stride for the Y luma buffer bit increment
+            uint16_t u_stride_bit_inc; // stride for the U (Cb) luma buffer bit increment
+            uint16_t v_stride_bit_inc; // stride for the V (Cr) luma buffer bit increment
+        };
+
+        uint16_t stride_bit_inc[MAX_PLANES];
+    };
+
+    // Buffer Parameters
+    // Save the pointer to the actual allocated memory, to use for copies and freeing
+    uint8_t* buffer_alloc;
+    size_t   buffer_alloc_sz;
+    uint32_t luma_size; // Allocated size of the luma buffer
+    uint32_t chroma_size; // Allocated size of the chroma buffers
+    bool     packed_flag; // Indicates if sample buffers are packed or not
 
     // Picture Parameters
-    uint16_t      org_x; // Horizontal padding distance
-    uint16_t      org_y; // Vertical padding distance
-    uint16_t      origin_bot_y; // Vertical bottom padding distance
-    uint16_t      width; // Luma picture width which excludes the padding
-    uint16_t      height; // Luma picture height which excludes the padding
-    uint16_t      max_width; // input Luma picture width
-    uint16_t      max_height; // input Luma picture height
+    uint16_t      border; // Padding applied to top/left/right/bottom of picture (luma dimensions)
+    uint16_t      max_width; // input Luma picture width (excludes the padding)
+    uint16_t      max_height; // input Luma picture height (excludes the padding)
+    uint16_t      width; // Luma picture width (excludes the padding)
+    uint16_t      height; // Luma picture height (excludes the padding)
     EbBitDepth    bit_depth; // Pixel Bit Depth
     EbColorFormat color_format; // Chroma Subsumpling
 
-    // Buffer Parameters
-    uint32_t luma_size; // Size of the luma buffer
-    uint32_t chroma_size; // Size of the chroma buffers
-    bool     packed_flag; // Indicates if sample buffers are packed or not
-
-    bool     film_grain_flag; // Indicates if film grain parameters are present for the frame
     uint32_t buffer_enable_mask;
-
-    // internal bit-depth: when equals 1 internal bit-depth is 16bits regardless of the input
-    // bit-depth
-    bool is_16bit_pipeline;
 } EbPictureBufferDesc;
 
 #define YV12_FLAG_HIGHBITDEPTH 8
@@ -212,10 +238,7 @@ typedef struct EbPictureBufferDescInitData {
     EbColorFormat color_format;
     uint32_t      buffer_enable_mask;
     int32_t       rest_units_per_tile;
-    uint16_t      left_padding;
-    uint16_t      right_padding;
-    uint16_t      top_padding;
-    uint16_t      bot_padding;
+    uint16_t      border;
     bool          split_mode; //ON: allocate 8bit data separately from nbit data
 
     uint8_t mfmv;

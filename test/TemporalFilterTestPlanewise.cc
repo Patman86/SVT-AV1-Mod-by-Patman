@@ -139,7 +139,7 @@ class TemporalFilterTestPlanewiseMediumBase
     void SetUp() {
         setup_test_env();
 
-        for (int color_channel = 0; color_channel < COLOR_CHANNELS;
+        for (int color_channel = 0; color_channel < MAX_PLANES;
              color_channel++) {
             if (!zz) {
                 src_ptr[color_channel] = reinterpret_cast<uint8_t *>(
@@ -182,7 +182,7 @@ class TemporalFilterTestPlanewiseMediumBase
     }
 
     void TearDown() {
-        for (int color_channel = 0; color_channel < COLOR_CHANNELS;
+        for (int color_channel = 0; color_channel < MAX_PLANES;
              color_channel++) {
             if (!zz) {
                 svt_aom_free(src_ptr[color_channel]);
@@ -212,25 +212,25 @@ class TemporalFilterTestPlanewiseMediumBase
         for (int ii = 0; ii < height; ii++) {
             for (int jj = 0; jj < width; jj++) {
                 if (!zz) {
-                    src_ptr[C_Y][ii * strd + jj] = rnd_.Rand8();
-                    src_ptr[C_U][ii * strd + jj] = rnd_.Rand8();
-                    src_ptr[C_V][ii * strd + jj] = rnd_.Rand8();
+                    src_ptr[PLANE_Y][ii * strd + jj] = rnd_.Rand8();
+                    src_ptr[PLANE_U][ii * strd + jj] = rnd_.Rand8();
+                    src_ptr[PLANE_V][ii * strd + jj] = rnd_.Rand8();
                 }
 
                 if (mode && !zz) {
-                    int val1 =
-                        -16 + src_ptr[C_Y][ii * strd + jj] + rnd_.Rand8() % 32;
-                    int val2 =
-                        -16 + src_ptr[C_U][ii * strd + jj] + rnd_.Rand8() % 32;
-                    int val3 =
-                        -16 + src_ptr[C_V][ii * strd + jj] + rnd_.Rand8() % 32;
-                    pred_ptr[C_Y][ii * stride2 + jj] = MAX(0, val1);
-                    pred_ptr[C_U][ii * stride2 + jj] = MAX(0, val2);
-                    pred_ptr[C_V][ii * stride2 + jj] = MAX(0, val3);
+                    int val1 = -16 + src_ptr[PLANE_Y][ii * strd + jj] +
+                               rnd_.Rand8() % 32;
+                    int val2 = -16 + src_ptr[PLANE_U][ii * strd + jj] +
+                               rnd_.Rand8() % 32;
+                    int val3 = -16 + src_ptr[PLANE_V][ii * strd + jj] +
+                               rnd_.Rand8() % 32;
+                    pred_ptr[PLANE_Y][ii * stride2 + jj] = MAX(0, val1);
+                    pred_ptr[PLANE_U][ii * stride2 + jj] = MAX(0, val2);
+                    pred_ptr[PLANE_V][ii * stride2 + jj] = MAX(0, val3);
                 } else {
-                    pred_ptr[C_Y][ii * stride2 + jj] = rnd_.Rand8();
-                    pred_ptr[C_U][ii * stride2 + jj] = rnd_.Rand8();
-                    pred_ptr[C_V][ii * stride2 + jj] = rnd_.Rand8();
+                    pred_ptr[PLANE_Y][ii * stride2 + jj] = rnd_.Rand8();
+                    pred_ptr[PLANE_U][ii * stride2 + jj] = rnd_.Rand8();
+                    pred_ptr[PLANE_V][ii * stride2 + jj] = rnd_.Rand8();
                 }
             }
         }
@@ -241,17 +241,17 @@ class TemporalFilterTestPlanewiseMediumBase
   protected:
     SVTRandom rnd_;
     FuncType tst_func_;
-    uint8_t *src_ptr[COLOR_CHANNELS];
-    uint8_t *pred_ptr[COLOR_CHANNELS];
-    uint32_t *accum_ref_ptr[COLOR_CHANNELS];
-    uint16_t *count_ref_ptr[COLOR_CHANNELS];
+    uint8_t *src_ptr[MAX_PLANES];
+    uint8_t *pred_ptr[MAX_PLANES];
+    uint32_t *accum_ref_ptr[MAX_PLANES];
+    uint16_t *count_ref_ptr[MAX_PLANES];
 
-    uint32_t *accum_tst_ptr[COLOR_CHANNELS];
-    uint16_t *count_tst_ptr[COLOR_CHANNELS];
+    uint32_t *accum_tst_ptr[MAX_PLANES];
+    uint16_t *count_tst_ptr[MAX_PLANES];
 
-    uint32_t stride[COLOR_CHANNELS];
-    uint32_t stride_pred[COLOR_CHANNELS];
-    float tf_decay_factor[COLOR_CHANNELS];
+    uint32_t stride[MAX_PLANES];
+    uint32_t stride_pred[MAX_PLANES];
+    float tf_decay_factor[MAX_PLANES];
 };
 
 class TemporalFilterTestPlanewiseMedium
@@ -275,62 +275,62 @@ class TemporalFilterTestPlanewiseMedium
                 } else {
                     me_ctx = &context2;
                 }
-                me_ctx->tf_decay_factor_fp16[C_Y] =
-                    FLOAT2FP(tf_decay_factor[C_Y], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_U] =
-                    FLOAT2FP(tf_decay_factor[C_U], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_V] =
-                    FLOAT2FP(tf_decay_factor[C_V], 16, uint32_t);
-                me_ctx->tf_decay_factor[C_Y] = tf_decay_factor[C_Y];
-                me_ctx->tf_decay_factor[C_U] = tf_decay_factor[C_U];
-                me_ctx->tf_decay_factor[C_V] = tf_decay_factor[C_V];
+                me_ctx->tf_decay_factor_fp16[PLANE_Y] =
+                    FLOAT2FP(tf_decay_factor[PLANE_Y], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_U] =
+                    FLOAT2FP(tf_decay_factor[PLANE_U], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_V] =
+                    FLOAT2FP(tf_decay_factor[PLANE_V], 16, uint32_t);
+                me_ctx->tf_decay_factor[PLANE_Y] = tf_decay_factor[PLANE_Y];
+                me_ctx->tf_decay_factor[PLANE_U] = tf_decay_factor[PLANE_U];
+                me_ctx->tf_decay_factor[PLANE_V] = tf_decay_factor[PLANE_V];
 
                 svt_av1_apply_temporal_filter_planewise_medium_c(
                     me_ctx,
-                    src_ptr[C_Y],
-                    stride[C_Y],
-                    pred_ptr[C_Y],
-                    stride_pred[C_Y],
-                    src_ptr[C_U],
-                    src_ptr[C_V],
-                    stride[C_U],
-                    pred_ptr[C_U],
-                    pred_ptr[C_V],
-                    stride_pred[C_U],
+                    src_ptr[PLANE_Y],
+                    stride[PLANE_Y],
+                    pred_ptr[PLANE_Y],
+                    stride_pred[PLANE_Y],
+                    src_ptr[PLANE_U],
+                    src_ptr[PLANE_V],
+                    stride[PLANE_U],
+                    pred_ptr[PLANE_U],
+                    pred_ptr[PLANE_V],
+                    stride_pred[PLANE_U],
                     width,
                     height,
                     1,  // subsampling
                     1,  // subsampling
-                    accum_ref_ptr[C_Y],
-                    count_ref_ptr[C_Y],
-                    accum_ref_ptr[C_U],
-                    count_ref_ptr[C_U],
-                    accum_ref_ptr[C_V],
-                    count_ref_ptr[C_V]);
+                    accum_ref_ptr[PLANE_Y],
+                    count_ref_ptr[PLANE_Y],
+                    accum_ref_ptr[PLANE_U],
+                    count_ref_ptr[PLANE_U],
+                    accum_ref_ptr[PLANE_V],
+                    count_ref_ptr[PLANE_V]);
 
                 tst_func_(me_ctx,
-                          src_ptr[C_Y],
-                          stride[C_Y],
-                          pred_ptr[C_Y],
-                          stride_pred[C_Y],
-                          src_ptr[C_U],
-                          src_ptr[C_V],
-                          stride[C_U],
-                          pred_ptr[C_U],
-                          pred_ptr[C_V],
-                          stride_pred[C_U],
+                          src_ptr[PLANE_Y],
+                          stride[PLANE_Y],
+                          pred_ptr[PLANE_Y],
+                          stride_pred[PLANE_Y],
+                          src_ptr[PLANE_U],
+                          src_ptr[PLANE_V],
+                          stride[PLANE_U],
+                          pred_ptr[PLANE_U],
+                          pred_ptr[PLANE_V],
+                          stride_pred[PLANE_U],
                           width,
                           height,
                           1,  // subsampling
                           1,  // subsampling
-                          accum_tst_ptr[C_Y],
-                          count_tst_ptr[C_Y],
-                          accum_tst_ptr[C_U],
-                          count_tst_ptr[C_U],
-                          accum_tst_ptr[C_V],
-                          count_tst_ptr[C_V]);
+                          accum_tst_ptr[PLANE_Y],
+                          count_tst_ptr[PLANE_Y],
+                          accum_tst_ptr[PLANE_U],
+                          count_tst_ptr[PLANE_U],
+                          accum_tst_ptr[PLANE_V],
+                          count_tst_ptr[PLANE_V]);
 
-                for (int color_channel = 0; color_channel < COLOR_CHANNELS;
+                for (int color_channel = 0; color_channel < MAX_PLANES;
                      color_channel++) {
                     EXPECT_EQ(
                         memcmp(accum_ref_ptr[color_channel],
@@ -358,37 +358,37 @@ class TemporalFilterTestPlanewiseMedium
                 } else {
                     me_ctx = &context2;
                 }
-                me_ctx->tf_decay_factor_fp16[C_Y] =
-                    FLOAT2FP(tf_decay_factor[C_Y], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_U] =
-                    FLOAT2FP(tf_decay_factor[C_U], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_V] =
-                    FLOAT2FP(tf_decay_factor[C_V], 16, uint32_t);
-                me_ctx->tf_decay_factor[C_Y] = tf_decay_factor[C_Y];
-                me_ctx->tf_decay_factor[C_U] = tf_decay_factor[C_U];
-                me_ctx->tf_decay_factor[C_V] = tf_decay_factor[C_V];
+                me_ctx->tf_decay_factor_fp16[PLANE_Y] =
+                    FLOAT2FP(tf_decay_factor[PLANE_Y], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_U] =
+                    FLOAT2FP(tf_decay_factor[PLANE_U], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_V] =
+                    FLOAT2FP(tf_decay_factor[PLANE_V], 16, uint32_t);
+                me_ctx->tf_decay_factor[PLANE_Y] = tf_decay_factor[PLANE_Y];
+                me_ctx->tf_decay_factor[PLANE_U] = tf_decay_factor[PLANE_U];
+                me_ctx->tf_decay_factor[PLANE_V] = tf_decay_factor[PLANE_V];
                 svt_av1_apply_temporal_filter_planewise_medium_c(
                     me_ctx,
-                    src_ptr[C_Y],
-                    stride[C_Y],
-                    pred_ptr[C_Y],
-                    stride_pred[C_Y],
-                    src_ptr[C_U],
-                    src_ptr[C_V],
-                    stride[C_U],
-                    pred_ptr[C_U],
-                    pred_ptr[C_V],
-                    stride_pred[C_U],
+                    src_ptr[PLANE_Y],
+                    stride[PLANE_Y],
+                    pred_ptr[PLANE_Y],
+                    stride_pred[PLANE_Y],
+                    src_ptr[PLANE_U],
+                    src_ptr[PLANE_V],
+                    stride[PLANE_U],
+                    pred_ptr[PLANE_U],
+                    pred_ptr[PLANE_V],
+                    stride_pred[PLANE_U],
                     width,
                     height,
                     1,  // subsampling
                     1,  // subsampling
-                    accum_ref_ptr[C_Y],
-                    count_ref_ptr[C_Y],
-                    accum_ref_ptr[C_U],
-                    count_ref_ptr[C_U],
-                    accum_ref_ptr[C_V],
-                    count_ref_ptr[C_V]);
+                    accum_ref_ptr[PLANE_Y],
+                    count_ref_ptr[PLANE_Y],
+                    accum_ref_ptr[PLANE_U],
+                    count_ref_ptr[PLANE_U],
+                    accum_ref_ptr[PLANE_V],
+                    count_ref_ptr[PLANE_V]);
             }
             svt_av1_get_time(&middle_timer_seconds, &middle_timer_useconds);
 
@@ -398,36 +398,36 @@ class TemporalFilterTestPlanewiseMedium
                 } else {
                     me_ctx = &context2;
                 }
-                me_ctx->tf_decay_factor_fp16[C_Y] =
-                    FLOAT2FP(tf_decay_factor[C_Y], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_U] =
-                    FLOAT2FP(tf_decay_factor[C_U], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_V] =
-                    FLOAT2FP(tf_decay_factor[C_V], 16, uint32_t);
-                me_ctx->tf_decay_factor[C_Y] = tf_decay_factor[C_Y];
-                me_ctx->tf_decay_factor[C_U] = tf_decay_factor[C_U];
-                me_ctx->tf_decay_factor[C_V] = tf_decay_factor[C_V];
+                me_ctx->tf_decay_factor_fp16[PLANE_Y] =
+                    FLOAT2FP(tf_decay_factor[PLANE_Y], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_U] =
+                    FLOAT2FP(tf_decay_factor[PLANE_U], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_V] =
+                    FLOAT2FP(tf_decay_factor[PLANE_V], 16, uint32_t);
+                me_ctx->tf_decay_factor[PLANE_Y] = tf_decay_factor[PLANE_Y];
+                me_ctx->tf_decay_factor[PLANE_U] = tf_decay_factor[PLANE_U];
+                me_ctx->tf_decay_factor[PLANE_V] = tf_decay_factor[PLANE_V];
                 tst_func_(me_ctx,
-                          src_ptr[C_Y],
-                          stride[C_Y],
-                          pred_ptr[C_Y],
-                          stride_pred[C_Y],
-                          src_ptr[C_U],
-                          src_ptr[C_V],
-                          stride[C_U],
-                          pred_ptr[C_U],
-                          pred_ptr[C_V],
-                          stride_pred[C_U],
+                          src_ptr[PLANE_Y],
+                          stride[PLANE_Y],
+                          pred_ptr[PLANE_Y],
+                          stride_pred[PLANE_Y],
+                          src_ptr[PLANE_U],
+                          src_ptr[PLANE_V],
+                          stride[PLANE_U],
+                          pred_ptr[PLANE_U],
+                          pred_ptr[PLANE_V],
+                          stride_pred[PLANE_U],
                           width,
                           height,
                           1,  // subsampling
                           1,  // subsampling
-                          accum_tst_ptr[C_Y],
-                          count_tst_ptr[C_Y],
-                          accum_tst_ptr[C_U],
-                          count_tst_ptr[C_U],
-                          accum_tst_ptr[C_V],
-                          count_tst_ptr[C_V]);
+                          accum_tst_ptr[PLANE_Y],
+                          count_tst_ptr[PLANE_Y],
+                          accum_tst_ptr[PLANE_U],
+                          count_tst_ptr[PLANE_U],
+                          accum_tst_ptr[PLANE_V],
+                          count_tst_ptr[PLANE_V]);
             }
             svt_av1_get_time(&test_timer_seconds, &test_timer_useconds);
 
@@ -504,52 +504,52 @@ class TemporalFilterZZTestPlanewiseMedium
                 } else {
                     me_ctx = &context2;
                 }
-                me_ctx->tf_decay_factor_fp16[C_Y] =
-                    FLOAT2FP(tf_decay_factor[C_Y], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_U] =
-                    FLOAT2FP(tf_decay_factor[C_U], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_V] =
-                    FLOAT2FP(tf_decay_factor[C_V], 16, uint32_t);
-                me_ctx->tf_decay_factor[C_Y] = tf_decay_factor[C_Y];
-                me_ctx->tf_decay_factor[C_U] = tf_decay_factor[C_U];
-                me_ctx->tf_decay_factor[C_V] = tf_decay_factor[C_V];
+                me_ctx->tf_decay_factor_fp16[PLANE_Y] =
+                    FLOAT2FP(tf_decay_factor[PLANE_Y], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_U] =
+                    FLOAT2FP(tf_decay_factor[PLANE_U], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_V] =
+                    FLOAT2FP(tf_decay_factor[PLANE_V], 16, uint32_t);
+                me_ctx->tf_decay_factor[PLANE_Y] = tf_decay_factor[PLANE_Y];
+                me_ctx->tf_decay_factor[PLANE_U] = tf_decay_factor[PLANE_U];
+                me_ctx->tf_decay_factor[PLANE_V] = tf_decay_factor[PLANE_V];
 
                 svt_av1_apply_zz_based_temporal_filter_planewise_medium_c(
                     me_ctx,
-                    pred_ptr[C_Y],
-                    stride_pred[C_Y],
-                    pred_ptr[C_U],
-                    pred_ptr[C_V],
-                    stride_pred[C_U],
+                    pred_ptr[PLANE_Y],
+                    stride_pred[PLANE_Y],
+                    pred_ptr[PLANE_U],
+                    pred_ptr[PLANE_V],
+                    stride_pred[PLANE_U],
                     width,
                     height,
                     1,  // subsampling
                     1,  // subsampling
-                    accum_ref_ptr[C_Y],
-                    count_ref_ptr[C_Y],
-                    accum_ref_ptr[C_U],
-                    count_ref_ptr[C_U],
-                    accum_ref_ptr[C_V],
-                    count_ref_ptr[C_V]);
+                    accum_ref_ptr[PLANE_Y],
+                    count_ref_ptr[PLANE_Y],
+                    accum_ref_ptr[PLANE_U],
+                    count_ref_ptr[PLANE_U],
+                    accum_ref_ptr[PLANE_V],
+                    count_ref_ptr[PLANE_V]);
 
                 tst_func_(me_ctx,
-                          pred_ptr[C_Y],
-                          stride_pred[C_Y],
-                          pred_ptr[C_U],
-                          pred_ptr[C_V],
-                          stride_pred[C_U],
+                          pred_ptr[PLANE_Y],
+                          stride_pred[PLANE_Y],
+                          pred_ptr[PLANE_U],
+                          pred_ptr[PLANE_V],
+                          stride_pred[PLANE_U],
                           width,
                           height,
                           1,  // subsampling
                           1,  // subsampling
-                          accum_tst_ptr[C_Y],
-                          count_tst_ptr[C_Y],
-                          accum_tst_ptr[C_U],
-                          count_tst_ptr[C_U],
-                          accum_tst_ptr[C_V],
-                          count_tst_ptr[C_V]);
+                          accum_tst_ptr[PLANE_Y],
+                          count_tst_ptr[PLANE_Y],
+                          accum_tst_ptr[PLANE_U],
+                          count_tst_ptr[PLANE_U],
+                          accum_tst_ptr[PLANE_V],
+                          count_tst_ptr[PLANE_V]);
 
-                for (int color_channel = 0; color_channel < COLOR_CHANNELS;
+                for (int color_channel = 0; color_channel < MAX_PLANES;
                      color_channel++) {
                     EXPECT_EQ(
                         memcmp(accum_ref_ptr[color_channel],
@@ -577,32 +577,32 @@ class TemporalFilterZZTestPlanewiseMedium
                 } else {
                     me_ctx = &context2;
                 }
-                me_ctx->tf_decay_factor_fp16[C_Y] =
-                    FLOAT2FP(tf_decay_factor[C_Y], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_U] =
-                    FLOAT2FP(tf_decay_factor[C_U], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_V] =
-                    FLOAT2FP(tf_decay_factor[C_V], 16, uint32_t);
-                me_ctx->tf_decay_factor[C_Y] = tf_decay_factor[C_Y];
-                me_ctx->tf_decay_factor[C_U] = tf_decay_factor[C_U];
-                me_ctx->tf_decay_factor[C_V] = tf_decay_factor[C_V];
+                me_ctx->tf_decay_factor_fp16[PLANE_Y] =
+                    FLOAT2FP(tf_decay_factor[PLANE_Y], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_U] =
+                    FLOAT2FP(tf_decay_factor[PLANE_U], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_V] =
+                    FLOAT2FP(tf_decay_factor[PLANE_V], 16, uint32_t);
+                me_ctx->tf_decay_factor[PLANE_Y] = tf_decay_factor[PLANE_Y];
+                me_ctx->tf_decay_factor[PLANE_U] = tf_decay_factor[PLANE_U];
+                me_ctx->tf_decay_factor[PLANE_V] = tf_decay_factor[PLANE_V];
                 svt_av1_apply_zz_based_temporal_filter_planewise_medium_c(
                     me_ctx,
-                    pred_ptr[C_Y],
-                    stride_pred[C_Y],
-                    pred_ptr[C_U],
-                    pred_ptr[C_V],
-                    stride_pred[C_U],
+                    pred_ptr[PLANE_Y],
+                    stride_pred[PLANE_Y],
+                    pred_ptr[PLANE_U],
+                    pred_ptr[PLANE_V],
+                    stride_pred[PLANE_U],
                     width,
                     height,
                     1,  // subsampling
                     1,  // subsampling
-                    accum_ref_ptr[C_Y],
-                    count_ref_ptr[C_Y],
-                    accum_ref_ptr[C_U],
-                    count_ref_ptr[C_U],
-                    accum_ref_ptr[C_V],
-                    count_ref_ptr[C_V]);
+                    accum_ref_ptr[PLANE_Y],
+                    count_ref_ptr[PLANE_Y],
+                    accum_ref_ptr[PLANE_U],
+                    count_ref_ptr[PLANE_U],
+                    accum_ref_ptr[PLANE_V],
+                    count_ref_ptr[PLANE_V]);
             }
             svt_av1_get_time(&middle_timer_seconds, &middle_timer_useconds);
 
@@ -612,31 +612,31 @@ class TemporalFilterZZTestPlanewiseMedium
                 } else {
                     me_ctx = &context2;
                 }
-                me_ctx->tf_decay_factor_fp16[C_Y] =
-                    FLOAT2FP(tf_decay_factor[C_Y], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_U] =
-                    FLOAT2FP(tf_decay_factor[C_U], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_V] =
-                    FLOAT2FP(tf_decay_factor[C_V], 16, uint32_t);
-                me_ctx->tf_decay_factor[C_Y] = tf_decay_factor[C_Y];
-                me_ctx->tf_decay_factor[C_U] = tf_decay_factor[C_U];
-                me_ctx->tf_decay_factor[C_V] = tf_decay_factor[C_V];
+                me_ctx->tf_decay_factor_fp16[PLANE_Y] =
+                    FLOAT2FP(tf_decay_factor[PLANE_Y], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_U] =
+                    FLOAT2FP(tf_decay_factor[PLANE_U], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_V] =
+                    FLOAT2FP(tf_decay_factor[PLANE_V], 16, uint32_t);
+                me_ctx->tf_decay_factor[PLANE_Y] = tf_decay_factor[PLANE_Y];
+                me_ctx->tf_decay_factor[PLANE_U] = tf_decay_factor[PLANE_U];
+                me_ctx->tf_decay_factor[PLANE_V] = tf_decay_factor[PLANE_V];
                 tst_func_(me_ctx,
-                          pred_ptr[C_Y],
-                          stride_pred[C_Y],
-                          pred_ptr[C_U],
-                          pred_ptr[C_V],
-                          stride_pred[C_U],
+                          pred_ptr[PLANE_Y],
+                          stride_pred[PLANE_Y],
+                          pred_ptr[PLANE_U],
+                          pred_ptr[PLANE_V],
+                          stride_pred[PLANE_U],
                           width,
                           height,
                           1,  // subsampling
                           1,  // subsampling
-                          accum_tst_ptr[C_Y],
-                          count_tst_ptr[C_Y],
-                          accum_tst_ptr[C_U],
-                          count_tst_ptr[C_U],
-                          accum_tst_ptr[C_V],
-                          count_tst_ptr[C_V]);
+                          accum_tst_ptr[PLANE_Y],
+                          count_tst_ptr[PLANE_Y],
+                          accum_tst_ptr[PLANE_U],
+                          count_tst_ptr[PLANE_U],
+                          accum_tst_ptr[PLANE_V],
+                          count_tst_ptr[PLANE_V]);
             }
             svt_av1_get_time(&test_timer_seconds, &test_timer_useconds);
 
@@ -722,7 +722,7 @@ class TemporalFilterTestPlanewiseMediumHbdBase
     void SetUp() {
         setup_test_env();
 
-        for (int color_channel = 0; color_channel < COLOR_CHANNELS;
+        for (int color_channel = 0; color_channel < MAX_PLANES;
              color_channel++) {
             if (!zz) {
                 src_ptr[color_channel] = reinterpret_cast<uint16_t *>(
@@ -764,7 +764,7 @@ class TemporalFilterTestPlanewiseMediumHbdBase
     }
 
     void TearDown() {
-        for (int color_channel = 0; color_channel < COLOR_CHANNELS;
+        for (int color_channel = 0; color_channel < MAX_PLANES;
              color_channel++) {
             if (!zz) {
                 svt_aom_free(src_ptr[color_channel]);
@@ -794,25 +794,25 @@ class TemporalFilterTestPlanewiseMediumHbdBase
         for (int ii = 0; ii < height; ii++) {
             for (int jj = 0; jj < width; jj++) {
                 if (!zz) {
-                    src_ptr[C_Y][ii * strd + jj] = rnd_.random();
-                    src_ptr[C_U][ii * strd + jj] = rnd_.random();
-                    src_ptr[C_V][ii * strd + jj] = rnd_.random();
+                    src_ptr[PLANE_Y][ii * strd + jj] = rnd_.random();
+                    src_ptr[PLANE_U][ii * strd + jj] = rnd_.random();
+                    src_ptr[PLANE_V][ii * strd + jj] = rnd_.random();
                 }
 
                 if (mode && !zz) {
-                    int val1 = -512 + src_ptr[C_Y][ii * strd + jj] +
+                    int val1 = -512 + src_ptr[PLANE_Y][ii * strd + jj] +
                                rnd_.random() % 1024;
-                    int val2 = -512 + src_ptr[C_U][ii * strd + jj] +
+                    int val2 = -512 + src_ptr[PLANE_U][ii * strd + jj] +
                                rnd_.random() % 1024;
-                    int val3 = -512 + src_ptr[C_V][ii * strd + jj] +
+                    int val3 = -512 + src_ptr[PLANE_V][ii * strd + jj] +
                                rnd_.random() % 1024;
-                    pred_ptr[C_Y][ii * stride2 + jj] = MAX(0, val1);
-                    pred_ptr[C_U][ii * stride2 + jj] = MAX(0, val2);
-                    pred_ptr[C_V][ii * stride2 + jj] = MAX(0, val3);
+                    pred_ptr[PLANE_Y][ii * stride2 + jj] = MAX(0, val1);
+                    pred_ptr[PLANE_U][ii * stride2 + jj] = MAX(0, val2);
+                    pred_ptr[PLANE_V][ii * stride2 + jj] = MAX(0, val3);
                 } else {
-                    pred_ptr[C_Y][ii * stride2 + jj] = rnd_.random();
-                    pred_ptr[C_U][ii * stride2 + jj] = rnd_.random();
-                    pred_ptr[C_V][ii * stride2 + jj] = rnd_.random();
+                    pred_ptr[PLANE_Y][ii * stride2 + jj] = rnd_.random();
+                    pred_ptr[PLANE_U][ii * stride2 + jj] = rnd_.random();
+                    pred_ptr[PLANE_V][ii * stride2 + jj] = rnd_.random();
                 }
             }
         }
@@ -823,18 +823,18 @@ class TemporalFilterTestPlanewiseMediumHbdBase
   protected:
     SVTRandom rnd_;
     FuncType tst_func_;
-    uint16_t *src_ptr[COLOR_CHANNELS];
-    uint16_t *pred_ptr[COLOR_CHANNELS];
-    uint32_t *accum_ref_ptr[COLOR_CHANNELS];
-    uint16_t *count_ref_ptr[COLOR_CHANNELS];
+    uint16_t *src_ptr[MAX_PLANES];
+    uint16_t *pred_ptr[MAX_PLANES];
+    uint32_t *accum_ref_ptr[MAX_PLANES];
+    uint16_t *count_ref_ptr[MAX_PLANES];
 
-    uint32_t *accum_tst_ptr[COLOR_CHANNELS];
-    uint16_t *count_tst_ptr[COLOR_CHANNELS];
+    uint32_t *accum_tst_ptr[MAX_PLANES];
+    uint16_t *count_tst_ptr[MAX_PLANES];
 
-    uint32_t stride[COLOR_CHANNELS];
-    uint32_t stride_pred[COLOR_CHANNELS];
+    uint32_t stride[MAX_PLANES];
+    uint32_t stride_pred[MAX_PLANES];
 
-    float tf_decay_factor[COLOR_CHANNELS];
+    float tf_decay_factor[MAX_PLANES];
     uint32_t encoder_bit_depth;
 };
 
@@ -861,63 +861,63 @@ class TemporalFilterTestPlanewiseMediumHbd
                     me_ctx = &context2;
                 }
                 encoder_bit_depth = 10;
-                me_ctx->tf_decay_factor_fp16[C_Y] =
-                    FLOAT2FP(tf_decay_factor[C_Y], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_U] =
-                    FLOAT2FP(tf_decay_factor[C_U], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_V] =
-                    FLOAT2FP(tf_decay_factor[C_V], 16, uint32_t);
-                me_ctx->tf_decay_factor[C_Y] = tf_decay_factor[C_Y];
-                me_ctx->tf_decay_factor[C_U] = tf_decay_factor[C_U];
-                me_ctx->tf_decay_factor[C_V] = tf_decay_factor[C_V];
+                me_ctx->tf_decay_factor_fp16[PLANE_Y] =
+                    FLOAT2FP(tf_decay_factor[PLANE_Y], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_U] =
+                    FLOAT2FP(tf_decay_factor[PLANE_U], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_V] =
+                    FLOAT2FP(tf_decay_factor[PLANE_V], 16, uint32_t);
+                me_ctx->tf_decay_factor[PLANE_Y] = tf_decay_factor[PLANE_Y];
+                me_ctx->tf_decay_factor[PLANE_U] = tf_decay_factor[PLANE_U];
+                me_ctx->tf_decay_factor[PLANE_V] = tf_decay_factor[PLANE_V];
                 svt_av1_apply_temporal_filter_planewise_medium_hbd_c(
                     me_ctx,
-                    src_ptr[C_Y],
-                    stride[C_Y],
-                    pred_ptr[C_Y],
-                    stride_pred[C_Y],
-                    src_ptr[C_U],
-                    src_ptr[C_V],
-                    stride[C_U],
-                    pred_ptr[C_U],
-                    pred_ptr[C_V],
-                    stride_pred[C_U],
+                    src_ptr[PLANE_Y],
+                    stride[PLANE_Y],
+                    pred_ptr[PLANE_Y],
+                    stride_pred[PLANE_Y],
+                    src_ptr[PLANE_U],
+                    src_ptr[PLANE_V],
+                    stride[PLANE_U],
+                    pred_ptr[PLANE_U],
+                    pred_ptr[PLANE_V],
+                    stride_pred[PLANE_U],
                     width,
                     height,
                     1,  // subsampling
                     1,  // subsampling
-                    accum_ref_ptr[C_Y],
-                    count_ref_ptr[C_Y],
-                    accum_ref_ptr[C_U],
-                    count_ref_ptr[C_U],
-                    accum_ref_ptr[C_V],
-                    count_ref_ptr[C_V],
+                    accum_ref_ptr[PLANE_Y],
+                    count_ref_ptr[PLANE_Y],
+                    accum_ref_ptr[PLANE_U],
+                    count_ref_ptr[PLANE_U],
+                    accum_ref_ptr[PLANE_V],
+                    count_ref_ptr[PLANE_V],
                     encoder_bit_depth);
 
                 tst_func_(me_ctx,
-                          src_ptr[C_Y],
-                          stride[C_Y],
-                          pred_ptr[C_Y],
-                          stride_pred[C_Y],
-                          src_ptr[C_U],
-                          src_ptr[C_V],
-                          stride[C_U],
-                          pred_ptr[C_U],
-                          pred_ptr[C_V],
-                          stride_pred[C_U],
+                          src_ptr[PLANE_Y],
+                          stride[PLANE_Y],
+                          pred_ptr[PLANE_Y],
+                          stride_pred[PLANE_Y],
+                          src_ptr[PLANE_U],
+                          src_ptr[PLANE_V],
+                          stride[PLANE_U],
+                          pred_ptr[PLANE_U],
+                          pred_ptr[PLANE_V],
+                          stride_pred[PLANE_U],
                           width,
                           height,
                           1,  // subsampling
                           1,  // subsampling
-                          accum_tst_ptr[C_Y],
-                          count_tst_ptr[C_Y],
-                          accum_tst_ptr[C_U],
-                          count_tst_ptr[C_U],
-                          accum_tst_ptr[C_V],
-                          count_tst_ptr[C_V],
+                          accum_tst_ptr[PLANE_Y],
+                          count_tst_ptr[PLANE_Y],
+                          accum_tst_ptr[PLANE_U],
+                          count_tst_ptr[PLANE_U],
+                          accum_tst_ptr[PLANE_V],
+                          count_tst_ptr[PLANE_V],
                           encoder_bit_depth);
 
-                for (int color_channel = 0; color_channel < COLOR_CHANNELS;
+                for (int color_channel = 0; color_channel < MAX_PLANES;
                      color_channel++) {
                     EXPECT_EQ(
                         memcmp(accum_ref_ptr[color_channel],
@@ -932,63 +932,63 @@ class TemporalFilterTestPlanewiseMediumHbd
                         0);
                 }
                 encoder_bit_depth = 12;
-                me_ctx->tf_decay_factor_fp16[C_Y] =
-                    FLOAT2FP(tf_decay_factor[C_Y], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_U] =
-                    FLOAT2FP(tf_decay_factor[C_U], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_V] =
-                    FLOAT2FP(tf_decay_factor[C_V], 16, uint32_t);
-                me_ctx->tf_decay_factor[C_Y] = tf_decay_factor[C_Y];
-                me_ctx->tf_decay_factor[C_U] = tf_decay_factor[C_U];
-                me_ctx->tf_decay_factor[C_V] = tf_decay_factor[C_V];
+                me_ctx->tf_decay_factor_fp16[PLANE_Y] =
+                    FLOAT2FP(tf_decay_factor[PLANE_Y], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_U] =
+                    FLOAT2FP(tf_decay_factor[PLANE_U], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_V] =
+                    FLOAT2FP(tf_decay_factor[PLANE_V], 16, uint32_t);
+                me_ctx->tf_decay_factor[PLANE_Y] = tf_decay_factor[PLANE_Y];
+                me_ctx->tf_decay_factor[PLANE_U] = tf_decay_factor[PLANE_U];
+                me_ctx->tf_decay_factor[PLANE_V] = tf_decay_factor[PLANE_V];
                 svt_av1_apply_temporal_filter_planewise_medium_hbd_c(
                     me_ctx,
-                    src_ptr[C_Y],
-                    stride[C_Y],
-                    pred_ptr[C_Y],
-                    stride_pred[C_Y],
-                    src_ptr[C_U],
-                    src_ptr[C_V],
-                    stride[C_U],
-                    pred_ptr[C_U],
-                    pred_ptr[C_V],
-                    stride_pred[C_U],
+                    src_ptr[PLANE_Y],
+                    stride[PLANE_Y],
+                    pred_ptr[PLANE_Y],
+                    stride_pred[PLANE_Y],
+                    src_ptr[PLANE_U],
+                    src_ptr[PLANE_V],
+                    stride[PLANE_U],
+                    pred_ptr[PLANE_U],
+                    pred_ptr[PLANE_V],
+                    stride_pred[PLANE_U],
                     width,
                     height,
                     1,  // subsampling
                     1,  // subsampling
-                    accum_ref_ptr[C_Y],
-                    count_ref_ptr[C_Y],
-                    accum_ref_ptr[C_U],
-                    count_ref_ptr[C_U],
-                    accum_ref_ptr[C_V],
-                    count_ref_ptr[C_V],
+                    accum_ref_ptr[PLANE_Y],
+                    count_ref_ptr[PLANE_Y],
+                    accum_ref_ptr[PLANE_U],
+                    count_ref_ptr[PLANE_U],
+                    accum_ref_ptr[PLANE_V],
+                    count_ref_ptr[PLANE_V],
                     encoder_bit_depth);
 
                 tst_func_(me_ctx,
-                          src_ptr[C_Y],
-                          stride[C_Y],
-                          pred_ptr[C_Y],
-                          stride_pred[C_Y],
-                          src_ptr[C_U],
-                          src_ptr[C_V],
-                          stride[C_U],
-                          pred_ptr[C_U],
-                          pred_ptr[C_V],
-                          stride_pred[C_U],
+                          src_ptr[PLANE_Y],
+                          stride[PLANE_Y],
+                          pred_ptr[PLANE_Y],
+                          stride_pred[PLANE_Y],
+                          src_ptr[PLANE_U],
+                          src_ptr[PLANE_V],
+                          stride[PLANE_U],
+                          pred_ptr[PLANE_U],
+                          pred_ptr[PLANE_V],
+                          stride_pred[PLANE_U],
                           width,
                           height,
                           1,  // subsampling
                           1,  // subsampling
-                          accum_tst_ptr[C_Y],
-                          count_tst_ptr[C_Y],
-                          accum_tst_ptr[C_U],
-                          count_tst_ptr[C_U],
-                          accum_tst_ptr[C_V],
-                          count_tst_ptr[C_V],
+                          accum_tst_ptr[PLANE_Y],
+                          count_tst_ptr[PLANE_Y],
+                          accum_tst_ptr[PLANE_U],
+                          count_tst_ptr[PLANE_U],
+                          accum_tst_ptr[PLANE_V],
+                          count_tst_ptr[PLANE_V],
                           encoder_bit_depth);
 
-                for (int color_channel = 0; color_channel < COLOR_CHANNELS;
+                for (int color_channel = 0; color_channel < MAX_PLANES;
                      color_channel++) {
                     EXPECT_EQ(
                         memcmp(accum_ref_ptr[color_channel],
@@ -1017,63 +1017,63 @@ class TemporalFilterTestPlanewiseMediumHbd
                 } else {
                     me_ctx = &context2;
                 }
-                me_ctx->tf_decay_factor_fp16[C_Y] =
-                    FLOAT2FP(tf_decay_factor[C_Y], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_U] =
-                    FLOAT2FP(tf_decay_factor[C_U], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_V] =
-                    FLOAT2FP(tf_decay_factor[C_V], 16, uint32_t);
-                me_ctx->tf_decay_factor[C_Y] = tf_decay_factor[C_Y];
-                me_ctx->tf_decay_factor[C_U] = tf_decay_factor[C_U];
-                me_ctx->tf_decay_factor[C_V] = tf_decay_factor[C_V];
+                me_ctx->tf_decay_factor_fp16[PLANE_Y] =
+                    FLOAT2FP(tf_decay_factor[PLANE_Y], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_U] =
+                    FLOAT2FP(tf_decay_factor[PLANE_U], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_V] =
+                    FLOAT2FP(tf_decay_factor[PLANE_V], 16, uint32_t);
+                me_ctx->tf_decay_factor[PLANE_Y] = tf_decay_factor[PLANE_Y];
+                me_ctx->tf_decay_factor[PLANE_U] = tf_decay_factor[PLANE_U];
+                me_ctx->tf_decay_factor[PLANE_V] = tf_decay_factor[PLANE_V];
                 svt_av1_apply_temporal_filter_planewise_medium_hbd_c(
                     me_ctx,
-                    src_ptr[C_Y],
-                    stride[C_Y],
-                    pred_ptr[C_Y],
-                    stride_pred[C_Y],
-                    src_ptr[C_U],
-                    src_ptr[C_V],
-                    stride[C_U],
-                    pred_ptr[C_U],
-                    pred_ptr[C_V],
-                    stride_pred[C_U],
+                    src_ptr[PLANE_Y],
+                    stride[PLANE_Y],
+                    pred_ptr[PLANE_Y],
+                    stride_pred[PLANE_Y],
+                    src_ptr[PLANE_U],
+                    src_ptr[PLANE_V],
+                    stride[PLANE_U],
+                    pred_ptr[PLANE_U],
+                    pred_ptr[PLANE_V],
+                    stride_pred[PLANE_U],
                     width,
                     height,
                     1,  // subsampling
                     1,  // subsampling
-                    accum_ref_ptr[C_Y],
-                    count_ref_ptr[C_Y],
-                    accum_ref_ptr[C_U],
-                    count_ref_ptr[C_U],
-                    accum_ref_ptr[C_V],
-                    count_ref_ptr[C_V],
+                    accum_ref_ptr[PLANE_Y],
+                    count_ref_ptr[PLANE_Y],
+                    accum_ref_ptr[PLANE_U],
+                    count_ref_ptr[PLANE_U],
+                    accum_ref_ptr[PLANE_V],
+                    count_ref_ptr[PLANE_V],
                     encoder_bit_depth);
             }
             svt_av1_get_time(&middle_timer_seconds, &middle_timer_useconds);
 
             for (int j = 0; j < run_times; j++) {
                 tst_func_(me_ctx,
-                          src_ptr[C_Y],
-                          stride[C_Y],
-                          pred_ptr[C_Y],
-                          stride_pred[C_Y],
-                          src_ptr[C_U],
-                          src_ptr[C_V],
-                          stride[C_U],
-                          pred_ptr[C_U],
-                          pred_ptr[C_V],
-                          stride_pred[C_U],
+                          src_ptr[PLANE_Y],
+                          stride[PLANE_Y],
+                          pred_ptr[PLANE_Y],
+                          stride_pred[PLANE_Y],
+                          src_ptr[PLANE_U],
+                          src_ptr[PLANE_V],
+                          stride[PLANE_U],
+                          pred_ptr[PLANE_U],
+                          pred_ptr[PLANE_V],
+                          stride_pred[PLANE_U],
                           width,
                           height,
                           1,  // subsampling
                           1,  // subsampling
-                          accum_tst_ptr[C_Y],
-                          count_tst_ptr[C_Y],
-                          accum_tst_ptr[C_U],
-                          count_tst_ptr[C_U],
-                          accum_tst_ptr[C_V],
-                          count_tst_ptr[C_V],
+                          accum_tst_ptr[PLANE_Y],
+                          count_tst_ptr[PLANE_Y],
+                          accum_tst_ptr[PLANE_U],
+                          count_tst_ptr[PLANE_U],
+                          accum_tst_ptr[PLANE_V],
+                          count_tst_ptr[PLANE_V],
                           encoder_bit_depth);
             }
             svt_av1_get_time(&test_timer_seconds, &test_timer_useconds);
@@ -1108,63 +1108,63 @@ class TemporalFilterTestPlanewiseMediumHbd
                 } else {
                     me_ctx = &context2;
                 }
-                me_ctx->tf_decay_factor_fp16[C_Y] =
-                    FLOAT2FP(tf_decay_factor[C_Y], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_U] =
-                    FLOAT2FP(tf_decay_factor[C_U], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_V] =
-                    FLOAT2FP(tf_decay_factor[C_V], 16, uint32_t);
-                me_ctx->tf_decay_factor[C_Y] = tf_decay_factor[C_Y];
-                me_ctx->tf_decay_factor[C_U] = tf_decay_factor[C_U];
-                me_ctx->tf_decay_factor[C_V] = tf_decay_factor[C_V];
+                me_ctx->tf_decay_factor_fp16[PLANE_Y] =
+                    FLOAT2FP(tf_decay_factor[PLANE_Y], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_U] =
+                    FLOAT2FP(tf_decay_factor[PLANE_U], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_V] =
+                    FLOAT2FP(tf_decay_factor[PLANE_V], 16, uint32_t);
+                me_ctx->tf_decay_factor[PLANE_Y] = tf_decay_factor[PLANE_Y];
+                me_ctx->tf_decay_factor[PLANE_U] = tf_decay_factor[PLANE_U];
+                me_ctx->tf_decay_factor[PLANE_V] = tf_decay_factor[PLANE_V];
                 svt_av1_apply_temporal_filter_planewise_medium_hbd_c(
                     me_ctx,
-                    src_ptr[C_Y],
-                    stride[C_Y],
-                    pred_ptr[C_Y],
-                    stride_pred[C_Y],
-                    src_ptr[C_U],
-                    src_ptr[C_V],
-                    stride[C_U],
-                    pred_ptr[C_U],
-                    pred_ptr[C_V],
-                    stride_pred[C_U],
+                    src_ptr[PLANE_Y],
+                    stride[PLANE_Y],
+                    pred_ptr[PLANE_Y],
+                    stride_pred[PLANE_Y],
+                    src_ptr[PLANE_U],
+                    src_ptr[PLANE_V],
+                    stride[PLANE_U],
+                    pred_ptr[PLANE_U],
+                    pred_ptr[PLANE_V],
+                    stride_pred[PLANE_U],
                     width,
                     height,
                     1,  // subsampling
                     1,  // subsampling
-                    accum_ref_ptr[C_Y],
-                    count_ref_ptr[C_Y],
-                    accum_ref_ptr[C_U],
-                    count_ref_ptr[C_U],
-                    accum_ref_ptr[C_V],
-                    count_ref_ptr[C_V],
+                    accum_ref_ptr[PLANE_Y],
+                    count_ref_ptr[PLANE_Y],
+                    accum_ref_ptr[PLANE_U],
+                    count_ref_ptr[PLANE_U],
+                    accum_ref_ptr[PLANE_V],
+                    count_ref_ptr[PLANE_V],
                     encoder_bit_depth);
             }
             svt_av1_get_time(&middle_timer_seconds, &middle_timer_useconds);
 
             for (int j = 0; j < run_times; j++) {
                 tst_func_(me_ctx,
-                          src_ptr[C_Y],
-                          stride[C_Y],
-                          pred_ptr[C_Y],
-                          stride_pred[C_Y],
-                          src_ptr[C_U],
-                          src_ptr[C_V],
-                          stride[C_U],
-                          pred_ptr[C_U],
-                          pred_ptr[C_V],
-                          stride_pred[C_U],
+                          src_ptr[PLANE_Y],
+                          stride[PLANE_Y],
+                          pred_ptr[PLANE_Y],
+                          stride_pred[PLANE_Y],
+                          src_ptr[PLANE_U],
+                          src_ptr[PLANE_V],
+                          stride[PLANE_U],
+                          pred_ptr[PLANE_U],
+                          pred_ptr[PLANE_V],
+                          stride_pred[PLANE_U],
                           width,
                           height,
                           1,  // subsampling
                           1,  // subsampling
-                          accum_tst_ptr[C_Y],
-                          count_tst_ptr[C_Y],
-                          accum_tst_ptr[C_U],
-                          count_tst_ptr[C_U],
-                          accum_tst_ptr[C_V],
-                          count_tst_ptr[C_V],
+                          accum_tst_ptr[PLANE_Y],
+                          count_tst_ptr[PLANE_Y],
+                          accum_tst_ptr[PLANE_U],
+                          count_tst_ptr[PLANE_U],
+                          accum_tst_ptr[PLANE_V],
+                          count_tst_ptr[PLANE_V],
                           encoder_bit_depth);
             }
             svt_av1_get_time(&test_timer_seconds, &test_timer_useconds);
@@ -1246,53 +1246,53 @@ class TemporalFilterZZTestPlanewiseMediumHbd
                     me_ctx = &context2;
                 }
                 encoder_bit_depth = 10;
-                me_ctx->tf_decay_factor_fp16[C_Y] =
-                    FLOAT2FP(tf_decay_factor[C_Y], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_U] =
-                    FLOAT2FP(tf_decay_factor[C_U], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_V] =
-                    FLOAT2FP(tf_decay_factor[C_V], 16, uint32_t);
-                me_ctx->tf_decay_factor[C_Y] = tf_decay_factor[C_Y];
-                me_ctx->tf_decay_factor[C_U] = tf_decay_factor[C_U];
-                me_ctx->tf_decay_factor[C_V] = tf_decay_factor[C_V];
+                me_ctx->tf_decay_factor_fp16[PLANE_Y] =
+                    FLOAT2FP(tf_decay_factor[PLANE_Y], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_U] =
+                    FLOAT2FP(tf_decay_factor[PLANE_U], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_V] =
+                    FLOAT2FP(tf_decay_factor[PLANE_V], 16, uint32_t);
+                me_ctx->tf_decay_factor[PLANE_Y] = tf_decay_factor[PLANE_Y];
+                me_ctx->tf_decay_factor[PLANE_U] = tf_decay_factor[PLANE_U];
+                me_ctx->tf_decay_factor[PLANE_V] = tf_decay_factor[PLANE_V];
                 svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_c(
                     me_ctx,
-                    pred_ptr[C_Y],
-                    stride_pred[C_Y],
-                    pred_ptr[C_U],
-                    pred_ptr[C_V],
-                    stride_pred[C_U],
+                    pred_ptr[PLANE_Y],
+                    stride_pred[PLANE_Y],
+                    pred_ptr[PLANE_U],
+                    pred_ptr[PLANE_V],
+                    stride_pred[PLANE_U],
                     width,
                     height,
                     1,  // subsampling
                     1,  // subsampling
-                    accum_ref_ptr[C_Y],
-                    count_ref_ptr[C_Y],
-                    accum_ref_ptr[C_U],
-                    count_ref_ptr[C_U],
-                    accum_ref_ptr[C_V],
-                    count_ref_ptr[C_V],
+                    accum_ref_ptr[PLANE_Y],
+                    count_ref_ptr[PLANE_Y],
+                    accum_ref_ptr[PLANE_U],
+                    count_ref_ptr[PLANE_U],
+                    accum_ref_ptr[PLANE_V],
+                    count_ref_ptr[PLANE_V],
                     encoder_bit_depth);
 
                 tst_func_(me_ctx,
-                          pred_ptr[C_Y],
-                          stride_pred[C_Y],
-                          pred_ptr[C_U],
-                          pred_ptr[C_V],
-                          stride_pred[C_U],
+                          pred_ptr[PLANE_Y],
+                          stride_pred[PLANE_Y],
+                          pred_ptr[PLANE_U],
+                          pred_ptr[PLANE_V],
+                          stride_pred[PLANE_U],
                           width,
                           height,
                           1,  // subsampling
                           1,  // subsampling
-                          accum_tst_ptr[C_Y],
-                          count_tst_ptr[C_Y],
-                          accum_tst_ptr[C_U],
-                          count_tst_ptr[C_U],
-                          accum_tst_ptr[C_V],
-                          count_tst_ptr[C_V],
+                          accum_tst_ptr[PLANE_Y],
+                          count_tst_ptr[PLANE_Y],
+                          accum_tst_ptr[PLANE_U],
+                          count_tst_ptr[PLANE_U],
+                          accum_tst_ptr[PLANE_V],
+                          count_tst_ptr[PLANE_V],
                           encoder_bit_depth);
 
-                for (int color_channel = 0; color_channel < COLOR_CHANNELS;
+                for (int color_channel = 0; color_channel < MAX_PLANES;
                      color_channel++) {
                     EXPECT_EQ(
                         memcmp(accum_ref_ptr[color_channel],
@@ -1307,53 +1307,53 @@ class TemporalFilterZZTestPlanewiseMediumHbd
                         0);
                 }
                 encoder_bit_depth = 12;
-                me_ctx->tf_decay_factor_fp16[C_Y] =
-                    FLOAT2FP(tf_decay_factor[C_Y], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_U] =
-                    FLOAT2FP(tf_decay_factor[C_U], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_V] =
-                    FLOAT2FP(tf_decay_factor[C_V], 16, uint32_t);
-                me_ctx->tf_decay_factor[C_Y] = tf_decay_factor[C_Y];
-                me_ctx->tf_decay_factor[C_U] = tf_decay_factor[C_U];
-                me_ctx->tf_decay_factor[C_V] = tf_decay_factor[C_V];
+                me_ctx->tf_decay_factor_fp16[PLANE_Y] =
+                    FLOAT2FP(tf_decay_factor[PLANE_Y], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_U] =
+                    FLOAT2FP(tf_decay_factor[PLANE_U], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_V] =
+                    FLOAT2FP(tf_decay_factor[PLANE_V], 16, uint32_t);
+                me_ctx->tf_decay_factor[PLANE_Y] = tf_decay_factor[PLANE_Y];
+                me_ctx->tf_decay_factor[PLANE_U] = tf_decay_factor[PLANE_U];
+                me_ctx->tf_decay_factor[PLANE_V] = tf_decay_factor[PLANE_V];
                 svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_c(
                     me_ctx,
-                    pred_ptr[C_Y],
-                    stride_pred[C_Y],
-                    pred_ptr[C_U],
-                    pred_ptr[C_V],
-                    stride_pred[C_U],
+                    pred_ptr[PLANE_Y],
+                    stride_pred[PLANE_Y],
+                    pred_ptr[PLANE_U],
+                    pred_ptr[PLANE_V],
+                    stride_pred[PLANE_U],
                     width,
                     height,
                     1,  // subsampling
                     1,  // subsampling
-                    accum_ref_ptr[C_Y],
-                    count_ref_ptr[C_Y],
-                    accum_ref_ptr[C_U],
-                    count_ref_ptr[C_U],
-                    accum_ref_ptr[C_V],
-                    count_ref_ptr[C_V],
+                    accum_ref_ptr[PLANE_Y],
+                    count_ref_ptr[PLANE_Y],
+                    accum_ref_ptr[PLANE_U],
+                    count_ref_ptr[PLANE_U],
+                    accum_ref_ptr[PLANE_V],
+                    count_ref_ptr[PLANE_V],
                     encoder_bit_depth);
 
                 tst_func_(me_ctx,
-                          pred_ptr[C_Y],
-                          stride_pred[C_Y],
-                          pred_ptr[C_U],
-                          pred_ptr[C_V],
-                          stride_pred[C_U],
+                          pred_ptr[PLANE_Y],
+                          stride_pred[PLANE_Y],
+                          pred_ptr[PLANE_U],
+                          pred_ptr[PLANE_V],
+                          stride_pred[PLANE_U],
                           width,
                           height,
                           1,  // subsampling
                           1,  // subsampling
-                          accum_tst_ptr[C_Y],
-                          count_tst_ptr[C_Y],
-                          accum_tst_ptr[C_U],
-                          count_tst_ptr[C_U],
-                          accum_tst_ptr[C_V],
-                          count_tst_ptr[C_V],
+                          accum_tst_ptr[PLANE_Y],
+                          count_tst_ptr[PLANE_Y],
+                          accum_tst_ptr[PLANE_U],
+                          count_tst_ptr[PLANE_U],
+                          accum_tst_ptr[PLANE_V],
+                          count_tst_ptr[PLANE_V],
                           encoder_bit_depth);
 
-                for (int color_channel = 0; color_channel < COLOR_CHANNELS;
+                for (int color_channel = 0; color_channel < MAX_PLANES;
                      color_channel++) {
                     EXPECT_EQ(
                         memcmp(accum_ref_ptr[color_channel],
@@ -1382,53 +1382,53 @@ class TemporalFilterZZTestPlanewiseMediumHbd
                 } else {
                     me_ctx = &context2;
                 }
-                me_ctx->tf_decay_factor_fp16[C_Y] =
-                    FLOAT2FP(tf_decay_factor[C_Y], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_U] =
-                    FLOAT2FP(tf_decay_factor[C_U], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_V] =
-                    FLOAT2FP(tf_decay_factor[C_V], 16, uint32_t);
-                me_ctx->tf_decay_factor[C_Y] = tf_decay_factor[C_Y];
-                me_ctx->tf_decay_factor[C_U] = tf_decay_factor[C_U];
-                me_ctx->tf_decay_factor[C_V] = tf_decay_factor[C_V];
+                me_ctx->tf_decay_factor_fp16[PLANE_Y] =
+                    FLOAT2FP(tf_decay_factor[PLANE_Y], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_U] =
+                    FLOAT2FP(tf_decay_factor[PLANE_U], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_V] =
+                    FLOAT2FP(tf_decay_factor[PLANE_V], 16, uint32_t);
+                me_ctx->tf_decay_factor[PLANE_Y] = tf_decay_factor[PLANE_Y];
+                me_ctx->tf_decay_factor[PLANE_U] = tf_decay_factor[PLANE_U];
+                me_ctx->tf_decay_factor[PLANE_V] = tf_decay_factor[PLANE_V];
                 svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_c(
                     me_ctx,
-                    pred_ptr[C_Y],
-                    stride_pred[C_Y],
-                    pred_ptr[C_U],
-                    pred_ptr[C_V],
-                    stride_pred[C_U],
+                    pred_ptr[PLANE_Y],
+                    stride_pred[PLANE_Y],
+                    pred_ptr[PLANE_U],
+                    pred_ptr[PLANE_V],
+                    stride_pred[PLANE_U],
                     width,
                     height,
                     1,  // subsampling
                     1,  // subsampling
-                    accum_ref_ptr[C_Y],
-                    count_ref_ptr[C_Y],
-                    accum_ref_ptr[C_U],
-                    count_ref_ptr[C_U],
-                    accum_ref_ptr[C_V],
-                    count_ref_ptr[C_V],
+                    accum_ref_ptr[PLANE_Y],
+                    count_ref_ptr[PLANE_Y],
+                    accum_ref_ptr[PLANE_U],
+                    count_ref_ptr[PLANE_U],
+                    accum_ref_ptr[PLANE_V],
+                    count_ref_ptr[PLANE_V],
                     encoder_bit_depth);
             }
             svt_av1_get_time(&middle_timer_seconds, &middle_timer_useconds);
 
             for (int j = 0; j < run_times; j++) {
                 tst_func_(me_ctx,
-                          pred_ptr[C_Y],
-                          stride_pred[C_Y],
-                          pred_ptr[C_U],
-                          pred_ptr[C_V],
-                          stride_pred[C_U],
+                          pred_ptr[PLANE_Y],
+                          stride_pred[PLANE_Y],
+                          pred_ptr[PLANE_U],
+                          pred_ptr[PLANE_V],
+                          stride_pred[PLANE_U],
                           width,
                           height,
                           1,  // subsampling
                           1,  // subsampling
-                          accum_tst_ptr[C_Y],
-                          count_tst_ptr[C_Y],
-                          accum_tst_ptr[C_U],
-                          count_tst_ptr[C_U],
-                          accum_tst_ptr[C_V],
-                          count_tst_ptr[C_V],
+                          accum_tst_ptr[PLANE_Y],
+                          count_tst_ptr[PLANE_Y],
+                          accum_tst_ptr[PLANE_U],
+                          count_tst_ptr[PLANE_U],
+                          accum_tst_ptr[PLANE_V],
+                          count_tst_ptr[PLANE_V],
                           encoder_bit_depth);
             }
             svt_av1_get_time(&test_timer_seconds, &test_timer_useconds);
@@ -1463,53 +1463,53 @@ class TemporalFilterZZTestPlanewiseMediumHbd
                 } else {
                     me_ctx = &context2;
                 }
-                me_ctx->tf_decay_factor_fp16[C_Y] =
-                    FLOAT2FP(tf_decay_factor[C_Y], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_U] =
-                    FLOAT2FP(tf_decay_factor[C_U], 16, uint32_t);
-                me_ctx->tf_decay_factor_fp16[C_V] =
-                    FLOAT2FP(tf_decay_factor[C_V], 16, uint32_t);
-                me_ctx->tf_decay_factor[C_Y] = tf_decay_factor[C_Y];
-                me_ctx->tf_decay_factor[C_U] = tf_decay_factor[C_U];
-                me_ctx->tf_decay_factor[C_V] = tf_decay_factor[C_V];
+                me_ctx->tf_decay_factor_fp16[PLANE_Y] =
+                    FLOAT2FP(tf_decay_factor[PLANE_Y], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_U] =
+                    FLOAT2FP(tf_decay_factor[PLANE_U], 16, uint32_t);
+                me_ctx->tf_decay_factor_fp16[PLANE_V] =
+                    FLOAT2FP(tf_decay_factor[PLANE_V], 16, uint32_t);
+                me_ctx->tf_decay_factor[PLANE_Y] = tf_decay_factor[PLANE_Y];
+                me_ctx->tf_decay_factor[PLANE_U] = tf_decay_factor[PLANE_U];
+                me_ctx->tf_decay_factor[PLANE_V] = tf_decay_factor[PLANE_V];
                 svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_c(
                     me_ctx,
-                    pred_ptr[C_Y],
-                    stride_pred[C_Y],
-                    pred_ptr[C_U],
-                    pred_ptr[C_V],
-                    stride_pred[C_U],
+                    pred_ptr[PLANE_Y],
+                    stride_pred[PLANE_Y],
+                    pred_ptr[PLANE_U],
+                    pred_ptr[PLANE_V],
+                    stride_pred[PLANE_U],
                     width,
                     height,
                     1,  // subsampling
                     1,  // subsampling
-                    accum_ref_ptr[C_Y],
-                    count_ref_ptr[C_Y],
-                    accum_ref_ptr[C_U],
-                    count_ref_ptr[C_U],
-                    accum_ref_ptr[C_V],
-                    count_ref_ptr[C_V],
+                    accum_ref_ptr[PLANE_Y],
+                    count_ref_ptr[PLANE_Y],
+                    accum_ref_ptr[PLANE_U],
+                    count_ref_ptr[PLANE_U],
+                    accum_ref_ptr[PLANE_V],
+                    count_ref_ptr[PLANE_V],
                     encoder_bit_depth);
             }
             svt_av1_get_time(&middle_timer_seconds, &middle_timer_useconds);
 
             for (int j = 0; j < run_times; j++) {
                 tst_func_(me_ctx,
-                          pred_ptr[C_Y],
-                          stride_pred[C_Y],
-                          pred_ptr[C_U],
-                          pred_ptr[C_V],
-                          stride_pred[C_U],
+                          pred_ptr[PLANE_Y],
+                          stride_pred[PLANE_Y],
+                          pred_ptr[PLANE_U],
+                          pred_ptr[PLANE_V],
+                          stride_pred[PLANE_U],
                           width,
                           height,
                           1,  // subsampling
                           1,  // subsampling
-                          accum_tst_ptr[C_Y],
-                          count_tst_ptr[C_Y],
-                          accum_tst_ptr[C_U],
-                          count_tst_ptr[C_U],
-                          accum_tst_ptr[C_V],
-                          count_tst_ptr[C_V],
+                          accum_tst_ptr[PLANE_Y],
+                          count_tst_ptr[PLANE_Y],
+                          accum_tst_ptr[PLANE_U],
+                          count_tst_ptr[PLANE_U],
+                          accum_tst_ptr[PLANE_V],
+                          count_tst_ptr[PLANE_V],
                           encoder_bit_depth);
             }
             svt_av1_get_time(&test_timer_seconds, &test_timer_useconds);
@@ -1596,8 +1596,8 @@ class TemporalFilterTestGetFinalFilteredPixels
 
   public:
     TemporalFilterTestGetFinalFilteredPixels() : test_func_(GetParam()) {
-        width = BW;
-        height = BH;
+        width = TF_BW;
+        height = TF_BH;
         src_center_ptr_start_size = height * (width + 5);
         altref_buffer_highbd_start_size = height * (width + 5);
         me_ctx = (MeContext *)malloc(sizeof(*me_ctx));
@@ -1625,9 +1625,9 @@ class TemporalFilterTestGetFinalFilteredPixels
                    1,
                    src_center_ptr_start_size * sizeof(uint16_t));
             accum[color_channel] =
-                (uint32_t *)malloc(BW * BH * sizeof(uint32_t));
+                (uint32_t *)malloc(TF_BW * TF_BH * sizeof(uint32_t));
             count[color_channel] =
-                (uint16_t *)malloc(BW * BH * sizeof(uint16_t));
+                (uint16_t *)malloc(TF_BW * TF_BH * sizeof(uint16_t));
         }
     }
 
@@ -1645,7 +1645,7 @@ class TemporalFilterTestGetFinalFilteredPixels
 
     void SetRandData(bool is_highbd) {
         for (int color_channel = 0; color_channel < 3; ++color_channel) {
-            for (int i = 0; i < BH * BW; ++i) {
+            for (int i = 0; i < TF_BH * TF_BW; ++i) {
                 if (is_highbd) {
                     accum[color_channel][i] = rand() % 1024;
                 } else {
@@ -1759,25 +1759,29 @@ class TemporalFilterTestApplyFilteringCentral
 
   public:
     TemporalFilterTestApplyFilteringCentral() {
-        width = BW;
-        height = BH;
+        width = TF_BW;
+        height = TF_BH;
         src_size = height * (width + 5);
         me_ctx = (MeContext *)malloc(sizeof(*me_ctx));
 
         for (int color_channel = 0; color_channel < 3; ++color_channel) {
             src[color_channel] = (SrcType *)malloc(src_size * sizeof(SrcType));
             ref_accum[color_channel] =
-                (uint32_t *)malloc(BW * BH * sizeof(uint32_t));
+                (uint32_t *)malloc(TF_BW * TF_BH * sizeof(uint32_t));
             test_accum[color_channel] =
-                (uint32_t *)malloc(BW * BH * sizeof(uint32_t));
+                (uint32_t *)malloc(TF_BW * TF_BH * sizeof(uint32_t));
             ref_count[color_channel] =
-                (uint16_t *)malloc(BW * BH * sizeof(uint16_t));
+                (uint16_t *)malloc(TF_BW * TF_BH * sizeof(uint16_t));
             test_count[color_channel] =
-                (uint16_t *)malloc(BW * BH * sizeof(uint16_t));
-            memset(ref_accum[color_channel], 1, BW * BH * sizeof(uint32_t));
-            memset(test_accum[color_channel], 1, BW * BH * sizeof(uint32_t));
-            memset(ref_count[color_channel], 1, BW * BH * sizeof(uint16_t));
-            memset(test_count[color_channel], 1, BW * BH * sizeof(uint16_t));
+                (uint16_t *)malloc(TF_BW * TF_BH * sizeof(uint16_t));
+            memset(
+                ref_accum[color_channel], 1, TF_BW * TF_BH * sizeof(uint32_t));
+            memset(
+                test_accum[color_channel], 1, TF_BW * TF_BH * sizeof(uint32_t));
+            memset(
+                ref_count[color_channel], 1, TF_BW * TF_BH * sizeof(uint16_t));
+            memset(
+                test_count[color_channel], 1, TF_BW * TF_BH * sizeof(uint16_t));
         }
     }
 
@@ -1804,7 +1808,7 @@ class TemporalFilterTestApplyFilteringCentral
         me_ctx->tf_chroma = rand() % 2;
 
         input_picture_central = {};
-        input_picture_central.stride_y = BW + 5;
+        input_picture_central.y_stride = TF_BW + 5;
     }
 
     void RunTest() {
@@ -1836,12 +1840,12 @@ class TemporalFilterTestApplyFilteringCentral
         for (int color_channel = 0; color_channel < 3; ++color_channel) {
             EXPECT_EQ(memcmp(ref_accum[color_channel],
                              test_accum[color_channel],
-                             BW * BH * sizeof(uint32_t)),
+                             TF_BW * TF_BH * sizeof(uint32_t)),
                       0);
 
             EXPECT_EQ(memcmp(ref_count[color_channel],
                              test_count[color_channel],
-                             BW * BH * sizeof(uint16_t)),
+                             TF_BW * TF_BH * sizeof(uint16_t)),
                       0);
         }
     }

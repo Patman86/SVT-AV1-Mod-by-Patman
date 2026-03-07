@@ -120,8 +120,8 @@ typedef struct Macroblock {
 
 typedef struct IntraBcContext {
     int32_t                 rdmult;
-    struct MacroBlockDPlane xdplane[MAX_MB_PLANE];
-    struct MacroBlockPlane  plane[MAX_MB_PLANE];
+    struct MacroBlockDPlane xdplane[MAX_PLANES];
+    struct MacroBlockPlane  plane[MAX_PLANES];
     MvLimits                mv_limits;
     // The equivalend SAD error of one (whole) bit at the current quantizer
     // for large blocks.

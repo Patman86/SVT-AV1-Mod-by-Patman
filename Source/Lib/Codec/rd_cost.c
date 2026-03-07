@@ -1237,7 +1237,7 @@ EbErrorType svt_aom_txb_estimate_coeff_bits_light_pd0(ModeDecisionContext* ctx, 
             0,
             0,
             cand_bf,
-            (int32_t*)&coeff_buffer_sb->buffer_y[txb_origin_index * sizeof(int32_t)],
+            (int32_t*)&coeff_buffer_sb->y_buffer[txb_origin_index * sizeof(int32_t)],
             (uint16_t)y_eob,
             PLANE_TYPE_Y,
             txsize,
@@ -1280,7 +1280,7 @@ EbErrorType svt_aom_txb_estimate_coeff_bits(ModeDecisionContext* ctx, uint8_t al
 
     if (component_type == COMPONENT_LUMA || component_type == COMPONENT_ALL) {
         if (y_eob) {
-            coeff_buffer = (int32_t*)&coeff_buffer_sb->buffer_y[txb_origin_index * sizeof(int32_t)];
+            coeff_buffer = (int32_t*)&coeff_buffer_sb->y_buffer[txb_origin_index * sizeof(int32_t)];
 
             *y_txb_coeff_bits = svt_av1_cost_coeffs_txb(ctx,
                                                         allow_update_cdf,
@@ -1305,7 +1305,7 @@ EbErrorType svt_aom_txb_estimate_coeff_bits(ModeDecisionContext* ctx, uint8_t al
     if (component_type == COMPONENT_CHROMA_CB || component_type == COMPONENT_CHROMA ||
         component_type == COMPONENT_ALL) {
         if (cb_eob) {
-            coeff_buffer = (int32_t*)&coeff_buffer_sb->buffer_cb[txb_chroma_origin_index * sizeof(int32_t)];
+            coeff_buffer = (int32_t*)&coeff_buffer_sb->u_buffer[txb_chroma_origin_index * sizeof(int32_t)];
 
             *cb_txb_coeff_bits = svt_av1_cost_coeffs_txb(ctx,
                                                          allow_update_cdf,
@@ -1329,7 +1329,7 @@ EbErrorType svt_aom_txb_estimate_coeff_bits(ModeDecisionContext* ctx, uint8_t al
         component_type == COMPONENT_ALL) {
         //Estimate the rate of the transform type and coefficient for chroma Cr
         if (cr_eob) {
-            coeff_buffer = (int32_t*)&coeff_buffer_sb->buffer_cr[txb_chroma_origin_index * sizeof(int32_t)];
+            coeff_buffer = (int32_t*)&coeff_buffer_sb->v_buffer[txb_chroma_origin_index * sizeof(int32_t)];
 
             *cr_txb_coeff_bits = svt_av1_cost_coeffs_txb(ctx,
                                                          allow_update_cdf,

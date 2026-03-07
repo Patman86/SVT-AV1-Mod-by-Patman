@@ -20,7 +20,7 @@ uint8_t svt_aom_get_update_cdf_level_rtc(EncMode enc_mode, SliceType is_islice, 
 uint8_t svt_aom_get_update_cdf_level_allintra(EncMode enc_mode);
 #else
 uint8_t svt_aom_get_update_cdf_level(EncMode enc_mode, SliceType is_islice, uint8_t is_base, uint8_t sc_class1,
-                                     const EbInputResolution input_resolution, bool allintra);
+                                     const ResolutionRange input_resolution, bool allintra);
 #endif
 #if TUNE_STILL_IMAGE
 uint8_t svt_aom_get_chroma_level_default(EncMode enc_mode, const uint8_t is_islice);
@@ -46,7 +46,7 @@ uint8_t svt_aom_get_nic_level(SequenceControlSet* scs, EncMode enc_mode, uint8_t
 #endif
 uint8_t svt_aom_get_enable_me_16x16(EncMode enc_mode);
 bool    svt_aom_is_ref_same_size(PictureControlSet* pcs, uint8_t list_idx, uint8_t ref_idx);
-uint8_t svt_aom_get_enable_me_8x8(EncMode enc_mode, EbInputResolution input_resolution, const bool rtc_tune,
+uint8_t svt_aom_get_enable_me_8x8(EncMode enc_mode, ResolutionRange input_resolution, const bool rtc_tune,
                                   const bool flat_rtc_tune);
 #if TUNE_STILL_IMAGE
 void svt_aom_sig_deriv_mode_decision_config_default(SequenceControlSet* scs, PictureControlSet* pcs);

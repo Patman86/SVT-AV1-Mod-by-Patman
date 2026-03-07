@@ -447,26 +447,10 @@ void svt_av1_predict_intra_block(MacroBlockD* xd, BlockSize bsize, TxSize tx_siz
 
     const int is_16bit = (bit_depth == EB_EIGHT_BIT) ? 0 : 1;
 
-    uint8_t* dst;
-    int32_t  dst_stride;
-    if (plane == 0) {
-        dst = recon_buffer->buffer_y +
-            ((dst_offset_x + recon_buffer->org_x + (dst_offset_y + recon_buffer->org_y) * recon_buffer->stride_y)
-             << is_16bit);
-        dst_stride = recon_buffer->stride_y;
-    } else if (plane == 1) {
-        dst = recon_buffer->buffer_cb +
-            (((dst_offset_x + recon_buffer->org_x / 2 +
-               (dst_offset_y + recon_buffer->org_y / 2) * recon_buffer->stride_cb))
-             << is_16bit);
-        dst_stride = recon_buffer->stride_cb;
-    } else {
-        dst = recon_buffer->buffer_cr +
-            (((dst_offset_x + recon_buffer->org_x / 2 +
-               (dst_offset_y + recon_buffer->org_y / 2) * recon_buffer->stride_cr))
-             << is_16bit);
-        dst_stride = recon_buffer->stride_cr;
-    }
+    assert(plane >= PLANE_Y && plane < MAX_PLANES);
+    uint8_t* dst = recon_buffer->buffer[plane] +
+        ((dst_offset_x + (dst_offset_y)*recon_buffer->stride[plane]) << is_16bit);
+    int32_t dst_stride = recon_buffer->stride[plane];
 
     const int32_t txwpx = tx_size_wide[tx_size];
     const int32_t txhpx = tx_size_high[tx_size];
@@ -596,7 +580,7 @@ EbErrorType svt_av1_intra_prediction(uint8_t hbd_md, ModeDecisionContext* ctx, P
     PredictionMode mode;
     // Hsan: plane should be derived @ an earlier stage (e.g. @ the call of perform_fast_loop())
     int32_t start_plane = (ctx->uv_intra_comp_only) ? 1 : 0;
-    int32_t end_plane   = ctx->mds_do_chroma ? MAX_MB_PLANE : 1;
+    int32_t end_plane   = ctx->mds_do_chroma ? MAX_PLANES : 1;
     for (int32_t plane = start_plane; plane < end_plane; ++plane) {
         if (plane) {
             mode = (cand_bf->cand->block_mi.uv_mode == UV_CFL_PRED) ? (PredictionMode)UV_DC_PRED
@@ -724,7 +708,7 @@ static void intra_luma_prediction_for_interintra(ModeDecisionContext* ctx, Pictu
                                 prediction_ptr,
                                 (tx_org[ctx->blk_geom->bsize][is_inter][0][0].x) >> 2,
                                 (tx_org[ctx->blk_geom->bsize][is_inter][0][0].y) >> 2,
-                                AOM_PLANE_Y,
+                                PLANE_Y,
                                 ctx->shape,
                                 0,
                                 0,
@@ -736,12 +720,12 @@ static void intra_luma_prediction_for_interintra(ModeDecisionContext* ctx, Pictu
 void svt_aom_precompute_intra_pred_for_inter_intra(PictureControlSet* pcs, ModeDecisionContext* ctx) {
     uint32_t            j;
     EbPictureBufferDesc pred_desc;
-    pred_desc.org_x = pred_desc.org_y = 0;
-    pred_desc.stride_y                = ctx->blk_geom->bwidth;
+    pred_desc.border   = 0;
+    pred_desc.y_stride = ctx->blk_geom->bwidth;
 
     for (j = 0; j < INTERINTRA_MODES; ++j) {
         InterIntraMode interintra_mode = (InterIntraMode)j;
-        pred_desc.buffer_y             = ctx->intrapred_buf[j];
+        pred_desc.y_buffer             = ctx->intrapred_buf[j];
         intra_luma_prediction_for_interintra(ctx, pcs, interintra_mode, &pred_desc);
     }
 }
@@ -763,7 +747,7 @@ EbErrorType svt_aom_update_neighbor_samples_array_open_loop_mb(uint8_t use_top_r
     uint32_t block_width_neigh  = use_top_righ_bottom_left ? bwidth << 1 : bwidth;
     uint32_t block_height_neigh = use_top_righ_bottom_left ? bheight << 1 : bheight;
     // Adjust the Source ptr to start at the origin of the block being updated
-    src_ptr = input_ptr->buffer_y + (((src_origin_y + input_ptr->org_y) * stride) + (src_origin_x + input_ptr->org_x));
+    src_ptr = input_ptr->y_buffer + (((src_origin_y)*stride) + (src_origin_x));
 
     //Initialise the Luma Intra Reference Array to the mid range value 128 (for CUs at the picture boundaries)
     EB_MEMSET(above_ref, 127, block_width_neigh + 1);

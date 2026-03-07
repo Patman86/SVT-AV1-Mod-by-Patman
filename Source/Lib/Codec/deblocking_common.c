@@ -13,11 +13,11 @@
 #include "deblocking_common.h"
 #include "common_utils.h"
 
-static const int delta_lf_id_lut[MAX_MB_PLANE][2] = {{0, 1}, {2, 2}, {3, 3}};
+static const int delta_lf_id_lut[MAX_PLANES][2] = {{0, 1}, {2, 2}, {3, 3}};
 
-static const SEG_LVL_FEATURES seg_lvl_lf_lut[MAX_MB_PLANE][2] = {{SEG_LVL_ALT_LF_Y_V, SEG_LVL_ALT_LF_Y_H},
-                                                                 {SEG_LVL_ALT_LF_U, SEG_LVL_ALT_LF_U},
-                                                                 {SEG_LVL_ALT_LF_V, SEG_LVL_ALT_LF_V}};
+static const SEG_LVL_FEATURES seg_lvl_lf_lut[MAX_PLANES][2] = {{SEG_LVL_ALT_LF_Y_V, SEG_LVL_ALT_LF_Y_H},
+                                                               {SEG_LVL_ALT_LF_U, SEG_LVL_ALT_LF_U},
+                                                               {SEG_LVL_ALT_LF_V, SEG_LVL_ALT_LF_V}};
 
 static INLINE int svt_aom_seg_feature_active(SegmentationParams* seg, int segment_id, SEG_LVL_FEATURES feature_id) {
     return seg->segmentation_enabled && seg->feature_enabled[segment_id][feature_id];
@@ -85,7 +85,7 @@ uint8_t svt_aom_get_filter_level_delta_lf(FrameHeader* frm_hdr, const int32_t di
 // svt_av1_loop_filter_frame() calls this function directly.
 void svt_av1_loop_filter_frame_init(FrameHeader* frm_hdr, LoopFilterInfoN* lfi, int32_t plane_start,
                                     int32_t plane_end) {
-    int32_t filt_lvl[MAX_MB_PLANE], filt_lvl_r[MAX_MB_PLANE];
+    int32_t filt_lvl[MAX_PLANES], filt_lvl_r[MAX_PLANES];
     int32_t plane;
     int32_t seg_id;
     // n_shift is the multiplier for lf_deltas
@@ -559,7 +559,7 @@ void svt_aom_highbd_lpf_vertical_8_c(uint16_t* s, int32_t pitch, const uint8_t* 
 
 //**********************************************************************************************************************//
 
-//static const SEG_LVL_FEATURES seg_lvl_lf_lut[MAX_MB_PLANE][2] = {
+//static const SEG_LVL_FEATURES seg_lvl_lf_lut[MAX_PLANES][2] = {
 //    { SEG_LVL_ALT_LF_Y_V, SEG_LVL_ALT_LF_Y_H },
 //    { SEG_LVL_ALT_LF_U, SEG_LVL_ALT_LF_U },
 //    { SEG_LVL_ALT_LF_V, SEG_LVL_ALT_LF_V }

@@ -172,42 +172,39 @@ void* svt_aom_motion_estimation_kernel(void* input_ptr) {
                             uint32_t b64_origin_y = y_b64_index * scs->b64_size;
 
                             // Load the 64x64 Block from the input to the intermediate block buffer
-                            uint32_t buffer_index = (input_pic->org_y + b64_origin_y) * input_pic->stride_y +
-                                input_pic->org_x + b64_origin_x;
+                            uint32_t buffer_index = (b64_origin_y)*input_pic->y_stride + b64_origin_x;
 #ifdef ARCH_X86_64
-                            uint8_t* src_ptr    = &input_padded_pic->buffer_y[buffer_index];
+                            uint8_t* src_ptr    = &input_padded_pic->y_buffer[buffer_index];
                             uint32_t b64_height = (pcs->aligned_height - b64_origin_y) < BLOCK_SIZE_64
                                 ? pcs->aligned_height - b64_origin_y
                                 : BLOCK_SIZE_64;
                             //_MM_HINT_T0     //_MM_HINT_T1    //_MM_HINT_T2//_MM_HINT_NTA
                             for (uint32_t i = 0; i < b64_height; i++) {
-                                char const* p = (char const*)(src_ptr + i * input_padded_pic->stride_y);
+                                char const* p = (char const*)(src_ptr + i * input_padded_pic->y_stride);
                                 _mm_prefetch(p, _MM_HINT_T2);
                             }
 #endif
-                            me_context_ptr->me_ctx->b64_src_ptr    = &input_padded_pic->buffer_y[buffer_index];
-                            me_context_ptr->me_ctx->b64_src_stride = input_padded_pic->stride_y;
+                            me_context_ptr->me_ctx->b64_src_ptr    = &input_padded_pic->y_buffer[buffer_index];
+                            me_context_ptr->me_ctx->b64_src_stride = input_padded_pic->y_stride;
 
                             // Load the 1/4 decimated SB from the 1/4 decimated input to the 1/4 intermediate SB buffer
                             if (me_context_ptr->me_ctx->enable_hme_level1_flag) {
-                                buffer_index = (quarter_picture_ptr->org_y + (b64_origin_y >> 1)) *
-                                        quarter_picture_ptr->stride_y +
-                                    quarter_picture_ptr->org_x + (b64_origin_x >> 1);
+                                buffer_index = ((b64_origin_y >> 1)) * quarter_picture_ptr->y_stride +
+                                    (b64_origin_x >> 1);
 
                                 me_context_ptr->me_ctx->quarter_b64_buffer =
-                                    &quarter_picture_ptr->buffer_y[buffer_index];
-                                me_context_ptr->me_ctx->quarter_b64_buffer_stride = quarter_picture_ptr->stride_y;
+                                    &quarter_picture_ptr->y_buffer[buffer_index];
+                                me_context_ptr->me_ctx->quarter_b64_buffer_stride = quarter_picture_ptr->y_stride;
                             }
 
                             // Load the 1/16 decimated SB from the 1/16 decimated input to the 1/16 intermediate SB buffer
                             if (me_context_ptr->me_ctx->enable_hme_level0_flag) {
-                                buffer_index = (sixteenth_picture_ptr->org_y + (b64_origin_y >> 2)) *
-                                        sixteenth_picture_ptr->stride_y +
-                                    sixteenth_picture_ptr->org_x + (b64_origin_x >> 2);
+                                buffer_index = ((b64_origin_y >> 2)) * sixteenth_picture_ptr->y_stride +
+                                    (b64_origin_x >> 2);
 
                                 me_context_ptr->me_ctx->sixteenth_b64_buffer =
-                                    &sixteenth_picture_ptr->buffer_y[buffer_index];
-                                me_context_ptr->me_ctx->sixteenth_b64_buffer_stride = sixteenth_picture_ptr->stride_y;
+                                    &sixteenth_picture_ptr->y_buffer[buffer_index];
+                                me_context_ptr->me_ctx->sixteenth_b64_buffer_stride = sixteenth_picture_ptr->y_stride;
                             }
 
                             me_context_ptr->me_ctx->me_type = ME_OPEN_LOOP;

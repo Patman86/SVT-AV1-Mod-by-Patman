@@ -608,7 +608,7 @@ typedef enum ATTRIBUTE_PACKED {
     COMPONENT_NONE      = 15
 } COMPONENT_TYPE;
 
-typedef enum ATTRIBUTE_PACKED { AOM_PLANE_Y, AOM_PLANE_U, AOM_PLANE_V, MAX_MB_PLANE } Plane;
+typedef enum ATTRIBUTE_PACKED { PLANE_Y, PLANE_U, PLANE_V, MAX_PLANES } Plane;
 
 typedef enum ATTRIBUTE_PACKED { PLANE_TYPE_Y, PLANE_TYPE_UV, PLANE_TYPES } PlaneType;
 
@@ -646,7 +646,7 @@ static INLINE unsigned int negative_to_zero(int value) {
 }
 
 static INLINE int av1_num_planes(EbColorConfig* color_info) {
-    return color_info->mono_chrome ? 1 : MAX_MB_PLANE;
+    return color_info->mono_chrome ? 1 : MAX_PLANES;
 }
 
 typedef struct IntraSize {
@@ -1324,6 +1324,8 @@ enum {
 #define REF_FRAMES_LOG2 3
 #define REFS_PER_FRAME 7
 
+#define LAST_BWD_FRAME 8
+
 #define FWD_RF_OFFSET(ref) (ref - LAST_FRAME)
 #define BWD_RF_OFFSET(ref) (ref - BWDREF_FRAME)
 
@@ -1424,21 +1426,21 @@ typedef enum RefreshFrameContextMode {
 /*!\brief Algorithm return codes */
 typedef enum AomCodecErr {
     /*!\brief Operation completed without error */
-    AOM_CODEC_OK,
+    SVT_AOM_CODEC_OK,
     /*!\brief Unspecified error */
-    AOM_CODEC_ERROR,
+    SVT_AOM_CODEC_ERROR,
     /*!\brief Memory operation failed */
-    AOM_CODEC_MEM_ERROR,
+    SVT_AOM_CODEC_MEM_ERROR,
     /*!\brief ABI version mismatch */
-    AOM_CODEC_ABI_MISMATCH,
+    SVT_AOM_CODEC_ABI_MISMATCH,
     /*!\brief Algorithm does not have required capability */
-    AOM_CODEC_INCAPABLE,
+    SVT_AOM_CODEC_INCAPABLE,
     /*!\brief The given Bitstream is not supported.
     *
     * The Bitstream was unable to be parsed at the highest level. The decoder
     * is unable to proceed. This error \ref SHOULD be treated as fatal to the
     * stream. */
-    AOM_CODEC_UNSUP_BITSTREAM,
+    SVT_AOM_CODEC_UNSUP_BITSTREAM,
     /*!\brief Encoded Bitstream uses an unsupported feature
     *
     * The decoder does not implement a feature required by the encoder. This
@@ -1446,7 +1448,7 @@ typedef enum AomCodecErr {
     * pictures from being properly decoded. This error \ref MAY be treated as
     * fatal to the stream or \ref MAY be treated as fatal to the current GOP.
     */
-    AOM_CODEC_UNSUP_FEATURE,
+    SVT_AOM_CODEC_UNSUP_FEATURE,
     /*!\brief The coded data for this stream is corrupt or incomplete
     *
     * There was a problem decoding the current frame.  This return code
@@ -1455,15 +1457,15 @@ typedef enum AomCodecErr {
     * stream or \ref MAY be treated as fatal to the current GOP. If decoding
     * is continued for the current GOP, artifacts may be present.
     */
-    AOM_CODEC_CORRUPT_FRAME,
+    SVT_AOM_CODEC_CORRUPT_FRAME,
     /*!\brief An application-supplied parameter is not valid.
     *
     */
-    AOM_CODEC_INVALID_PARAM,
+    SVT_AOM_CODEC_INVALID_PARAM,
     /*!\brief An iterator reached the end of list.
     *
     */
-    AOM_CODEC_LIST_END
+    SVT_AOM_CODEC_LIST_END
 } AomCodecErr;
 
 // above and left partition
@@ -1571,6 +1573,8 @@ typedef enum FrameContextIndex {
 #define MAXQ 255
 #define QINDEX_RANGE (MAXQ - MINQ + 1)
 #define QINDEX_BITS 8
+#define MIN_QP_VALUE 0
+#define MAX_QP_VALUE 63
 // Total number of QM sets stored
 #define QM_LEVEL_BITS 4
 #define NUM_QM_LEVELS (1 << QM_LEVEL_BITS)
@@ -1609,7 +1613,7 @@ typedef struct LoopFilterThresh {
 
 typedef struct LoopFilterInfoN {
     LoopFilterThresh lfthr[MAX_LOOP_FILTER + 1];
-    uint8_t          lvl[MAX_MB_PLANE][MAX_SEGMENTS][2][REF_FRAMES][MAX_MODE_LF_DELTAS];
+    uint8_t          lvl[MAX_PLANES][MAX_SEGMENTS][2][REF_FRAMES][MAX_MODE_LF_DELTAS];
 } LoopFilterInfoN;
 
 #define CDEF_PRI_STRENGTHS 16
@@ -1717,21 +1721,6 @@ static const WarpedMotionParams default_warp_params = {
 #define SC_FRAMES_INTERVAL_T2        180 // The speed control Interval Threshold2
 #define SC_FRAMES_INTERVAL_T3        120 // The speed control Interval Threshold3
 
-#define LAST_BWD_FRAME     8
-
-#define MAX_NUM_TOKENS          200
-
-#define INPUT_SIZE_240p_TH                  0x28500      // 0.165 Million
-#define INPUT_SIZE_360p_TH                  0x4CE00      // 0.315 Million
-#define INPUT_SIZE_480p_TH                  0xA1400      // 0.661 Million
-#define INPUT_SIZE_720p_TH                  0x16DA00     // 1.5 Million
-#define INPUT_SIZE_1080p_TH                 0x535200     // 5.46 Million
-#define INPUT_SIZE_4K_TH                    0x140A000    // 21 Million
-#define INPUT_SIZE_8K_TH                    0X5028000    // 84 Million
-
-// There must absolutely be no reason to use more than 2x of original bytes, assuming 4:2:0
-#define BITSTREAM_BUFFER_SIZE(pixels)       ((pixels) * 3 / 2 * 2)
-
 /** Redefine ASSERT() to avoid warnings
 */
 #if defined _DEBUG || _DEBUG_
@@ -1746,9 +1735,6 @@ static const WarpedMotionParams default_warp_params = {
 #define SUB_SAD_SEARCH  0
 #define FULL_SAD_SEARCH 1
 /************************ INPUT CLASS **************************/
-
-#define EbInputResolution uint8_t
-
 typedef enum ResolutionRange {
     INPUT_SIZE_240p_RANGE  = 0,
     INPUT_SIZE_360p_RANGE  = 1,
@@ -1759,6 +1745,17 @@ typedef enum ResolutionRange {
     INPUT_SIZE_8K_RANGE    = 6,
     INPUT_SIZE_COUNT       = 7
 } ResolutionRange;
+
+#define INPUT_SIZE_240p_TH                  0x28500      // 0.165 Million
+#define INPUT_SIZE_360p_TH                  0x4CE00      // 0.315 Million
+#define INPUT_SIZE_480p_TH                  0xA1400      // 0.661 Million
+#define INPUT_SIZE_720p_TH                  0x16DA00     // 1.5 Million
+#define INPUT_SIZE_1080p_TH                 0x535200     // 5.46 Million
+#define INPUT_SIZE_4K_TH                    0x140A000    // 21 Million
+#define INPUT_SIZE_8K_TH                    0X5028000    // 84 Million
+
+// There must absolutely be no reason to use more than 2x of original bytes, assuming 4:2:0
+#define BITSTREAM_BUFFER_SIZE(pixels)       ((pixels) * 3 / 2 * 2)
 
 /** The EbPtr type is intended to be used to pass pointers to and from the eBrisk
 API.  This is a 32 bit pointer and is aligned on a 32 bit word boundary.
@@ -1967,11 +1964,10 @@ void(*error_handler)(
 #define UNUSED(x) (void)(x)
 
 //***Encoding Parameters***
-
 #define BLOCK_SIZE_64                               64u
 #define LOG_MIN_BLOCK_SIZE                          3
 #define MIN_BLOCK_SIZE                              (1 << LOG_MIN_BLOCK_SIZE)
-#define MAX_NUM_OF_REF_PIC_LIST                     2
+
 // super-resolution definitions
 #define MIN_SUPERRES_DENOM                          8
 #define MAX_SUPERRES_DENOM                          16
@@ -1982,15 +1978,12 @@ void(*error_handler)(
 
 //***Prediction Structure***
 #define MAX_TEMPORAL_LAYERS                         6
+#define MAX_NUM_OF_REF_PIC_LIST                     2
 #define MAX_REF_IDX                                 4
 #define MAX_ELAPSED_IDR_COUNT                       1024
 
-
 #define _MVXT(mv)                                   ( (int16_t)((mv) &  0xFFFF) )
 #define _MVYT(mv)                                   ( (int16_t)((mv) >> 16    ) )
-
-#define MIN_QP_VALUE                                0
-#define MAX_QP_VALUE                                63
 
 #define HIGHER_THAN_CLASS_1_REGION_SPLIT_PER_WIDTH  4
 #define HIGHER_THAN_CLASS_1_REGION_SPLIT_PER_HEIGHT 4
@@ -1998,14 +1991,12 @@ void(*error_handler)(
 #define EbBlockMeanPrec uint8_t
 #define BLOCK_MEAN_PREC_FULL 0
 #define BLOCK_MEAN_PREC_SUB  1
-#define STAGE uint8_t
-#define ED_STAGE  1      // ENCDEC stage
 typedef enum {
     DEFAULT_SHAPE = 0,
     N2_SHAPE      = 1,
     N4_SHAPE      = 2,
     ONLY_DC_SHAPE = 3
-}EB_TRANS_COEFF_SHAPE;
+}TxCoeffShape;
 
 typedef enum {
     CHROMA_MODE_0 = 0, // Full chroma search @ MD
