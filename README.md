@@ -1,3 +1,10 @@
+![SVT-AV1](https://github.com/Patman86/SVT-AV1-Mod-by-Patman/assets/54327252/8cb2bf9f-7c0a-4eed-b3c5-b8a308500b50)
+
+I would like to thank Yiss “Uranite” for creating and maintaining SVT‑AV1‑Tritium, and for providing high‑quality builds and integrations that make this fork easily accessible to end users.
+My gratitude also goes to Julio Barbas (SVT‑AV1‑HDR), the psy‑ex team (SVT‑AV1‑PSYEX), and nekotrix (SVT‑AV1‑Essential), whose work and ideas form the technical foundation from which SVT‑AV1‑Tritium derives many of its features and defaults.
+
+-----------------------------------------------------------------------------------------------------------------
+
 # SVT-AV1-Tritium
 
 SVT-AV1-Tritium is a fork of SVT-AV1-HDR aiming to incorporate features from SVT-AV1-PSYEX and SVT-AV1-Essential. Most notably, SVT-AV1-Tritium has scene detection and auto tiling from Essential.
