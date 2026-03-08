@@ -54,12 +54,12 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 
 | **Configuration file parameter** | **Command line**            | **Range**                      | **Default** | **Description**                                                                                               |
 |----------------------------------|-----------------------------|--------------------------------|-------------|---------------------------------------------------------------------------------------------------------------|
-| **SourceWidth**                  | -w                          | [4-16384]                     | None        | Frame width in pixels, inferred if y4m.                                                                       |
-| **SourceHeight**                 | -h                          | [4-8704]                      | None        | Frame height in pixels, inferred if y4m.                                                                      |
-| **ForcedMaximumFrameWidth**      | --forced-max-frame-width    | [4-16384]                     | None        | Maximum frame width value to force.                                                                           |
-| **ForcedMaximumFrameheight**     | --forced-max-frame-height   | [4-8704]                      | None        | Maximum frame height value to force.                                                                          |
+| **SourceWidth**                  | -w                          | [4-16384]                      | None        | Frame width in pixels, inferred if y4m.                                                                       |
+| **SourceHeight**                 | -h                          | [4-8704]                       | None        | Frame height in pixels, inferred if y4m.                                                                      |
+| **ForcedMaximumFrameWidth**      | --forced-max-frame-width    | [4-16384]                      | None        | Maximum frame width value to force.                                                                           |
+| **ForcedMaximumFrameheight**     | --forced-max-frame-height   | [4-8704]                       | None        | Maximum frame height value to force.                                                                          |
 | **FrameToBeEncoded**             | -n                          | [0-`(2^63)-1`]                 | 0           | Number of frames to encode. If `n` is larger than the input, the encoder will loop back and continue encoding |
-| **FrameToBeSkipped**             | --skip                      | [0-`(2^63)-1`]                 | 0           | Number of frames to skip. |
+| **FrameToBeSkipped**             | --skip                      | [0-`(2^63)-1`]                 | 0           | Number of frames to skip.                                                                                     |
 | **BufferedInput**                | --nb                        | [-1, 1-`(2^31)-1`]             | -1          | Buffer `n` input frames into memory and use them to encode. Only buffered frames will be encoded.             |
 | **EncoderColorFormat**           | --color-format              | [0-3]                          | 1           | Color format, only yuv420 is supported at this time [0: yuv400, 1: yuv420, 2: yuv422, 3: yuv444]              |
 | **Profile**                      | --profile                   | [0-2]                          | 0           | Bitstream profile [0: main, 1: high, 2: professional]                                                         |
@@ -77,7 +77,7 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **AdaptiveFilmGrain**            | --adaptive-film-grain       | [0,1]                          | 1           | Allows film grain synthesis to be sourced from different block sizes depending on resolution                  |
 | **MaxTxSize**                    | --max-tx-size               | [32,64]                        | 64          | Restricts use of block transform sizes to the specified value                                                 |
 | **AltSSIMTuning**                | --alt-ssim-tuning           | [0-1]                          | 0           | Enables the usage of VQ optimizations and an alternative SSIM calculation pathway (Only operates with tune 2) |
-| **NoiseNormStrength**            |  --noise-norm-strength      | [0-4]                          | 1           | Selectively boost AC coefficients to improve fine detail retention in certain circumstances                  |
+| **NoiseNormStrength**            |  --noise-norm-strength      | [0-4]                          | 1           | Selectively boost AC coefficients to improve fine detail retention in certain circumstances                   |
 
 ## Rate Control Options
 
@@ -260,7 +260,7 @@ SvtAv1EncApp -i in.y4m -b out.ivf --roi-map-file roi_map.txt
 
 | **Configuration file parameter** | **Command line**      | **Range**       | **Default**       | **Description**                                                                                                                                              |
 |----------------------------------|-----------------------|-----------------|-------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Keyint**                       | --keyint              | [-1-`(2^31)-1`] | -2                | Max GOP size (frames), use `s` suffix for seconds (SvtAv1EncApp only) [-2: ~10 seconds (up to 305 frames), -1: "infinite" only for CRF, 0: == -1]              |
+| **Keyint**                       | --keyint              | [-1-`(2^31)-1`] | -2                | Max GOP size (frames), use `s` suffix for seconds (SvtAv1EncApp only) [-2: ~10 seconds (up to 305 frames), -1: "infinite" only for CRF, 0: == -1]            |
 | **MinKeyint**                    | --min-keyint          | [-1-`(2^31)-1`] | -1                | Min GOP size (frames), use `s` suffix for seconds (SvtAv1EncApp only) [-1: multiple of the mini-gop length (automatic), 0: no minimum]                       |
 | **IntraRefreshType**             | --irefresh-type       | [1-2]           | 2                 | Intra refresh type [1: FWD Frame (Open GOP), 2: KEY Frame (Closed GOP)]                                                                                      |
 | **SceneChangeDetection**         | --scd                 | [0-1]           | 1                 | Scene change detection control                                                                                                                               |
@@ -341,10 +341,10 @@ but this basically allows the input to be encoded and the output at a lower
 resolution, scaling ratio applys on both horizontally and vertically.
 
 | **ResizeMode** | **Value**                                                                                                                   |
-|------------------|-----------------------------------------------------------------------------------------------------------------------------|
-| 0                | None, no frame resize allowed                                                                                            |
+|------------------|---------------------------------------------------------------------------------------------------------------------------|
+| 0                | None, no frame resize allowed                                                                                             |
 | 1                | Fixed mode, all frames are encoded at the specified scale of 8/`denom`, thus a `denom` of 8 means no scaling, and 16 means half-scaling |
-| 2                | Random mode, all frames are coded at a random scale, the scaling `denom` can be picked from 8 to 16                        |
+| 2                | Random mode, all frames are coded at a random scale, the scaling `denom` can be picked from 8 to 16                       |
 | 3                | Dynamic mode, scale for a frame is determined based on buffer level and average qp in rate control, scaling ratio can be 3/4 or 1/2. This mode can only work in 1-pass CBR low-delay mode                  |
 | 4                | Random access mode, scaling is controlled by scale events, which determine scaling in a specified scaling `denom` or recover to original resolution                                                       |
 
