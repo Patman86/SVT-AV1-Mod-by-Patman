@@ -41,10 +41,10 @@ if not defined LLVM_ROOT (
 
 :: Set defaults to prevent inheriting
 set "build=y"
-:: Default is debug
-set "buildtype=debug"
-:: Default is shared
-set "shared=ON"
+:: Default is Release
+set "buildtype=Release"
+:: Default is static
+set "shared=OFF"
 set "GENERATOR="
 :: (cmake -G 2>&1 | Select-String -SimpleMatch '*').Line.Split('=')[0].TrimEnd().Replace('* ','')
 :: Default is not building unit tests
@@ -79,7 +79,7 @@ if not "%vs%"=="" set "ARCH_OPTION=-A x64"
 
 cmake --fresh ../../.. %GENERATOR% %ARCH_OPTION% %tool% %cmake_eflags% -DCMAKE_BUILD_TYPE=%buildtype% -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% -DCMAKE_CXX_FLAGS_RELEASE="%flags%" -DCMAKE_C_FLAGS_RELEASE="%flags%"|| exit /b 1
 
-if "%build%"=="y" cmake --build . --config %buildtype% %pgo%
+if "%build%"=="y" cmake --build . --clean-first --parallel --config %buildtype% %pgo%
 
 goto :EOF
 
@@ -154,8 +154,8 @@ if -%1-==-- (
     ) else (
         echo Detected pure Windows environment, using LLVM
         set "PATH=%LLVM_ROOT%\bin;%PATH%"
-        set "CC=clang"
-        set "CXX=clang"
+        set "CC=clang-cl"
+        set "CXX=clang-cl"
         set "flags=/MD /MT /O2 /Ot /Gw /GA /DNDEBUG /W0"
     )
     shift
@@ -217,6 +217,22 @@ if -%1-==-- (
     set "cmake_eflags=%cmake_eflags% -DSVT_AV1_PGO=ON"
     set "pgo=--target RunPGO"
     shift
+) else if /I "%1"=="pgogen" (
+    set "cmake_eflags=%cmake_eflags% -DSVT_AV1_PGO=ON"
+    set "pgogen=--target PGOCompileGen"
+    shift
+) else if /I "%1"=="pgouse" (
+    set "cmake_eflags=%cmake_eflags% -DSVT_AV1_PGO=ON"
+    set "pgouse=--target PGOCompileUse"
+    shift
+) else if /I "%1"=="pgopath" (
+    if "%~2"=="" (
+        echo Fehler: pgopath erwartet einen Pfad
+        exit /b 1
+    )
+    set "cmake_eflags=%cmake_eflags% -DSVT_AV1_PGO_CUSTOM_VIDEOS=%~2"
+    shift
+    shift
 ) else if /I "%1"=="ext-lib-static" (
     set "cmake_eflags=%cmake_eflags% -DEXT_LIB_STATIC=ON"
     shift
@@ -238,6 +254,6 @@ goto :args
 
 :help
     echo Batch file to build SVT-AV1 on Windows
-    echo Usage: build.bat [2022^|2019^|2017^|2015^|clean] [release^|debug] [nobuild] [test] [shared^|static] [c-only] [no-avx512] [dovi] [hdr] [ext-lib-static] [no-apps] [no-enc]
+    echo Usage: build.bat [2022^|2019^|2017^|2015^|clean] [release^|debug] [nobuild] [test] [shared^|static] [c-only] [no-avx512] [dovi] [hdr] [ext-lib-static] [no-apps] [no-enc] [pgo] [pgopath] [path_for_pgopath]
     exit /b 1
 goto :EOF
