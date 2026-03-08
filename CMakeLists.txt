@@ -672,7 +672,7 @@ if(SVT_AV1_PGO)
     add_custom_target(PGOCompileGen
         ${CMAKE_COMMAND} ${CMAKE_BINARY_DIR} -DSVT_INTERNAL_PGO_GENERATE=ON -DSVT_INTERNAL_PGO_USE=OFF
         COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}
-        --clean-first
+        --config $<CONFIG>
         --target SvtAv1EncApp
         COMMENT "Compiling with PGO generate"
         VERBATIM
@@ -696,7 +696,7 @@ if(SVT_AV1_PGO)
         ${CMAKE_COMMAND} ${CMAKE_BINARY_DIR} -DSVT_INTERNAL_PGO_GENERATE=OFF -DSVT_INTERNAL_PGO_USE=ON
         COMMAND ${PROFILE_MERGE_CMD}
         COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}
-        --clean-first
+        --config $<CONFIG>
         --target SvtAv1EncApp
         COMMENT "Compiling PGO use"
         COMMAND_EXPAND_LISTS
