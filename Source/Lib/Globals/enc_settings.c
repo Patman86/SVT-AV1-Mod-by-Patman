@@ -1134,7 +1134,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                 : config->encoder_color_format == EB_YUV444 ? "YUV444"
                                                             : "Unknown color format");
 
-        PRINT_CONFIG("preset / tune / pred struct", "%d / %s%s / %s\n",
+        PRINT_CONFIG("preset / tune / pred struct", "%d / %s%s / %s",
                  config->enc_mode,
                  config->tune == TUNE_VQ            ? "VQ"
                      : config->tune == TUNE_PSNR    ? "PSNR"
@@ -1222,8 +1222,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
         default: break;
         }
 
-        PRINT_CONFIG("QP scale compress strength", "%.2f",
-                 config->qp_scale_compress_strength);
+        PRINT_CONFIG("QP scale compress strength", "%.2f", config->qp_scale_compress_strength);
 
         if (config->ac_bias || config->tx_bias) {
             PRINT_CONFIG("AC Bias Strength / TX Bias", "%.2f / %s",
@@ -1233,13 +1232,12 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                  : (config->tx_bias == 3 ? "interp. only" : "off")));
         }
 
-        if (config->noise_norm_strength >= 0) {
-            PRINT_CONFIG("Noise Normalization Strength", "%d",
-                config->noise_norm_strength);
+        if (config->noise_norm_strength > 0) {
+            PRINT_CONFIG("Noise Normalization Strength", "%d", config->noise_norm_strength);
         }
+
         if (config->cdef_scaling != 15 && config->cdef_level != 0) {
             PRINT_CONFIG("CDEF scaling (ratio)", "%d (%.2fx)",
-
                      config->cdef_scaling,
                      config->cdef_scaling / 15.0);
         }

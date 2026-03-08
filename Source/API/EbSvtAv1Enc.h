@@ -958,12 +958,13 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      */
     uint8_t extended_crf_qindex_offset;
 
-    /* @brief Alternative SSIM tuning, enables VQ enhancements and different rdmult calculations
-     * 0: disabled, use stock SSIM tuning
-     * 1: enabled, use alternative SSIM tuning with VQ enhacnements and different rdmult calculations
-     * Default is 0
+    /**
+     * @brief Strength of the internal RD metric to bias toward high-frequency error (helps with texture preservation and film grain retention)
+     * 0.00: disable AC bias
+     * 1.00: enable AC bias with a strength of 1.00
+     * Default is 1.00 in SVT-AV1-HDR, mainline default is 0.00
      */
-    bool alt_ssim_tuning;
+     double ac_bias;
 
     /**
      * @brief Noise normalization strength; modifies the encoder's willingness
@@ -973,15 +974,6 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * Default is 1.
      */
     uint8_t noise_norm_strength;
-
-    // clang-format off
-    /**
-     * @brief Strength of the internal RD metric to bias toward high-frequency error (helps with texture preservation and film grain retention)
-     * 0.00: disable AC bias
-     * 1.00: enable AC bias with a strength of 1.00
-     * Default is 1.00 in SVT-AV1-HDR, mainline default is 0.00
-     */
-     double ac_bias;
 
     /* Manually adjust TF strength on keyframes
      * 0: disable alt-ref TF on keyframes
@@ -1005,6 +997,13 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * Default is 1.0 in SVT-AV1-HDR, mainline default is 0.0
      */
      double qp_scale_compress_strength;
+
+    /* @brief Alternative SSIM tuning, enables VQ enhancements and different rdmult calculations
+     * 0: disabled, use stock SSIM tuning
+     * 1: enabled, use alternative SSIM tuning with VQ enhacnements and different rdmult calculations
+     * Default is 0
+     */
+    bool alt_ssim_tuning;
 
     /**
      * @brief Enable sharp-tx, a toggle that enables much sharper transforms decisions for higher fidelity ouput,
@@ -1082,7 +1081,6 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * @brief Check if color range is provided by the user
      */
     bool color_range_provided;
-
 } EbSvtAv1EncConfiguration;
 
 /**

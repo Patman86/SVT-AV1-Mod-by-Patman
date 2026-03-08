@@ -38,6 +38,10 @@
 #include "third_party/safestringlib/safe_str_lib.h"
 #endif
 
+#ifndef _MSC_VER
+#define fscanf_s  fscanf
+#endif
+
 /**********************************
  * Defines
  **********************************/
@@ -433,12 +437,7 @@ static EbErrorType set_cfg_fgs_table_path(EbConfig *cfg, const char *token, cons
         return ret;
     fclose(file);
 
-    cfg->fgs_table_path = malloc(strlen(value) + 1);
-    if (cfg->fgs_table_path != NULL) {
-        memcpy(cfg->fgs_table_path, value, strlen(value) + 1);
-    }
-
-    return EB_ErrorNone;
+    return str_to_str(value, &cfg->fgs_table_path, token);
 }
 #endif
 
@@ -1176,6 +1175,9 @@ ConfigEntry config_entry[] = {
     {PHOTON_NOISE_TOKEN, "PhotonNoise", set_cfg_generic_token},
     {PHOTON_NOISE_CHROMA_TOKEN, "PhotonNoiseChroma", set_cfg_generic_token},
 #endif
+#ifdef LIBHDR10PLUS_RS_FOUND
+    {HDR10PLUS_JSON_TOKEN, "Hdr10PlusJson", set_cfg_hdr10plus_json},
+#endif
 
     //   Super-resolution support
     {SUPERRES_MODE_INPUT, "SuperresMode", set_cfg_generic_token},
@@ -1207,6 +1209,9 @@ ConfigEntry config_entry[] = {
     {CHROMA_SAMPLE_POSITION_TOKEN, "ChromaSamplePosition", set_cfg_generic_token},
     {MASTERING_DISPLAY_TOKEN, "MasteringDisplay", set_cfg_generic_token},
     {CONTENT_LIGHT_LEVEL_TOKEN, "ContentLightLevel", set_cfg_generic_token},
+#ifdef LIBDOVI_FOUND
+    {DOLBY_VISION_RPU_TOKEN, "DolbyVisionRpu", set_cfg_dovi_rpu},
+#endif
 
 #if CONFIG_ENABLE_QUANT_MATRIX
     // QM
@@ -1282,13 +1287,6 @@ ConfigEntry config_entry[] = {
     // CDEF scaling
     {CDEF_SCALING_TOKEN, "CDEFScaling", set_cfg_generic_token},
 
-#ifdef LIBDOVI_FOUND
-    {DOLBY_VISION_RPU_TOKEN, "DolbyVisionRpu", set_cfg_dovi_rpu},
-#endif
-
-#ifdef LIBHDR10PLUS_RS_FOUND
-    {HDR10PLUS_JSON_TOKEN, "Hdr10PlusJson", set_cfg_hdr10plus_json},
-#endif
     // Termination
     {NULL, NULL, NULL}};
 
