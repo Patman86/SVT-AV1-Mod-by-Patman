@@ -1,5 +1,10 @@
 ![SVT-AV1](https://github.com/Patman86/SVT-AV1-Mod-by-Patman/assets/54327252/8cb2bf9f-7c0a-4eed-b3c5-b8a308500b50)
 
+I would like to thank the SVT‑AV1 development team and the wider AOMedia community for their extensive work on the encoder.
+In particular, I acknowledge the contributions of engineers at Intel, Netflix, and other members of the AOMediaCodec SVT‑AV1 project, whose efforts made this encoder and its ecosystem possible.
+
+-----------------------------------------------------------------------------------------------------------------
+
 The Scalable Video Technology for AV1 (SVT-AV1 Encoder) is an
 AV1-compliant software encoder library. The work on the SVT-AV1 encoder
 targets the development of a production-quality AV1-encoder with performance
