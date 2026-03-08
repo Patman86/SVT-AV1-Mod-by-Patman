@@ -1,5 +1,10 @@
 ![SVT-AV1](https://github.com/Patman86/SVT-AV1-Mod-by-Patman/assets/54327252/8cb2bf9f-7c0a-4eed-b3c5-b8a308500b50)
 
+I would like to thank Julio Barbas (juliobbv‑p) for developing and maintaining SVT‑AV1‑HDR, extending SVT‑AV1 with perceptual enhancements for SDR and HDR content and additional HDR‑focused tooling.
+My gratitude also goes to all contributors who have helped shape SVT‑AV1‑HDR through code, testing, documentation, and community support.
+
+-----------------------------------------------------------------------------------------------------------------
+
 # SVT-AV1-HDR
 <sup>(code name: Vendata)</sup>
 
