@@ -23,6 +23,12 @@ extern "C" {
 #include <stdio.h>
 #include <stdbool.h>
 #include <stddef.h>
+
+#if defined(_MSC_VER)
+#define ALIGNED(n) __declspec(align(n))
+#else
+#define ALIGNED(n) __attribute__((aligned(n)))
+#endif
 /**
  * @brief SVT-AV1 encoder ABI version
  *
@@ -213,7 +219,7 @@ typedef struct QualityZone {
 
 // Will contain the EbEncApi which will live in the EncHandle class
 // Only modifiable during config-time.
-typedef struct EbSvtAv1EncConfiguration {
+typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     /**
      * @brief Encoder preset used.
      * -3, -2 and -1 are for research purposes and are extremely slow.
@@ -971,7 +977,6 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     uint8_t extended_crf_qindex_offset;
 
-    // clang-format off
     /**
      * @brief Strength of the internal RD metric to bias toward high-frequency error (helps with texture preservation and film grain retention)
      * 0.00: disable AC bias
@@ -1114,20 +1119,6 @@ typedef struct EbSvtAv1EncConfiguration {
     // Internal parsed zones (not exposed to CLI)
     QualityZone* parsed_zones;
     uint16_t num_zones;
-
-    /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128
-        /* SVT-AV1-HDR additions */
-        - (sizeof(int32_t) * 1 )
-        - (sizeof(uint8_t) * 9)
-        - (sizeof(bool) * 3)
-        - (sizeof(double) * 1)
-        - (sizeof(uint32_t) * 1)
-        - (sizeof(char*) * 1)
-        - (sizeof(QualityZone*) * 1)
-        - (sizeof(uint16_t) * 1)
-    ];
-    // clang-format on
 } EbSvtAv1EncConfiguration;
 
 /**
