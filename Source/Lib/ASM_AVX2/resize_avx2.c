@@ -21,6 +21,18 @@
 #define _mm_storeu_si32(p, a) (void)(*(int *)(p) = _mm_cvtsi128_si32((a)))
 #endif
 
+
+static INLINE __m256i gatherless_i32(const int32_t *src, const __m256i idx_vec) {
+    int idx[8];
+    _mm256_storeu_si256((__m256i *)idx, idx_vec);
+    int32_t gathered[8];
+    for (int i = 0; i < 8; i++) {
+        _mm_prefetch((const char *)(src + idx[i]), _MM_HINT_T0);
+        gathered[i] = src[idx[i]];
+    }
+    return _mm256_loadu_si256((__m256i *)gathered);
+}
+
 static INLINE __m256i RightShiftWithRounding_S32(const __m256i v_val_d, int bits) {
     const __m256i v_bias_d = _mm256_set1_epi32((1 << bits) >> 1);
     const __m256i v_tmp_d  = _mm256_add_epi32(v_val_d, v_bias_d);
@@ -908,19 +920,19 @@ static inline int32_t hsums_epi32(const __m256i v) {
     return _mm256_extract_epi32(x, 0);
 }
 static INLINE void highbd_interpolate_gather_load_8x8(const uint16_t *const in, const __m256i vindex, __m256i dst[8]) {
-    __m256i load = _mm256_i32gather_epi32((const int *)in, vindex, 2);
+    __m256i load = gatherless_i32((const int32_t *)in, vindex);
     dst[0]       = _mm256_and_si256(load, _mm256_set1_epi32(0xffff)); // col 0
     dst[1]       = _mm256_srli_epi32(load, 16); // col 1
 
-    load   = _mm256_i32gather_epi32((const int *)(in + 2), vindex, 2);
+    load   = gatherless_i32((const int32_t *)(in + 2), vindex);
     dst[2] = _mm256_and_si256(load, _mm256_set1_epi32(0xffff)); // col 2
     dst[3] = _mm256_srli_epi32(load, 16); // col 3
 
-    load   = _mm256_i32gather_epi32((const int *)(in + 4), vindex, 2);
+    load   = gatherless_i32((const int32_t *)(in + 4), vindex);
     dst[4] = _mm256_and_si256(load, _mm256_set1_epi32(0xffff)); // col 4
     dst[5] = _mm256_srli_epi32(load, 16); // col 5
 
-    load   = _mm256_i32gather_epi32((const int *)(in + 6), vindex, 2);
+    load   = gatherless_i32((const int32_t *)(in + 6), vindex);
     dst[6] = _mm256_and_si256(load, _mm256_set1_epi32(0xffff)); // col 6
     dst[7] = _mm256_srli_epi32(load, 16); // col 7
 }
@@ -1022,7 +1034,7 @@ static EbErrorType svt_av1_highbd_interpolate_core_col_avx2(const uint16_t *cons
 
         // up to seven columns left. two columns by each loop
         for (; j < (in_width & (~1)); j += 2) {
-            __m256i load = _mm256_i32gather_epi32((const int *)in, vindex, 2);
+            __m256i load = gatherless_i32((const int32_t *)in, vindex);
             vec_src[0]   = _mm256_and_si256(load, _mm256_set1_epi32(0xffff)); // col 0
             vec_src[1]   = _mm256_srli_epi32(load, 16); // col 1
 
@@ -1064,7 +1076,7 @@ static EbErrorType svt_av1_highbd_interpolate_core_col_avx2(const uint16_t *cons
 
         // up to seven columns left. two columns by each loop
         for (; j < (in_width & (~1)); j += 2) {
-            __m256i load = _mm256_i32gather_epi32((const int *)in, vindex, 2);
+            __m256i load = gatherless_i32((const int32_t *)in, vindex);
             vec_src[0]   = _mm256_and_si256(load, _mm256_set1_epi32(0xffff)); // col 0
             vec_src[1]   = _mm256_srli_epi32(load, 16); // col 1
 
@@ -1115,7 +1127,7 @@ static EbErrorType svt_av1_highbd_interpolate_core_col_avx2(const uint16_t *cons
 
         // up to seven columns left. two columns by each loop
         for (; j < (in_width & (~1)); j += 2) {
-            __m256i load = _mm256_i32gather_epi32((const int *)in, vindex, 2);
+            __m256i load = gatherless_i32((const int32_t *)in, vindex);
             vec_src[0]   = _mm256_and_si256(load, _mm256_set1_epi32(0xffff)); // col 0
             vec_src[1]   = _mm256_srli_epi32(load, 16); // col 1
 
@@ -1208,20 +1220,20 @@ static INLINE void interpolate_transpose_8x4(const __m256i src, __m128i dst[4]) 
     dst[3]  = _mm_packus_epi32(lo_lane, hi_lane);
 }
 static INLINE void interpolate_gather_load_8x16(const uint8_t *const in, const __m256i vindex, __m128i dst[16]) {
-    __m256i load = _mm256_i32gather_epi32((const int *)in, vindex, 1);
+    __m256i load = gatherless_i32((const int32_t *)in, vindex);
     interpolate_transpose_8x4(load, &dst[0]);
 
-    load = _mm256_i32gather_epi32((const int *)(in + 4), vindex, 1);
+    load = gatherless_i32((const int32_t *)(in + 4), vindex);
     interpolate_transpose_8x4(load, &dst[4]);
 
-    load = _mm256_i32gather_epi32((const int *)(in + 8), vindex, 1);
+    load = gatherless_i32((const int32_t *)(in + 8), vindex);
     interpolate_transpose_8x4(load, &dst[8]);
 
-    load = _mm256_i32gather_epi32((const int *)(in + 12), vindex, 1);
+    load = gatherless_i32((const int32_t *)(in + 12), vindex);
     interpolate_transpose_8x4(load, &dst[12]);
 }
 static INLINE void down2_symeven_gather_load_8x4(const uint8_t *const in, const __m256i vindex, __m128i dst[4]) {
-    __m256i load = _mm256_i32gather_epi32((const int *)in, vindex, 1);
+    __m256i load = gatherless_i32((const int32_t *)in, vindex);
     interpolate_transpose_8x4(load, &dst[0]);
 }
 static INLINE uint8_t interpolate_compute_1pt(const uint8_t *in, const int16_t *filter) {
@@ -1237,7 +1249,7 @@ static INLINE void interpolate_core_col_4pt(const uint8_t *in, const __m256i fil
     __m128i       vec_src[4];
     const __m256i zero = _mm256_setzero_si256();
 
-    __m256i load = _mm256_i32gather_epi32((const int *)in, vindex, 1);
+    __m256i load = gatherless_i32((const int32_t *)in, vindex);
     interpolate_transpose_8x4(load, vec_src);
 
     __m256i src_02 = _mm256_set_m128i(vec_src[2], vec_src[0]);
@@ -1603,22 +1615,22 @@ static INLINE __m128i mm_32i_to_16i(__m256i a) {
     return _mm_packus_epi32(lo_lane, hi_lane); // 8x 16-bit
 }
 static INLINE void highbd_down2_symeven_mm_gather_load_8x8(const uint16_t *in, __m128i dst[8], __m256i vindex) {
-    __m256i load = _mm256_i32gather_epi32((const int *)in, vindex, 2);
+    __m256i load = gatherless_i32((const int32_t *)in, vindex);
     dst[0]       = mm_32i_to_16i(_mm256_and_si256(load,
                                             _mm256_set1_epi32(0xffff))); // col 0
     dst[1]       = mm_32i_to_16i(_mm256_srli_epi32(load, 16)); // col 1
 
-    load   = _mm256_i32gather_epi32((const int *)(in + 2), vindex, 2);
+    load   = gatherless_i32((const int32_t *)(in + 2), vindex);
     dst[2] = mm_32i_to_16i(_mm256_and_si256(load,
                                             _mm256_set1_epi32(0xffff))); // col 2
     dst[3] = mm_32i_to_16i(_mm256_srli_epi32(load, 16)); // col 3
 
-    load   = _mm256_i32gather_epi32((const int *)(in + 4), vindex, 2);
+    load   = gatherless_i32((const int32_t *)(in + 4), vindex);
     dst[4] = mm_32i_to_16i(_mm256_and_si256(load,
                                             _mm256_set1_epi32(0xffff))); // col 4
     dst[5] = mm_32i_to_16i(_mm256_srli_epi32(load, 16)); // col 5
 
-    load   = _mm256_i32gather_epi32((const int *)(in + 6), vindex, 2);
+    load   = gatherless_i32((const int32_t *)(in + 6), vindex);
     dst[6] = mm_32i_to_16i(_mm256_and_si256(load,
                                             _mm256_set1_epi32(0xffff))); // col 6
     dst[7] = mm_32i_to_16i(_mm256_srli_epi32(load, 16)); // col 7
@@ -1629,40 +1641,40 @@ static INLINE void highbd_down2_symeven_mm256_gather_load_8x8(const uint16_t *in
                               _mm256_set1_epi32(0xffff)); // col 0
     dst[1]       = _mm256_srli_epi32(load, 16); // col 1
 
-    load   = _mm256_i32gather_epi32((const int *)(in + 2), vindex, 2);
+    load   = gatherless_i32((const int32_t *)(in + 2), vindex);
     dst[2] = _mm256_and_si256(load,
                               _mm256_set1_epi32(0xffff)); // col 2
     dst[3] = _mm256_srli_epi32(load, 16); // col 3
 
-    load   = _mm256_i32gather_epi32((const int *)(in + 4), vindex, 2);
+    load   = gatherless_i32((const int32_t *)(in + 4), vindex);
     dst[4] = _mm256_and_si256(load,
                               _mm256_set1_epi32(0xffff)); // col 4
     dst[5] = _mm256_srli_epi32(load, 16); // col 5
 
-    load   = _mm256_i32gather_epi32((const int *)(in + 6), vindex, 2);
+    load   = gatherless_i32((const int32_t *)(in + 6), vindex);
     dst[6] = _mm256_and_si256(load,
                               _mm256_set1_epi32(0xffff)); // col 6
     dst[7] = _mm256_srli_epi32(load, 16); // col 7
 }
 static INLINE void highbd_down2_symeven_mm_gather_load_16x2(const uint16_t *in, int32_t stride, __m128i dst[4],
                                                             __m256i vindex_0, __m256i vindex_1, int32_t row_offset) {
-    __m256i load = _mm256_i32gather_epi32((const int *)in, vindex_0, 2);
+    __m256i load = gatherless_i32((const int32_t *)in, vindex_0);
     dst[0]       = mm_32i_to_16i(_mm256_and_si256(load, _mm256_set1_epi32(0xffff))); // col 0
     dst[2]       = mm_32i_to_16i(_mm256_srli_epi32(load, 16)); // col 1
 
     in += stride * row_offset; // move down 'row_offset' rows
-    load   = _mm256_i32gather_epi32((const int *)in, vindex_1, 2);
+    load   = gatherless_i32((const int32_t *)in, vindex_1);
     dst[1] = mm_32i_to_16i(_mm256_and_si256(load, _mm256_set1_epi32(0xffff))); // col 0
     dst[3] = mm_32i_to_16i(_mm256_srli_epi32(load, 16)); // col 1
 }
 static INLINE void highbd_down2_symeven_mm256_gather_load_16x2(const uint16_t *in, int32_t stride, __m256i dst[4],
                                                                __m256i vindex_0, __m256i vindex_1, int32_t row_offset) {
-    __m256i load = _mm256_i32gather_epi32((const int *)in, vindex_0, 2);
+    __m256i load = gatherless_i32((const int32_t *)in, vindex_0);
     dst[0]       = _mm256_and_si256(load, _mm256_set1_epi32(0xffff)); // col 0
     dst[2]       = _mm256_srli_epi32(load, 16); // col 1
 
     in += stride * row_offset; // move down 'row_offset' rows
-    load   = _mm256_i32gather_epi32((const int *)in, vindex_1, 2);
+    load   = gatherless_i32((const int32_t *)in, vindex_1);
     dst[1] = _mm256_and_si256(load, _mm256_set1_epi32(0xffff)); // col 0
     dst[3] = _mm256_srli_epi32(load, 16); // col 1
 }

@@ -18,6 +18,13 @@
 #include "transpose_avx2.h"
 #include "transpose_sse2.h"
 
+static AOM_FORCE_INLINE __m256i gatherless_x_by_xplus1(const __m256i z) {
+    __m256 z_ps = _mm256_cvtepi32_ps(z);
+    __m256 denom = _mm256_add_ps(z_ps, _mm256_set1_ps(1.0f));
+    __m256 val_ps = _mm256_div_ps(_mm256_set1_ps(256.0f), denom);
+    return _mm256_cvtps_epi32(val_ps);
+}
+
 static INLINE void cvt_16to32bit_8x8(const __m128i s[8], __m256i r[8]) {
     r[0] = _mm256_cvtepu16_epi32(s[0]);
     r[1] = _mm256_cvtepu16_epi32(s[1]);
@@ -296,7 +303,7 @@ static AOM_FORCE_INLINE void calc_ab(int32_t *A, int32_t *b, const int32_t *C, c
                 const __m256i z    = _mm256_min_epi32(
                     _mm256_srli_epi32(_mm256_add_epi32(_mm256_mullo_epi32(p, s), rnd_z), SGRPROJ_MTABLE_BITS),
                     _mm256_set1_epi32(255));
-                const __m256i a_res = _mm256_i32gather_epi32(svt_aom_eb_x_by_xplus1, z, 4);
+                const __m256i a_res = gatherless_x_by_xplus1(z);
                 yy_storeu_256(A + j, a_res);
 
                 const __m256i a_complement = _mm256_sub_epi32(_mm256_set1_epi32(SGRPROJ_SGR), a_res);
@@ -326,7 +333,7 @@ static AOM_FORCE_INLINE void calc_ab(int32_t *A, int32_t *b, const int32_t *C, c
                 const __m256i z    = _mm256_min_epi32(
                     _mm256_srli_epi32(_mm256_add_epi32(_mm256_mullo_epi32(p, s), rnd_z), SGRPROJ_MTABLE_BITS),
                     _mm256_set1_epi32(255));
-                const __m256i a_res = _mm256_i32gather_epi32(svt_aom_eb_x_by_xplus1, z, 4);
+                const __m256i a_res = gatherless_x_by_xplus1(z);
                 yy_storeu_256(A + j, a_res);
 
                 const __m256i a_complement = _mm256_sub_epi32(_mm256_set1_epi32(SGRPROJ_SGR), a_res);
@@ -467,7 +474,7 @@ static AOM_FORCE_INLINE void calc_ab_fast(int32_t *A, int32_t *b, const int32_t 
                 const __m256i z    = _mm256_min_epi32(
                     _mm256_srli_epi32(_mm256_add_epi32(_mm256_mullo_epi32(p, s), rnd_z), SGRPROJ_MTABLE_BITS),
                     _mm256_set1_epi32(255));
-                const __m256i a_res = _mm256_i32gather_epi32(svt_aom_eb_x_by_xplus1, z, 4);
+                const __m256i a_res = gatherless_x_by_xplus1(z);
                 yy_storeu_256(A + j, a_res);
 
                 const __m256i a_complement = _mm256_sub_epi32(_mm256_set1_epi32(SGRPROJ_SGR), a_res);
@@ -498,7 +505,7 @@ static AOM_FORCE_INLINE void calc_ab_fast(int32_t *A, int32_t *b, const int32_t 
                 const __m256i z    = _mm256_min_epi32(
                     _mm256_srli_epi32(_mm256_add_epi32(_mm256_mullo_epi32(p, s), rnd_z), SGRPROJ_MTABLE_BITS),
                     _mm256_set1_epi32(255));
-                const __m256i a_res = _mm256_i32gather_epi32(svt_aom_eb_x_by_xplus1, z, 4);
+                const __m256i a_res = gatherless_x_by_xplus1(z);
                 yy_storeu_256(A + j, a_res);
 
                 const __m256i a_complement = _mm256_sub_epi32(_mm256_set1_epi32(SGRPROJ_SGR), a_res);
