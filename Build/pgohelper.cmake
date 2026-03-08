@@ -37,21 +37,20 @@ foreach(dir IN LISTS VIDEO_DIRECTORY)
 endforeach()
 
 set(PGO_SETTINGS_LINES
-    "--preset 2 --rc 0 --crf 18 --tune 0 --variance-boost-curve 3 --variance-boost-strength 3 --luminance-qp-bias 20 --enable-dlf 2"
-    "--preset 3 --rc 0 --crf 22 --tune 3 --variance-boost-curve 3 --variance-boost-strength 3 --luminance-qp-bias 25 --enable-dlf 2"
-    "--preset 4 --rc 0 --crf 20 --tune 0 --variance-boost-curve 3 --variance-boost-strength 2 --luminance-qp-bias 15 --enable-dlf 2"
-    "--preset 4 --rc 0 --crf 24 --tune 3 --variance-boost-curve 3 --variance-boost-strength 3 --luminance-qp-bias 30 --enable-dlf 2"
-    "--preset 5 --rc 0 --crf 26 --tune 0 --variance-boost-curve 2 --variance-boost-strength 2 --luminance-qp-bias 15 --enable-dlf 2"
-    "--preset 7 --rc 0 --crf 30 --tune 0 --variance-boost-curve 1 --variance-boost-strength 2 --luminance-qp-bias 0 --enable-dlf 2"
-    "--preset 3 --rc 1 --tbr 20000 --tune 0 --variance-boost-curve 3 --variance-boost-strength 3 --luminance-qp-bias 20 --enable-dlf 2"
-    "--preset 4 --rc 1 --tbr 12000 --tune 0 --variance-boost-curve 3 --variance-boost-strength 2 --luminance-qp-bias 15 --enable-dlf 2"
-    "--preset 5 --rc 1 --tbr 8000 --tune 0 --variance-boost-curve 2 --variance-boost-strength 2 --luminance-qp-bias 10 --enable-dlf 2"
-    "--preset 4 --rc 1 --tbr 16000 --tune 3 --variance-boost-curve 3 --variance-boost-strength 4 --luminance-qp-bias 30 --enable-dlf 2"
-    "--preset 6 --rc 1 --tbr 10000 --tune 0 --variance-boost-curve 2 --variance-boost-strength 2 --luminance-qp-bias 10 --enable-dlf 2"
-    "--preset 4 --rc 2 --tbr 20000 --tune 0 --variance-boost-curve 3 --variance-boost-strength 3 --luminance-qp-bias 20 --enable-dlf 2"
-    "--preset 5 --rc 2 --tbr 12000 --tune 0 --variance-boost-curve 2 --variance-boost-strength 2 --luminance-qp-bias 10 --enable-dlf 2"
-    "--preset 6 --rc 2 --tbr 8000 --tune 0 --variance-boost-curve 1 --variance-boost-strength 2 --luminance-qp-bias 0 --enable-dlf 2"
-    "--preset 3 --rc 2 --tbr 16000 --tune 3 --variance-boost-curve 3 --variance-boost-strength 4 --luminance-qp-bias 35 --enable-dlf 2"
+  # PQ-HDR quality encode: slow preset, high quality, strong PQ variance boost and luminance bias
+  "--preset 3 --rc 0 --crf 20 --tune 0 --ac-bias 1.8 --variance-boost-curve 3 --variance-boost-strength 3 --luminance-qp-bias 22 --enable-dlf 2 --scd 1"
+
+  # PQ-HDR main profile: balanced preset for typical HDR workloads
+  "--preset 4 --rc 0 --crf 22 --tune 0 --ac-bias 1.5 --variance-boost-curve 3 --variance-boost-strength 2 --luminance-qp-bias 18 --enable-dlf 2 --scd 1"
+
+  # SDR / neutral profile: medium preset without PQ curve, still using psy tools
+  "--preset 5 --rc 0 --crf 26 --tune 0 --ac-bias 1.2 --variance-boost-strength 2 --luminance-qp-bias 12 --enable-dlf 2 --scd 1"
+
+  # SDR / neutral profile without SCD: trains non-SCD code paths
+  "--preset 5 --rc 0 --crf 28 --tune 0 --ac-bias 1.0 --variance-boost-strength 2 --luminance-qp-bias 10 --enable-dlf 2"
+
+  # Faster profile: higher preset for performance-oriented encodes
+  "--preset 7 --rc 0 --crf 30 --tune 0 --ac-bias 1.0 --variance-boost-strength 2 --luminance-qp-bias 10 --enable-dlf 2 --scd 1"
 )
 
 foreach(settings_line IN LISTS PGO_SETTINGS_LINES)
