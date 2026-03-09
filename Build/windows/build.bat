@@ -13,12 +13,38 @@
 setlocal
 cd /d "%~dp0"
 
+if not defined MSYS_ROOT (
+    for /f "delims=" %%I in ('where bash 2^>nul ^| findstr /I "msys64"') do (
+        for %%J in ("%%~dpI\..\..") do set "MSYS_ROOT=%%~fJ"
+        goto :MSYS_ROOT_found
+    )
+    if exist "H:\mabs\msys64\usr\bin\bash.exe" (
+        set "MSYS_ROOT=H:\mabs\msys64"
+    ) else if exist "C:\msys64\usr\bin\bash.exe" (
+        set "MSYS_ROOT=C:\msys64"
+    )
+)
+:MSYS_ROOT_found
+
+if not defined LLVM_ROOT (
+    for /f "delims=" %%I in ('where clang 2^>nul ^| findstr /I "\\LLVM\\bin\\clang.exe"') do (
+        for %%J in ("%%~dpI\..") do set "LLVM_ROOT=%%~fJ"
+        goto :LLVM_ROOT_found
+    )
+    if exist "C:\Program Files\LLVM\bin\clang.exe" (
+        set "LLVM_ROOT=C:\Program Files\LLVM"
+    ) else if exist "C:\Program Files (x86)\LLVM\bin\clang.exe" (
+        set "LLVM_ROOT=C:\Program Files (x86)\LLVM"
+    )
+)
+:LLVM_ROOT_found
+
 :: Set defaults to prevent inheriting
 set "build=y"
-:: Default is debug
-set "buildtype=Debug"
-:: Default is shared
-set "shared=ON"
+:: Default is Release
+set "buildtype=Release"
+:: Default is static
+set "shared=OFF"
 set "GENERATOR="
 :: (cmake -G 2>&1 | Select-String -SimpleMatch '*').Line.Split('=')[0].TrimEnd().Replace('* ','')
 :: Default is not building unit tests
@@ -51,9 +77,10 @@ if "%unittest%"=="ON" echo Building unit tests
 set "ARCH_OPTION="
 if not "%vs%"=="" set "ARCH_OPTION=-A x64"
 
-cmake --fresh ../../.. %GENERATOR% %ARCH_OPTION% %tool% -DCMAKE_BUILD_TYPE=%buildtype% -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% %cmake_eflags% -DCMAKE_CXX_FLAGS_RELEASE="%flags%" -DCMAKE_C_FLAGS_RELEASE="%flags%"|| exit /b 1
+cmake --fresh ../../.. %GENERATOR% %ARCH_OPTION% %tool% %cmake_eflags% -DCMAKE_BUILD_TYPE=%buildtype% -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% -DCMAKE_CXX_FLAGS_RELEASE="%flags%" -DCMAKE_C_FLAGS_RELEASE="%flags%"|| exit /b 1
 
-if "%build%"=="y" cmake --build . --config %buildtype% --parallel --clean-first
+if "%build%"=="y" cmake --build . --clean-first --parallel --config %buildtype% %pgo%
+
 goto :EOF
 
 :args
@@ -76,42 +103,61 @@ if -%1-==-- (
     set "GENERATOR=Visual Studio 17 2022"
     set vs=2022
     set dir=MSVC
-    set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG"
+    set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG /W0"
     shift
 ) else if /I "%1"=="2019" (
     set "text=Setting environment for Visual Studio 2019"
     set "GENERATOR=Visual Studio 16 2019"
     set vs=2019
     set dir=MSVC
-    set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG"
+    set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG /W0"
     shift
 ) else if /I "%1"=="2017" (
     set "text=Setting environment for Visual Studio 2017"
     set "GENERATOR=Visual Studio 15 2017 Win64"
     set vs=2017
     set dir=MSVC
-    set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG"
+    set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG /W0"
     shift
 ) else if /I "%1"=="2015" (
     set "text=Setting environment for Visual Studio 2015"
     set "GENERATOR=Visual Studio 14 2015 Win64"
     set vs=2015
     set dir=MSVC
-    set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG"
+    set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG /W0"
     shift
 ) else if /I "%1"=="ClangVS" (
     set "text=Setting environment for Clang with Visual Studio"
     set dir=ClangVS
     set "tool="-T LLVM_V143""
-    set "flags=/MD /MT /O2 /Ot /Gw /GA /DNDEBUG"
+    set "PATH=%LLVM_ROOT%\bin;%PATH%"
+    set "flags=/MD /MT /O2 /Ot /Gw /GA /DNDEBUG /W0"
     shift
 ) else if /I "%1"=="Clang" (
     set "text=Setting environment for Clang with Ninja"
     set dir=Clang
     set "GENERATOR=Ninja"
-    set "CC=clang"
-    set "CXX=clang"
-    set "flags=/MD /MT /O2 /Ot /Gw /GA /DNDEBUG -Wno-unused-command-line-argument"
+    if defined MSYSTEM (
+        if /I "%MSYSTEM%"=="CLANG64" (
+            echo Detected MSYS CLANG64 environment
+            set "PATH=%MSYS_ROOT%\clang64\bin;%PATH%"
+            set "CC=clang"
+            set "CXX=clang++"
+            set "flags=-s -O3 -DNDEBUG -w -march=x86-64-v4 -ffast-math"
+        ) else (
+            echo Detected MSYS/MINGW environment
+            set "PATH=%MSYS_ROOT%\mingw64\bin;%MSYS_ROOT%\clang64\bin;%PATH%"
+            set "CC=clang"
+            set "CXX=clang++"
+            set "flags=-s -O3 -DNDEBUG -w -march=x86-64-v4 -ffast-math"
+        )
+    ) else (
+        echo Detected pure Windows environment, using LLVM
+        set "PATH=%LLVM_ROOT%\bin;%PATH%"
+        set "CC=clang-cl"
+        set "CXX=clang-cl"
+        set "flags=/MD /MT /O2 /Ot /Gw /GA /DNDEBUG /W0"
+    )
     shift
 ) else if /I "%1"=="ninja" (
     set "text=Setting environment for Ninja"
@@ -122,17 +168,17 @@ if -%1-==-- (
     set "text=Setting environment for MSYS"
     set "GENERATOR=MSYS Makefiles"
     set dir=GNU
-    set "flags=-lws2_32 -luserenv -lntdll -s -O3 -DNDEBUG"
+    set "flags=-s -O3 -DNDEBUG -w"
     shift
 ) else if /I "%1"=="mingw" (
-    echo Generating MinGW Makefiles
-    echo This is currently not officially supported
+    set "text=Setting environment for MinGW"
     set "GENERATOR=MinGW Makefiles"
+    set dir=GNU
     shift
 ) else if /I "%1"=="unix" (
-    echo Generating Unix Makefiles
-    echo This is currently not officially supported
+    set "text=Setting environment for Unix"
     set "GENERATOR=Unix Makefiles"
+    set dir=UNIX
     shift
 ) else if /I "%1"=="release" (
     set "buildtype=Release"
