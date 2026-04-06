@@ -178,6 +178,11 @@ class VMAFMetric(QualityMetric):
                 "-o",
                 out_path,
                 "--xml",
+                # https://github.com/Netflix/vmaf/issues/1449
+                # directly configure SSIM feature before '--aom_ctc' parameter
+                # until v7.0 is implemented by including correct scale value
+                "--feature",
+                "float_ssim=scale=1:enable_db=true:clip_db=true",
                 "--aom_ctc",
                 self.aom_ctc_model,
             ]

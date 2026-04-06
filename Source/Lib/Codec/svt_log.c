@@ -148,7 +148,7 @@ void svt_aom_log_set_callback(SvtAv1LogCallback callback, void* context) {
     }
 }
 
-void svt_log(SvtAv1LogLevel level, const char* tag, const char* format, ...) {
+void svt_aom_log(SvtAv1LogLevel level, const char* tag, const char* format, ...) {
     struct Logger* logger = get_logger();
     if (!logger) {
         return;

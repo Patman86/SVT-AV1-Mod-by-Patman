@@ -26,6 +26,7 @@
 #include "FrameQueue.h"
 #include "PerformanceCollect.h"
 #include "CompareTools.h"
+#include "app_config.h"
 #include "definitions.h"
 #include "RefDecoder.h"
 // Copied from EbAppProcessCmd.c
@@ -194,7 +195,8 @@ class SvtAv1E2ETestFramework : public ::testing::TestWithParam<EncTestSetting> {
     bool enable_config;  /**< flag to control if use configuratio of encoder
                             params */
     bool enable_invert_tile_decoding;
-    void *enc_config_; /**< handle of encoder configuration data structure */
+    EbConfigWrapper
+        enc_config_; /**< handle of encoder configuration data structure */
     int insert_blank_interval; /**< interval of inserting blank frame in
                                   source*/
 };

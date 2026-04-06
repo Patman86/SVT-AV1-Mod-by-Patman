@@ -2264,38 +2264,34 @@ static int32_t denoise_and_model_realloc_if_necessary(struct AomDenoiseAndModel*
 }
 
 static void unpack_2d_pic(uint8_t* packed[3], EbPictureBufferDesc* outputPicturePtr) {
-    uint32_t luma_buffer_offset    = 0;
-    uint32_t chroma_buffer_offset  = 0;
-    uint32_t bit_inc_luma_offset   = 0;
-    uint32_t bit_inc_chroma_offset = 0;
-    uint16_t luma_width            = (uint16_t)(outputPicturePtr->width);
-    uint16_t chroma_width          = luma_width >> 1;
-    uint16_t luma_height           = (uint16_t)(outputPicturePtr->height);
-    uint16_t chroma_height         = luma_height >> 1;
+    uint16_t luma_width    = (uint16_t)(outputPicturePtr->width);
+    uint16_t chroma_width  = luma_width >> 1;
+    uint16_t luma_height   = (uint16_t)(outputPicturePtr->height);
+    uint16_t chroma_height = luma_height >> 1;
 
     svt_unpack_and_2bcompress((uint16_t*)(packed[0]),
                               outputPicturePtr->y_stride,
-                              outputPicturePtr->y_buffer + luma_buffer_offset,
+                              outputPicturePtr->y_buffer,
                               outputPicturePtr->y_stride,
-                              outputPicturePtr->y_buffer_bit_inc + bit_inc_luma_offset,
+                              outputPicturePtr->y_buffer_bit_inc,
                               outputPicturePtr->y_stride_bit_inc >> 2,
                               luma_width,
                               luma_height);
 
     svt_unpack_and_2bcompress((uint16_t*)(packed[1]),
                               outputPicturePtr->u_stride,
-                              outputPicturePtr->u_buffer + chroma_buffer_offset,
+                              outputPicturePtr->u_buffer,
                               outputPicturePtr->u_stride,
-                              outputPicturePtr->u_buffer_bit_inc + bit_inc_chroma_offset,
+                              outputPicturePtr->u_buffer_bit_inc,
                               outputPicturePtr->u_stride_bit_inc >> 2,
                               chroma_width,
                               chroma_height);
 
     svt_unpack_and_2bcompress((uint16_t*)(packed[2]),
                               outputPicturePtr->v_stride,
-                              outputPicturePtr->v_buffer + chroma_buffer_offset,
+                              outputPicturePtr->v_buffer,
                               outputPicturePtr->v_stride,
-                              outputPicturePtr->v_buffer_bit_inc + bit_inc_chroma_offset,
+                              outputPicturePtr->v_buffer_bit_inc,
                               outputPicturePtr->v_stride_bit_inc >> 2,
                               chroma_width,
                               chroma_height);

@@ -55,8 +55,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         SVT_ERROR("Source Height must be at least 4\n");
         return_error = EB_ErrorBadParameter;
     }
-    if (config->pred_structure > RANDOM_ACCESS || config->pred_structure < LOW_DELAY) {
-        SVT_ERROR("Pred Structure must be [%d (low delay) or %d (random access)]\n", LOW_DELAY, RANDOM_ACCESS);
+    if (config->pred_structure > RANDOM_ACCESS) {
+        SVT_ERROR("Pred Structure must be [%d (ALL_INTRA), %d (LOW_DELAY), or %d (RANDOM_ACCESS)]\n",
+                  ALL_INTRA,
+                  LOW_DELAY,
+                  RANDOM_ACCESS);
         return_error = EB_ErrorBadParameter;
     }
     if (config->pred_structure == LOW_DELAY && config->pass > 0) {
@@ -137,7 +140,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
     }
 
     if (config->force_key_frames &&
-        (config->rate_control_mode == SVT_AV1_RC_MODE_CBR || config->pred_structure != RANDOM_ACCESS)) {
+        (config->rate_control_mode == SVT_AV1_RC_MODE_CBR || config->pred_structure == LOW_DELAY)) {
         SVT_WARN(
             "Force key frames is now supported for lowdelay but the force_key_frames flag"
             " does not need to be set be on. Please follow the app samples shown by the FTR_KF_ON_FLY_SAMPLE"
@@ -152,8 +155,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         SVT_ERROR("Max Bitrate only supported with CRF mode\n");
         return_error = EB_ErrorBadParameter;
     }
-    if (config->rate_control_mode == SVT_AV1_RC_MODE_CBR && config->pred_structure == RANDOM_ACCESS) {
-        SVT_ERROR("CBR Rate control is currently not supported for RANDOM_ACCESS, use VBR mode\n");
+    if (config->rate_control_mode == SVT_AV1_RC_MODE_CBR && config->pred_structure != LOW_DELAY) {
+        SVT_ERROR("CBR Rate control is currently not supported for RANDOM_ACCESS/ALL_INTRA, use VBR mode\n");
         return_error = EB_ErrorBadParameter;
     }
     if (config->rate_control_mode == SVT_AV1_RC_MODE_VBR && config->pred_structure == LOW_DELAY) {
@@ -511,7 +514,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
     if (config->tune == TUNE_SSIM || config->tune == TUNE_IQ || config->tune == TUNE_MS_SSIM) {
-        if (config->rate_control_mode != 0 || config->pred_structure != RANDOM_ACCESS) {
+        if (config->rate_control_mode != 0 || config->pred_structure == LOW_DELAY) {
             SVT_ERROR("tune %s only supports CRF rate control mode currently\n",
                       config->tune == TUNE_SSIM     ? "SSIM"
                           : config->tune == TUNE_IQ ? "IQ"
@@ -1062,6 +1065,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                                                     : "IQ",
                  config->pred_structure == LOW_DELAY           ? "low delay"
                      : config->pred_structure == RANDOM_ACCESS ? "random access"
+                     : config->pred_structure == ALL_INTRA     ? "all intra"
                                                                : "Unknown pred structure");
 #else
         PRINT_CONFIG("preset / tune / pred struct", "%d / %s / %s",
@@ -1845,6 +1849,33 @@ static EbErrorType str_to_rc_mode(const char* nptr, uint8_t* out, uint8_t* aq_mo
     return EB_ErrorNone;
 }
 
+static EbErrorType str_to_pred_struct(const char* nptr, PredStructure* pred_structure) {
+    const struct {
+        const char*   name;
+        PredStructure mode;
+    } pred_structs[] = {{"0", ALL_INTRA},
+                        {"all-intra", ALL_INTRA},
+                        {"ai", ALL_INTRA},
+                        {"1", LOW_DELAY},
+                        {"low-delay", LOW_DELAY},
+                        {"ld", LOW_DELAY},
+                        {"2", RANDOM_ACCESS},
+                        {"random-access", RANDOM_ACCESS},
+                        {"ra", RANDOM_ACCESS}};
+
+    const size_t pred_structs_size = sizeof(pred_structs) / sizeof(pred_structs[0]);
+
+    for (size_t i = 0; i < pred_structs_size; i++) {
+        if (!strcmp(nptr, pred_structs[i].name)) {
+            *pred_structure = pred_structs[i].mode;
+            return EB_ErrorNone;
+        }
+    }
+
+    SVT_ERROR("Invalid pred struct: %s\n", nptr);
+    return EB_ErrorBadParameter;
+}
+
 static EbErrorType str_to_frm_resz_evts(const char* nptr, SvtAv1FrameScaleEvts* evts) {
     const uint32_t param_count = count_params(nptr);
     if ((evts->evt_num != 0 && evts->evt_num != param_count) || param_count == 0) {
@@ -2035,6 +2066,10 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         return str_to_asm(value, &config_struct->use_cpu_flags);
     }
 
+    if (!strcmp(name, "pred-struct")) {
+        return str_to_pred_struct(value, &config_struct->pred_structure);
+    }
+
     COLOR_OPT("color-primaries", color_primaries);
     COLOR_OPT("transfer-characteristics", transfer_characteristics);
     COLOR_OPT("matrix-coefficients", matrix_coefficients);
@@ -2130,7 +2165,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         const char* name;
         uint8_t*    out;
     } uint8_opts[] = {
-        {"pred-struct", &config_struct->pred_structure},
         {"aq-mode", &config_struct->aq_mode},
         {"superres-mode", &config_struct->superres_mode},
         {"superres-qthres", &config_struct->superres_qthres},

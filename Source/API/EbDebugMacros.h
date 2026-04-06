@@ -34,27 +34,23 @@
 extern "C" {
 #endif // __cplusplus
 
-#define FTR_INTRA_COEFF_LVL         1 // Add coeff-level for INTRA frames using average input variance and input QP.
-#define FTR_VLPD0                   1 // Use a variance-based cost model directly from spatial statistics
-#define OPT_RDOQ_BIS                1 // Replace the area-based cutoff with an adaptive cutoff that uses both transform size and the coded coefficient length (EOB) towards reducing over-pruning on textured blocks
-#define OPT_PER_BLK_INTRA           1 // Use block and sub-block variances (spread_var) to apply DC-only for only uniform blocks
-#define CLN_REMOVE_VAR_SUB_DEPTH    1 // Remove var-sub-depth skip
-#define CLN_DR                      1 // Remove depth-removal
-#define OPT_DLF                     1 // Bypass DLF application when CDEF, Restoration, and Reconstruction are all disabled
-#define OPT_RATE_ESTIMATION         1 // Opt rate estimation
-#define FIX_INTRA_BC_CONFORMANCE    1 // Fix a conformance issue when intra-BC is ON and Palette is OFF
-#define CLN_INTRABC_LEVEL_DEF       1 // Fix intra-BC level definitions
-#define OPT_SC_ALLINTRA_DETECTION   1 // Update IQ-tune SC detection to support SC classes 4 and 5.
+#define OPT_NSC_STILL_IMAGE         1 // optimize the NSC path for still-image
+#define OPT_SC_STILL_IMAGE          1 // optimize the SC path (scm1/scm2) for still-image
 
-#define FTR_NIC_DREFI_NEW_LVL_DEFS  1 // New NIC/Depth-refinement levels
+#define FIX_CDEF                    1
+#if FIX_CDEF
+#define FIX_Q_STRENGTH              1 // Fix initialization issue for use_qp_strength
+#define OPT_CDEF_SKIP_CHROMA_BORDER 1 // Skip all chroma border copies when all UV strengths are 0 for the entire frame
+#define CLN_FINISH_CDEF             1 // Remove dead allocation/write/free for use_qp_strength and use_reference_cdef_fs paths, unify CDEF strength-per-mi propagation through propagate_cdef_strength()
+#define OPT_SC_CDEF_QP              1 // SC model for CDEF from QP for sc-class1
+#endif
 
-#define TUNE_STILL_IMAGE            1 // Tune still-image coding and reduce presets to nine: from M0 to M9
-
-#define OPT_Q_CDEF                  1 // Derive CDEF strengh(s) from QP
-
-#define OPT_FD2_ALLINTRA            1 // Tune fd2
-#define TUNE_M7_ALLINTRA            1 // Fix M7
-#define FIX_IS_DC_ONLY_SAFE         1 // Skip the spread check for 8x8 blocks when determining whether DC-only is safe, as 4x4 sub-block variance is unavailable
+#define FTR_COUPLE_VLPD0_TXS        1 // Use fastest TXS when VERY_LIGHT_PD0 is active and default TXS is off
+#if FTR_COUPLE_VLPD0_TXS
+#define FTR_COUPLE_VLPD0_TXS_PER_SB 1
+#endif
+#define OPT_SC_RA                   1 // optimize the SC path (scm1) for RA
+#define OPT_SC_RTC                  1 // optimize the SC path (scm1) for RTC
 
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one

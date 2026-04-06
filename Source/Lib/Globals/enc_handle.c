@@ -327,7 +327,7 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
     /*To accomodate FFMPEG EOS, 1 frame delay is needed in Resource coordination for RA (for the low delay mode, buffering for receiving EOS does not happen).
       Note that we have the option to not add 1 frame delay of Resource Coordination. In this case we have wait for first I frame
       to be released back to be able to start first base(16). Anyway poc16 needs to wait for poc0 to finish.*/
-    const uint8_t eos_delay = is_low_delay ? 0 : 1;
+    const uint8_t eos_delay = is_low_delay || scs->allintra ? 0 : 1;
 
     //Minimum input pictures needed in the pipeline
     uint16_t lad_mg_pictures = (1 + mg_size + overlay) *
@@ -1123,7 +1123,7 @@ static int create_pa_ref_buf_descs(EbEncHandle* enc_handle_ptr) {
     enc_handle_ptr->scs_instance->enc_ctx->pa_reference_picture_pool_fifo_ptr = svt_system_resource_get_producer_fifo(
         enc_handle_ptr->pa_reference_picture_pool_ptr, 0);
 #if SRM_REPORT
-    enc_handle_ptr->scs_instance_array->enc_ctx->pa_reference_picture_pool_fifo_ptr->queue_ptr->log = 0;
+    enc_handle_ptr->scs_instance->enc_ctx->pa_reference_picture_pool_fifo_ptr->queue_ptr->log = 0;
 #endif
     return 0;
 }
@@ -1165,7 +1165,7 @@ static int create_tpl_ref_buf_descs(EbEncHandle* enc_handle_ptr) {
     enc_handle_ptr->scs_instance->enc_ctx->tpl_reference_picture_pool_fifo_ptr = svt_system_resource_get_producer_fifo(
         enc_handle_ptr->tpl_reference_picture_pool_ptr, 0);
 #if SRM_REPORT
-    enc_handle_ptr->scs_instance_array->enc_ctx->tpl_reference_picture_pool_fifo_ptr->queue_ptr->log = 0;
+    enc_handle_ptr->scs_instance->enc_ctx->tpl_reference_picture_pool_fifo_ptr->queue_ptr->log = 0;
 #endif
     return 0;
 }
@@ -1228,7 +1228,7 @@ static int create_ref_buf_descs(EbEncHandle* enc_handle_ptr) {
         enc_handle_ptr->reference_picture_pool_ptr, 0);
 
 #if SRM_REPORT
-    enc_handle_ptr->scs_instance_array->enc_ctx->reference_picture_pool_fifo_ptr->queue_ptr->log = 0;
+    enc_handle_ptr->scs_instance->enc_ctx->reference_picture_pool_fifo_ptr->queue_ptr->log = 0;
 #endif
 
     return 0;
@@ -1345,7 +1345,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                &input_data,
                NULL);
 #if SRM_REPORT
-        enc_handle_ptr->picture_parent_control_set_pool_ptr_array->empty_queue->log = 0;
+        enc_handle_ptr->picture_parent_control_set_pool_ptr->empty_queue->log = 0;
 #endif
         EB_NEW(enc_handle_ptr->me_pool_ptr,
                svt_system_resource_ctor,
@@ -1356,8 +1356,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                &input_data,
                NULL);
 #if SRM_REPORT
-        enc_handle_ptr->me_pool_ptr_array->empty_queue->log = 0;
-        dump_srm_content(enc_handle_ptr->me_pool_ptr_array, false);
+        enc_handle_ptr->me_pool_ptr->empty_queue->log = 0;
+        dump_srm_content(enc_handle_ptr->me_pool_ptr, false);
 #endif
     }
 
@@ -3499,7 +3499,6 @@ static void validate_scaling_params(SequenceControlSet* scs) {
     }
 }
 
-#if TUNE_STILL_IMAGE
 void set_qp_based_th_scaling_ctrls_default(SequenceControlSet* scs) {
     QpBasedThScaling* qp_ctrls = &scs->qp_based_th_scaling_ctrls;
     const EncMode     enc_mode = scs->static_config.enc_mode;
@@ -3517,6 +3516,7 @@ void set_qp_based_th_scaling_ctrls_default(SequenceControlSet* scs) {
         qp_ctrls->txt_qp_based_th_scaling          = 0;
         qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
         qp_ctrls->lpd0_qp_based_th_scaling         = 1;
+        qp_ctrls->intra_bc_mesh_qp_scaling         = 1;
     } else {
         qp_ctrls->tf_me_qp_based_th_scaling        = 1;
         qp_ctrls->tf_ref_qp_based_th_scaling       = 1;
@@ -3530,6 +3530,7 @@ void set_qp_based_th_scaling_ctrls_default(SequenceControlSet* scs) {
         qp_ctrls->txt_qp_based_th_scaling          = 1;
         qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
         qp_ctrls->lpd0_qp_based_th_scaling         = 1;
+        qp_ctrls->intra_bc_mesh_qp_scaling         = 1;
     }
 }
 
@@ -3550,6 +3551,7 @@ void set_qp_based_th_scaling_ctrls_rtc(SequenceControlSet* scs) {
         qp_ctrls->txt_qp_based_th_scaling          = 0;
         qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
         qp_ctrls->lpd0_qp_based_th_scaling         = 1;
+        qp_ctrls->intra_bc_mesh_qp_scaling         = 1;
     } else {
         qp_ctrls->tf_me_qp_based_th_scaling        = 1;
         qp_ctrls->tf_ref_qp_based_th_scaling       = 1;
@@ -3563,6 +3565,7 @@ void set_qp_based_th_scaling_ctrls_rtc(SequenceControlSet* scs) {
         qp_ctrls->txt_qp_based_th_scaling          = 1;
         qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
         qp_ctrls->lpd0_qp_based_th_scaling         = 1;
+        qp_ctrls->intra_bc_mesh_qp_scaling         = 1;
     }
 }
 
@@ -3583,6 +3586,7 @@ void set_qp_based_th_scaling_ctrls_all_intra(SequenceControlSet* scs) {
         qp_ctrls->txt_qp_based_th_scaling          = 1;
         qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
         qp_ctrls->lpd0_qp_based_th_scaling         = 1;
+        qp_ctrls->intra_bc_mesh_qp_scaling         = 1;
     } else if (enc_mode <= ENC_M6) {
         qp_ctrls->tf_me_qp_based_th_scaling        = 0;
         qp_ctrls->tf_ref_qp_based_th_scaling       = 0;
@@ -3596,6 +3600,7 @@ void set_qp_based_th_scaling_ctrls_all_intra(SequenceControlSet* scs) {
         qp_ctrls->txt_qp_based_th_scaling          = 1;
         qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
         qp_ctrls->lpd0_qp_based_th_scaling         = 1;
+        qp_ctrls->intra_bc_mesh_qp_scaling         = 1;
     } else {
         qp_ctrls->tf_me_qp_based_th_scaling        = 1;
         qp_ctrls->tf_ref_qp_based_th_scaling       = 1;
@@ -3609,151 +3614,13 @@ void set_qp_based_th_scaling_ctrls_all_intra(SequenceControlSet* scs) {
         qp_ctrls->txt_qp_based_th_scaling          = 1;
         qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
         qp_ctrls->lpd0_qp_based_th_scaling         = 1;
+        qp_ctrls->intra_bc_mesh_qp_scaling         = 1;
     }
 }
-#else
-void set_qp_based_th_scaling_ctrls(SequenceControlSet* scs) {
-    QpBasedThScaling* qp_ctrls = &scs->qp_based_th_scaling_ctrls;
-    const EncMode     enc_mode = scs->static_config.enc_mode;
-    const bool        allintra = scs->allintra;
-    if (allintra) {
-        if (enc_mode <= ENC_M2) {
-            qp_ctrls->tf_me_qp_based_th_scaling              = 0;
-            qp_ctrls->tf_ref_qp_based_th_scaling             = 0;
-            qp_ctrls->depths_qp_based_th_scaling             = 0;
-            qp_ctrls->hme_qp_based_th_scaling                = 0;
-            qp_ctrls->me_qp_based_th_scaling                 = 0;
-            qp_ctrls->nsq_qp_based_th_scaling                = 0;
-            qp_ctrls->nic_max_qp_based_th_scaling            = 1;
-            qp_ctrls->nic_pruning_qp_based_th_scaling        = 1;
-            qp_ctrls->pme_qp_based_th_scaling                = 0;
-            qp_ctrls->txt_qp_based_th_scaling                = 1;
-#if FTR_VLPD0
-#if !CLN_DR
-            qp_ctrls->i_depth_removal_qp_based_th_scaling = 1;
-#endif
-            qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
-#if !CLN_REMOVE_VAR_SUB_DEPTH
-            qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 1;
-#endif
-            qp_ctrls->lpd0_qp_based_th_scaling = 1;
-#else
-            qp_ctrls->i_depth_removal_qp_based_th_scaling    = 0;
-            qp_ctrls->cap_max_size_qp_based_th_scaling       = 0;
-            qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 0;
-#endif
-        } else if (enc_mode <= ENC_M5) {
-            qp_ctrls->tf_me_qp_based_th_scaling              = 0;
-            qp_ctrls->tf_ref_qp_based_th_scaling             = 0;
-            qp_ctrls->depths_qp_based_th_scaling             = 0;
-            qp_ctrls->hme_qp_based_th_scaling                = 0;
-            qp_ctrls->me_qp_based_th_scaling                 = 0;
-            qp_ctrls->nsq_qp_based_th_scaling                = 1;
-            qp_ctrls->nic_max_qp_based_th_scaling            = 1;
-            qp_ctrls->nic_pruning_qp_based_th_scaling        = 1;
-            qp_ctrls->pme_qp_based_th_scaling                = 0;
-            qp_ctrls->txt_qp_based_th_scaling                = 1;
-#if FTR_VLPD0
-#if !CLN_DR
-            qp_ctrls->i_depth_removal_qp_based_th_scaling = 1;
-#endif
-            qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
-#if !CLN_REMOVE_VAR_SUB_DEPTH
-            qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 1;
-#endif
-            qp_ctrls->lpd0_qp_based_th_scaling = 1;
-#else
-            qp_ctrls->i_depth_removal_qp_based_th_scaling    = 0;
-            qp_ctrls->cap_max_size_qp_based_th_scaling       = 0;
-            qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 0;
-#endif
-        } else {
-            qp_ctrls->tf_me_qp_based_th_scaling              = 1;
-            qp_ctrls->tf_ref_qp_based_th_scaling             = 1;
-            qp_ctrls->depths_qp_based_th_scaling             = 1;
-            qp_ctrls->hme_qp_based_th_scaling                = 1;
-            qp_ctrls->me_qp_based_th_scaling                 = 1;
-            qp_ctrls->nsq_qp_based_th_scaling                = 1;
-            qp_ctrls->nic_max_qp_based_th_scaling            = 1;
-            qp_ctrls->nic_pruning_qp_based_th_scaling        = 1;
-            qp_ctrls->pme_qp_based_th_scaling                = 1;
-            qp_ctrls->txt_qp_based_th_scaling                = 1;
-#if FTR_VLPD0
-#if !CLN_DR
-            qp_ctrls->i_depth_removal_qp_based_th_scaling = 1;
-#endif
-            qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
-#if !CLN_REMOVE_VAR_SUB_DEPTH
-            qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 1;
-#endif
-            qp_ctrls->lpd0_qp_based_th_scaling = 1;
-#else
-            qp_ctrls->i_depth_removal_qp_based_th_scaling    = 1;
-            qp_ctrls->cap_max_size_qp_based_th_scaling       = 1;
-            qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 1;
-#endif
-        }
-    } else {
-        if (enc_mode <= ENC_MR) {
-            qp_ctrls->tf_me_qp_based_th_scaling              = 0;
-            qp_ctrls->tf_ref_qp_based_th_scaling             = 0;
-            qp_ctrls->depths_qp_based_th_scaling             = 0;
-            qp_ctrls->hme_qp_based_th_scaling                = 0;
-            qp_ctrls->me_qp_based_th_scaling                 = 0;
-            qp_ctrls->nsq_qp_based_th_scaling                = 0;
-            qp_ctrls->nic_max_qp_based_th_scaling            = 0;
-            qp_ctrls->nic_pruning_qp_based_th_scaling        = 0;
-            qp_ctrls->pme_qp_based_th_scaling                = 0;
-            qp_ctrls->txt_qp_based_th_scaling                = 0;
-#if FTR_VLPD0
-#if !CLN_DR
-            qp_ctrls->i_depth_removal_qp_based_th_scaling = 1;
-#endif
-            qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
-#if !CLN_REMOVE_VAR_SUB_DEPTH
-            qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 1;
-#endif
-            qp_ctrls->lpd0_qp_based_th_scaling = 1;
-#else
-            qp_ctrls->i_depth_removal_qp_based_th_scaling    = 0;
-            qp_ctrls->cap_max_size_qp_based_th_scaling       = 0;
-            qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 0;
-#endif
-        } else {
-            qp_ctrls->tf_me_qp_based_th_scaling              = 1;
-            qp_ctrls->tf_ref_qp_based_th_scaling             = 1;
-            qp_ctrls->depths_qp_based_th_scaling             = 1;
-            qp_ctrls->hme_qp_based_th_scaling                = 1;
-            qp_ctrls->me_qp_based_th_scaling                 = 1;
-            qp_ctrls->nsq_qp_based_th_scaling                = 1;
-            qp_ctrls->nic_max_qp_based_th_scaling            = 1;
-            qp_ctrls->nic_pruning_qp_based_th_scaling        = 1;
-            qp_ctrls->pme_qp_based_th_scaling                = 1;
-            qp_ctrls->txt_qp_based_th_scaling                = 1;
-#if FTR_VLPD0
-#if !CLN_DR
-            qp_ctrls->i_depth_removal_qp_based_th_scaling = 1;
-#endif
-            qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
-#if !CLN_REMOVE_VAR_SUB_DEPTH
-            qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 1;
-#endif
-            qp_ctrls->lpd0_qp_based_th_scaling = 1;
-#else
-            qp_ctrls->i_depth_removal_qp_based_th_scaling    = 0;
-            qp_ctrls->cap_max_size_qp_based_th_scaling       = 0;
-            qp_ctrls->var_skip_sub_depth_qp_based_th_scaling = 0;
-#endif
-        }
-    }
-}
-#endif
 
 static void set_param_based_on_input(SequenceControlSet* scs) {
     const bool allintra = scs->allintra;
-#if TUNE_STILL_IMAGE
     const bool rtc_tune = scs->static_config.rtc;
-#endif
     set_multi_pass_params(scs);
 
     // superres_mode and resize_mode may be updated,
@@ -3845,13 +3712,9 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
 
     scs->seq_qp_mod = 2;
 
-#if TUNE_STILL_IMAGE
     (allintra       ? set_qp_based_th_scaling_ctrls_all_intra
          : rtc_tune ? set_qp_based_th_scaling_ctrls_rtc
                     : set_qp_based_th_scaling_ctrls_default)(scs);
-#else
-    set_qp_based_th_scaling_ctrls(scs);
-#endif
 
     // Set tune params
     derive_vq_params(scs);
@@ -3933,27 +3796,11 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         (scs->input_resolution == INPUT_SIZE_240p_RANGE) || scs->static_config.enable_variance_boost) {
         scs->super_block_size = 64;
     } else if (allintra) {
-#if TUNE_STILL_IMAGE
         if (scs->static_config.enc_mode <= ENC_M1) {
             scs->super_block_size = 128;
         } else {
             scs->super_block_size = 64;
         }
-#else
-        if (scs->input_resolution <= INPUT_SIZE_1080p_RANGE) {
-            if (scs->static_config.enc_mode <= ENC_M0) {
-                scs->super_block_size = 128;
-            } else {
-                scs->super_block_size = 64;
-            }
-        } else {
-            if (scs->static_config.enc_mode <= ENC_M5) {
-                scs->super_block_size = 128;
-            } else {
-                scs->super_block_size = 64;
-            }
-        }
-#endif
     } else if (scs->static_config.enc_mode <= ENC_MR) {
         scs->super_block_size = 128;
     } else if (scs->static_config.enc_mode <= ENC_M5) {
@@ -4014,7 +3861,6 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     uint8_t no_8x4_4x8    = 1;
     uint8_t no_16x8_8x16  = 1;
     for (uint8_t coeff_lvl = 0; coeff_lvl <= HIGH_LVL + 1; coeff_lvl++) {
-#if TUNE_STILL_IMAGE
         uint8_t nsq_geom_level;
         if (scs->allintra) {
             nsq_geom_level = svt_aom_get_nsq_geom_level_allintra(scs->static_config.enc_mode);
@@ -4023,10 +3869,6 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         } else {
             nsq_geom_level = svt_aom_get_nsq_geom_level_default(scs->static_config.enc_mode, coeff_lvl);
         }
-#else
-        uint8_t nsq_geom_level = svt_aom_get_nsq_geom_level(
-            allintra, scs->input_resolution, scs->static_config.enc_mode, coeff_lvl, scs->static_config.rtc);
-#endif
         disallow_nsq               = MIN(disallow_nsq, (nsq_geom_level == 0 ? 1 : 0));
         uint8_t temp_allow_HVA_HVB = 0, temp_allow_HV4 = 0;
         svt_aom_set_nsq_geom_ctrls(NULL, nsq_geom_level, &temp_allow_HVA_HVB, &temp_allow_HV4, &min_nsq_bsize);
@@ -4037,7 +3879,6 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         no_16x8_8x16 = no_16x8_8x16 && min_nsq_bsize >= 16;
     }
 
-#if TUNE_STILL_IMAGE
     bool disallow_8x8;
     bool disallow_4x4;
     if (scs->allintra) {
@@ -4051,14 +3892,6 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         disallow_4x4 = svt_aom_get_disallow_4x4_default(scs->static_config.enc_mode);
         disallow_8x8 = svt_aom_get_disallow_8x8_default();
     }
-#else
-    bool disallow_4x4 = svt_aom_get_disallow_4x4(scs->static_config.enc_mode);
-    bool disallow_8x8 = svt_aom_get_disallow_8x8(scs->static_config.enc_mode,
-                                                 allintra,
-                                                 scs->static_config.rtc,
-                                                 scs->max_input_luma_width,
-                                                 scs->max_input_luma_height);
-#endif
     if (scs->super_block_size == 128) {
         if (!allow_HVA_HVB && disallow_4x4) {
             scs->svt_aom_geom_idx = GEOM_10;
@@ -4139,7 +3972,7 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
 
     if (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_VBR ||
         scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR || scs->input_resolution >= INPUT_SIZE_4K_RANGE ||
-        scs->static_config.pred_structure == LOW_DELAY || scs->static_config.pass != ENC_SINGLE_PASS) {
+        scs->static_config.pred_structure != RANDOM_ACCESS || scs->static_config.pass != ENC_SINGLE_PASS) {
         scs->enable_dg = 0;
     } else {
         scs->enable_dg = scs->static_config.enable_dg;
@@ -4228,11 +4061,15 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->b64_size                          = 64;
     scs->static_config.intra_period_length = config_struct->intra_period_length;
     scs->static_config.avif                = config_struct->avif;
-    scs->allintra                          = (scs->static_config.intra_period_length == 0 || scs->static_config.avif);
-    scs->static_config.multiply_keyint     = config_struct->multiply_keyint;
-    scs->static_config.intra_refresh_type  = config_struct->intra_refresh_type;
-    scs->static_config.enc_mode            = config_struct->enc_mode;
-#if TUNE_STILL_IMAGE
+    scs->allintra                          = (scs->static_config.intra_period_length == 0 || scs->static_config.avif ||
+                     scs->static_config.pred_structure == ALL_INTRA);
+    if (scs->allintra) {
+        scs->static_config.pred_structure      = ALL_INTRA;
+        scs->static_config.intra_period_length = 0;
+    }
+    scs->static_config.multiply_keyint    = config_struct->multiply_keyint;
+    scs->static_config.intra_refresh_type = config_struct->intra_refresh_type;
+    scs->static_config.enc_mode           = config_struct->enc_mode;
     if (scs->allintra) {
         if (scs->static_config.enc_mode == ENC_MR) {
             SVT_WARN("The lowest supported preset for all-intra and still-image is M0.\n");
@@ -4246,14 +4083,6 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
             SVT_WARN("Preset M%d is mapped to M12.\n", scs->static_config.enc_mode);
             scs->static_config.enc_mode = ENC_M12;
         }
-#else
-    if (scs->static_config.rtc || scs->allintra) {
-        if (scs->static_config.enc_mode > ENC_M12) {
-            SVT_WARN("Preset M%d is mapped to M12.\n", scs->static_config.enc_mode);
-            scs->static_config.enc_mode = ENC_M12;
-        }
-
-#endif
     }
 
     else if (scs->static_config.enc_mode > ENC_M11) {
@@ -4460,17 +4289,29 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->subsampling_x     = (scs->chroma_format_idc == EB_YUV444 ? 0 : 1);
     scs->subsampling_y     = (scs->chroma_format_idc >= EB_YUV422 ? 0 : 1);
     // Force screen-content detection OFF when allintra
-#if OPT_SC_ALLINTRA_DETECTION
     const bool allintra = scs->allintra;
+#if OPT_SC_STILL_IMAGE
     if (allintra) {
+        if (config_struct->screen_content_mode <= 1) {
+            scs->static_config.screen_content_mode = config_struct->screen_content_mode;
+        } else if (scs->static_config.enc_mode <= ENC_M7) {
+            scs->static_config.screen_content_mode = 3;
+        } else {
+            scs->static_config.screen_content_mode = 0;
+            SVT_WARN(
+                "Screen-content detection and tools are disabled for all-intra coding at M8 and above; forcing NSC "
+                "path\n");
+        }
+#else
+    if (allintra && config_struct->screen_content_mode > 1) {
         scs->static_config.screen_content_mode = 0;
-        SVT_WARN("SC is disabled for all-intra coding\n");
-    } else {
+        SVT_WARN("Screen-content detection is disabled for all-intra coding; forcing NSC path\n");
+#endif
+    }
+
+    else {
         scs->static_config.screen_content_mode = config_struct->screen_content_mode;
     }
-#else
-    scs->static_config.screen_content_mode = scs->allintra ? 0 : config_struct->screen_content_mode;
-#endif
     // Annex A parameters
     scs->static_config.profile     = config_struct->profile;
     scs->static_config.tier        = config_struct->tier;
@@ -4889,11 +4730,8 @@ static EbErrorType downsample_copy_frame_buffer(SequenceControlSet* scs, uint8_t
     EbPictureBufferDesc* y8b_input_picture_ptr = (EbPictureBufferDesc*)destination_y8b;
     EbSvtIOFormat*       input_ptr             = (EbSvtIOFormat*)source;
 
-    // Need to include for Interlacing on the fly with pictureScanType = 1
-    uint32_t luma_buffer_offset   = 0;
-    uint32_t chroma_buffer_offset = 0;
-    uint32_t luma_width           = (uint32_t)(input_pic->width - scs->max_input_pad_right);
-    uint32_t luma_height          = (uint32_t)(input_pic->height - scs->max_input_pad_bottom);
+    uint32_t luma_width  = (uint32_t)(input_pic->width - scs->max_input_pad_right);
+    uint32_t luma_height = (uint32_t)(input_pic->height - scs->max_input_pad_bottom);
 
     const uint8_t  subsampling_x = (input_pic->color_format == EB_YUV444 ? 0 : 1);
     const uint8_t  subsampling_y = ((input_pic->color_format == EB_YUV444 || input_pic->color_format == EB_YUV422) ? 0
@@ -4906,7 +4744,7 @@ static EbErrorType downsample_copy_frame_buffer(SequenceControlSet* scs, uint8_t
                                 input_ptr->y_stride,
                                 luma_width << 1,
                                 luma_height << 1,
-                                y8b_input_picture_ptr->y_buffer + luma_buffer_offset,
+                                y8b_input_picture_ptr->y_buffer,
                                 input_pic->y_stride,
                                 2);
 
@@ -4915,14 +4753,14 @@ static EbErrorType downsample_copy_frame_buffer(SequenceControlSet* scs, uint8_t
                                     input_ptr->cb_stride,
                                     chroma_width << 1,
                                     chroma_height << 1,
-                                    input_pic->u_buffer + chroma_buffer_offset,
+                                    input_pic->u_buffer,
                                     input_pic->u_stride,
                                     2);
             downsample_2d_c_skipall(input_ptr->cr,
                                     input_ptr->cr_stride,
                                     chroma_width << 1,
                                     chroma_height << 1,
-                                    input_pic->v_buffer + chroma_buffer_offset,
+                                    input_pic->v_buffer,
                                     input_pic->v_stride,
                                     2);
         }
@@ -4931,32 +4769,45 @@ static EbErrorType downsample_copy_frame_buffer(SequenceControlSet* scs, uint8_t
                                             input_ptr->y_stride,
                                             luma_width << 1,
                                             luma_height << 1,
-                                            y8b_input_picture_ptr->y_buffer + luma_buffer_offset,
+                                            y8b_input_picture_ptr->y_buffer,
                                             y8b_input_picture_ptr->y_stride,
                                             2);
 
-        memset(input_pic->y_buffer_bit_inc, 0, input_pic->luma_size / 4);
+        memset(
+            input_pic->y_buffer_bit_inc - ((input_pic->border + (input_pic->y_stride_bit_inc * input_pic->border)) / 4),
+            0,
+            input_pic->luma_size / 4);
 
         if (pass != ENCODE_FIRST_PASS) {
             downsample_2d_c_16_zero2bit_skipall((uint16_t*)input_ptr->cb,
                                                 input_ptr->cb_stride,
                                                 chroma_width << 1,
                                                 chroma_height << 1,
-                                                input_pic->u_buffer + chroma_buffer_offset,
+                                                input_pic->u_buffer,
                                                 y8b_input_picture_ptr->u_stride,
                                                 2);
 
-            memset(input_pic->u_buffer_bit_inc, 0, input_pic->chroma_size / 4);
+            memset(input_pic->u_buffer_bit_inc -
+                       (((input_pic->border >> subsampling_x) +
+                         (input_pic->u_stride_bit_inc * (input_pic->border >> subsampling_y))) /
+                        4),
+                   0,
+                   input_pic->chroma_size / 4);
 
             downsample_2d_c_16_zero2bit_skipall((uint16_t*)input_ptr->cr,
                                                 input_ptr->cr_stride,
                                                 chroma_width << 1,
                                                 chroma_height << 1,
-                                                input_pic->v_buffer + chroma_buffer_offset,
+                                                input_pic->v_buffer,
                                                 y8b_input_picture_ptr->v_stride,
                                                 2);
 
-            memset(input_pic->v_buffer_bit_inc, 0, input_pic->chroma_size / 4);
+            memset(input_pic->v_buffer_bit_inc -
+                       (((input_pic->border >> subsampling_x) +
+                         (input_pic->v_stride_bit_inc * (input_pic->border >> subsampling_y))) /
+                        4),
+                   0,
+                   input_pic->chroma_size / 4);
         }
     }
     return return_error;
@@ -4974,8 +4825,6 @@ static EbErrorType copy_frame_buffer(SequenceControlSet* scs, uint8_t* destinati
     EbPictureBufferDesc* input_pic             = (EbPictureBufferDesc*)destination;
     EbPictureBufferDesc* y8b_input_picture_ptr = (EbPictureBufferDesc*)destination_y8b;
     EbSvtIOFormat*       input_ptr             = (EbSvtIOFormat*)source;
-
-    // Need to include for Interlacing on the fly with pictureScanType = 1
 
     uint32_t luma_width  = (uint32_t)(input_pic->width - scs->max_input_pad_right);
     uint32_t luma_height = (uint32_t)(input_pic->height - scs->max_input_pad_bottom);

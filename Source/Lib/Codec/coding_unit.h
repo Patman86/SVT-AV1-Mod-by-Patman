@@ -140,7 +140,6 @@ typedef struct IntraBcContext {
     // used only in svt_av1_get_block_hash_value()
     // [two buffers used ping-pong]
     uint32_t* hash_value_buffer[2];
-    uint8_t   is_exhaustive_allowed;
     CRC32C    crc_calculator;
     // use approximate rate for inter cost (set at pic-level b/c some pic-level initializations will
     // be removed)
@@ -274,16 +273,10 @@ typedef struct SuperBlock {
     TileInfo               tile_info;
     uint16_t               final_blk_cnt; // number of block(s) posted from EncDec to EC
 } SuperBlock;
-#if TUNE_STILL_IMAGE
+
 EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock* larget_coding_unit_ptr, uint8_t sb_size, uint16_t sb_origin_x,
                                              uint16_t sb_origin_y, uint16_t sb_index, EncMode enc_mode, bool rtc,
                                              bool allintra, struct PictureControlSet* pcs);
-#else
-EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock* larget_coding_unit_ptr, uint8_t sb_size, uint16_t sb_origin_x,
-                                             uint16_t sb_origin_y, uint16_t sb_index, EncMode enc_mode, bool rtc,
-                                             bool allintra, ResolutionRange input_resolution,
-                                             struct PictureControlSet* picture_control_set);
-#endif
 #ifdef __cplusplus
 }
 #endif

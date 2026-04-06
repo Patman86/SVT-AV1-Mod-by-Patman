@@ -24,6 +24,10 @@
 #define ftello _ftelli64
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Define Cross-Platform 64-bit fseek() and ftell()
 /** The AppExitConditionType type is used to define the App main loop exit
 conditions.
@@ -222,4 +226,9 @@ extern uint32_t get_help(int32_t argc, char* const argv[]);
 extern uint32_t get_color_help(int32_t argc, char* const argv[]);
 uint32_t        get_passes(int32_t argc, char* const argv[], EncPass enc_pass[MAX_ENC_PASS]);
 EbErrorType     handle_stats_file(EbConfig* app_cfg, EncPass pass, const SvtAv1FixedBuf* rc_stats_buffer);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif //EbAppConfig_h

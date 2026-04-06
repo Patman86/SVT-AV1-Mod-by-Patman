@@ -21,15 +21,15 @@
 #if !CONFIG_LOG_QUIET
 
 //SVT_LOG will not output the prefix. you can contorl the output style.
-#define SVT_LOG(format, ...) svt_log(SVT_AV1_LOG_ALL, NULL, format, ##__VA_ARGS__)
+#define SVT_LOG(format, ...) svt_aom_log(SVT_AV1_LOG_ALL, NULL, format, ##__VA_ARGS__)
 
-#define SVT_DEBUG(format, ...) svt_log(SVT_AV1_LOG_DEBUG, LOG_TAG, format, ##__VA_ARGS__)
-#define SVT_INFO(format, ...) svt_log(SVT_AV1_LOG_INFO, LOG_TAG, format, ##__VA_ARGS__)
-#define SVT_WARN(format, ...) svt_log(SVT_AV1_LOG_WARN, LOG_TAG, format, ##__VA_ARGS__)
-#define SVT_ERROR(format, ...) svt_log(SVT_AV1_LOG_ERROR, LOG_TAG, format, ##__VA_ARGS__)
-#define SVT_FATAL(format, ...) svt_log(SVT_AV1_LOG_FATAL, LOG_TAG, format, ##__VA_ARGS__)
+#define SVT_DEBUG(format, ...) svt_aom_log(SVT_AV1_LOG_DEBUG, LOG_TAG, format, ##__VA_ARGS__)
+#define SVT_INFO(format, ...) svt_aom_log(SVT_AV1_LOG_INFO, LOG_TAG, format, ##__VA_ARGS__)
+#define SVT_WARN(format, ...) svt_aom_log(SVT_AV1_LOG_WARN, LOG_TAG, format, ##__VA_ARGS__)
+#define SVT_ERROR(format, ...) svt_aom_log(SVT_AV1_LOG_ERROR, LOG_TAG, format, ##__VA_ARGS__)
+#define SVT_FATAL(format, ...) svt_aom_log(SVT_AV1_LOG_FATAL, LOG_TAG, format, ##__VA_ARGS__)
 
-void svt_log(SvtAv1LogLevel level, const char* tag, const char* format, ...);
+void svt_aom_log(SvtAv1LogLevel level, const char* tag, const char* format, ...);
 void svt_aom_log_set_callback(SvtAv1LogCallback callback, void* context);
 
 #else

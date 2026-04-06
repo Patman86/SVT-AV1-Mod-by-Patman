@@ -462,44 +462,77 @@ static EbErrorType copy_frame_buffer_overlay(SequenceControlSet* scs, uint8_t* d
     EbPictureBufferDesc* src_picture_ptr = (EbPictureBufferDesc*)src;
     bool                 is_16bit_input  = config->encoder_bit_depth > EB_EIGHT_BIT;
 
-    // Need to include for Interlacing on the fly with pictureScanType = 1
-
     if (!is_16bit_input) {
-        uint16_t input_row_index;
-        uint32_t luma_buffer_offset   = 0;
-        uint32_t chroma_buffer_offset = 0;
-        uint16_t luma_stride          = dst_picture_ptr->y_stride << is_16bit_input;
-        uint16_t chroma_stride        = dst_picture_ptr->u_stride << is_16bit_input;
-        uint16_t luma_width           = (uint16_t)(dst_picture_ptr->width - scs->max_input_pad_right) << is_16bit_input;
-        uint16_t chroma_width         = (luma_width >> 1) << is_16bit_input;
-        uint16_t luma_height          = (uint16_t)(dst_picture_ptr->height - scs->max_input_pad_bottom);
+        uint16_t luma_stride   = dst_picture_ptr->y_stride << is_16bit_input;
+        uint16_t chroma_stride = dst_picture_ptr->u_stride << is_16bit_input;
+        uint16_t luma_width    = (uint16_t)(dst_picture_ptr->width - scs->max_input_pad_right) << is_16bit_input;
+        uint16_t chroma_width  = (luma_width >> 1) << is_16bit_input;
+        uint16_t luma_height   = (uint16_t)(dst_picture_ptr->height - scs->max_input_pad_bottom);
 
-        //uint16_t     luma_height  = input_pic->max_height;
         // Y
-        for (input_row_index = 0; input_row_index < luma_height; input_row_index++) {
-            svt_memcpy((dst_picture_ptr->y_buffer + luma_buffer_offset + luma_stride * input_row_index),
-                       (src_picture_ptr->y_buffer + luma_buffer_offset + luma_stride * input_row_index),
+        for (uint16_t input_row_index = 0; input_row_index < luma_height; input_row_index++) {
+            svt_memcpy((dst_picture_ptr->y_buffer + luma_stride * input_row_index),
+                       (src_picture_ptr->y_buffer + luma_stride * input_row_index),
                        luma_width);
         }
 
         // U
-        for (input_row_index = 0; input_row_index < (luma_height >> 1); input_row_index++) {
-            svt_memcpy((dst_picture_ptr->u_buffer + chroma_buffer_offset + chroma_stride * input_row_index),
-                       (src_picture_ptr->u_buffer + chroma_buffer_offset + chroma_stride * input_row_index),
+        for (uint16_t input_row_index = 0; input_row_index < (luma_height >> 1); input_row_index++) {
+            svt_memcpy((dst_picture_ptr->u_buffer + chroma_stride * input_row_index),
+                       (src_picture_ptr->u_buffer + chroma_stride * input_row_index),
                        chroma_width);
         }
 
         // V
-        for (input_row_index = 0; input_row_index < (luma_height >> 1); input_row_index++) {
-            svt_memcpy((dst_picture_ptr->v_buffer + chroma_buffer_offset + chroma_stride * input_row_index),
-                       (src_picture_ptr->v_buffer + chroma_buffer_offset + chroma_stride * input_row_index),
+        for (uint16_t input_row_index = 0; input_row_index < (luma_height >> 1); input_row_index++) {
+            svt_memcpy((dst_picture_ptr->v_buffer + chroma_stride * input_row_index),
+                       (src_picture_ptr->v_buffer + chroma_stride * input_row_index),
                        chroma_width);
         }
     } else { // 10bit packed
+        // buffer_y and the other buffers may not point to the same memory area, so don't copy with buffer_alloc
+        svt_memcpy(
+            dst_picture_ptr->y_buffer - (dst_picture_ptr->border + dst_picture_ptr->border * dst_picture_ptr->y_stride),
+            src_picture_ptr->y_buffer - (src_picture_ptr->border + src_picture_ptr->border * src_picture_ptr->y_stride),
+            src_picture_ptr->luma_size);
 
-        // This assumes all buffers are used/allocated. Therefore, use the new buffer_alloc
-        // and copy the whole thing in one shot.
-        svt_memcpy(dst_picture_ptr->buffer_alloc, src_picture_ptr->buffer_alloc, src_picture_ptr->buffer_alloc_sz);
+        svt_memcpy(dst_picture_ptr->u_buffer -
+                       ((dst_picture_ptr->border >> 1) + (dst_picture_ptr->border >> 1) * dst_picture_ptr->u_stride),
+                   src_picture_ptr->u_buffer -
+                       ((src_picture_ptr->border >> 1) + (src_picture_ptr->border >> 1) * src_picture_ptr->u_stride),
+                   src_picture_ptr->chroma_size);
+
+        svt_memcpy(dst_picture_ptr->v_buffer -
+                       ((dst_picture_ptr->border >> 1) + (dst_picture_ptr->border >> 1) * dst_picture_ptr->v_stride),
+                   src_picture_ptr->v_buffer -
+                       ((src_picture_ptr->border >> 1) + (src_picture_ptr->border >> 1) * src_picture_ptr->v_stride),
+                   src_picture_ptr->chroma_size);
+
+        svt_memcpy(dst_picture_ptr->y_buffer_bit_inc -
+                       ((dst_picture_ptr->border + dst_picture_ptr->border * dst_picture_ptr->y_stride_bit_inc) >> 2),
+                   src_picture_ptr->y_buffer_bit_inc -
+                       ((src_picture_ptr->border + src_picture_ptr->border * src_picture_ptr->y_stride_bit_inc) >> 2),
+                   src_picture_ptr->luma_size >> 2);
+
+        svt_memcpy(dst_picture_ptr->u_buffer_bit_inc -
+                       (((dst_picture_ptr->border >> 1) +
+                         (dst_picture_ptr->border >> 1) * dst_picture_ptr->u_stride_bit_inc) >>
+                        2),
+                   src_picture_ptr->u_buffer_bit_inc -
+                       (((src_picture_ptr->border >> 1) +
+                         (src_picture_ptr->border >> 1) * src_picture_ptr->u_stride_bit_inc) >>
+                        2),
+                   src_picture_ptr->chroma_size >> 2);
+
+        svt_memcpy(dst_picture_ptr->v_buffer_bit_inc -
+                       (((dst_picture_ptr->border >> 1) +
+                         (dst_picture_ptr->border >> 1) * dst_picture_ptr->v_stride_bit_inc) >>
+                        2),
+                   src_picture_ptr->v_buffer_bit_inc -
+                       (((src_picture_ptr->border >> 1) +
+                         (src_picture_ptr->border >> 1) * src_picture_ptr->v_stride_bit_inc) >>
+                        2),
+                   src_picture_ptr->chroma_size >> 2);
     }
     return return_error;
 }
@@ -1192,7 +1225,7 @@ void* svt_aom_resource_coordination_kernel(void* input_ptr) {
             }
             // Get Empty Output Results Object
             // For the low delay mode, buffering for receiving EOS does not happen
-            if (scs->static_config.pred_structure == LOW_DELAY) {
+            if (scs->static_config.pred_structure == LOW_DELAY || scs->static_config.pred_structure == ALL_INTRA) {
                 PictureParentControlSet* ppcs_out = pcs;
 
                 ppcs_out->end_of_sequence_flag = end_of_sequence_flag;

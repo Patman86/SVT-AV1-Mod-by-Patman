@@ -1090,7 +1090,7 @@ static bool set_frame_display_params(PictureParentControlSet* pcs, PictureDecisi
     if (pcs->pred_struct_ptr->pred_type == LOW_DELAY || pcs->is_overlay) {
         frm_hdr->show_frame    = true;
         pcs->has_show_existing = false;
-    } else if (pcs->pred_struct_ptr->pred_type == RANDOM_ACCESS) {
+    } else {
         //Decide on Show Mecanism
         if (pcs->slice_type == I_SLICE) {
             //3 cases for I slice:  1:Key Frame treated above.  2: broken MiniGop due to sc or intra refresh  3: complete miniGop due to sc or intra refresh
@@ -3989,11 +3989,11 @@ static PaReferenceEntry* search_ref_in_ref_queue_pa(EncodeContext* enc_ctx, uint
 }
 
 /*
- * Copy TF params: sps -> pcs
+ * Copy TF params: scs -> pcs
  */
 static void copy_tf_params(SequenceControlSet* scs, PictureParentControlSet* pcs, PictureDecisionContext* ctx) {
-    // Map TF settings sps -> pcs
-    if (scs->static_config.pred_structure != RANDOM_ACCESS) {
+    // Map TF settings scs -> pcs
+    if (scs->static_config.pred_structure == LOW_DELAY) {
         if (pcs->slice_type != I_SLICE && pcs->temporal_layer_index == 0) {
             pcs->tf_ctrls = scs->tf_params_per_type[1];
         } else {
@@ -4305,12 +4305,21 @@ static void perform_sc_detection(SequenceControlSet* scs, PictureParentControlSe
         // If running multi-threaded mode, perform SC detection in svt_aom_picture_analysis_kernel, else in svt_aom_picture_decision_kernel
         if (scs->static_config.level_of_parallelism == 1) {
             switch (scs->static_config.screen_content_mode) {
+#if OPT_SC_STILL_IMAGE
+            case 0:
+                pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = pcs->sc_class5 = 0;
+                break;
+            case 1:
+                pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = pcs->sc_class5 = 1;
+                break;
+#else
             case 0:
                 pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = 0;
                 break;
             case 1:
                 pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = 1;
                 break;
+#endif
             case 2:
                 // SC Detection is OFF for 4K and higher
                 if (scs->input_resolution <= INPUT_SIZE_1080p_RANGE) {
@@ -4401,7 +4410,7 @@ static uint32_t get_pic_idx_in_mg(SequenceControlSet* scs, PictureParentControlS
     uint32_t pic_idx_in_mg = 0;
     if (scs->static_config.pred_structure == RANDOM_ACCESS) {
         pic_idx_in_mg = pic_idx - ctx->mini_gop_start_index[mini_gop_index];
-    } else {
+    } else if (scs->static_config.pred_structure == LOW_DELAY) {
         uint64_t distance_to_last_idr = pcs->picture_number - scs->enc_ctx->last_idr_picture;
         // For low delay P or low delay b case, get the the picture_index by mini_gop size
         if (scs->static_config.intra_period_length >= 0) {
@@ -4468,16 +4477,12 @@ static void init_pic_settings(SequenceControlSet* scs, PictureParentControlSet* 
     copy_tf_params(scs, pcs, ctx);
     // TODO: put this in EbMotionEstimationProcess?
     // ME Kernel Multi-Processes Signal(s) derivation
-#if TUNE_STILL_IMAGE
     const bool rtc_tune = scs->static_config.rtc;
     const bool allintra = scs->allintra;
 
     allintra       ? svt_aom_sig_deriv_multi_processes_allintra(scs, pcs)
         : rtc_tune ? svt_aom_sig_deriv_multi_processes_rtc(scs, pcs)
                    : svt_aom_sig_deriv_multi_processes_default(scs, pcs);
-#else
-    svt_aom_sig_deriv_multi_processes(scs, pcs);
-#endif
 
     update_count_try(scs, pcs);
 
@@ -5025,7 +5030,8 @@ void* svt_aom_picture_decision_kernel(void* input_ptr) {
             // Determine if Pictures can be released from the Pre-Assignment Buffer
             if ((enc_ctx->pre_assignment_buffer_intra_count > 0) ||
                 (enc_ctx->pre_assignment_buffer_count == (uint32_t)(1 << next_mg_hierarchical_levels)) ||
-                (enc_ctx->pre_assignment_buffer_eos_flag == true) || (pcs->pred_structure == LOW_DELAY)) {
+                (enc_ctx->pre_assignment_buffer_eos_flag == true) ||
+                (pcs->pred_structure == LOW_DELAY || pcs->pred_structure == ALL_INTRA)) {
 #if LAD_MG_PRINT
                 print_pre_ass_buffer(enc_ctx, pcs, 0);
 #endif

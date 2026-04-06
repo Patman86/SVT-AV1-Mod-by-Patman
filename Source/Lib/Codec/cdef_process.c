@@ -122,7 +122,7 @@ static EbErrorType copy_recon_enc(SequenceControlSet* scs, EbPictureBufferDesc* 
     int use_highbd = scs->is_16bit_pipeline;
 
     if (!skip_copy) {
-        assert(num_planes < MAX_PLANES);
+        assert(num_planes <= MAX_PLANES);
         for (int plane = 0; plane < num_planes; ++plane) {
             uint8_t *src_buf, *dst_buf;
             int32_t  src_stride, dst_stride;
@@ -177,7 +177,7 @@ static void svt_av1_superres_upscale_frame(struct Av1Common* cm, PictureControlS
     // get the bit-depth from the encoder config instead of from the recon ptr
     int bit_depth = scs->static_config.encoder_bit_depth;
 
-    assert(num_planes < MAX_PLANES);
+    assert(num_planes <= MAX_PLANES);
     for (int plane = 0; plane < num_planes; ++plane) {
         uint8_t *src_buf, *dst_buf;
         int32_t  src_stride, dst_stride;
@@ -571,11 +571,7 @@ void* svt_aom_cdef_kernel(void* input_ptr) {
         Av1Common* cm                         = pcs->ppcs->av1_cm;
         frm_hdr                               = &pcs->ppcs->frm_hdr;
         CdefSearchControls* cdef_search_ctrls = &pcs->ppcs->cdef_search_ctrls;
-#if OPT_Q_CDEF
         if (!cdef_search_ctrls->use_reference_cdef_fs && !cdef_search_ctrls->use_qp_strength) {
-#else
-        if (!cdef_search_ctrls->use_reference_cdef_fs) {
-#endif
             if (scs->seq_header.cdef_level && pcs->ppcs->cdef_level) {
                 cdef_seg_search(pcs, scs, dlf_results->segment_index);
             }

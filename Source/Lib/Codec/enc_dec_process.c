@@ -2316,7 +2316,7 @@ static void lpd1_detector_skip_pd0(PictureControlSet* pcs, ModeDecisionContext* 
         }
     }
 }
-#if FTR_VLPD0 // classifier
+
 static void lpd0_detector_allintra(PictureControlSet* pcs, ModeDecisionContext* md_ctx) {
     if (md_ctx->lpd0_ctrls.pd0_level != VERY_LIGHT_PD0) {
         return;
@@ -2365,7 +2365,7 @@ static void lpd0_detector_allintra(PictureControlSet* pcs, ModeDecisionContext* 
         md_ctx->lpd0_ctrls.pd0_level--;
     }
 }
-#endif
+
 /* Light-PD0 classifier. */
 static void lpd0_detector(PictureControlSet* pcs, ModeDecisionContext* md_ctx, uint32_t pic_width_in_sb) {
     Lpd0Ctrls* lpd0_ctrls = &md_ctx->lpd0_ctrls;
@@ -2923,21 +2923,16 @@ void* svt_aom_mode_decision_kernel(void* input_ptr) {
                                                (scs->super_block_size == 64 || ed_ctx->md_ctx->max_block_size == 64)) ||
                             (ed_ctx->md_ctx->depth_removal_ctrls.disallow_below_32x32 &&
                              ed_ctx->md_ctx->max_block_size == 32);
-#if FTR_VLPD0 // classifier
                         if (scs->allintra) {
                             lpd0_detector_allintra(pcs, md_ctx);
                         } else {
-#endif
-
                             // If LPD0 is used, a more conservative level can be set for complex SBs
                             const bool use_lpd0_classifier = !scs->static_config.rtc || pcs->ppcs->sc_class1 ||
                                 pcs->enc_mode <= ENC_M9;
                             if (use_lpd0_classifier && md_ctx->lpd0_ctrls.pd0_level > REGULAR_PD0) {
                                 lpd0_detector(pcs, md_ctx, pic_width_in_sb);
                             }
-#if FTR_VLPD0
                         }
-#endif
                         // PD0 is only skipped if there is a single depth to test
                         if (skip_pd_pass_0) {
                             md_ctx->pred_depth_only = 1;
@@ -2987,7 +2982,6 @@ void* svt_aom_mode_decision_kernel(void* input_ptr) {
                                 }
                             } else {
                                 // [PD_PASS_0] Signal(s) derivation
-#if TUNE_STILL_IMAGE
                                 if (scs->allintra) {
                                     svt_aom_sig_deriv_enc_dec_allintra(pcs, ed_ctx->md_ctx);
                                 } else if (scs->static_config.rtc) {
@@ -2995,10 +2989,6 @@ void* svt_aom_mode_decision_kernel(void* input_ptr) {
                                 } else {
                                     svt_aom_sig_deriv_enc_dec_default(pcs, ed_ctx->md_ctx);
                                 }
-
-#else
-                                svt_aom_sig_deriv_enc_dec(scs, pcs, ed_ctx->md_ctx);
-#endif
 
                                 // Save a clean copy of the neighbor arrays
                                 svt_aom_copy_neighbour_arrays(pcs,
@@ -3064,7 +3054,6 @@ void* svt_aom_mode_decision_kernel(void* input_ptr) {
                         exaustive_light_pd1_features(md_ctx, ppcs, md_ctx->lpd1_ctrls.pd1_level > REGULAR_PD1, 0);
                         if (md_ctx->lpd1_ctrls.pd1_level > REGULAR_PD1) {
                             svt_aom_sig_deriv_enc_dec_light_pd1(pcs, ed_ctx->md_ctx);
-#if TUNE_STILL_IMAGE
                         } else if (scs->allintra) {
                             svt_aom_sig_deriv_enc_dec_allintra(pcs, ed_ctx->md_ctx);
                         } else if (scs->static_config.rtc) {
@@ -3072,11 +3061,6 @@ void* svt_aom_mode_decision_kernel(void* input_ptr) {
                         } else {
                             svt_aom_sig_deriv_enc_dec_default(pcs, ed_ctx->md_ctx);
                         }
-#else
-                        } else {
-                            svt_aom_sig_deriv_enc_dec(scs, pcs, ed_ctx->md_ctx);
-                        }
-#endif
                         // If there is only one depth and no NSQ search at PD1, then the partition structure
                         // is fixed.
                         md_ctx->fixed_partition = md_ctx->pred_depth_only && md_ctx->md_disallow_nsq_search;
@@ -3171,17 +3155,11 @@ void* svt_aom_mode_decision_kernel(void* input_ptr) {
                             // Apply the loop filter
                             //Jing: Don't work for tile_parallel since the SB of bottom tile comes early than the bottom SB of top tile
 
-#if OPT_DLF
-#if OPT_Q_CDEF
                             if ((pcs->ppcs->cdef_search_ctrls.enabled &&
                                  !pcs->ppcs->cdef_search_ctrls.use_qp_strength &&
                                  !pcs->ppcs->cdef_search_ctrls.use_reference_cdef_fs) ||
-                                pcs->ppcs->enable_restoration ||
-#else
-                            if (pcs->ppcs->cdef_search_ctrls.enabled || pcs->ppcs->enable_restoration ||
-#endif
-                                pcs->ppcs->is_ref || scs->static_config.recon_enabled) {
-#endif
+                                pcs->ppcs->enable_restoration || pcs->ppcs->is_ref ||
+                                scs->static_config.recon_enabled) {
                                 if (pcs->ppcs->frm_hdr.loop_filter_params.filter_level[0] ||
                                     pcs->ppcs->frm_hdr.loop_filter_params.filter_level[1]) {
                                     EbPictureBufferDesc* recon_buffer;
@@ -3191,9 +3169,7 @@ void* svt_aom_mode_decision_kernel(void* input_ptr) {
                                     svt_aom_loop_filter_sb(
                                         recon_buffer, pcs, sb_origin_y >> 2, sb_origin_x >> 2, 0, 3, last_col);
                                 }
-#if OPT_DLF
                             }
-#endif
                         }
 
                         ed_ctx->coded_sb_count++;
