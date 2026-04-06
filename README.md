@@ -1,3 +1,10 @@
+![SVT-AV1](https://github.com/Patman86/SVT-AV1-Mod-by-Patman/assets/54327252/8cb2bf9f-7c0a-4eed-b3c5-b8a308500b50)
+
+I would like to thank nekotrix for creating and maintaining SVT‑AV1‑Essential, and for curating sensible defaults and quality‑of‑life improvements on top of mainline SVT‑AV1.
+Additional thanks go to the mainline SVT‑AV1 team and the psy‑ex team for their foundational work, as well as contributors such as fraluc06 and the various package and build maintainers who help distribute SVT‑AV1‑Essential to users.
+
+-----------------------------------------------------------------------------------------------------------------
+
 # SVT-AV1-Essential
 
 SVT-AV1-Essential is the Scalable Video Technology for AV1 (SVT-AV1 Encoder) with sensible defaults and Quality of Life improvements. The goal is to provide the best out-of-the-box experience for the average user.
