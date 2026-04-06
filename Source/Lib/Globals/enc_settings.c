@@ -269,13 +269,13 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     }
     if ((config->min_intra_period_length < -1 || config->min_intra_period_length > 2 * ((1 << 30) - 1)) &&
         config->rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF) {
-        SVT_ERROR("Instance %u: The minimum intra period must be [-1, 2^31-2]  \n");
+        SVT_ERROR("The minimum intra period must be [-1, 2^31-2]  \n");
         return_error = EB_ErrorBadParameter;
     }
-    if (scs->static_config.scene_change_detection != 0) {
+    if (config->scene_change_detection != 0) {
         if (config->intra_period_length >= 0 &&
             config->min_intra_period_length > config->intra_period_length) {
-            SVT_ERROR("Instance %u: The minimum intra period must be lower than "
+            SVT_ERROR("The minimum intra period must be lower than "
                 "the maximum intra period. \n");
             return_error = EB_ErrorBadParameter;
         }
@@ -758,12 +758,20 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (config->enable_photon_noise_chroma != 0 && config->enable_photon_noise_chroma != 1) {
-        SVT_ERROR("Photon noise chroma signal can only have a value of 0 or 1.\n");
+    if (config->noise_strength > 200) {
+        SVT_ERROR("Noise strength value should be in the range [0 - 200]\n");
         return_error = EB_ErrorBadParameter;
     }
-    if (config->photon_noise_iso > 100000) {
-        SVT_ERROR("Photon noise ISO value should be in range [0-100000]");
+    if (config->noise_strength_chroma < -1 || config->noise_strength_chroma > 200) {
+        SVT_ERROR("Chroma noise strength value should be in the range [-1 - 200]\n");
+        return_error = EB_ErrorBadParameter;
+    }
+    if (config->noise_chroma_from_luma > 1) {
+        SVT_ERROR("Chroma from luma setting value should be either 0 or 1\n");
+        return_error = EB_ErrorBadParameter;
+    }
+    if (config->noise_size < -1 || config->noise_size > 13) {
+        SVT_ERROR("Noise size value should be in range [-1 - 13]\n");
         return_error = EB_ErrorBadParameter;
     }
 
@@ -1016,8 +1024,10 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     // Film grain denoising
     config_ptr->film_grain_denoise_strength = 0;
     config_ptr->film_grain_denoise_apply    = 0;
-    config_ptr->photon_noise_iso            = 0;
-    config_ptr->enable_photon_noise_chroma  = 0;
+    config_ptr->noise_strength              = 0;
+    config_ptr->noise_strength_chroma       = -1;
+    config_ptr->noise_chroma_from_luma      = 0;
+    config_ptr->noise_size                  = -1;
 
     // CPU Flags
     config_ptr->use_cpu_flags = EB_CPU_FLAGS_ALL;
@@ -1243,7 +1253,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
             config->source_height,
             config->frame_rate_numerator,
             config->frame_rate_denominator);
-        PRINT_CONFIG("bit-depth / color format", "%d / %s",
+        PRINT_CONFIG("bit-depth / color format / hdr", "%d / %s / %d",
             config->encoder_bit_depth,
             config->encoder_color_format == EB_YUV400       ? "YUV400"
                 : config->encoder_color_format == EB_YUV420 ? "YUV420"
@@ -1336,10 +1346,15 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                     config->film_grain_denoise_strength);
             }
         }
-        if (config->photon_noise_iso > 0) {
-            PRINT_CONFIG("photon noise synth / ISO / chroma", "True / %d / %s",
-                     config->photon_noise_iso,
-                     config->enable_photon_noise_chroma ? "on" : "off");
+        if (config->noise_strength > 0) {
+            PRINT_CONFIG("noise table gen / luma / chroma / size", "%s / %d / %s%.0d%s / %s%.0d",
+                     "on",
+                     config->noise_strength,
+                     config->noise_strength_chroma == -1 ? "auto" : (config->noise_strength_chroma == 0 ? "off" : ""),
+                     config->noise_strength_chroma > 0 ? config->noise_strength_chroma : 0,
+                     config->noise_chroma_from_luma == 1 ? " (from luma)" : "",
+                     config->noise_size == -1 ? "auto" : (config->noise_size == 0 ? "0" : ""),
+                     config->noise_size > 0 ? config->noise_size : 0);
         }
         PRINT_CONFIG("sharpness / luminance-based QP bias", "%d / %d",
                  config->sharpness,
@@ -2381,7 +2396,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"q", &config_struct->qp},
         {"qp", &config_struct->qp},
         {"film-grain", &config_struct->film_grain_denoise_strength},
-        {"photon-noise", &config_struct->photon_noise_iso},
         {"hierarchical-levels", &config_struct->hierarchical_levels},
         {"tier", &config_struct->tier},
         {"level", &config_struct->level},
@@ -2426,7 +2440,8 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"superres-kf-denom", &config_struct->superres_kf_denom},
         {"tune", &config_struct->tune},
         {"film-grain-denoise", &config_struct->film_grain_denoise_apply},
-        {"photon-noise-chroma", &config_struct->enable_photon_noise_chroma},
+        {"noise", &config_struct->noise_strength},
+        {"noise-chroma-from-luma", &config_struct->noise_chroma_from_luma},
         {"enable-dlf", &config_struct->enable_dlf_flag},
         {"resize-mode", &config_struct->resize_mode},
         {"resize-denom", &config_struct->resize_denom},
@@ -2524,6 +2539,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"tile-rows", &config_struct->tile_rows},
         {"tile-columns", &config_struct->tile_columns},
         {"sframe-dist", &config_struct->sframe_dist},
+        {"noise-chroma", &config_struct->noise_strength_chroma},
     };
     const size_t int_opts_size = sizeof(int_opts) / sizeof(int_opts[0]);
 
@@ -2541,6 +2557,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"preset", &config_struct->enc_mode},
         {"sharpness", &config_struct->sharpness},
         {"startup-qp-offset", &config_struct->startup_qp_offset},
+        {"noise-size", &config_struct->noise_size},
     };
     const size_t int8_opts_size = sizeof(int8_opts) / sizeof(int8_opts[0]);
 

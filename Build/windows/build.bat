@@ -180,6 +180,12 @@ if -%1-==-- (
     set "GENERATOR=Unix Makefiles"
     set dir=UNIX
     shift
+) else if /I "%1"=="clang" (
+    echo Setting environment for Clang with Ninja
+    set "GENERATOR=Ninja"
+    set "CC=clang"
+    set "CXX=clang"
+    shift
 ) else if /I "%1"=="release" (
     set "buildtype=Release"
     shift
@@ -238,6 +244,9 @@ if -%1-==-- (
     shift
 ) else if /I "%1"=="lto" (
     set "cmake_eflags=%cmake_eflags% -DSVT_AV1_LTO=ON"
+    shift
+) else if /I "%1"=="no-lto" (
+    set "cmake_eflags=%cmake_eflags% -DSVT_AV1_LTO=OFF"
     shift
 ) else if /I "%1"=="no-enc" (
     set "cmake_eflags=%cmake_eflags% -DBUILD_ENC=OFF"

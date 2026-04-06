@@ -99,8 +99,10 @@
 #define LEVEL_TOKEN "--level"
 #define FILM_GRAIN_TOKEN "--film-grain"
 #define FILM_GRAIN_DENOISE_APPLY_TOKEN "--film-grain-denoise"
-#define PHOTON_NOISE_TOKEN "--photon-noise"
-#define PHOTON_NOISE_CHROMA_TOKEN "--photon-noise-chroma"
+#define NOISE_TOKEN "--noise"
+#define NOISE_CHROMA_TOKEN "--noise-chroma"
+#define NOISE_CHROMA_FROM_LUMA_TOKEN "--noise-chroma-from-luma"
+#define NOISE_SIZE_TOKEN "--noise-size"
 #define INTRA_REFRESH_TYPE_TOKEN "--irefresh-type" // no Eval
 #define CDEF_ENABLE_TOKEN "--enable-cdef"
 #define SCREEN_CONTENT_TOKEN "--scm"
@@ -965,9 +967,20 @@ ConfigDescription config_entry_specific[] = {
 
     {FGS_TABLE_TOKEN, "Set the film grain model table path"},
 
-    {PHOTON_NOISE_TOKEN, "Generate photon noise table for film grain, default is 0 [0: off, 1-100000: ISO value]"},
+    {NOISE_TOKEN,
+     "Generate noise table for film grain. 50 is roughly equivalent to `--film-grain 50`, default is 0 [0: off, 1-200: "
+     "strength value]"},
 
-    {PHOTON_NOISE_CHROMA_TOKEN, "Enable chroma noise, default is 0 [0: off, 1: on]"},
+    {NOISE_CHROMA_TOKEN,
+     "Chroma noise with strength based on `--noise` setting (-1) or set its strength independently (0-200), default is "
+     "-1 [-1: ~60% of luma, 0: off, 1-200: strength value]"},
+
+    {NOISE_CHROMA_FROM_LUMA_TOKEN,
+     "Apply noise to chroma planes based on the luma plane, default is 0 [0: off, 1: on]"},
+
+    {NOISE_SIZE_TOKEN,
+     "Set size of noise grain. Higher value results in a larger-looking noise, default is -1 [-1: auto, 0-13: set "
+     "grain size]"},
 
 #endif
     // --- start: SUPER-RESOLUTION SUPPORT
@@ -1221,8 +1234,10 @@ ConfigEntry config_entry[] = {
     {FILM_GRAIN_TOKEN, "FilmGrain", set_cfg_generic_token},
     {FILM_GRAIN_DENOISE_APPLY_TOKEN, "FilmGrainDenoise", set_cfg_generic_token},
     {FGS_TABLE_TOKEN, "FilmGrainTable", set_cfg_fgs_table_path},
-    {PHOTON_NOISE_TOKEN, "PhotonNoise", set_cfg_generic_token},
-    {PHOTON_NOISE_CHROMA_TOKEN, "PhotonNoiseChroma", set_cfg_generic_token},
+    {NOISE_TOKEN, "Noise", set_cfg_generic_token},
+    {NOISE_CHROMA_TOKEN, "NoiseChroma", set_cfg_generic_token},
+    {NOISE_CHROMA_FROM_LUMA_TOKEN, "NoiseChromaFromLuma", set_cfg_generic_token},
+    {NOISE_SIZE_TOKEN, "NoiseSize", set_cfg_generic_token},
 #endif
 #ifdef LIBHDR10PLUS_RS_FOUND
     {HDR10PLUS_JSON_TOKEN, "Hdr10PlusJson", set_cfg_hdr10plus_json},

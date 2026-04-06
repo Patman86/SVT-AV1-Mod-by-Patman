@@ -56,7 +56,7 @@
 #include "rc_results.h"
 #include "definitions.h"
 #include "metadata_handle.h"
-#include "photon_noise.h"
+#include "noise_generation.h"
 
 #include "pack_unpack_c.h"
 #include "enc_mode_config.h"
@@ -3864,25 +3864,38 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         scs->static_config.hierarchical_levels = 4;
         SVT_WARN("Fwd key frame is only supported for hierarchical levels 4 at this point. Hierarchical levels are set to 4\n");
     }
-    if (scs->static_config.photon_noise_iso > 0) {
+    if (scs->static_config.noise_strength > 0) {
         // Check if film-grain-denoise is also enabled (should be disabled if fgs_table is present)
         if (scs->static_config.film_grain_denoise_strength > 0) {
-            SVT_WARN("Both film-grain-denoise and photon-noise were specified; film-grain-denoise will be disabled\n");
+            SVT_WARN("Both film-grain-denoise and noise strength were specified; film-grain-denoise will be disabled.\n");
             scs->static_config.film_grain_denoise_strength = 0;
         }
         // Check if fgs_table is present
         if (scs->static_config.fgs_table) {
-            SVT_WARN("Both photon-noise and fgs-table were specified; photon-noise will be disabled\n");
-            scs->static_config.photon_noise_iso = 0;
+            SVT_WARN("Both noise strength and fgs-table were specified; build-in noise table generation will be disabled.\n");
+            scs->static_config.noise_strength = 0;
+            scs->static_config.noise_strength_chroma = -1;
+            scs->static_config.noise_chroma_from_luma = 0;
+            scs->static_config.noise_size = -1;
         } else {
-            if (scs->static_config.transfer_characteristics == EB_CICP_TC_UNSPECIFIED) {
-                SVT_WARN("Transfer characteristics is not specified, photon noise will be defaulting to BT.709\n");
+            if (scs->static_config.noise_strength_chroma == 0 && scs->static_config.noise_chroma_from_luma == 1) {
+                SVT_WARN("Noise chroma from luma setting has no effect when chroma noise strength is set to 0.\n");
+                scs->static_config.noise_chroma_from_luma = 0;
             }
-            svt_av1_generate_photon_noise_table(&scs->static_config);
+            svt_av1_generate_noise_table(&scs->static_config);
         }
     } else {
-        if (scs->static_config.enable_photon_noise_chroma == 1) {
-            SVT_WARN("Photon noise chroma signal is going to be ignored when photon noise level is 0.\n");
+        if (scs->static_config.noise_strength_chroma != -1) {
+            SVT_WARN("Chroma noise strength signal is going to be ignored when noise strength level is 0.\n");
+            scs->static_config.noise_strength_chroma = -1;
+        }
+        if (scs->static_config.noise_chroma_from_luma == 1) {
+            SVT_WARN("Noise chroma from luma signal is going to be ignored when noise strength level is 0.\n");
+            scs->static_config.noise_chroma_from_luma = 0;
+        }
+        if (scs->static_config.noise_size != -1) {
+            SVT_WARN("Noise size signal is going to be ignored when noise strength level is 0.\n");
+            scs->static_config.noise_size = -1;
         }
     }
     bool disallow_nsq = true;
@@ -4023,9 +4036,6 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     if (scs->static_config.encoder_bit_depth < 10)
         scs->enable_hbd_mode_decision = 0;
 
-    // Throws a warning when scene change is on, as the feature is not optimal and may produce false detections
-    if (scs->static_config.scene_change_detection == 1)
-        SVT_WARN("SCD has been optimized on SVT-AV1-Essential defaults. Accuracy cannot be guaranteed inside SVT-AV1-Tritium.\n");
     // MRP level
     uint8_t mrp_level;
     if (scs->static_config.rtc) {
@@ -4200,8 +4210,10 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
     }
     scs->seq_header.film_grain_params_present = (uint8_t)(scs->static_config.film_grain_denoise_strength>0);
     scs->static_config.fgs_table = config_struct->fgs_table;
-    scs->static_config.photon_noise_iso = config_struct->photon_noise_iso;
-    scs->static_config.enable_photon_noise_chroma = config_struct->enable_photon_noise_chroma;
+    scs->static_config.noise_strength = config_struct->noise_strength;
+    scs->static_config.noise_strength_chroma = config_struct->noise_strength_chroma;
+    scs->static_config.noise_chroma_from_luma = config_struct->noise_chroma_from_luma;
+    scs->static_config.noise_size = config_struct->noise_size;
 
     // MD Parameters
     scs->enable_hbd_mode_decision = config_struct->encoder_bit_depth > 8 ? DEFAULT : 0;
@@ -4232,21 +4244,17 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
             }
         }
         if (scs->static_config.auto_tiling) {
-            if (scs->max_input_luma_width >= 3840 && scs->max_input_luma_height >= 2160) {
-                scs->static_config.tile_rows = 0;
-                scs->static_config.tile_columns = 2;
+            uint32_t max_dim = scs->max_input_luma_width > scs->max_input_luma_height ?
+                               scs->max_input_luma_width : scs->max_input_luma_height;
+            bool is_vertical = scs->max_input_luma_height > scs->max_input_luma_width;
+
+            if (max_dim >= 3840) {
+                scs->static_config.tile_rows = is_vertical ? 2 : 0;
+                scs->static_config.tile_columns = is_vertical ? 0 : 2;
             }
-            else if (scs->max_input_luma_width >= 2160 && scs->max_input_luma_height >= 3840) {
-                scs->static_config.tile_rows = 2;
-                scs->static_config.tile_columns = 0;
-            }
-            else if (scs->max_input_luma_width >= 1920 && scs->max_input_luma_height >= 1080) {
-                scs->static_config.tile_rows = 0;
-                scs->static_config.tile_columns = 1;
-            }
-            else if (scs->max_input_luma_width >= 1080 && scs->max_input_luma_height >= 1920) {
-                scs->static_config.tile_rows = 1;
-                scs->static_config.tile_columns = 0;
+            else if (max_dim >= 1920) {
+                scs->static_config.tile_rows = is_vertical ? 1 : 0;
+                scs->static_config.tile_columns = is_vertical ? 0 : 1;
             }
         }
     }
@@ -4401,7 +4409,7 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
         scs->static_config.intra_period_length =
             (int32_t)(fps * scs->static_config.intra_period_length);
     }
-    if (scs->static_config.intra_period_length == -1)
+    if (scs->static_config.intra_period_length == -1 || scs->allintra)
         scs->static_config.min_intra_period_length = 0;
     else {
         if (scs->static_config.min_intra_period_length == -1)
