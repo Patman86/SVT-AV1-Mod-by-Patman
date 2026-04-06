@@ -15,11 +15,9 @@ cmake_minimum_required(VERSION 3.5...3.28)
 
 # Include Subdirectories
 include_directories(${PROJECT_SOURCE_DIR}/Source/API/)
-find_package(PkgConfig)
-if(NOT PkgConfig_FOUND)
-  message(WARNING "PkgConfig not found; disabled building with dovi & hdr10plus.")
-endif()
-
+# ---------------------------------------------------------------
+# Optional static link for external libs
+# ---------------------------------------------------------------
 option(EXT_LIB_STATIC "Force linking with static libraries for external dependencies" OFF)
 set(SUFFIX "")
 if(EXT_LIB_STATIC)
@@ -28,90 +26,36 @@ else()
   set(SUFFIX ${CMAKE_SHARED_LIBRARY_SUFFIX})
 endif()
 
-# libdovi detection & preprocessor macro
-option(LIBDOVI_FOUND "Use the dovi library" OFF)
+# ===============================================================
+# Dolby Vision (libdovi)
+# ===============================================================
+option(LIBDOVI_FOUND "Use the Dolby Vision (dovi) library" OFF)
 if(LIBDOVI_FOUND)
-  if(PKG_CONFIG_FOUND)
-    pkg_check_modules(PC_LIBDOVI dovi REQUIRED)
-  endif()
-
-  set(LIBDOVI_LIBRARY_DIR ${PC_LIBDOVI_LIBDIRS})
-
-  set(LIBDOVI_INCLUDE_DIR ${PC_LIBDOVI_INCLUDEDIRS})
-
-  include_directories(${LIBDOVI_INCLUDE_DIR})
-
-  if(EXT_LIB_STATIC OR MSVC)
-    set(LIBDOVI_REQUIRED_LIBRARIES ${PC_LIBDOVI_STATIC_LIBRARIES})
-  else()
-    set(LIBDOVI_REQUIRED_LIBRARIES ${PC_LIBDOVI_LIBRARIES})
-  endif()
-
-  set(LIBDOVI_LIBRARY "")
-  if(WIN32 AND NOT MSVC AND CMAKE_C_COMPILER_ID MATCHES "Clang" AND NOT MINGW)
-    # link hack only for native windows and clang
-    # because cmake pass .lib file for windows
-    # but cargo-c produce .dll.lib for shared
-    # and .lib for static library this force passing
-    # .dll extension by creating linker flags
-    foreach(BASE ${LIBDOVI_REQUIRED_LIBRARIES})
-      list(APPEND LIBDOVI_LIBRARY "-l${BASE}${SUFFIX}")
-    endforeach()
-  else()
-    foreach(BASE ${LIBDOVI_REQUIRED_LIBRARIES})
-      list(APPEND LIBDOVI_LIBRARY "${BASE}${SUFFIX}")
-    endforeach()
-  endif()
-
-  add_definitions(-DLIBDOVI_FOUND=1)
-  execute_process(COMMAND ${CMAKE_COMMAND} -E echo_append "-- Building with dovi support - Yes\n")
-else()
-  execute_process(COMMAND ${CMAKE_COMMAND} -E echo_append "-- Building with dovi support - No\n")
+    find_package(dovi QUIET)
+    if(LIBDOVI_FOUND)
+        include_directories(${LIBDOVI_INCLUDE_DIR})
+        set(LIBDOVI_LIBRARIES ${LIBDOVI_LIBRARY})
+        add_definitions(-DLIBDOVI_FOUND=1)
+        message(STATUS "Building with Dolby Vision support – Yes")
+    else()
+        message(STATUS "Building with Dolby Vision support – No (library not found)")
+    endif()
 endif()
 
-# libhdr10plus detection & preprocessor macro
-option(LIBHDR10PLUS_RS_FOUND "Use the hdr10plus library" OFF)
+# ===============================================================
+# HDR10+ (hdr10plus-rs)
+# ===============================================================
+option(LIBHDR10PLUS_RS_FOUND "Use the HDR10+ library" OFF)
 if(LIBHDR10PLUS_RS_FOUND)
-  if(PKG_CONFIG_FOUND)
-    pkg_check_modules(PC_LIBHDR10PLUS_RS hdr10plus-rs REQUIRED)
-  endif()
-
-  set(LIBHDR10PLUS_RS_LIBRARY_DIR ${PC_LIBHDR10PLUS_RS_LIBDIR})
-
-  set(LIBHDR10PLUS_RS_INCLUDE_DIR ${PC_LIBHDR10PLUS_RS_INCLUDEDIR})
-
-  include_directories(${LIBHDR10PLUS_RS_INCLUDE_DIR})
-
-  if(EXT_LIB_STATIC OR MSVC)
-    set(LIBHDR10PLUS_RS_REQUIRED_LIBRARIES ${PC_LIBHDR10PLUS_RS_STATIC_LIBRARIES})
-  else()
-    set(LIBHDR10PLUS_RS_REQUIRED_LIBRARIES ${PC_LIBHDR10PLUS_RS_LIBRARIES})
-  endif()
-
-  set(LIBHDR10PLUS_RS_LIBRARY "")
-  if(WIN32 AND NOT MSVC AND CMAKE_C_COMPILER_ID MATCHES "Clang" AND NOT MINGW)
-    # link hack only for native windows and clang
-    # because cmake pass .lib file for windows
-    # on both static and shared library
-    # but cargo-c produce .dll.lib for shared
-    # and .lib for static library this force passing
-    # .dll extension by creating linker flags
-    if(NOT EXT_LIB_STATIC)
-      message(WARNING "Shared version of hdr10plus-rs library is known to cause error when link")
+    find_package(hdr10plus QUIET)
+    if(LIBHDR10PLUS_RS_FOUND)
+        include_directories(${LIBHDR10PLUS_RS_INCLUDE_DIR})
+        set(LIBHDR10PLUS_RS_LIBRARIES ${LIBHDR10PLUS_RS_LIBRARY})
+        add_definitions(-DLIBHDR10PLUS_RS_FOUND=1)
+        message(STATUS "Building with HDR10+ support – Yes")
+    else()
+        message(STATUS "Building with HDR10+ support – No (library not found)")
     endif()
-    foreach(BASE ${LIBHDR10PLUS_RS_REQUIRED_LIBRARIES})
-      list(APPEND LIBHDR10PLUS_RS_LIBRARY "-l${BASE}${SUFFIX}")
-    endforeach()
-  else()
-    foreach(BASE ${LIBHDR10PLUS_RS_REQUIRED_LIBRARIES})
-      list(APPEND LIBHDR10PLUS_RS_LIBRARY "${BASE}${SUFFIX}")
-    endforeach()
-  endif()
-
-  add_definitions(-DLIBHDR10PLUS_RS_FOUND=1)
-  execute_process(COMMAND ${CMAKE_COMMAND} -E echo_append "-- Building with hdr10plus support - Yes\n")
-else()
-  execute_process(COMMAND ${CMAKE_COMMAND} -E echo_append "-- Building with hdr10plus support - No\n")
 endif()
 
 set(all_files
@@ -144,9 +88,26 @@ if(TARGET safestringlib)
     target_sources(SvtAv1EncApp PRIVATE $<TARGET_OBJECTS:safestringlib>)
 endif()
 
-#********** SET COMPILE FLAGS************
-# Link the Encoder App
-target_link_libraries(SvtAv1EncApp SvtAv1Enc ${LIBDOVI_LIBRARY} ${LIBHDR10PLUS_RS_LIBRARY})
-target_link_directories(SvtAv1EncApp PRIVATE ${LIBDOVI_LIBRARY_DIR} ${LIBHDR10PLUS_RS_LIBRARY_DIR})
+# ===============================================================
+# Link libraries (Encoder + HDR + DOVI)
+# ===============================================================
+
+# Allow duplicate Rust runtime symbols from multiple static libs
+if(MSVC)
+    target_link_options(SvtAv1EncApp PRIVATE /FORCE:MULTIPLE)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_link_options(SvtAv1EncApp PRIVATE -Wl,--allow-multiple-definition)
+endif()
+
+# Link everything through interface libs (safe against symbol overlap)
+target_link_libraries(SvtAv1EncApp
+    PRIVATE
+        SvtAv1Enc
+        $<$<BOOL:${LIBDOVI_FOUND}>:dovi::dovi>
+        $<$<BOOL:${LIBHDR10PLUS_RS_FOUND}>:hdr10plus::hdr10plus>
+        $<$<OR:$<BOOL:${LIBDOVI_FOUND}>,$<BOOL:${LIBHDR10PLUS_RS_FOUND}>>:ws2_32>
+        $<$<OR:$<BOOL:${LIBDOVI_FOUND}>,$<BOOL:${LIBHDR10PLUS_RS_FOUND}>>:userenv>
+        $<$<OR:$<BOOL:${LIBDOVI_FOUND}>,$<BOOL:${LIBHDR10PLUS_RS_FOUND}>>:ntdll>
+)
 
 install(TARGETS SvtAv1EncApp RUNTIME COMPONENT Runtime DESTINATION ${CMAKE_INSTALL_BINDIR})
