@@ -5727,7 +5727,7 @@ EB_API const char *svt_av1_get_version(void) {
 
 EB_API void svt_av1_print_version(void) {
     SVT_INFO("-------------------------------------------\n");
-    SVT_INFO("SVT [version]:\tSVT-AV1-Essential Encoder Lib %s\n", SVT_AV1_CVS_VERSION);
+    SVT_INFO("SVT [version] : SVT-AV1-Essential Encoder Lib %s\n", SVT_AV1_CVS_VERSION);
     const char *compiler =
 #if defined(__clang__) && defined(__apple_build_version__)
     __VERSION__ "\t"
@@ -5749,9 +5749,9 @@ EB_API void svt_av1_print_version(void) {
     "unknown compiler"
 #endif
     ;
-    SVT_INFO("SVT [build]  :\t%s %zu bit\n", compiler,  sizeof(void*) * 8);
+    SVT_INFO("SVT [build]   : %s %zu bit\n", compiler,  sizeof(void*) * 8);
 #if !REPRODUCIBLE_BUILDS
-    SVT_INFO("LIB Build date:\t%s %s\n", __DATE__, __TIME__);
+    SVT_INFO("LIB Build date: %s %s\n", __DATE__, __TIME__);
 #endif
     SVT_INFO("-------------------------------------------\n");
 }
