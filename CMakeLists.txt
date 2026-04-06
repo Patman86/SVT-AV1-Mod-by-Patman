@@ -179,14 +179,42 @@ include(GNUInstallDirs)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
-# if(PROJECT_IS_TOP_LEVEL) requires CMake 3.21
-if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-    set(CMAKE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/Bin/${CMAKE_BUILD_TYPE}/" CACHE PATH "Location to write the resulting binaries to")
+# Dolby Vision / HDR10+ Integration (custom CMake Find-modules)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
-    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
+set(_compiler_dir "Unknown")
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(_compiler_dir "GNU")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    set(_compiler_dir "MSVC")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(_compiler_dir "Clang")
 endif()
+
+# Optional: differentiate between generators (Ninja vs. VS)
+set(_gen_dir "")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_GENERATOR MATCHES "Ninja")
+    set(_gen_dir "Ninja")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_GENERATOR MATCHES "Visual Studio")
+    set(_gen_dir "VS")
+endif()
+
+# Build type (for single-config generators)
+if (NOT CMAKE_CONFIGURATION_TYPES)
+    set(_cfg_dir "${CMAKE_BUILD_TYPE}")
+else()
+    set(_cfg_dir "$<CONFIG>")
+endif()
+
+set(CMAKE_OUTPUT_DIRECTORY
+    "${PROJECT_SOURCE_DIR}/Bin/${_compiler_dir}/${_gen_dir}/${_cfg_dir}"
+    CACHE PATH "Output directory" FORCE
+)
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
 
 set(PC_LIBS_PRIVATE)
 set(PC_REQUIRES_PRIVATE)
@@ -234,23 +262,14 @@ message(STATUS "BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
 
 option(BUILD_TESTING "Build SvtAv1UnitTests, SvtAv1ApiTests, and SvtAv1E2ETests unit tests")
 option(COVERAGE "Generate coverage report")
-if(NOT MSVC)
-    option(SVT_AV1_PGO "Enable profile guided optimization. Creates the RunPGO and CompilePGO targets")
-    # options for internal use
-    option(SVT_INTERNAL_PGO_GENERATE "Generate a profile guided optimization profile")
-    option(SVT_INTERNAL_PGO_USE "Use a profile for profile guided optimization")
-    mark_as_advanced(SVT_INTERNAL_PGO_GENERATE SVT_INTERNAL_PGO_USE)
-    set(SVT_AV1_PGO_DIR "${CMAKE_BINARY_DIR}" CACHE PATH "Path to the directory passed to -fprofile-dir for use with profile guided optimization")
-    set(SVT_AV1_PGO_CUSTOM_VIDEOS "" CACHE STRING "Semi-colon separated list of directories with y4m videos to run PGO on instead of objective-1-fast")
-else()
-    set(SVT_AV1_PGO OFF)
-endif()
 
-if(MSVC AND SVT_AV1_PGO)
-    message(WARNING "PGO is not yet supported for MSVC, disabling")
-    unset(SVT_AV1_PGO)
-    unset(SVT_AV1_PGO CACHE)
-endif()
+option(SVT_AV1_PGO "Enable profile guided optimization. Creates the RunPGO and CompilePGO targets")
+# options for internal use
+option(SVT_INTERNAL_PGO_GENERATE "Generate a profile guided optimization profile")
+option(SVT_INTERNAL_PGO_USE "Use a profile for profile guided optimization")
+mark_as_advanced(SVT_INTERNAL_PGO_GENERATE SVT_INTERNAL_PGO_USE)
+set(SVT_AV1_PGO_DIR "${CMAKE_BINARY_DIR}" CACHE PATH "Path to the directory passed to -fprofile-dir for use with profile guided optimization")
+set(SVT_AV1_PGO_CUSTOM_VIDEOS "" CACHE STRING "Semi-colon separated list of directories with y4m videos to run PGO on instead of objective-1-fast")
 
 if(CMAKE_C_COMPILER_ID MATCHES "Clang" AND SVT_AV1_PGO)
     find_program(LLVM_PROFDATA llvm-profdata)
@@ -274,7 +293,7 @@ if(SVT_AV1_PGO AND NOT BUILD_APPS)
 endif()
 
 if(SVT_INTERNAL_PGO_USE)
-    if(MSVC)
+    if(MSVC AND NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
         set(PGO_COMPILER_FLAGS "/GL")
         set(PGO_LINKER_FLAGS "/LTCG /USEPROFILE")
     else()
@@ -287,7 +306,7 @@ if(SVT_INTERNAL_PGO_USE)
         endif()
     endif()
 elseif(SVT_INTERNAL_PGO_GENERATE)
-    if(MSVC)
+    if(MSVC AND NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
         set(PGO_COMPILER_FLAGS "/GL")
         set(PGO_LINKER_FLAGS "/LTCG /GENPROFILE")
     else()
@@ -408,7 +427,8 @@ macro(add_clike_and_ld_flags)
 endmacro()
 
 if((CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL "9.0") OR
-   (CMAKE_C_COMPILER_ID STREQUAL "Clang" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL "12.0"))
+   (CMAKE_C_COMPILER_ID STREQUAL "Clang" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL "12.0") OR
+   (CMAKE_C_COMPILER_ID STREQUAL "MSVC" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL "14.11"))
     option(SVT_AV1_LTO "Attempt to enable Link Time Optimization if available" ON)
 else()
     option(SVT_AV1_LTO "Attempt to enable Link Time Optimization if available" OFF)
@@ -763,7 +783,7 @@ if(SVT_AV1_PGO)
     add_custom_target(PGOCompileGen
         ${CMAKE_COMMAND} ${CMAKE_BINARY_DIR} -DSVT_INTERNAL_PGO_GENERATE=ON -DSVT_INTERNAL_PGO_USE=OFF
         COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}
-        --clean-first
+        --config $<CONFIG>
         --target SvtAv1EncApp
         COMMENT "Compiling with PGO generate"
         VERBATIM
@@ -771,8 +791,13 @@ if(SVT_AV1_PGO)
     )
 
     if(CMAKE_C_COMPILER_ID MATCHES "Clang")
-        # We want unprofiled code optimised for speed, not size, so we mark the profiling data as "sparse".
-        set(PROFILE_MERGE_CMD sh -c "cd ${SVT_AV1_PGO_DIR} && ${LLVM_PROFDATA} merge --sparse=true *.profraw -o default.profdata")
+        if(WIN32)
+            # Call llvm-profdata directly on Windows (no sh)
+            set(PROFILE_MERGE_CMD "cd ${SVT_AV1_PGO_DIR} && ${LLVM_PROFDATA}" merge --sparse=true *.profraw -o default.profdata)
+        else()
+            # We want unprofiled code optimised for speed, not size, so we mark the profiling data as "sparse".
+            set(PROFILE_MERGE_CMD sh -c "cd ${SVT_AV1_PGO_DIR} && ${LLVM_PROFDATA} merge --sparse=true *.profraw -o default.profdata")
+        endif()
     else()
         # Do nothing. GCC has no profile merging step.
         set(PROFILE_MERGE_CMD)
@@ -782,7 +807,7 @@ if(SVT_AV1_PGO)
         ${CMAKE_COMMAND} ${CMAKE_BINARY_DIR} -DSVT_INTERNAL_PGO_GENERATE=OFF -DSVT_INTERNAL_PGO_USE=ON
         COMMAND ${PROFILE_MERGE_CMD}
         COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}
-        --clean-first
+        --config $<CONFIG>
         --target SvtAv1EncApp
         COMMENT "Compiling PGO use"
         COMMAND_EXPAND_LISTS
