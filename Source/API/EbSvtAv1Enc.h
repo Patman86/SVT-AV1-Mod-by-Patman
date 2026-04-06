@@ -1061,21 +1061,41 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      uint8_t cdef_scaling;
 
     /**
-     * @brief Photon noise ISO value
+     * @brief Enables static noise table generation
      *
+     * 0: off
+     * 1-200: noise strength
      * Default is 0.
      */
-    uint32_t photon_noise_iso;
+    uint8_t noise_strength;
 
     /**
-     * @brief Enable chroma noise, which will is scaled based on luma values for generated film grain table.
+     * @brief Control whether chroma noise is scaled from luma or as a separate strength value
      *
-     * 0: disable chroma scaling
-     * 1: enable chroma scaling
+     * -1: chroma noise strength is ~60% of noise_strength value
+     *  0: disable chroma noise
+     *  1-200: chroma noise strength
+     * Default is -1.
+     */
+    int32_t noise_strength_chroma;
+
+    /*
+     * @brief Enable noise on chroma planes based on luma plane
      *
+     * 0: off, chroma noise is applied based on chroma planes
+     * 1: on, chroma noise application is based on luma plane
      * Default is 0.
      */
-    uint8_t enable_photon_noise_chroma;
+    uint8_t noise_chroma_from_luma;
+
+    /**
+     * @brief Control the grain size of noise
+     *
+     * -1: auto adjustment based on resolution
+     *  0-13: adjust grain size
+     * Default is -1.
+     */
+    int8_t noise_size;
 
     /**
      * @brief Check if color range is provided by the user
