@@ -219,6 +219,9 @@ if -%1-==-- (
 ) else if /I "%1"=="hdr" (
     set "cmake_eflags=%cmake_eflags% -DLIBHDR10PLUS_RS_FOUND=1"
     shift
+) else if /I "%1"=="webm" (
+    set "cmake_eflags=%cmake_eflags% -DUSE_WEBM_IO=ON"
+    shift
 ) else if /I "%1"=="pgo" (
     set "cmake_eflags=%cmake_eflags% -DSVT_AV1_PGO=ON"
     set "pgo=--target RunPGO"

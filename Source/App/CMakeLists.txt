@@ -101,7 +101,6 @@ endif()
 
 # Link everything through interface libs (safe against symbol overlap)
 target_link_libraries(SvtAv1EncApp
-    PRIVATE
         SvtAv1Enc
         $<$<BOOL:${LIBDOVI_FOUND}>:dovi::dovi>
         $<$<BOOL:${LIBHDR10PLUS_RS_FOUND}>:hdr10plus::hdr10plus>
