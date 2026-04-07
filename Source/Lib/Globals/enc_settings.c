@@ -1240,7 +1240,8 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
     if (config->pass == ENC_FIRST_PASS) {
         SVT_INFO("SVT [config]: First Pass Encode\n");
     } else {
-        PRINT_CONFIG("profile / tier / level", "%s / %s / %s",
+        PRINT_CONFIG("output format / profile / tier / level", "%s / %s / %s / %s",
+                 (config->webm) ? "WebM" : "ivf",
                  config->profile == MAIN_PROFILE               ? "main"
                      : config->profile == HIGH_PROFILE         ? "high"
                      : config->profile == PROFESSIONAL_PROFILE ? "professional"
@@ -1303,7 +1304,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                         : config->pred_structure == RANDOM_ACCESS ? "RA"
                                                                   : "Unknown pred structure");
         } else {
-            PRINT_CONFIG("preset / tune / pred struct", "%d / %s%s / %s",
+            PRINT_CONFIG("preset / tune / pred struct", "%d / %s / %s",
                     config->enc_mode,
                     config->tune == TUNE_VQ            ? "VQ (0)"
                         : config->tune == TUNE_PSNR    ? "PSNR (1)"
