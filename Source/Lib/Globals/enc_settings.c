@@ -1252,7 +1252,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
             config->source_height,
             config->frame_rate_numerator,
             config->frame_rate_denominator);
-        PRINT_CONFIG("bit-depth / color format / hdr", "%d / %s / %d",
+        PRINT_CONFIG("color format / bit-depth / hdr", "%sP / %d / %d",
             config->encoder_color_format == EB_YUV400       ? "YUV400"
                 : config->encoder_color_format == EB_YUV420 ? "YUV420"
                 : config->encoder_color_format == EB_YUV422 ? "YUV422"
@@ -1423,7 +1423,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
         }
 
         if (config->enable_qm == 1) {
-            PRINT_CONFIG("quant. matrices min / max / chroma-min / chroma-max", "%d / %d / %d / %d",
+            PRINT_CONFIG("quant. matrices min / max / chroma min / max", "%d / %d / %d / %d",
                      config->min_qm_level,
                      config->max_qm_level,
                      config->min_chroma_qm_level,
