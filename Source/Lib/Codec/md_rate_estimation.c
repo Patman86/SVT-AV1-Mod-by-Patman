@@ -822,7 +822,7 @@ static AOM_INLINE void sum_intra_stats(PictureControlSet* pcs, BlkStruct* blk_pt
                    2 * MAX_ANGLE_DELTA + 1);
     }
     if (svt_aom_allow_palette(pcs->ppcs->frm_hdr.allow_screen_content_tools, bsize)) {
-        update_palette_cdf(pcs->scs, xd, mbmi, blk_ptr, mi_row, mi_col);
+        update_palette_cdf(xd, mbmi, blk_ptr, mi_row, mi_col);
     }
 }
 

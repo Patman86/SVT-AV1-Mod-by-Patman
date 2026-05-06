@@ -1369,7 +1369,7 @@ ConfigEntry config_entry[] = {
  **********************************/
 EbConfig *svt_config_ctor(bool color) {
     EbConfig *app_cfg = (EbConfig *)calloc(1, sizeof(EbConfig));
-    if (!app_cfg)
+    if (!app_cfg) {
         return NULL;
     }
     app_cfg->error_log_file      = stderr;
@@ -1473,7 +1473,7 @@ void svt_config_dtor(EbConfig* app_cfg) {
 }
 EbErrorType enc_channel_ctor(EncChannel *c, bool color) {
     c->app_cfg = svt_config_ctor(color);
-    if (!c->app_cfg)
+    if (!c->app_cfg) {
         return EB_ErrorInsufficientResources;
     }
 
