@@ -2323,7 +2323,7 @@ static EbErrorType parse_zones_string(const char* zones_str, QualityZone** zones
 
 EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_struct, const char *name,
                                                const char *value) {
-    if (config_struct == NULL || name == NULL || value == NULL)
+    if (config_struct == NULL || name == NULL || value == NULL) {
         return EB_ErrorBadParameter;
     }
 
@@ -2335,6 +2335,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
 
     if (!strcmp(name, "min-keyint")) {
         return str_to_keyint(value, &config_struct->min_intra_period_length, &config_struct->multiply_keyint);
+    }
 
     if (!strcmp(name, "tbr")) {
         return str_to_bitrate(value, &config_struct->target_bit_rate);
