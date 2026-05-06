@@ -776,7 +776,7 @@ static void normal_read_input_frames(EbConfig* app_cfg, uint8_t is_16bit, EbBuff
         read_y4m_frame_delimiter(app_cfg->input_file, app_cfg->error_log_file);
     }
     uint64_t luma_read_size   = (uint64_t)input_padded_width * input_padded_height << is_16bit;
-    uint64_t chroma_read_size = chroma_width * chroma_height << is_16bit;
+    size_t   chroma_read_size = (size_t)chroma_width * chroma_height << is_16bit;
     uint64_t read_size        = luma_read_size + 2 * chroma_read_size;
 
     uint8_t* eb_input_ptr = input_ptr->luma;
@@ -1018,11 +1018,14 @@ void process_output_stream_buffer(EncChannel* channel, EncApp* enc_app, int32_t*
 
                 // Write Stream Data to file
                 if (stream_file) {
-                    if (app_cfg->performance_context.frame_count == 1 && !(flags & EB_BUFFERFLAG_IS_ALT_REF)) {
-                        write_ivf_stream_header(
-                            app_cfg, app_cfg->frames_to_be_encoded == -1 ? 0 : (int32_t)app_cfg->frames_to_be_encoded);
+                    if (app_cfg->output_format == OUTPUT_FORMAT_IVF) {
+                        if (app_cfg->performance_context.frame_count == 1 && !(flags & EB_BUFFERFLAG_IS_ALT_REF)) {
+                            write_ivf_stream_header(
+                                app_cfg,
+                                app_cfg->frames_to_be_encoded == -1 ? 0 : (int32_t)app_cfg->frames_to_be_encoded);
+                        }
+                        write_ivf_frame_header(app_cfg, header_ptr->n_filled_len);
                     }
-                    write_ivf_frame_header(app_cfg, header_ptr->n_filled_len);
                     fwrite(header_ptr->p_buffer, 1, header_ptr->n_filled_len, stream_file);
                 }
 

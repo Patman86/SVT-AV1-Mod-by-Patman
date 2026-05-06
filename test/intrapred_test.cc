@@ -22,18 +22,19 @@
  ******************************************************************************/
 
 #include "gtest/gtest.h"
-#include "aom_dsp_rtcd.h"
-#include "utility.h"
-#include "definitions.h"
+#include <algorithm>
+#include <array>
+#include <tuple>
+#include "common_dsp_rtcd.h"
 #include "random.h"
+#include "svt_malloc.h"
 
 namespace {
-using std::get;
 using std::make_tuple;
 using std::tuple;
 using svt_av1_test_tool::SVTRandom;
 
-const int count_test_block = 1000;
+constexpr int count_test_block = 1000;
 
 using INTRAPRED_HBD = void (*)(uint16_t *dst, ptrdiff_t stride,
                                const uint16_t *above, const uint16_t *left,
@@ -41,8 +42,8 @@ using INTRAPRED_HBD = void (*)(uint16_t *dst, ptrdiff_t stride,
 using INTRAPRED_LBD = void (*)(uint8_t *dst, ptrdiff_t stride,
                                const uint8_t *above, const uint8_t *left);
 
-using LBD_PARAMS = tuple<INTRAPRED_LBD, INTRAPRED_LBD, int, int, int>;
-using HBD_PARAMS = tuple<INTRAPRED_HBD, INTRAPRED_HBD, int, int, int>;
+using LBD_PARAMS = tuple<INTRAPRED_LBD, INTRAPRED_LBD, int, int>;
+using HBD_PARAMS = tuple<INTRAPRED_HBD, INTRAPRED_HBD, int, int>;
 
 /**
  * @brief Unit test for intra prediction:
@@ -65,30 +66,39 @@ using HBD_PARAMS = tuple<INTRAPRED_HBD, INTRAPRED_HBD, int, int, int>;
  * BitDepth: 8bit and 10bit
  *
  */
-template <typename FuncType, typename Sample, typename TupleType>
+template <typename FuncType, typename Sample, typename TupleType, int bd>
 class AV1IntraPredTest : public ::testing::TestWithParam<TupleType> {
   protected:
     void prepare_data(SVTRandom &rnd, int cnt) {
         if (cnt == 0) {
-            for (int x = -1; x <= bw_ * 2; x++)
-                above_row_[x] = (1 << bd_) - 1;
-
-            for (int y = 0; y < bh_; y++)
-                left_col_[y] = (1 << bd_) - 1;
+            constexpr auto mask = (1 << bd) - 1;
+            std::fill_n(above_row_ - 1, bw_ * 2 + 2, mask);
+            std::fill_n(left_col_.begin(), bh_, mask);
         } else {
-            for (int x = -1; x <= bw_ * 2; x++)
-                above_row_[x] = (Sample)rnd.random();
-
-            for (int y = 0; y < bh_; y++)
-                left_col_[y] = (Sample)rnd.random();
+            std::generate_n(above_row_ - 1, bw_ * 2 + 2, [&rnd]() {
+                return (Sample)rnd.random();
+            });
+            std::generate_n(left_col_.begin(), bh_, [&rnd]() {
+                return (Sample)rnd.random();
+            });
         }
-        memset(dst_tst_, 0, 3 * 64 * 64 * sizeof(Sample));
-        memset(dst_ref_, 0, 3 * 64 * 64 * sizeof(Sample));
+        dst_tst_.fill(0);
+        dst_ref_.fill(0);
     }
 
   public:
+    void *operator new(size_t size) {
+        if (void *ptr = svt_aom_memalign(alignof(AV1IntraPredTest), size))
+            return ptr;
+        throw std::bad_alloc();
+    }
+
+    void operator delete(void *ptr) {
+        svt_aom_free(ptr);
+    }
+
     void RunTest() {
-        SVTRandom rnd(0, (1 << bd_) - 1);
+        SVTRandom rnd{0, (1 << bd) - 1};
         for (int i = 0; i < count_test_block; ++i) {
             // prepare the neighbor pixels
             prepare_data(rnd, i);
@@ -107,94 +117,60 @@ class AV1IntraPredTest : public ::testing::TestWithParam<TupleType> {
     }
 
   protected:
-    void SetUp() override {
-        params_ = this->GetParam();
-        tst_func_ = get<0>(params_);
-        ref_func_ = get<1>(params_);
-        bw_ = get<2>(params_);
-        bh_ = get<3>(params_);
-        bd_ = get<4>(params_);
-        stride_ = 64 * 3;
-        mask_ = (1 << bd_) - 1;
-        above_row_data_ = reinterpret_cast<Sample *>(
-            svt_aom_memalign(32, 3 * 64 * sizeof(Sample)));
-        above_row_ = above_row_data_ + 16;
-        left_col_ = reinterpret_cast<Sample *>(
-            svt_aom_memalign(32, 2 * 64 * sizeof(Sample)));
-        dst_tst_ = reinterpret_cast<Sample *>(
-            svt_aom_memalign(32, 3 * 64 * 64 * sizeof(Sample)));
-        dst_ref_ = reinterpret_cast<Sample *>(
-            svt_aom_memalign(32, 3 * 64 * 64 * sizeof(Sample)));
-    }
-    void TearDown() override {
-        svt_aom_free(above_row_data_);
-        svt_aom_free(left_col_);
-        svt_aom_free(dst_tst_);
-        svt_aom_free(dst_ref_);
-    }
-
     virtual void Predict() = 0;
 
-    Sample *above_row_;
-    Sample *left_col_;
-    Sample *dst_tst_;
-    Sample *dst_ref_;
-    Sample *above_row_data_;
+    alignas(32) std::array<Sample, 2 * 64> left_col_{};
+    alignas(32) std::array<Sample, 3 * 64 * 64> dst_tst_{};
+    alignas(32) std::array<Sample, 3 * 64 * 64> dst_ref_{};
+    alignas(32) std::array<Sample, 3 * 64> above_row_data_{};
+    Sample *const above_row_{above_row_data_.data() + 16};
 
-    ptrdiff_t stride_;
-    int bw_;  // block width
-    int bh_;  // block height
-    int mask_;
-    FuncType tst_func_;
-    FuncType ref_func_;
-    int bd_;
-
-    TupleType params_;
-};
-
-class HighbdIntraPredTest
-    : public AV1IntraPredTest<INTRAPRED_HBD, uint16_t, HBD_PARAMS> {
-  protected:
-    void Predict() {
-        svt_aom_setup_common_rtcd_internal(svt_aom_get_cpu_flags_to_use());
-        const int bit_depth = bd_;
-        ref_func_(dst_ref_, stride_, above_row_, left_col_, bit_depth);
-        tst_func_(dst_tst_, stride_, above_row_, left_col_, bit_depth);
-    }
+    static constexpr ptrdiff_t stride_{64 * 3};
+    const FuncType tst_func_{std::get<0>(this->GetParam())};
+    const FuncType ref_func_{std::get<1>(this->GetParam())};
+    const int bw_{std::get<2>(this->GetParam())};  // block width
+    const int bh_{std::get<3>(this->GetParam())};  // block height
 };
 
 /** setup_test_env is implemented in test/TestEnv.c */
 extern "C" void setup_test_env();
 
 class LowbdIntraPredTest
-    : public AV1IntraPredTest<INTRAPRED_LBD, uint8_t, LBD_PARAMS> {
+    : public AV1IntraPredTest<INTRAPRED_LBD, uint8_t, LBD_PARAMS, 8> {
   protected:
-    void Predict() {
+    void SetUp() override {
         setup_test_env();
-        ref_func_(dst_ref_, stride_, above_row_, left_col_);
-        tst_func_(dst_tst_, stride_, above_row_, left_col_);
+    }
+    void Predict() override {
+        ref_func_(dst_ref_.data(), stride_, above_row_, left_col_.data());
+        tst_func_(dst_tst_.data(), stride_, above_row_, left_col_.data());
     }
 };
 
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
+class HighbdIntraPredTest
+    : public AV1IntraPredTest<INTRAPRED_HBD, uint16_t, HBD_PARAMS, 10> {
+  protected:
+    void SetUp() override {
+        svt_aom_setup_common_rtcd_internal(svt_aom_get_cpu_flags_to_use());
+    }
+
+    void Predict() override {
+        ref_func_(dst_ref_.data(), stride_, above_row_, left_col_.data(), 10);
+        tst_func_(dst_tst_.data(), stride_, above_row_, left_col_.data(), 10);
+    }
+};
+
 TEST_P(HighbdIntraPredTest, match_test) {
     RunTest();
 }
-#endif
-
-TEST_P(LowbdIntraPredTest, match_test) {
-    RunTest();
-}
-
-#if CONFIG_ENABLE_HIGH_BIT_DEPTH
 // -----------------------------------------------------------------------------
 // High Bit Depth Tests
 #define hbd_entry(type, width, height, opt)                                   \
     make_tuple(&svt_aom_highbd_##type##_predictor_##width##x##height##_##opt, \
                &svt_aom_highbd_##type##_predictor_##width##x##height##_c,     \
                width,                                                         \
-               height,                                                        \
-               10)
+               height)
 
 #ifdef ARCH_X86_64
 const HBD_PARAMS HighbdIntraPredTestVectorAsmSSE2[] = {
@@ -418,14 +394,17 @@ INSTANTIATE_TEST_SUITE_P(NEON, HighbdIntraPredTest,
 
 #endif
 
+TEST_P(LowbdIntraPredTest, match_test) {
+    RunTest();
+}
+
 // ---------------------------------------------------------------------------
 // Low Bit Depth Tests
 #define lbd_entry(type, width, height, opt)                            \
     LBD_PARAMS(&svt_aom_##type##_predictor_##width##x##height##_##opt, \
                &svt_aom_##type##_predictor_##width##x##height##_c,     \
                width,                                                  \
-               height,                                                 \
-               8)
+               height)
 
 #ifdef ARCH_X86_64
 const LBD_PARAMS LowbdIntraPredTestVectorAsmSSE2[] = {

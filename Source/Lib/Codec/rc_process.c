@@ -31,6 +31,10 @@
 #include "src_ops_process.h"
 #include "enc_mode_config.h"
 
+static bool use_rtc_cbr_path(SequenceControlSet* scs) {
+    return scs->enc_ctx->rc_cfg.mode == AOM_CBR && scs->static_config.rtc;
+}
+
 // Specifies the weights of the ref frame in calculating qindex of non base layer frames
 const int svt_av1_non_base_qindex_weight_ref[EB_MAX_TEMPORAL_LAYERS] = {100, 100, 100, 100, 100, 100};
 // Specifies the weights of the worst quality in calculating qindex of non base layer frames
@@ -95,11 +99,13 @@ static void get_ref_skip_percentage(PictureControlSet* pcs, uint8_t* skip_area) 
         return;
     }
 
+    uint8_t skip_perc = 0;
+
     EbReferenceObject* ref_obj_l0 = get_ref_obj(pcs, REF_LIST_0, 0);
-    uint8_t            skip_perc  = ref_obj_l0->skip_coded_area;
+    skip_perc += (ref_obj_l0->slice_type == I_SLICE) ? 0 : ref_obj_l0->skip_coded_area;
     if (pcs->slice_type == B_SLICE && pcs->ppcs->ref_list1_count_try) {
         EbReferenceObject* ref_obj_l1 = get_ref_obj(pcs, REF_LIST_1, 0);
-        skip_perc += ref_obj_l1->skip_coded_area;
+        skip_perc += (ref_obj_l1->slice_type == I_SLICE) ? 0 : ref_obj_l1->skip_coded_area;
 
         // if have two frames, divide the skip_perc by 2 to get the avg skip area
         skip_perc >>= 1;
@@ -479,29 +485,6 @@ void svt_aom_lambda_assign(PictureControlSet* pcs, uint32_t* fast_lambda, uint32
     *fast_lambda          = (uint32_t)((*fast_lambda * scale_factor) >> 7);
 }
 
-/******************************************************************************
-* svt_av1_compute_deltaq
-* Compute delta-q based on the q, bitdepth and cyclic refresh parameters
-*******************************************************************************/
-int svt_av1_compute_deltaq(PictureParentControlSet* ppcs, int q, double rate_ratio_qdelta) {
-    SequenceControlSet* scs       = ppcs->scs;
-    RATE_CONTROL*       rc        = &scs->enc_ctx->rc;
-    int                 bit_depth = scs->static_config.encoder_bit_depth;
-
-    rate_factor_level rf_lvl     = svt_av1_rate_factor_levels[ppcs->update_type];
-    FrameType         frame_type = (rf_lvl == KF_STD) ? KEY_FRAME : INTER_FRAME;
-
-    int deltaq = svt_av1_compute_qdelta_by_rate(rc, frame_type, q, rate_ratio_qdelta, bit_depth, ppcs->sc_class1);
-    deltaq     = AOMMAX(deltaq, -ppcs->cyclic_refresh.max_qdelta_perc * q / 100);
-
-    if (scs->enc_ctx->rc_cfg.mode != AOM_CBR) {
-        // RA uses a scale factor of 4 for the deltaQ range. Found it beneficial for low delay to have a larger deltaQ range, so we scale by 8
-        deltaq = AOMMIN(deltaq, 9 * 8 - 1);
-        deltaq = AOMMAX(deltaq, -9 * 8 + 1);
-    }
-    return deltaq;
-}
-
 void svt_av1_rc_init(SequenceControlSet* scs) {
     EncodeContext*  enc_ctx = scs->enc_ctx;
     RATE_CONTROL*   rc      = &enc_ctx->rc;
@@ -609,10 +592,6 @@ static void rc_init_frame_stats(PictureControlSet* pcs, SequenceControlSet* scs)
     // Get r0
     if (ppcs->r0_gen) {
         svt_aom_generate_r0beta(ppcs);
-    }
-
-    if (scs->static_config.aq_mode && scs->super_block_size == 64 && scs->enc_ctx->rc_cfg.mode == AOM_CBR) {
-        svt_aom_cyclic_refresh_init(ppcs);
     }
 
     // Get reference frame statistics
@@ -738,6 +717,23 @@ static bool rc_handle_superres(PictureControlSet* pcs, RateControlContext* conte
     return false;
 }
 
+static void generate_sb_qindex(PictureControlSet* pcs) {
+    PictureParentControlSet* ppcs = pcs->ppcs;
+    SequenceControlSet*      scs  = pcs->scs;
+
+    svt_av1_rc_init_sb_qindex(pcs, scs);
+
+    if (ppcs->frm_hdr.delta_q_params.delta_q_present && ppcs->frm_hdr.delta_q_params.delta_q_res != 1) {
+        // adjust delta q res and normalize superblock delta q values to reduce signaling overhead
+        svt_av1_normalize_sb_delta_q(pcs);
+    }
+
+    // Derive a QP per 64x64 using ME distortions (to be used for lambda modulation only; not at Q/Q-1)
+    if (scs->stats_based_sb_lambda_modulation) {
+        svt_av1_generate_b64_me_qindex_map(pcs);
+    }
+}
+
 // Process packetization feedback: update RC parameters and release resources.
 static void rc_process_packetization_feedback(PictureParentControlSet* ppcs,
                                               const EbObjectWrapper* restrict rate_control_tasks_wrapper_ptr) {
@@ -762,17 +758,21 @@ static void rc_process_packetization_feedback(PictureParentControlSet* ppcs,
             svt_av1_coded_frames_stat_calc(ppcs);
         }
     } else {
-        if (scs->static_config.gop_constraint_rc) {
-            svt_av1_rc_postencode_update_gop_const(ppcs);
-            // Qindex calculating
-            if (scs->enc_ctx->rc_cfg.mode == AOM_VBR) {
-                svt_av1_twopass_postencode_update_gop_const(ppcs);
-            }
+        if (use_rtc_cbr_path(scs)) {
+            svt_av1_rc_postencode_update_rtc_cbr(ppcs);
         } else {
-            svt_av1_rc_postencode_update(ppcs);
-            // Qindex calculating
-            if (scs->enc_ctx->rc_cfg.mode == AOM_VBR) {
-                svt_av1_twopass_postencode_update(ppcs);
+            if (scs->static_config.gop_constraint_rc) {
+                svt_av1_rc_postencode_update_gop_const(ppcs);
+                // Qindex calculating
+                if (scs->enc_ctx->rc_cfg.mode == AOM_VBR) {
+                    svt_av1_twopass_postencode_update_gop_const(ppcs);
+                }
+            } else {
+                svt_av1_rc_postencode_update(ppcs);
+                // Qindex calculating
+                if (scs->enc_ctx->rc_cfg.mode == AOM_VBR) {
+                    svt_av1_twopass_postencode_update(ppcs);
+                }
             }
         }
         svt_aom_update_rc_counts(ppcs);
@@ -833,6 +833,8 @@ void* svt_aom_rate_control_kernel(void* input_ptr) {
                 if (scs->enc_ctx->rc_cfg.mode == AOM_Q) {
                     svt_av1_rc_calc_qindex_crf_cqp(pcs, scs);
                     svt_aom_setup_segmentation(pcs, scs);
+                } else if (use_rtc_cbr_path(scs)) {
+                    svt_av1_rc_calc_qindex_rtc_cbr(pcs);
                 } else {
                     if (!is_superres_recode_task) {
                         svt_av1_rc_process_rate_allocation(pcs, scs);
@@ -856,7 +858,7 @@ void* svt_aom_rate_control_kernel(void* input_ptr) {
                 }
             }
 
-            svt_av1_rc_init_sb_qindex(pcs, scs);
+            generate_sb_qindex(pcs);
 
             // Get Empty Rate Control Results Buffer
             EbObjectWrapper* rc_results_wrapper;

@@ -970,6 +970,16 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * Default is 0.00.
      */
     double ac_bias;
+
+    /**
+     * @brief High Bit-Depth Mode Decision, used to control the bit-depth of the mode decision path.
+     * -1: preset determined (auto)
+     * 0: preset-determined
+     * 1: full 10-bit MD
+     * 2: hybrid 8/10-bit MD
+     * Default is -1
+     */
+    int hbd_mds;
 } EbSvtAv1EncConfiguration;
 
 /**

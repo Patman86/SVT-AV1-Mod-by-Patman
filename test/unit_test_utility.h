@@ -19,6 +19,30 @@
 #include "svt_time.h"
 
 #ifdef __cplusplus
+#include <type_traits>
+#include <sstream>
+
+/***************************************
+ * Compare Data
+ ***************************************/
+namespace {
+template <typename T>
+bool svt_buf_compare(const T *const buf1, const T *const buf2,
+                     const size_t bufSize) {
+    static_assert(std::is_integral<T>::value, "Integral type is expected.");
+    bool result = true;
+    for (size_t i = 0; i < bufSize; i++) {
+        if (buf1[i] != buf2[i]) {
+            SCOPED_TRACE((std::stringstream()
+                          << "buf1[" << i << "] = 0x" << std::hex << buf1[i]
+                          << "\tbuf2[" << i << "] = 0x" << std::hex << buf2[i])
+                             .str());
+            result = false;
+        }
+    }
+    return result;
+}
+}  // namespace
 extern "C" {
 #endif
 
@@ -55,19 +79,6 @@ extern void svt_buf_random_s64(int64_t *const buf, const uint32_t sizeBuf);
 
 extern uint32_t svt_create_random_aligned_stride(const uint32_t width,
                                                  const uint32_t align);
-
-extern bool svt_buf_compare_u16(const uint16_t *const buf1,
-                                const uint16_t *const buf2,
-                                const size_t bufSize);
-extern bool svt_buf_compare_s16(const int16_t *const buf1,
-                                const int16_t *const buf2,
-                                const size_t bufSize);
-extern bool svt_buf_compare_u32(const uint32_t *const buf1,
-                                const uint32_t *const buf2,
-                                const size_t bufSize);
-extern bool svt_buf_compare_s32(const int32_t *const buf1,
-                                const int32_t *const buf2,
-                                const size_t bufSize);
 
 #ifdef __cplusplus
 }

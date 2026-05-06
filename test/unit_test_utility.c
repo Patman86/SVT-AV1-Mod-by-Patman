@@ -129,34 +129,3 @@ uint32_t svt_create_random_aligned_stride(const uint32_t width,
     stride -= stride % align;
     return stride;
 }
-
-/***************************************
- * Compare Data
- ***************************************/
-#define BUF_COMPARE_FUNCTION(name, type)                         \
-    bool name(const type *const buf1,                            \
-              const type *const buf2,                            \
-              const size_t bufSize) {                            \
-        bool result = true;                                      \
-                                                                 \
-        for (uint32_t i = 0; i < bufSize; i++) {                 \
-            if (buf1[i] != buf2[i]) {                            \
-                printf("\nbuf1[%3d] = 0x%8x\tbuf2[%3d] = 0x%8x", \
-                       i,                                        \
-                       buf1[i],                                  \
-                       i,                                        \
-                       buf2[i]);                                 \
-                result = false;                                  \
-            }                                                    \
-        }                                                        \
-                                                                 \
-        if (!result)                                             \
-            printf("\n\n");                                      \
-                                                                 \
-        return result;                                           \
-    }
-
-BUF_COMPARE_FUNCTION(svt_buf_compare_u16, uint16_t)
-BUF_COMPARE_FUNCTION(svt_buf_compare_s16, int16_t)
-BUF_COMPARE_FUNCTION(svt_buf_compare_u32, uint32_t)
-BUF_COMPARE_FUNCTION(svt_buf_compare_s32, int32_t)

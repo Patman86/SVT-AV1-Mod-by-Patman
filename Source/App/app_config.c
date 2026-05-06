@@ -155,6 +155,8 @@
 #define ALLOW_MMAP_FILE_TOKEN "--allow-mmap-file"
 #define OUTPUT_BITSTREAM_LONG_TOKEN "--output"
 #define OUTPUT_RECON_LONG_TOKEN "--recon"
+#define OUTPUT_FORMAT_IVF_TOKEN "--ivf"
+#define OUTPUT_FORMAT_OBU_TOKEN "--obu"
 #define WIDTH_LONG_TOKEN "--width"
 #define HEIGHT_LONG_TOKEN "--height"
 #define NUMBER_OF_PICTURES_LONG_TOKEN "--frames"
@@ -205,6 +207,7 @@
 #define ADAPTIVE_FILM_GRAIN_TOKEN "--adaptive-film-grain"
 #define MAX_TX_SIZE_TOKEN "--max-tx-size"
 #define AC_BIAS_TOKEN "--ac-bias"
+#define HBD_MDS_TOKEN "--hbd-mds"
 
 static EbErrorType validate_error(EbErrorType err, const char* token, const char* value) {
     switch (err) {
@@ -406,6 +409,14 @@ static EbErrorType set_cfg_stream_file(EbConfig* cfg, const char* token, const c
         }
         cfg->bitstream_file = stdout;
         return EB_ErrorNone;
+    }
+    const char* ext = strrchr(value, '.');
+    if (ext) {
+        if (!strcmp(ext, ".obu")) {
+            cfg->output_format = OUTPUT_FORMAT_OBU;
+        } else if (!strcmp(ext, ".ivf")) {
+            cfg->output_format = OUTPUT_FORMAT_IVF;
+        }
     }
     return open_file(&cfg->bitstream_file, token, value, "wb");
 }
@@ -686,8 +697,15 @@ ConfigDescription config_entry_options[] = {
     {INPUT_FILE_LONG_TOKEN, "Input raw video (y4m and yuv) file path, use `stdin` or `-` to read from pipe"},
     {ALLOW_MMAP_FILE_TOKEN, "Allow memory mapping for regular input file. Performance is platform dependent"},
 
-    {OUTPUT_BITSTREAM_TOKEN, "Output compressed (ivf) file path, use `stdout` or `-` to write to pipe"},
-    {OUTPUT_BITSTREAM_LONG_TOKEN, "Output compressed (ivf) file path, use `stdout` or `-` to write to pipe"},
+    {OUTPUT_BITSTREAM_TOKEN,
+     "Output compressed file path, use `stdout` or `-` to write to pipe. "
+     "Format is auto-detected from extension (.ivf or .obu), default is IVF"},
+    {OUTPUT_BITSTREAM_LONG_TOKEN,
+     "Output compressed file path, use `stdout` or `-` to write to pipe. "
+     "Format is auto-detected from extension (.ivf or .obu), default is IVF"},
+
+    {OUTPUT_FORMAT_IVF_TOKEN, "Output bitstream in IVF container format (default)"},
+    {OUTPUT_FORMAT_OBU_TOKEN, "Output bitstream as raw OBU (Open Bitstream Units) without IVF container"},
 
     {CONFIG_FILE_TOKEN, "Configuration file path"},
     {CONFIG_FILE_LONG_TOKEN, "Configuration file path"},
@@ -1006,6 +1024,9 @@ ConfigDescription config_entry_psychovisual[] = {
     {MAX_TX_SIZE_TOKEN, "Limits the allowed transform sizes to the specified, default is 64 [32,64]"},
     //AC-Bias
     {AC_BIAS_TOKEN, "Strength of AC bias in rate distortion, default is 0.0 [0.0-8.0]"},
+    //HBD-MDS
+    {HBD_MDS_TOKEN,
+     "High Bit-Depth Mode Decision, default is -1 [-1: preset-determined, 0 = 8-bit, 1 = 10-bit, 2 = hybrid 8/10-bit]"},
     // Termination
     {NULL, NULL}};
 
@@ -1216,6 +1237,9 @@ ConfigEntry config_entry[] = {
     // Psy rd strength
     {AC_BIAS_TOKEN, "AcBias", set_cfg_generic_token},
 
+    // HBD MDS
+    {HBD_MDS_TOKEN, "HBDMDS", set_cfg_generic_token},
+
     // Termination
     {NULL, NULL, NULL}};
 
@@ -1254,8 +1278,10 @@ void svt_config_dtor(EbConfig* app_cfg) {
     }
 
     if (app_cfg->bitstream_file) {
-        if (!fseek(app_cfg->bitstream_file, 0, SEEK_SET)) {
-            write_ivf_stream_header(app_cfg, app_cfg->frames_encoded);
+        if (app_cfg->output_format == OUTPUT_FORMAT_IVF) {
+            if (!fseek(app_cfg->bitstream_file, 0, SEEK_SET)) {
+                write_ivf_stream_header(app_cfg, app_cfg->frames_encoded);
+            }
         }
         fclose(app_cfg->bitstream_file);
         app_cfg->bitstream_file = NULL;
@@ -2395,6 +2421,10 @@ EbErrorType read_command_line(int32_t argc, char* const argv[], EncChannel* chan
                 free(config_strings);
                 return EB_ErrorBadParameter;
             }
+            // argumentless flags don't consume the next value
+            if (!strcmp(*indx, OUTPUT_FORMAT_IVF_TOKEN) || !strcmp(*indx, OUTPUT_FORMAT_OBU_TOKEN)) {
+                continue;
+            }
             next_is_value = true;
         }
     }
@@ -2416,6 +2446,17 @@ EbErrorType read_command_line(int32_t argc, char* const argv[], EncChannel* chan
         EbErrorType err       = (entry->scf)(channel->app_cfg, entry->token, config_strings);
         channel->return_error = (EbErrorType)(channel->return_error | err);
         return_error          = (EbErrorType)(return_error & channel->return_error);
+    }
+
+    // Handle --ivf and --obu flags (argumentless, override auto-detection from extension)
+    for (int32_t i = 0; i < argc; ++i) {
+        if (cmd_copy[i] && !strcmp(argv[i], OUTPUT_FORMAT_IVF_TOKEN)) {
+            channel->app_cfg->output_format = OUTPUT_FORMAT_IVF;
+            cmd_copy[i]                     = TOKEN_READ_MARKER;
+        } else if (cmd_copy[i] && !strcmp(argv[i], OUTPUT_FORMAT_OBU_TOKEN)) {
+            channel->app_cfg->output_format = OUTPUT_FORMAT_OBU;
+            cmd_copy[i]                     = TOKEN_READ_MARKER;
+        }
     }
 
     /***************************************************************************************************/

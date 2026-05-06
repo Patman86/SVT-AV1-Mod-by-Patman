@@ -2231,7 +2231,7 @@ EbErrorType svt_aom_denoise_and_model_ctor(AomDenoiseAndModel* object_ptr, EbPtr
 
 static int32_t denoise_and_model_realloc_if_necessary(struct AomDenoiseAndModel* ctx, EbPictureBufferDesc* sd,
                                                       int32_t use_highbd) {
-    int32_t chroma_sub_log2[2] = {1, 1}; //todo: send chroma subsampling
+    const int32_t chroma_sub_log2[2] = {1, 1}; //todo: send chroma subsampling
 
     free(ctx->flat_blocks);
     ctx->flat_blocks = NULL;

@@ -2074,13 +2074,11 @@ static void md_nsq_motion_search(PictureControlSet* pcs, ModeDecisionContext* ct
                 svt_aom_is_me_data_present(
                     block_index, block_index * pcs->ppcs->pa_me_data->max_cand, me_results, list_idx, ref_idx)) {
                 if (list_idx == 0) {
-                    mvc_x_array[mvc_count] = (me_results->me_mv_array[block_index * max_refs + ref_idx].x) << 3;
-                    mvc_y_array[mvc_count] = (me_results->me_mv_array[block_index * max_refs + ref_idx].y) << 3;
+                    mvc_x_array[mvc_count] = (me_results->me_mv_array[block_index * max_refs + ref_idx].x) * 8;
+                    mvc_y_array[mvc_count] = (me_results->me_mv_array[block_index * max_refs + ref_idx].y) * 8;
                 } else {
-                    mvc_x_array[mvc_count] = (me_results->me_mv_array[block_index * max_refs + max_l0 + ref_idx].x)
-                        << 3;
-                    mvc_y_array[mvc_count] = (me_results->me_mv_array[block_index * max_refs + max_l0 + ref_idx].y)
-                        << 3;
+                    mvc_x_array[mvc_count] = (me_results->me_mv_array[block_index * max_refs + max_l0 + ref_idx].x) * 8;
+                    mvc_y_array[mvc_count] = (me_results->me_mv_array[block_index * max_refs + max_l0 + ref_idx].y) * 8;
                 }
                 is_present = 0;
                 for (int16_t mvc_index = 0; mvc_index < mvc_count; mvc_index++) {
@@ -2217,19 +2215,19 @@ static void md_nsq_motion_search(PictureControlSet* pcs, ModeDecisionContext* ct
 static void clip_mv_on_pic_boundary(int32_t blk_org_x, int32_t blk_org_y, int32_t bwidth, int32_t bheight,
                                     EbPictureBufferDesc* ref_pic, int16_t* mvx, int16_t* mvy) {
     if (blk_org_x + (*mvx >> 3) + bwidth > ref_pic->max_width + ref_pic->border) {
-        *mvx = (ref_pic->max_width - blk_org_x) << 3;
+        *mvx = (ref_pic->max_width - blk_org_x) * 8;
     }
 
     if (blk_org_y + (*mvy >> 3) + bheight > ref_pic->max_height + ref_pic->border) {
-        *mvy = (ref_pic->max_height - blk_org_y) << 3;
+        *mvy = (ref_pic->max_height - blk_org_y) * 8;
     }
 
     if (blk_org_x + (*mvx >> 3) < -ref_pic->border) {
-        *mvx = (-blk_org_x - bwidth) << 3;
+        *mvx = (-blk_org_x - bwidth) * 8;
     }
 
     if (blk_org_y + (*mvy >> 3) < -ref_pic->border) {
-        *mvy = (-blk_org_y - bheight) << 3;
+        *mvy = (-blk_org_y - bheight) * 8;
     }
 }
 
@@ -2632,7 +2630,7 @@ static void read_refine_me_mvs_light_pd1(PictureControlSet* pcs, EbPictureBuffer
                 const Mv* me_mv_array_base = me_results->me_mv_array +
                     (ctx->me_block_offset * pcs->ppcs->pa_me_data->max_refs + ref);
                 const Mv mv_cand = me_mv_array_base[list ? max_l0 : 0];
-                Mv       me_mv   = {{mv_cand.x << 3, mv_cand.y << 3}};
+                Mv       me_mv   = {{mv_cand.x * 8, mv_cand.y * 8}};
                 // can only skip if using dc only b/c otherwise need cost at candidate generation
                 const bool skip_subpel = (ctx->is_intra_bordered &&
                                           ctx->cand_reduction_ctrls.use_neighbouring_mode_ctrls.enabled) ||
@@ -2723,8 +2721,8 @@ static void read_refine_me_mvs(PictureControlSet* pcs, ModeDecisionContext* ctx,
                     const Mv* me_mv_array_base = me_results->me_mv_array +
                         (ctx->me_block_offset * pcs->ppcs->pa_me_data->max_refs + ref);
                     const Mv mv_cand = me_mv_array_base[list ? max_l0 : 0];
-                    me_mv.x          = mv_cand.x << 3;
-                    me_mv.y          = mv_cand.y << 3;
+                    me_mv.x          = mv_cand.x * 8;
+                    me_mv.y          = mv_cand.y * 8;
                 }
                 clip_mv_on_pic_boundary(
                     ctx->blk_org_x, ctx->blk_org_y, blk_geom->bwidth, blk_geom->bheight, ref_pic, &me_mv.x, &me_mv.y);
@@ -4246,7 +4244,7 @@ static void perform_tx_light_pd0(PictureControlSet* pcs, ModeDecisionContext* ct
 
     const uint32_t th = ((bwidth * bheight) >> 5);
     if (ctx->rate_est_ctrls.coeff_rate_est_lvl == 0) {
-        uint8_t input_resolution_factor[INPUT_SIZE_COUNT] = {0, 1, 2, 3, 4, 4, 4};
+        const uint8_t input_resolution_factor[INPUT_SIZE_COUNT] = {0, 1, 2, 3, 4, 4, 4};
         *y_coeff_bits = 5000 + (input_resolution_factor[pcs->ppcs->input_resolution] * 1600) +
             (cand_bf->eob.y[0] * 100);
     } else if (ctx->rate_est_ctrls.coeff_rate_est_lvl >= 2 && (cand_bf->eob.y[0] < th)) {
@@ -4740,9 +4738,8 @@ static void tx_type_search(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
             } else if (ssim_cost == best_ssim_cost_tx_search) {
                 // if two candidates have the same ssim cost, choose the one with lower ssd cost
                 if (ssd_cost < best_cost_tx_search) {
-                    best_cost_tx_search      = ssd_cost;
-                    best_ssim_cost_tx_search = ssim_cost;
-                    best_tx_type             = tx_type;
+                    best_cost_tx_search = ssd_cost;
+                    best_tx_type        = tx_type;
                 }
             }
         }
@@ -7649,6 +7646,14 @@ void svt_aom_get_blk_var_map(int block_size, int org_x, int org_y, int* blk_idx,
     // Map block size to level: 64->0, 32->1, 16->2, 8->3
     const int lvl = 6 - svt_log2f(block_size);
 
+    // Valid range is block_size in [8, 64], i.e. lvl in [0, 3].
+    // Anything outside that range has no variance data; return safe sentinel values.
+    if (lvl < 0 || lvl > 3) {
+        *blk_idx   = 0;
+        sub_idx[0] = sub_idx[1] = sub_idx[2] = sub_idx[3] = 0;
+        return;
+    }
+
     // Parent block
     const int shift = var_log2_lut[lvl];
     const int grid  = var_grid_lut[lvl];
@@ -7659,19 +7664,25 @@ void svt_aom_get_blk_var_map(int block_size, int org_x, int org_y, int* blk_idx,
 
     *blk_idx = base + gy * grid + gx;
 
-    // Sub-blocks
-    const int sub_lvl   = lvl + 1;
-    const int sub_shift = var_log2_lut[sub_lvl];
-    const int sub_base  = var_base_lut[sub_lvl];
-    const int sub_grid  = var_grid_lut[sub_lvl];
+    // Sub-blocks: only valid when lvl < 3 (i.e. block_size >= 16).
+    // For block_size == 8 (lvl == 3), sub_lvl would be 4 which is out of bounds.
+    // Callers must not use sub_idx[] when block_size < 16.
+    const int sub_lvl = lvl + 1;
+    if (sub_lvl < 4) {
+        const int sub_shift = var_log2_lut[sub_lvl];
+        const int sub_base  = var_base_lut[sub_lvl];
+        const int sub_grid  = var_grid_lut[sub_lvl];
 
-    const int sx = org_x >> sub_shift;
-    const int sy = org_y >> sub_shift;
+        const int sx = org_x >> sub_shift;
+        const int sy = org_y >> sub_shift;
 
-    sub_idx[0] = sub_base + (sy + 0) * sub_grid + (sx + 0);
-    sub_idx[1] = sub_base + (sy + 0) * sub_grid + (sx + 1);
-    sub_idx[2] = sub_base + (sy + 1) * sub_grid + (sx + 0);
-    sub_idx[3] = sub_base + (sy + 1) * sub_grid + (sx + 1);
+        sub_idx[0] = sub_base + (sy + 0) * sub_grid + (sx + 0);
+        sub_idx[1] = sub_base + (sy + 0) * sub_grid + (sx + 1);
+        sub_idx[2] = sub_base + (sy + 1) * sub_grid + (sx + 0);
+        sub_idx[3] = sub_base + (sy + 1) * sub_grid + (sx + 1);
+    } else {
+        sub_idx[0] = sub_idx[1] = sub_idx[2] = sub_idx[3] = 0;
+    }
 }
 
 /*
@@ -8907,11 +8918,11 @@ static void md_encode_block(PictureControlSet* pcs, ModeDecisionContext* ctx, co
     ctx->mds0_best_class_it     = 0;
     // Enable Hadamard cost at block level only when enabled for the SB
     // and when multiple fast candidates exist (no benefit for single candidate).
-    ctx->mds0_use_hadamard_blk  = ctx->mds0_use_hadamard_sb && fast_candidate_total_count > 1;
-    ctx->mds1_best_idx          = 0;
-    ctx->mds1_best_class_it     = 0;
-    ctx->perform_mds1           = 1;
-    ctx->use_tx_shortcuts_mds3  = 0;
+    ctx->mds0_use_hadamard_blk = ctx->mds0_use_hadamard_sb && fast_candidate_total_count > 1;
+    ctx->mds1_best_idx         = 0;
+    ctx->mds1_best_class_it    = 0;
+    ctx->perform_mds1          = 1;
+    ctx->use_tx_shortcuts_mds3 = 0;
     for (cand_class_it = CAND_CLASS_0; cand_class_it < CAND_CLASS_TOTAL; cand_class_it++) {
         ctx->mds0_best_cost_per_class[cand_class_it] = (uint64_t)~0;
     }

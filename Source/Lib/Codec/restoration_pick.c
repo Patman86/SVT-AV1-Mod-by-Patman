@@ -344,9 +344,9 @@ static int64_t finer_search_pixel_proj_error(const uint8_t* src8, int32_t width,
     }
 
     (void)start_step;
-    int64_t err2;
-    int32_t tap_min[] = {SGRPROJ_PRJ_MIN0, SGRPROJ_PRJ_MIN1};
-    int32_t tap_max[] = {SGRPROJ_PRJ_MAX0, SGRPROJ_PRJ_MAX1};
+    int64_t       err2;
+    const int32_t tap_min[] = {SGRPROJ_PRJ_MIN0, SGRPROJ_PRJ_MIN1};
+    const int32_t tap_max[] = {SGRPROJ_PRJ_MAX0, SGRPROJ_PRJ_MAX1};
     for (int32_t s = start_step; s >= 1; s >>= 1) {
         for (int32_t p = 0; p < 2; ++p) {
             if ((params->r[0] == 0 && p == 0) || (params->r[1] == 0 && p == 1)) {
@@ -1049,8 +1049,8 @@ static int64_t finer_tile_search_wiener_seg(const RestSearchCtxt* rsc, const Res
         const int32_t start_step = 4;
         const int32_t end_step   = cm->wn_filter_ctrls.max_one_refinement_step ? 4 : 1;
         int64_t       err2;
-        int32_t       tap_min[] = {WIENER_FILT_TAP0_MINV, WIENER_FILT_TAP1_MINV, WIENER_FILT_TAP2_MINV};
-        int32_t       tap_max[] = {WIENER_FILT_TAP0_MAXV, WIENER_FILT_TAP1_MAXV, WIENER_FILT_TAP2_MAXV};
+        const int32_t tap_min[] = {WIENER_FILT_TAP0_MINV, WIENER_FILT_TAP1_MINV, WIENER_FILT_TAP2_MINV};
+        const int32_t tap_max[] = {WIENER_FILT_TAP0_MAXV, WIENER_FILT_TAP1_MAXV, WIENER_FILT_TAP2_MAXV};
         for (int32_t s = start_step; s >= end_step; s >>= 1) {
             for (int32_t p = plane_off; p < WIENER_HALFWIN; ++p) {
                 int32_t skip = 0;

@@ -192,13 +192,6 @@ static void copy_statistics_to_ref_obj_ect(PictureControlSet* pcs, SequenceContr
     FrameHeader*             frm_hdr = &ppcs->frm_hdr;
     EbReferenceObject*       obj     = (EbReferenceObject*)ppcs->ref_pic_wrapper->object_ptr;
 
-    pcs->intra_coded_area = (100 * pcs->intra_coded_area) / (ppcs->aligned_width * ppcs->aligned_height);
-    pcs->skip_coded_area  = (100 * pcs->skip_coded_area) / (ppcs->aligned_width * ppcs->aligned_height);
-    pcs->hp_coded_area    = (100 * pcs->hp_coded_area) / (ppcs->aligned_width * ppcs->aligned_height);
-    pcs->avg_cnt_zeromv   = (100 * pcs->avg_cnt_zeromv) / (ppcs->aligned_width * ppcs->aligned_height);
-    if (pcs->slice_type == I_SLICE) {
-        pcs->intra_coded_area = 0;
-    }
     obj->intra_coded_area = (uint8_t)pcs->intra_coded_area;
     obj->skip_coded_area  = (uint8_t)pcs->skip_coded_area;
     obj->hp_coded_area    = (uint8_t)pcs->hp_coded_area;
@@ -351,6 +344,14 @@ void* svt_aom_rest_kernel(void* input_ptr) {
 
             // delete scaled_input_pic after lr finished
             EB_DELETE(pcs->scaled_input_pic);
+
+            // normalize stats - RC uses these even for non-ref frames
+            int num_pixels        = ppcs->aligned_width * ppcs->aligned_height;
+            pcs->intra_coded_area = (pcs->slice_type == I_SLICE) ? 0 : 100 * pcs->intra_coded_area / num_pixels;
+            pcs->skip_coded_area  = 100 * pcs->skip_coded_area / num_pixels;
+            pcs->hp_coded_area    = 100 * pcs->hp_coded_area / num_pixels;
+            pcs->avg_cnt_zeromv   = 100 * pcs->avg_cnt_zeromv / num_pixels;
+
             if (ppcs->ref_pic_wrapper != NULL) {
                 // copy stat to ref object (intra_coded_area, Luminance, Scene change detection
                 // flags)
@@ -424,7 +425,7 @@ void* svt_aom_rest_kernel(void* input_ptr) {
                                        "calculations");
                 }
             } else {
-                EbErrorType return_error = EB_ErrorNone;
+                EbErrorType return_error;
                 if (pcs->ppcs->compute_psnr) {
                     // Note: if temporal_filtering is used, memory needs to be freed in the last of these calls
                     return_error = psnr_calculations(pcs, scs, !pcs->ppcs->compute_ssim);

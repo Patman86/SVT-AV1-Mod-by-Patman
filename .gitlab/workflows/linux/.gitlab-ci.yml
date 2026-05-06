@@ -117,17 +117,9 @@ Linux (GCC):
         EXTRA_CMAKE_FLAGS: --toolchain $CI_PROJECT_DIR/cmake/toolchains/aarch64_toolchain.cmake
       - CC: powerpc64le-linux-gnu-gcc
         CXX: powerpc64le-linux-gnu-g++
-        EXTRA_CMAKE_FLAGS: --toolchain $CI_PROJECT_DIR/powerpc64le-linux-gnu.cmake -DCROSS=powerpc64le-linux-gnu-
+        EXTRA_CMAKE_FLAGS: --toolchain $CI_PROJECT_DIR/cmake/toolchains/powerpc64le-linux-gnu.cmake
       - CMAKE_SYSTEM_NAME: Android
         EXTRA_CMAKE_FLAGS: --toolchain $CI_PROJECT_DIR/cmake/toolchains/android_aarch64_toolchain.cmake
-  before_script:
-    - |
-      case $CC in
-      powerpc64le-linux-gnu-gcc)
-        curl -Ls "https://aomedia.googlesource.com/aom/+/refs/heads/main/build/cmake/toolchains/ppc-linux-gcc.cmake?format=TEXT" |
-          base64 -d > powerpc64le-linux-gnu.cmake
-        ;;
-      esac
 
 Linux (GCC 11, Static):
   extends: .linux-compiler-base
@@ -427,7 +419,8 @@ Linux Gstreamer (Static):
       else
         git clone https://gitlab.freedesktop.org/gstreamer/gstreamer.git
       fi
-    - meson setup -Dprefix=/usr --buildtype release -Dauto_features=disabled -Dbad=enabled -Dgst-plugins-bad:svtav1=enabled -Dtests=disabled gstreamer-plugin gstreamer
+    - git -C gstreamer submodule update --init --recursive
+    - meson setup -Dprefix=/usr --buildtype release -Dauto_features=disabled -Dbad=enabled -Dgst-plugins-bad:svtav1=enabled -Dtests=disabled -Dgstreamer:check=enabled gstreamer-plugin gstreamer
     - meson install -C gstreamer-plugin
     - |
       gst-launch-1.0 -v filesrc location=akiyo_cif.y4m \

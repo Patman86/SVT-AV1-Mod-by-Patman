@@ -2047,14 +2047,14 @@ Input   : encoder mode and tune
 Output  : Multi-Processes signal(s)
 ******************************************************/
 void svt_aom_sig_deriv_multi_processes_default(SequenceControlSet* scs, PictureParentControlSet* pcs) {
-    FrameHeader*            frm_hdr           = &pcs->frm_hdr;
-    EncMode                 enc_mode          = pcs->enc_mode;
-    const uint8_t           is_islice         = pcs->slice_type == I_SLICE;
-    const uint8_t           is_base           = pcs->temporal_layer_index == 0;
-    const ResolutionRange   input_resolution  = pcs->input_resolution;
-    const uint8_t           fast_decode       = scs->static_config.fast_decode;
-    const uint8_t           sc_class1         = pcs->sc_class1;
-    const uint8_t           is_not_last_layer = !pcs->is_highest_layer;
+    FrameHeader*          frm_hdr           = &pcs->frm_hdr;
+    EncMode               enc_mode          = pcs->enc_mode;
+    const uint8_t         is_islice         = pcs->slice_type == I_SLICE;
+    const uint8_t         is_base           = pcs->temporal_layer_index == 0;
+    const ResolutionRange input_resolution  = pcs->input_resolution;
+    const uint8_t         fast_decode       = scs->static_config.fast_decode;
+    const uint8_t         sc_class1         = pcs->sc_class1;
+    const uint8_t         is_not_last_layer = !pcs->is_highest_layer;
 
     // Set GM ctrls assuming super-res is off for gm-pp need
     svt_aom_set_gm_controls(pcs, svt_aom_derive_gm_level(pcs, true));
@@ -2230,7 +2230,15 @@ void svt_aom_sig_deriv_multi_processes_default(SequenceControlSet* scs, PictureP
     // 1                                     ON
     pcs->frame_end_cdf_update_mode = 1;
 
-    if (scs->enable_hbd_mode_decision == DEFAULT) {
+    //User accessible setting for forcing different levels of
+    //high bit depth mode decision; also has a check to make sure
+    //encoder bith depth>8 to work in full hbd-md
+    if (scs->encoder_bit_depth == EB_EIGHT_BIT) {
+        pcs->hbd_md = 0;
+    } else if (pcs->scs->static_config.hbd_mds != DEFAULT) {
+        pcs->hbd_md = pcs->scs->static_config.hbd_mds;
+    } else {
+        //Default preset-defined behavior
         if (enc_mode <= ENC_MR) {
             pcs->hbd_md = 1;
         } else if (enc_mode <= ENC_M5) {
@@ -2238,8 +2246,6 @@ void svt_aom_sig_deriv_multi_processes_default(SequenceControlSet* scs, PictureP
         } else {
             pcs->hbd_md = is_islice ? 2 : 0;
         }
-    } else {
-        pcs->hbd_md = scs->enable_hbd_mode_decision;
     }
 
     pcs->max_can_count = svt_aom_get_max_can_count(enc_mode);
@@ -5162,14 +5168,12 @@ static void set_nsq_search_ctrls(PictureControlSet* pcs, ModeDecisionContext* ct
     if (pcs->mimic_only_tx_4x4) {
         nsq_search_level = 0;
     } else if (me_dist_mod && nsq_search_level) {
-        uint32_t dist_64, dist_32, dist_16, dist_8, me_8x8_cost_variance;
+        uint32_t dist_8, me_8x8_cost_variance;
         if (pcs->scs->super_block_size == 64) {
-            dist_64              = pcs->ppcs->me_64x64_distortion[ctx->sb_index];
-            dist_32              = pcs->ppcs->me_32x32_distortion[ctx->sb_index];
-            dist_16              = pcs->ppcs->me_16x16_distortion[ctx->sb_index];
             dist_8               = pcs->ppcs->me_8x8_distortion[ctx->sb_index];
             me_8x8_cost_variance = pcs->ppcs->me_8x8_cost_variance[ctx->sb_index];
         } else {
+            uint32_t dist_64, dist_32, dist_16;
             get_sb128_me_data(pcs, ctx, &dist_64, &dist_32, &dist_16, &dist_8, &me_8x8_cost_variance);
         }
 
@@ -8233,12 +8237,7 @@ void svt_aom_sig_deriv_enc_dec_allintra(PictureControlSet* pcs, ModeDecisionCont
     }
     set_intra_ctrls(pcs, ctx, intra_level, dist_based_ang_intra_level);
     // Use Hadamard at MDS0
-    ctx->mds0_use_hadamard_sb = false;
-    if (pd_pass == PD_PASS_0) {
-        ctx->mds0_use_hadamard_sb = false;
-    } else {
-        ctx->mds0_use_hadamard_sb = true;
-    }
+    ctx->mds0_use_hadamard_sb = pd_pass != PD_PASS_0;
 
     set_mds0_controls(ctx, pcs->mds0_level);
     set_subres_controls(ctx, 0);
@@ -8779,7 +8778,7 @@ static void set_pic_lpd0_lvl_default(PictureControlSet* pcs, EncMode enc_mode) {
     const bool               transition_present = (ppcs->transition_present == 1);
     InputCoeffLvl            coeff_lvl          = pcs->coeff_lvl;
     const ResolutionRange    input_resolution   = ppcs->input_resolution;
-    uint8_t                  ldp0_lvl_offset[4] = {2, 2, 1, 0};
+    const uint8_t            ldp0_lvl_offset[4] = {2, 2, 1, 0};
     uint8_t                  qp_band_idx        = 0;
     const uint8_t            seq_qp_mod         = pcs->scs->seq_qp_mod;
 

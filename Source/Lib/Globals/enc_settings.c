@@ -47,12 +47,12 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         SVT_ERROR("EncoderMode must be in the range of [-1-%d]\n", MAX_ENC_PRESET);
         return_error = EB_ErrorBadParameter;
     }
-    if (scs->max_input_luma_width < 4) {
-        SVT_ERROR("Source Width must be at least 4\n");
+    if (scs->max_input_luma_width < 1) {
+        SVT_ERROR("Source Width must be at least 1\n");
         return_error = EB_ErrorBadParameter;
     }
-    if (scs->max_input_luma_height < 4) {
-        SVT_ERROR("Source Height must be at least 4\n");
+    if (scs->max_input_luma_height < 1) {
+        SVT_ERROR("Source Height must be at least 1\n");
         return_error = EB_ErrorBadParameter;
     }
     if (config->pred_structure > RANDOM_ACCESS) {
@@ -179,12 +179,12 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (scs->seq_header.max_frame_width < 4) {
-        SVT_ERROR("Forced Max Width must be at least 4\n");
+    if (scs->seq_header.max_frame_width < 1) {
+        SVT_ERROR("Forced Max Width must be at least 1\n");
         return_error = EB_ErrorBadParameter;
     }
-    if (scs->seq_header.max_frame_height < 4) {
-        SVT_ERROR("Forced Max Height must be at least 4\n");
+    if (scs->seq_header.max_frame_height < 1) {
+        SVT_ERROR("Forced Max Height must be at least 1\n");
         return_error = EB_ErrorBadParameter;
     }
     if (scs->seq_header.max_frame_width > 16384) {
@@ -198,8 +198,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
 
     // This is not an AV1 spec limitation, but an implementation limitation in the encoder
     // This check will stay in place until restoration filtering can handle these dimensions
-    if ((scs->max_input_luma_width >= 4 && scs->max_input_luma_width < 64) ||
-        (scs->max_input_luma_height >= 4 && scs->max_input_luma_height < 64)) {
+    if ((scs->max_input_luma_width >= 1 && scs->max_input_luma_width < 64) ||
+        (scs->max_input_luma_height >= 1 && scs->max_input_luma_height < 64)) {
         if (config->aq_mode != 0) {
             SVT_WARN("AQ mode %i is unsupported with source dimensions (%i / %i), setting AQ mode to 0\n",
                      config->aq_mode,
@@ -845,6 +845,18 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
+    //User configurable High Bit Depth Mode Decision Setting
+    if (config->hbd_mds < -1 || config->hbd_mds > 2) {
+        SVT_ERROR("hbd-mds must be -1 (preset default), 0, 1, or 2\n");
+        return_error = EB_ErrorBadParameter;
+    }
+
+    if (config->encoder_bit_depth == 8 && (config->hbd_mds == 1 || config->hbd_mds == 2)) {
+        SVT_WARN("Please use 10-bit encoding if you want to take advantage of hbd-mds 1 and 2.\n");
+        SVT_ERROR("Full high bit depth and hybrid 8/10 mode decision are not supported when encoder bit depth is 8\n");
+        return_error = EB_ErrorBadParameter;
+    }
+
     return return_error;
 }
 
@@ -1006,6 +1018,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->max_tx_size                       = 64;
     config_ptr->extended_crf_qindex_offset        = 0;
     config_ptr->ac_bias                           = 0.0;
+    config_ptr->hbd_mds                           = DEFAULT;
     return return_error;
 }
 
@@ -1152,6 +1165,10 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
 
         if (config->ac_bias) {
             PRINT_CONFIG("AC Bias Strength", "%.2f", config->ac_bias);
+        }
+
+        if (config->hbd_mds) {
+            SVT_INFO("SVT [config]: High Bit Depth Mode Decision setting \t\t\t\t\t: %d\n", config->hbd_mds);
         }
     }
 #if DEBUG_BUFFERS
@@ -2265,6 +2282,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"tile-rows", &config_struct->tile_rows},
         {"tile-columns", &config_struct->tile_columns},
         {"sframe-dist", &config_struct->sframe_dist},
+        {"hbd-mds", &config_struct->hbd_mds},
     };
 
     const size_t int_opts_size = sizeof(int_opts) / sizeof(int_opts[0]);

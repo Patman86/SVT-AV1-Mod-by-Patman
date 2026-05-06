@@ -95,7 +95,7 @@ TEST(AVX512_ForwardTransformTest, av1_frwd_txfm_kernels) {
     uint32_t stride;
     init_coeff(&coeff, &coeff_opt, &stride);
     GTEST_ASSERT_TRUE(
-        svt_buf_compare_s32(coeff, coeff_opt, MAX_SB_SIZE * stride));
+        svt_buf_compare<int32_t>(coeff, coeff_opt, MAX_SB_SIZE * stride));
     for (int loop = 0; loop < 9; loop++) {  // Function Pairs
         for (int i = 0; i < 10; i++) {      // Number of Test Runs
             for (int x = 0; x < 2; x++) {   // Bit Depth
@@ -103,7 +103,7 @@ TEST(AVX512_ForwardTransformTest, av1_frwd_txfm_kernels) {
                 case 0:  // 16x16
                     for (int j = 0; j < 16; j++) {
                         init_data(&input, &input_opt, stride);
-                        GTEST_ASSERT_TRUE(svt_buf_compare_s16(
+                        GTEST_ASSERT_TRUE(svt_buf_compare<int16_t>(
                             input, input_opt, MAX_SB_SIZE * stride));
                         av1_frwd_txfm_func_ptr_array_base[loop](
                             input,
@@ -123,7 +123,7 @@ TEST(AVX512_ForwardTransformTest, av1_frwd_txfm_kernels) {
                 case 1:  // 32x32
                     for (int j = 0; j < 2; j++) {
                         init_data(&input, &input_opt, stride);
-                        GTEST_ASSERT_TRUE(svt_buf_compare_s16(
+                        GTEST_ASSERT_TRUE(svt_buf_compare<int16_t>(
                             input, input_opt, MAX_SB_SIZE * stride));
                         av1_frwd_txfm_func_ptr_array_base[loop](
                             input,
@@ -143,7 +143,7 @@ TEST(AVX512_ForwardTransformTest, av1_frwd_txfm_kernels) {
                 case 2:  // 64x64
                     for (int j = 0; j < 2; j++) {
                         init_data(&input, &input_opt, stride);
-                        GTEST_ASSERT_TRUE(svt_buf_compare_s16(
+                        GTEST_ASSERT_TRUE(svt_buf_compare<int16_t>(
                             input, input_opt, MAX_SB_SIZE * stride));
                         av1_frwd_txfm_func_ptr_array_base[loop](
                             input,
@@ -167,7 +167,7 @@ TEST(AVX512_ForwardTransformTest, av1_frwd_txfm_kernels) {
                 case 3:  // 16x64
                     for (int j = 0; j < 2; j++) {
                         init_data(&input, &input_opt, stride);
-                        GTEST_ASSERT_TRUE(svt_buf_compare_s16(
+                        GTEST_ASSERT_TRUE(svt_buf_compare<int16_t>(
                             input, input_opt, MAX_SB_SIZE * stride));
                         av1_frwd_txfm_func_ptr_array_base[loop](
                             input,
@@ -191,7 +191,7 @@ TEST(AVX512_ForwardTransformTest, av1_frwd_txfm_kernels) {
                 case 4:  // 64x16
                     for (int j = 0; j < 2; j++) {
                         init_data(&input, &input_opt, stride);
-                        GTEST_ASSERT_TRUE(svt_buf_compare_s16(
+                        GTEST_ASSERT_TRUE(svt_buf_compare<int16_t>(
                             input, input_opt, MAX_SB_SIZE * stride));
                         av1_frwd_txfm_func_ptr_array_base[loop](
                             input,
@@ -215,7 +215,7 @@ TEST(AVX512_ForwardTransformTest, av1_frwd_txfm_kernels) {
                 case 5:  // 32x64
                     for (int j = 0; j < 2; j++) {
                         init_data(&input, &input_opt, stride);
-                        GTEST_ASSERT_TRUE(svt_buf_compare_s16(
+                        GTEST_ASSERT_TRUE(svt_buf_compare<int16_t>(
                             input, input_opt, MAX_SB_SIZE * stride));
                         av1_frwd_txfm_func_ptr_array_base[loop](
                             input,
@@ -239,7 +239,7 @@ TEST(AVX512_ForwardTransformTest, av1_frwd_txfm_kernels) {
                 case 6:  // 64x32
                     for (int j = 0; j < 2; j++) {
                         init_data(&input, &input_opt, stride);
-                        GTEST_ASSERT_TRUE(svt_buf_compare_s16(
+                        GTEST_ASSERT_TRUE(svt_buf_compare<int16_t>(
                             input, input_opt, MAX_SB_SIZE * stride));
                         av1_frwd_txfm_func_ptr_array_base[loop](
                             input,
@@ -263,7 +263,7 @@ TEST(AVX512_ForwardTransformTest, av1_frwd_txfm_kernels) {
                 case 7:  // 16x32
                     for (int j = 0; j < 2; j++) {
                         init_data(&input, &input_opt, stride);
-                        GTEST_ASSERT_TRUE(svt_buf_compare_s16(
+                        GTEST_ASSERT_TRUE(svt_buf_compare<int16_t>(
                             input, input_opt, MAX_SB_SIZE * stride));
                         av1_frwd_txfm_func_ptr_array_base[loop](
                             input,
@@ -283,7 +283,7 @@ TEST(AVX512_ForwardTransformTest, av1_frwd_txfm_kernels) {
                 case 8:  // 32x16
                     for (int j = 0; j < 2; j++) {
                         init_data(&input, &input_opt, stride);
-                        GTEST_ASSERT_TRUE(svt_buf_compare_s16(
+                        GTEST_ASSERT_TRUE(svt_buf_compare<int16_t>(
                             input, input_opt, MAX_SB_SIZE * stride));
                         av1_frwd_txfm_func_ptr_array_base[loop](
                             input,

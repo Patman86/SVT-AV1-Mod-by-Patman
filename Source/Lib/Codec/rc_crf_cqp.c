@@ -170,11 +170,11 @@ static void adjust_active_best_and_worst_quality(PictureParentControlSet* ppcs, 
     int                 active_best_quality  = *active_best;
     int                 active_worst_quality = *active_worst;
     SequenceControlSet* scs                  = ppcs->scs;
-    int                 bit_depth            = scs->static_config.encoder_bit_depth;
 
     // Static forced key frames Q restrictions dealt with elsewhere.
     if (!frame_is_intra_only(ppcs)) {
-        int qdelta = svt_av1_frame_type_qdelta(rc, rf_level, active_worst_quality, bit_depth, ppcs->sc_class1);
+        int bit_depth = scs->static_config.encoder_bit_depth;
+        int qdelta    = svt_av1_frame_type_qdelta(rc, rf_level, active_worst_quality, bit_depth, ppcs->sc_class1);
         active_worst_quality = AOMMAX(active_worst_quality + qdelta, active_best_quality);
     }
 
@@ -196,7 +196,6 @@ static int crf_qindex_calc(PictureControlSet* pcs, RATE_CONTROL* rc, int qindex)
     int                      cq_level             = qindex;
     int                      active_best_quality  = 0;
     int                      active_worst_quality = qindex;
-    rc->arf_q                                     = 0;
 
     uint8_t temporal_layer      = ppcs->temporal_layer_index;
     uint8_t hierarchical_levels = ppcs->hierarchical_levels;
@@ -214,7 +213,8 @@ static int crf_qindex_calc(PictureControlSet* pcs, RATE_CONTROL* rc, int qindex)
     bool use_qstep_based_q_calc = ppcs->r0_qps;
     // Since many frames can be processed at the same time, storing/using arf_q in rc param is not sufficient and will create a run to run.
     // So, for each frame, arf_q is updated based on the qp of its references.
-    rc->arf_q = MAX(rc->arf_q, pcs->ref_base_q_idx[REF_LIST_0][0]);
+    // rc->arf_q = 0;
+    rc->arf_q = pcs->ref_base_q_idx[REF_LIST_0][0];
     if (pcs->slice_type == B_SLICE && ppcs->ref_list1_count_try) {
         rc->arf_q = MAX(rc->arf_q, pcs->ref_base_q_idx[REF_LIST_1][0]);
     }
@@ -310,8 +310,8 @@ static int crf_qindex_calc(PictureControlSet* pcs, RATE_CONTROL* rc, int qindex)
         active_best_quality = cq_level;
 
         if (is_intrl_arf_boost && !frame_is_intra_only(ppcs) && !leaf_frame) {
-            EbReferenceObject* ref_obj_l0 = get_ref_obj(pcs, REF_LIST_0, 0);
-            EbReferenceObject* ref_obj_l1 = NULL;
+            const EbReferenceObject* ref_obj_l0 = get_ref_obj(pcs, REF_LIST_0, 0);
+            const EbReferenceObject* ref_obj_l1 = NULL;
             if (pcs->slice_type == B_SLICE && ppcs->ref_list1_count_try) {
                 ref_obj_l1 = get_ref_obj(pcs, REF_LIST_1, 0);
             }
@@ -751,8 +751,6 @@ void svt_av1_coded_frames_stat_calc(PictureParentControlSet* ppcs) {
                                                       CODED_FRAMES_STAT_QUEUE_MAX_DEPTH - 1)
                 ? 0
                 : rc->coded_frames_stat_queue_head_index + 1;
-
-            queue_entry_ptr = (rc->coded_frames_stat_queue[rc->coded_frames_stat_queue_head_index]);
         }
     }
 }

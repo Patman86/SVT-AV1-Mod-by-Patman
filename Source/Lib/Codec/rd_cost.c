@@ -1847,12 +1847,10 @@ uint64_t svt_aom_get_tx_size_bits(ModeDecisionCandidateBuffer* candidateBuffer, 
 int64_t svt_aom_partition_rate_cost(PictureParentControlSet* ppcs, const BlockSize bsize, const int mi_row,
                                     const int mi_col, MdRateEstimationContext* md_rate_est_ctx, PartitionType p,
                                     const PartitionContextType left_ctx, const PartitionContextType above_ctx) {
-    assert(mi_size_wide_log2[bsize] == mi_size_high_log2[bsize]);
-    assert(bsize < BLOCK_SIZES_ALL);
-
     if (bsize < BLOCK_8X8) {
         return 0;
     }
+    assert(bsize < BLOCK_SIZES_ALL && mi_size_wide_log2[bsize] == mi_size_high_log2[bsize]);
 
     const int hbs      = mi_size_wide[bsize] >> 1;
     const int has_rows = (mi_row + hbs) < ppcs->av1_cm->mi_rows;

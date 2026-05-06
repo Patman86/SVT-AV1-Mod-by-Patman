@@ -175,7 +175,7 @@ typedef struct EncTestSetting {
         return str;
     }
 
-    int color_fmt(VideoColorFormat fmt) const {
+    static int color_fmt(VideoColorFormat fmt) {
         switch (fmt) {
         case IMG_FMT_420:
         case IMG_FMT_420P10_PACKED: return 420;
@@ -205,7 +205,7 @@ typedef struct EncTestSetting {
         return str;
     }
 
-    void append_token(std::string& str, const char* n) const {
+    static void append_token(std::string& str, const char* n) {
         str += " ";
         str += get_enc_token(n);
         str += " ";

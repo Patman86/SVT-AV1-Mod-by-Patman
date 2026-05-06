@@ -92,25 +92,28 @@ void SvtAv1E2ETestFramework::setup_src_param(const VideoSource *source,
 }
 
 SvtAv1E2ETestFramework::SvtAv1E2ETestFramework()
-    : enc_setting(GetParam()), enc_config_(create_enc_config()) {
-    memset(&av1enc_ctx_, 0, sizeof(av1enc_ctx_));
-    video_src_ = nullptr;
-    psnr_src_ = nullptr;
-    recon_queue_ = nullptr;
-    refer_dec_ = nullptr;
-    output_file_ = nullptr;
-    obu_frame_header_size_ = 0;
-    collect_ = nullptr;
-    ref_compare_ = nullptr;
-    collect_ = new PerformanceCollect(typeid(this).name());
-    use_ext_qp_ = false;
-    enable_recon = false;
-    enable_decoder = false;
-    enable_stat = false;
-    enable_save_bitstream = false;
-    enable_analyzer = false;
-    enable_config = false;
-    insert_blank_interval = 0;
+    : video_src_(nullptr),
+      av1enc_ctx_{},
+      start_pos_(0),
+      frames_to_test_(0),
+      recon_queue_(nullptr),
+      refer_dec_(nullptr),
+      output_file_(nullptr),
+      obu_frame_header_size_(0),
+      collect_(new PerformanceCollect(typeid(this).name())),
+      psnr_src_(nullptr),
+      ref_compare_(nullptr),
+      use_ext_qp_(false),
+      enc_setting(GetParam()),
+      enable_recon(false),
+      enable_decoder(false),
+      enable_stat(false),
+      enable_save_bitstream(false),
+      enable_analyzer(false),
+      enable_config(false),
+      enable_invert_tile_decoding(false),
+      enc_config_(create_enc_config()),
+      insert_blank_interval(0) {
 }
 
 SvtAv1E2ETestFramework::~SvtAv1E2ETestFramework() {
@@ -517,7 +520,7 @@ void SvtAv1E2ETestFramework::run_encode_process() {
                 if (return_error != EB_NoErrorEmptyQueue && enc_out) {
                     if (enc_out->flags & EB_BUFFERFLAG_EOS) {
                         enc_file_eos = true;
-                        printf("Encoder EOS\n");
+                        std::cerr << "Encoder EOS\n";
                     } else {
                         // send to reference decoder
                         TimeAutoCount counter(CONFORMANCE, collect_);
@@ -530,7 +533,6 @@ void SvtAv1E2ETestFramework::run_encode_process() {
                         early_termination = true;
                 } else {
                     if (return_error != EB_NoErrorEmptyQueue) {
-                        enc_file_eos = true;
                         GTEST_FAIL() << "encoder return: " << return_error;
                     }
                     break;
@@ -556,8 +558,7 @@ void SvtAv1E2ETestFramework::run_test() {
     config_test();
     for (auto test_vector : enc_setting.test_vectors) {
         std::string fn = std::get<0>(test_vector);
-        std::cout << "Start test case " << enc_setting.to_string(fn)
-                  << std::endl;
+        SCOPED_TRACE(enc_setting.to_string(fn));
         init_test(test_vector);
         EXPECT_NO_FATAL_FAILURE(run_encode_process())
             << "Fatal Error on running test case " << enc_setting.to_string(fn);
@@ -571,8 +572,7 @@ void SvtAv1E2ETestFramework::run_death_test() {
     config_test();
     for (auto test_vector : enc_setting.test_vectors) {
         std::string fn = std::get<0>(test_vector);
-        std::cout << "Start test case " << enc_setting.to_string(fn)
-                  << std::endl;
+        SCOPED_TRACE(enc_setting.to_string(fn));
         EXPECT_EXIT(
             {
                 init_test(test_vector);
@@ -616,17 +616,12 @@ static void write_ivf_frame_header(
     svt_av1_e2e_test::SvtAv1E2ETestFramework::IvfFile *ivf,
     uint32_t byte_count) {
     char header[IVF_FRAME_HEADER_SIZE];
-    int32_t write_location = 0;
 
-    mem_put_le32(&header[write_location], (int32_t)byte_count);
-    write_location = write_location + 4;
-    mem_put_le32(&header[write_location],
-                 (int32_t)((ivf->ivf_count) & 0xFFFFFFFF));
-    write_location = write_location + 4;
-    mem_put_le32(&header[write_location], (int32_t)((ivf->ivf_count) >> 32));
-    write_location = write_location + 4;
+    mem_put_le32(&header[0], (int32_t)byte_count);
+    mem_put_le32(&header[4], (int32_t)((ivf->ivf_count) & 0xFFFFFFFF));
+    mem_put_le32(&header[8], (int32_t)((ivf->ivf_count) >> 32));
 
-    ivf->byte_count_since_ivf = (byte_count);
+    ivf->byte_count_since_ivf = byte_count;
 
     ivf->ivf_count++;
     fflush(stdout);

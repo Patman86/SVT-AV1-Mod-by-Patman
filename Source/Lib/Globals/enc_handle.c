@@ -228,12 +228,12 @@ void set_segments_numbers(SequenceControlSet* scs) {
 
     scs->enc_dec_segment_row_count_array =
         (lp == PARALLEL_LEVEL_1 || is_pic_dimension_single_sb(scs->super_block_size, scs->max_input_luma_width)) ? 1
-        : (scs->super_block_size == 128) ? ((scs->max_input_luma_height + 64) / 128)
-                                         : ((scs->max_input_luma_height + 32) / 64);
+        : (scs->super_block_size == 128) ? MAX((int32_t)((scs->max_input_luma_height + 64) / 128), 1)
+                                         : MAX((int32_t)((scs->max_input_luma_height + 32) / 64), 1);
     scs->enc_dec_segment_col_count_array =
         (lp == PARALLEL_LEVEL_1 || is_pic_dimension_single_sb(scs->super_block_size, scs->max_input_luma_height)) ? 1
-        : (scs->super_block_size == 128) ? ((scs->max_input_luma_width + 64) / 128)
-                                         : ((scs->max_input_luma_width + 32) / 64);
+        : (scs->super_block_size == 128) ? MAX((int32_t)((scs->max_input_luma_width + 64) / 128), 1)
+                                         : MAX((int32_t)((scs->max_input_luma_width + 32) / 64), 1);
 
     scs->me_segment_row_count_array = scs->tf_segment_row_count = (lp == PARALLEL_LEVEL_1) ? 1
         : (((scs->max_input_luma_height + 32) / BLOCK_SIZE_64) < 6)                        ? 1
@@ -255,9 +255,11 @@ void set_segments_numbers(SequenceControlSet* scs) {
     scs->tpl_segment_row_count_array = (lp == PARALLEL_LEVEL_1 ||
                                         is_pic_dimension_single_sb(64, scs->max_input_luma_width))
         ? 1
-        : ((scs->max_input_luma_height + 32) / 64);
+        : MAX((int32_t)((scs->max_input_luma_height + 32) / 64), 1);
 
-    scs->tpl_segment_col_count_array = (lp == PARALLEL_LEVEL_1) ? 1 : ((scs->max_input_luma_width + 32) / 64);
+    scs->tpl_segment_col_count_array = (lp == PARALLEL_LEVEL_1)
+        ? 1
+        : MAX((int32_t)((scs->max_input_luma_width + 32) / 64), 1);
 
     scs->cdef_segment_row_count    = (lp == PARALLEL_LEVEL_1)          ? 1
            : (((scs->max_input_luma_height + 32) / BLOCK_SIZE_64) < 6) ? 1
@@ -1333,6 +1335,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         input_data.rtc_tune            = scs->static_config.rtc;
         input_data.variance_octile     = scs->static_config.variance_octile;
         input_data.adaptive_film_grain = scs->static_config.adaptive_film_grain;
+        input_data.hbd_mds             = scs->static_config.hbd_mds;
         input_data.static_config       = scs->static_config;
         input_data.allintra            = scs->allintra;
         input_data.use_flat_ipp        = scs->use_flat_ipp;
@@ -1945,7 +1948,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
     EB_CREATE_THREAD_ARRAY(enc_handle_ptr->picture_analysis_thread_handle_array,
                            scs->picture_analysis_process_init_count,
                            svt_aom_picture_analysis_kernel,
-                           enc_handle_ptr->picture_analysis_context_ptr_array);
+                           enc_handle_ptr->picture_analysis_context_ptr_array,
+                           "svt-picana");
 
     // Picture Decision
     EB_CREATE_THREAD(enc_handle_ptr->picture_decision_thread_handle,
@@ -1956,7 +1960,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
     EB_CREATE_THREAD_ARRAY(enc_handle_ptr->motion_estimation_thread_handle_array,
                            scs->motion_estimation_process_init_count,
                            svt_aom_motion_estimation_kernel,
-                           enc_handle_ptr->motion_estimation_context_ptr_array);
+                           enc_handle_ptr->motion_estimation_context_ptr_array,
+                           "svt-me");
 
     // Initial Rate Control
     EB_CREATE_THREAD(enc_handle_ptr->initial_rate_control_thread_handle,
@@ -1967,13 +1972,15 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
     EB_CREATE_THREAD_ARRAY(enc_handle_ptr->source_based_operations_thread_handle_array,
                            scs->source_based_operations_process_init_count,
                            svt_aom_source_based_operations_kernel,
-                           enc_handle_ptr->source_based_operations_context_ptr_array);
+                           enc_handle_ptr->source_based_operations_context_ptr_array,
+                           "svt-srcops");
 
     // TPL dispenser
     EB_CREATE_THREAD_ARRAY(enc_handle_ptr->tpl_disp_thread_handle_array,
                            scs->tpl_disp_process_init_count,
                            svt_aom_tpl_disp_kernel, //TODOOMK
-                           enc_handle_ptr->tpl_disp_context_ptr_array);
+                           enc_handle_ptr->tpl_disp_context_ptr_array,
+                           "svt-tpl");
     // Picture Manager
     EB_CREATE_THREAD(enc_handle_ptr->picture_manager_thread_handle,
                      svt_aom_picture_manager_kernel,
@@ -1987,37 +1994,43 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
     EB_CREATE_THREAD_ARRAY(enc_handle_ptr->mode_decision_configuration_thread_handle_array,
                            scs->mode_decision_configuration_process_init_count,
                            svt_aom_mode_decision_configuration_kernel,
-                           enc_handle_ptr->mode_decision_configuration_context_ptr_array);
+                           enc_handle_ptr->mode_decision_configuration_context_ptr_array,
+                           "svt-mdcfg");
 
     // EncDec Process
     EB_CREATE_THREAD_ARRAY(enc_handle_ptr->enc_dec_thread_handle_array,
                            scs->enc_dec_process_init_count,
                            svt_aom_mode_decision_kernel,
-                           enc_handle_ptr->enc_dec_context_ptr_array);
+                           enc_handle_ptr->enc_dec_context_ptr_array,
+                           "svt-md");
 
     // Dlf Process
     EB_CREATE_THREAD_ARRAY(enc_handle_ptr->dlf_thread_handle_array,
                            scs->dlf_process_init_count,
                            svt_aom_dlf_kernel,
-                           enc_handle_ptr->dlf_context_ptr_array);
+                           enc_handle_ptr->dlf_context_ptr_array,
+                           "svt-dlf");
 
     // Cdef Process
     EB_CREATE_THREAD_ARRAY(enc_handle_ptr->cdef_thread_handle_array,
                            scs->cdef_process_init_count,
                            svt_aom_cdef_kernel,
-                           enc_handle_ptr->cdef_context_ptr_array);
+                           enc_handle_ptr->cdef_context_ptr_array,
+                           "svt-cdef");
 
     // Rest Process
     EB_CREATE_THREAD_ARRAY(enc_handle_ptr->rest_thread_handle_array,
                            scs->rest_process_init_count,
                            svt_aom_rest_kernel,
-                           enc_handle_ptr->rest_context_ptr_array);
+                           enc_handle_ptr->rest_context_ptr_array,
+                           "svt-rest");
 
     // Entropy Coding Process
     EB_CREATE_THREAD_ARRAY(enc_handle_ptr->entropy_coding_thread_handle_array,
                            scs->entropy_coding_process_init_count,
                            svt_aom_entropy_coding_kernel,
-                           enc_handle_ptr->entropy_coding_context_ptr_array);
+                           enc_handle_ptr->entropy_coding_context_ptr_array,
+                           "svt-ec");
     // Packetization
     EB_CREATE_THREAD(enc_handle_ptr->packetization_thread_handle,
                      svt_aom_packetization_kernel,
@@ -3869,7 +3882,7 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         } else {
             nsq_geom_level = svt_aom_get_nsq_geom_level_default(scs->static_config.enc_mode, coeff_lvl);
         }
-        disallow_nsq               = MIN(disallow_nsq, (nsq_geom_level == 0 ? 1 : 0));
+        disallow_nsq               = MIN(disallow_nsq, nsq_geom_level == 0);
         uint8_t temp_allow_HVA_HVB = 0, temp_allow_HV4 = 0;
         svt_aom_set_nsq_geom_ctrls(NULL, nsq_geom_level, &temp_allow_HVA_HVB, &temp_allow_HV4, &min_nsq_bsize);
         allow_HVA_HVB |= temp_allow_HVA_HVB;
@@ -4492,6 +4505,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
 
     // AC bias
     scs->static_config.ac_bias = config_struct->ac_bias;
+
+    // HBD-MDS
+    scs->static_config.hbd_mds = config_struct->hbd_mds;
 
     // Override settings for Still IQ tune
     if (scs->static_config.tune == TUNE_IQ) {

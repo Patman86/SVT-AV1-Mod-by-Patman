@@ -186,16 +186,13 @@ void svt_aom_global_motion_estimation(PictureParentControlSet* pcs, EbPictureBuf
         }
     }
     if (global_motion_estimation_level) {
-        EbPictureBufferDesc *input_detection, *input_refinement;
+        EbPictureBufferDesc* input_detection;
         if (pcs->gm_downsample_level == GM_DOWN16) {
-            input_detection  = sixteenth_picture_ptr;
-            input_refinement = sixteenth_picture_ptr;
+            input_detection = sixteenth_picture_ptr;
         } else if (pcs->gm_downsample_level == GM_DOWN) {
-            input_detection  = quarter_picture_ptr;
-            input_refinement = quarter_picture_ptr;
+            input_detection = quarter_picture_ptr;
         } else {
-            input_detection  = input_pic;
-            input_refinement = input_pic;
+            input_detection = input_pic;
         }
 
         int frm_corners[2 * MAX_CORNERS];
@@ -233,6 +230,8 @@ void svt_aom_global_motion_estimation(PictureParentControlSet* pcs, EbPictureBuf
                 EbPictureBufferDesc* ref_picture_ptr       = ref_object->input_padded_pic;
                 EbPictureBufferDesc* quarter_ref_pic_ptr   = ref_object->quarter_downsampled_picture_ptr;
                 EbPictureBufferDesc* sixteenth_ref_pic_ptr = ref_object->sixteenth_downsampled_picture_ptr;
+
+                EbPictureBufferDesc* input_refinement;
 
                 if (pcs->gm_downsample_level == GM_DOWN16) {
                     input_detection = sixteenth_picture_ptr;

@@ -548,15 +548,11 @@ static void pick_interinter_seg(PictureControlSet* pcs, ModeDecisionContext* ctx
     DIFFWTD_MASK_TYPE cur_mask_type;
     int64_t           best_rd        = INT64_MAX;
     DIFFWTD_MASK_TYPE best_mask_type = 0;
-    // cppcheck-suppress unassignedVariable
-    DECLARE_ALIGNED(16, uint8_t, seg_mask0[2 * MAX_SB_SQUARE]);
-    // cppcheck-suppress unassignedVariable
-    DECLARE_ALIGNED(16, uint8_t, seg_mask1[2 * MAX_SB_SQUARE]);
 
     const int bd_round = 0;
     // try each mask type and its inverse
     for (cur_mask_type = 0; cur_mask_type < DIFFWTD_MASK_TYPES; cur_mask_type++) {
-        uint8_t* const temp_mask = cur_mask_type ? seg_mask1 : seg_mask0;
+        DECLARE_ALIGNED(16, uint8_t, temp_mask[2 * MAX_SB_SQUARE]);
         // build mask and inverse
         if (hbd_md) {
             svt_av1_build_compound_diffwtd_mask_highbd(temp_mask, cur_mask_type, p0, bw, p1, bw, bh, bw, EB_TEN_BIT);

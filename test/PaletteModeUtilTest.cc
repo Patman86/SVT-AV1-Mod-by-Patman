@@ -224,8 +224,8 @@ class KMeansTest : public ::testing::TestWithParam<int> {
         }
     }
 
-    void check_output(const int *centroids, const int k, const int *data,
-                      const uint8_t *indices, const int n) {
+    static void check_output(const int *centroids, const int k, const int *data,
+                             const uint8_t *indices, const int n) {
         for (int i = 0; i < n; i++) {
             const int min_delta = abs(data[i] - centroids[indices[i]]);
             for (int j = 0; j < k; j++) {
@@ -278,8 +278,9 @@ class KMeansTest : public ::testing::TestWithParam<int> {
         return sqrt(x_d * x_d + y_d * y_d);
     }
 
-    void check_output_2d(const int *centroids, const int k, const int *data,
-                         const uint8_t *indices, const int n) {
+    static void check_output_2d(const int *centroids, const int k,
+                                const int *data, const uint8_t *indices,
+                                const int n) {
         for (int i = 0; i < n; i++) {
             const double min_delta = distance_2d(data[2 * i],
                                                  data[2 * i + 1],

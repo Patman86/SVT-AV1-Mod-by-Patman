@@ -648,13 +648,26 @@ typedef struct CyclicRefresh {
      * Rate target ratio to set q delta.
      */
     double rate_ratio_qdelta;
-
+    /*!
+     * Same for segment 2, computed internally.
+     */
+    double rate_ratio_qdelta_seg2;
+    /*!
+     * Enable/disable refresh.
+     */
     int apply_cyclic_refresh;
     /*!
-     * Boost factor for rate target ratio, for segment CR_SEGMENT_ID_BOOST2.
+     * Boost factor for rate target ratio, for segment 2.
      */
     int rate_boost_fac;
+    /*!
+     * Qdeltas for 3 segments.
+     */
     int qindex_delta[3];
+    /*!
+     * ME distortions for 3 segments.
+     */
+    uint64_t me_distortion[3];
     /*!
     * Actual number of SB(s) that were applied delta-q,
     * for segment 1.
@@ -1171,6 +1184,7 @@ typedef struct PictureControlSetInitData {
     bool    allintra;
     bool    adaptive_film_grain;
     bool    use_flat_ipp;
+    int     hbd_mds;
 } PictureControlSetInitData;
 
 /**************************************

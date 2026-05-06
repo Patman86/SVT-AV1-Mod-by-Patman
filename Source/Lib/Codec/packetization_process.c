@@ -834,7 +834,7 @@ void* svt_aom_packetization_kernel(void* input_ptr) {
         }
 
         // Send the number of bytes per frame to RC
-        pcs->ppcs->total_num_bits = output_stream_ptr->n_filled_len << 3;
+        pcs->ppcs->total_num_bits = (uint64_t)output_stream_ptr->n_filled_len << 3;
         if (scs->passes == 2 && scs->static_config.pass == ENC_FIRST_PASS) {
             StatStruct stat_struct;
             stat_struct.poc = pcs->picture_number;

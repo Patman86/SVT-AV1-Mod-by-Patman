@@ -28,6 +28,7 @@
  *
  ******************************************************************************/
 #include <array>
+#include <iostream>
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -257,7 +258,7 @@ class SADTestBase : public ::testing::Test {
         }
     }
 
-    void fill_buf_with_value(uint32_t *buf, int num, uint32_t value) {
+    static void fill_buf_with_value(uint32_t *buf, int num, uint32_t value) {
         for (int i = 0; i < num; ++i)
             buf[i] = value;
     }
@@ -293,8 +294,8 @@ class SADTestBase : public ::testing::Test {
 
     virtual void check_sad(int width, int height) = 0;
     virtual void speed_sad(int width, int height) {
-        printf("Usage not override a function, %i, %i\n", width, height);
-        ASSERT_TRUE(0);
+        GTEST_FAIL() << "Usage not override a function, " << width << ", "
+                     << height << "\n";
     }
 
     void test_sad_size(BlkSize size) {
@@ -623,14 +624,9 @@ class sad_LoopTest : public ::testing::WithParamInterface<sad_LoopTestParam>,
                                                          finish_time_seconds,
                                                          finish_time_useconds);
 
-        printf(
-            "    svt_sad_loop_kernel(%dx%d) search "
-            "area[%dx%d]: %5.2fx)\n",
-            width,
-            height,
-            search_area_width_,
-            search_area_height_,
-            time_c / time_o);
+        std::cerr << "    svt_sad_loop_kernel(" << width << "x" << height
+                  << ") search area[" << search_area_width_ << "x"
+                  << search_area_height_ << "]: " << time_c / time_o << "x\n";
     }
 };
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(sad_LoopTest);
@@ -839,8 +835,8 @@ class Allsad8x8_CalculationTest
     }
 
     void check_sad(int width, int height) {
-        printf("Usage not override a function, %i, %i\n", width, height);
-        ASSERT_TRUE(0);
+        GTEST_FAIL() << "Usage not override a function, " << width << ", "
+                     << height << "\n";
     }
 
     svt_ext_all_sad_calculation_8x8_16x16_fn test_func_;
@@ -967,8 +963,8 @@ class Allsad32x32_CalculationTest
     }
 
     void check_sad(int width, int height) {
-        printf("Usage not override a function, %i, %i\n", width, height);
-        ASSERT_TRUE(0);
+        GTEST_FAIL() << "Usage not override a function, " << width << ", "
+                     << height << "\n";
     }
 
     svt_ext_eight_sad_calculation_32x32_64x64_fn test_func_;
@@ -1044,8 +1040,8 @@ class Extsad8x8_CalculationTest
 
   protected:
     void check_sad(int width, int height) {
-        printf("Usage not override a function, %i, %i\n", width, height);
-        ASSERT_TRUE(0);
+        GTEST_FAIL() << "Usage not override a function, " << width << ", "
+                     << height << "\n";
     }
 
     void check_with_sub_sad(bool sub_sad) {
@@ -1243,8 +1239,8 @@ class Extsad32x32_CalculationTest
     }
 
     void check_sad(int width, int height) {
-        printf("Usage not override a function, %i, %i\n", width, height);
-        ASSERT_TRUE(0);
+        GTEST_FAIL() << "Usage not override a function, " << width << ", "
+                     << height << "\n";
     }
 
     svt_ext_sad_calculation_32x32_64x64_fn test_func_;
@@ -1539,18 +1535,14 @@ class SADTestSubSample16bit
                                                         middle_time_useconds,
                                                         finish_time_seconds,
                                                         finish_time_useconds);
-            printf("Average Nanoseconds per Function Call\n");
-            printf("    svt_aom_sad_16b_kernel_c  (%dx%d) : %6.2f\n",
-                   area_width,
-                   area_height,
-                   1000000 * time_c / num_loops);
-            printf(
-                "    svt_aom_sad_16bit_kernel_opt(%dx%d) : %6.2f   "
-                "(Comparison: %5.2fx)\n",
-                area_width,
-                area_height,
-                1000000 * time_o / num_loops,
-                time_c / time_o);
+            std::cerr << "Average Nanoseconds per Function Call\n"
+                      << "    svt_aom_sad_16b_kernel_c  (" << area_width << "x"
+                      << area_height << ") : " << 1000000 * time_c / num_loops
+                      << "\n"
+                      << "    svt_aom_sad_16bit_kernel_opt(" << area_width
+                      << "x" << area_height
+                      << ") : " << 1000000 * time_o / num_loops
+                      << "   (Comparison: " << time_c / time_o << "x)\n";
         }
     }
 
@@ -1828,12 +1820,9 @@ class PmeSadLoopTest
                                                          finish_time_seconds,
                                                          finish_time_useconds);
 
-        printf("    pme_sad_loop_kernel(%dx%d) search area[%dx%d]: %5.2fx)\n",
-               width,
-               height,
-               search_area_width_,
-               search_area_height_,
-               time_c / time_o);
+        std::cerr << "    pme_sad_loop_kernel(" << width << "x" << height
+                  << ") search area[" << search_area_width_ << "x"
+                  << search_area_height_ << "]: " << time_c / time_o << "x\n";
     }
 };
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(PmeSadLoopTest);

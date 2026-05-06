@@ -1013,7 +1013,7 @@ static void svt_av1_apply_temporal_filter_planewise_medium_partial_c(
                                        block_error_fp8[subblock_idx]) /
             (TF_WINDOW_BLOCK_BALANCE_WEIGHT + 1);
 
-        uint64_t avg_err_fp10 = ((combined_error_fp8 >> 3) * (d_factor_fp8[subblock_idx] >> 3));
+        uint64_t avg_err_fp10 = (uint64_t)(combined_error_fp8 >> 3) * (d_factor_fp8[subblock_idx] >> 3);
         //double scaled_diff = AOMMIN(combined_error * d_factor[subblock_idx] / (FP2FLOAT(tf_decay_factor_fp16)), 7);
         uint32_t scaled_diff16 = (uint32_t)AOMMIN(
             /*((16*avg_err)<<8)*/ (avg_err_fp10) / AOMMAX((tf_decay_factor_fp16 >> 10), 1), 7 * 16);
@@ -1190,7 +1190,7 @@ static void svt_av1_apply_temporal_filter_planewise_medium_hbd_partial_c(
                                        block_error_fp8[subblock_idx]) /
             (TF_WINDOW_BLOCK_BALANCE_WEIGHT + 1);
 
-        uint64_t avg_err_fp10 = ((combined_error_fp8 >> 3) * (d_factor_fp8[subblock_idx] >> 3));
+        uint64_t avg_err_fp10 = (uint64_t)(combined_error_fp8 >> 3) * (d_factor_fp8[subblock_idx] >> 3);
         //double scaled_diff = AOMMIN(combined_error * d_factor[subblock_idx] / (FP2FLOAT(tf_decay_factor_fp16)), 7);
         uint32_t scaled_diff16 = (uint32_t)AOMMIN(
             /*((16*avg_err)<<8)*/ (avg_err_fp10) / AOMMAX((tf_decay_factor_fp16 >> 10), 1), 7 * 16);
@@ -1727,11 +1727,11 @@ static void tf_64x64_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
     // Set the starting MV and distortion
     me_ctx->tf_64x64_block_error = INT_MAX;
     me_ctx->tf_64x64_mv_x        = (me_ctx->tf_use_pred_64x64_only_th == (uint8_t)~0)
-               ? me_ctx->search_results[0][0].hme_sc_x << 3
-               : (_MVXT(me_ctx->p_best_mv64x64[0])) << 3;
+               ? me_ctx->search_results[0][0].hme_sc_x * 8
+               : (_MVXT(me_ctx->p_best_mv64x64[0])) * 8;
     me_ctx->tf_64x64_mv_y        = (me_ctx->tf_use_pred_64x64_only_th == (uint8_t)~0)
-               ? me_ctx->search_results[0][0].hme_sc_y << 3
-               : (_MVYT(me_ctx->p_best_mv64x64[0])) << 3;
+               ? me_ctx->search_results[0][0].hme_sc_y * 8
+               : (_MVYT(me_ctx->p_best_mv64x64[0])) * 8;
 
     TF_SUBPEL_SEARCH_PARAMS tf_sp_param;
     tf_sp_param.subsampling_shift = pcs->tf_ctrls.sub_sampling_shift;
@@ -1839,8 +1839,8 @@ static void tf_32x32_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
     // Set starting MV and distortion
     // AV1 MVs are always in 1/8th pel precision.
     me_ctx->tf_32x32_block_error[idx_32x32] = INT_MAX;
-    me_ctx->tf_32x32_mv_x[idx_32x32]        = (_MVXT(me_ctx->p_best_mv32x32[mv_index])) << 3;
-    me_ctx->tf_32x32_mv_y[idx_32x32]        = (_MVYT(me_ctx->p_best_mv32x32[mv_index])) << 3;
+    me_ctx->tf_32x32_mv_x[idx_32x32]        = (_MVXT(me_ctx->p_best_mv32x32[mv_index])) * 8;
+    me_ctx->tf_32x32_mv_y[idx_32x32]        = (_MVYT(me_ctx->p_best_mv32x32[mv_index])) * 8;
 
     TF_SUBPEL_SEARCH_PARAMS tf_sp_param;
     tf_sp_param.subsampling_shift = pcs->tf_ctrls.sub_sampling_shift;
@@ -1963,8 +1963,8 @@ static void tf_16x16_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
         // Set starting MV and distortion
         me_ctx->tf_16x16_block_error[idx_32x32 * 4 + idx_16x16] = INT_MAX;
         // AV1 MVs are always in 1/8th pel precision.
-        me_ctx->tf_16x16_mv_x[idx_32x32 * 4 + idx_16x16] = (_MVXT(me_ctx->p_best_mv16x16[mv_index])) << 3;
-        me_ctx->tf_16x16_mv_y[idx_32x32 * 4 + idx_16x16] = (_MVYT(me_ctx->p_best_mv16x16[mv_index])) << 3;
+        me_ctx->tf_16x16_mv_x[idx_32x32 * 4 + idx_16x16] = (_MVXT(me_ctx->p_best_mv16x16[mv_index])) * 8;
+        me_ctx->tf_16x16_mv_y[idx_32x32 * 4 + idx_16x16] = (_MVYT(me_ctx->p_best_mv16x16[mv_index])) * 8;
 
         // Perform subpel search for the block
         tf_subpel_search(&tf_sp_param,
@@ -2076,10 +2076,8 @@ static void tf_8x8_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_ct
             // Set starting MV and distortion
             me_ctx->tf_8x8_block_error[idx_32x32 * 16 + 4 * idx_16x16 + idx_8x8] = INT_MAX;
             // AV1 MVs are always in 1/8th pel precision.
-            me_ctx->tf_8x8_mv_x[idx_32x32 * 16 + 4 * idx_16x16 + idx_8x8] = (_MVXT(me_ctx->p_best_mv8x8[mv_index]))
-                << 3;
-            me_ctx->tf_8x8_mv_y[idx_32x32 * 16 + 4 * idx_16x16 + idx_8x8] = (_MVYT(me_ctx->p_best_mv8x8[mv_index]))
-                << 3;
+            me_ctx->tf_8x8_mv_x[idx_32x32 * 16 + 4 * idx_16x16 + idx_8x8] = (_MVXT(me_ctx->p_best_mv8x8[mv_index])) * 8;
+            me_ctx->tf_8x8_mv_y[idx_32x32 * 16 + 4 * idx_16x16 + idx_8x8] = (_MVYT(me_ctx->p_best_mv8x8[mv_index])) * 8;
 
             // Search subpel for this block
             tf_subpel_search(&tf_sp_param,
@@ -2848,11 +2846,11 @@ static EbErrorType produce_temporally_filtered_pic(PictureParentControlSet** pcs
             // 2nd segment: current pic
             // 3rd segment: future pics - from closest to farthest
 
-            int start_frame_index[3] = {0, centre_pcs->past_altref_nframes, centre_pcs->past_altref_nframes + 1};
+            const int start_frame_index[3] = {0, centre_pcs->past_altref_nframes, centre_pcs->past_altref_nframes + 1};
 
-            int end_frame_index[3] = {centre_pcs->past_altref_nframes - 1,
-                                      centre_pcs->past_altref_nframes,
-                                      centre_pcs->past_altref_nframes + centre_pcs->future_altref_nframes};
+            const int end_frame_index[3] = {centre_pcs->past_altref_nframes - 1,
+                                            centre_pcs->past_altref_nframes,
+                                            centre_pcs->past_altref_nframes + centre_pcs->future_altref_nframes};
 
             for (int segment_idx = 0; segment_idx < 3; segment_idx++) {
                 for (int frame_index = start_frame_index[segment_idx]; frame_index <= end_frame_index[segment_idx];

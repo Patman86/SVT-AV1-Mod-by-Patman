@@ -1061,15 +1061,14 @@ uint32_t check_00_center(EbPictureBufferDesc* ref_pic_ptr, MeContext* me_ctx, ui
                          int16_t* y_search_center, uint32_t zz_sad)
 
 {
-    uint32_t zero_mv_sad, hme_mv_sad;
-    uint64_t hme_mv_cost, zero_mv_cost, search_center_cost;
-    int16_t  org_x         = (int16_t)sb_origin_x;
-    int16_t  org_y         = (int16_t)sb_origin_y;
-    uint32_t subsample_sad = 1;
-    int16_t  pad_width     = (int16_t)BLOCK_SIZE_64 - 1;
-    int16_t  pad_height    = (int16_t)BLOCK_SIZE_64 - 1;
+    const int16_t org_x         = (int16_t)sb_origin_x;
+    const int16_t org_y         = (int16_t)sb_origin_y;
+    const int     subsample_sad = 1;
+    const int16_t pad_width     = (int16_t)BLOCK_SIZE_64 - 1;
+    const int16_t pad_height    = (int16_t)BLOCK_SIZE_64 - 1;
 
-    int32_t search_region_index = org_x + (org_y)*ref_pic_ptr->y_stride;
+    int32_t  search_region_index = org_x + (org_y)*ref_pic_ptr->y_stride;
+    uint64_t zero_mv_sad;
     if (me_ctx->me_early_exit_th) {
         zero_mv_sad = zz_sad;
     } else {
@@ -1102,20 +1101,20 @@ uint32_t check_00_center(EbPictureBufferDesc* ref_pic_ptr, MeContext* me_ctx, ui
         : *y_search_center;
     ///
 
-    zero_mv_cost        = zero_mv_sad << COST_PRECISION;
-    search_region_index = (int16_t)(org_x) + *x_search_center +
+    uint64_t zero_mv_cost = zero_mv_sad << COST_PRECISION;
+    search_region_index   = (int16_t)(org_x) + *x_search_center +
         ((int16_t)(org_y) + *y_search_center) * ref_pic_ptr->y_stride;
 
-    hme_mv_sad = svt_nxm_sad_kernel(me_ctx->b64_src_ptr,
-                                    me_ctx->b64_src_stride << subsample_sad,
-                                    &(ref_pic_ptr->y_buffer[search_region_index]),
-                                    ref_pic_ptr->y_stride << subsample_sad,
-                                    sb_height >> subsample_sad,
-                                    sb_width);
+    uint64_t hme_mv_sad = svt_nxm_sad_kernel(me_ctx->b64_src_ptr,
+                                             me_ctx->b64_src_stride << subsample_sad,
+                                             &(ref_pic_ptr->y_buffer[search_region_index]),
+                                             ref_pic_ptr->y_stride << subsample_sad,
+                                             sb_height >> subsample_sad,
+                                             sb_width);
 
-    hme_mv_sad         = hme_mv_sad << subsample_sad;
-    hme_mv_cost        = hme_mv_sad << COST_PRECISION;
-    search_center_cost = MIN(zero_mv_cost, hme_mv_cost);
+    hme_mv_sad                  = hme_mv_sad << subsample_sad;
+    uint64_t hme_mv_cost        = hme_mv_sad << COST_PRECISION;
+    uint64_t search_center_cost = MIN(zero_mv_cost, hme_mv_cost);
 
     *x_search_center = (search_center_cost == zero_mv_cost) ? 0 : *x_search_center;
     *y_search_center = (search_center_cost == zero_mv_cost) ? 0 : *y_search_center;

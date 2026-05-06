@@ -3027,13 +3027,11 @@ static INLINE void fwd_txfm2d_sse4_1(const int16_t* input, int32_t* output, cons
 
 static INLINE void load_buffer_32x8n(const int16_t* input, __m128i* out, int stride, int flipud, int fliplr, int shift,
                                      const int height) {
-    const int16_t* in     = input;
-    __m128i*       output = out;
     for (int col = 0; col < height; col++) {
-        in     = input + col * stride;
-        output = out + col * 8;
+        const int16_t* in     = input + col * stride;
+        __m128i*       output = out + col * 8;
         load_buffer_4x4(in, output, 4, flipud, fliplr, shift);
-        load_buffer_4x4((in + 16), (output + 4), 4, flipud, fliplr, shift);
+        load_buffer_4x4(in + 16, output + 4, 4, flipud, fliplr, shift);
     }
 }
 
@@ -4707,13 +4705,9 @@ static AOM_FORCE_INLINE void load_buffer_16x16_N2(const int16_t* input, __m128i*
 
     if (fliplr) {
         // Swap top rows
-        tmp   = top_l;
         top_l = top_r;
-        top_r = tmp;
         // Swap bottom rows
-        tmp   = bot_l;
         bot_l = bot_r;
-        bot_r = tmp;
     }
 
     // load first 8 columns
@@ -4729,28 +4723,18 @@ static AOM_FORCE_INLINE void load_buffer_16x16_N2_H(const int16_t* input, __m128
     const int16_t* bot_l = input + 8 * stride;
     const int16_t* bot_r = input + 8 * stride + 8;
 
-    const int16_t* tmp;
-
     if (flipud) {
         // Swap left columns
-        tmp   = top_l;
         top_l = bot_l;
-        bot_l = tmp;
         // Swap right columns
-        tmp   = top_r;
         top_r = bot_r;
-        bot_r = tmp;
     }
 
     if (fliplr) {
         // Swap top rows
-        tmp   = top_l;
-        top_l = top_r;
-        top_r = tmp;
-        // Swap bottom rows
-        tmp   = bot_l;
-        bot_l = bot_r;
-        bot_r = tmp;
+        const int16_t* tmp = top_l;
+        top_l              = top_r;
+        top_r              = tmp;
     }
 
     // load first 8 columns
@@ -4768,28 +4752,16 @@ static AOM_FORCE_INLINE void load_buffer_16x16_N2_half(const int16_t* input, __m
     const int16_t* bot_l = input + 8 * stride;
     const int16_t* bot_r = input + 8 * stride + 8;
 
-    const int16_t* tmp;
-
     if (flipud) {
         // Swap left columns
-        tmp   = top_l;
         top_l = bot_l;
-        bot_l = tmp;
         // Swap right columns
-        tmp   = top_r;
         top_r = bot_r;
-        bot_r = tmp;
     }
 
     if (fliplr) {
         // Swap top rows
-        tmp   = top_l;
         top_l = top_r;
-        top_r = tmp;
-        // Swap bottom rows
-        tmp   = bot_l;
-        bot_l = bot_r;
-        bot_r = tmp;
     }
 
     // load first 8 columns

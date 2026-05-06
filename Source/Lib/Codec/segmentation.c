@@ -91,18 +91,17 @@ static void roi_map_apply_segmentation_based_quantization(PictureControlSet* pcs
     const SvtAv1RoiMapEvt* roi_map             = pcs->ppcs->roi_map_evt;
     SegmentationParams*    segmentation_params = &pcs->ppcs->frm_hdr.segmentation_params;
     const int              stride_b64          = (scs->max_input_luma_width + 63) / 64;
-    uint8_t                segment_id;
+    uint8_t                segment_id          = MAX_SEGMENTS;
     if (scs->seq_header.sb_size == BLOCK_64X64) {
         const int column_b64 = sb_ptr->org_x >> 6;
         const int row_b64    = sb_ptr->org_y >> 6;
         segment_id           = roi_map->b64_seg_map[row_b64 * stride_b64 + column_b64];
     } else { // sb128
-        segment_id = MAX_SEGMENTS;
         // 4 b64 blocks to check intersection
-        int       b64_seg_columns[4] = {sb_ptr->org_x, sb_ptr->org_x + 64, sb_ptr->org_x, sb_ptr->org_x + 64};
-        int       b64_seg_rows[4]    = {sb_ptr->org_y, sb_ptr->org_y, sb_ptr->org_y + 64, sb_ptr->org_y + 64};
-        int       blk_org_x          = sb_ptr->org_x + org_x;
-        int       blk_org_y          = sb_ptr->org_y + org_y;
+        const int b64_seg_columns[4] = {sb_ptr->org_x, sb_ptr->org_x + 64, sb_ptr->org_x, sb_ptr->org_x + 64};
+        const int b64_seg_rows[4]    = {sb_ptr->org_y, sb_ptr->org_y, sb_ptr->org_y + 64, sb_ptr->org_y + 64};
+        const int blk_org_x          = sb_ptr->org_x + org_x;
+        const int blk_org_y          = sb_ptr->org_y + org_y;
         const int bwidth             = block_size_wide[bsize];
         const int bheight            = block_size_high[bsize];
         for (int i = 0; i < 4; ++i) {
@@ -113,6 +112,11 @@ static void roi_map_apply_segmentation_based_quantization(PictureControlSet* pcs
                 segment_id           = MIN(segment_id, roi_map->b64_seg_map[row_b64 * stride_b64 + column_b64]);
             }
         }
+    }
+    assert(segment_id != MAX_SEGMENTS);
+    if (segment_id == MAX_SEGMENTS) {
+        // No intersection with any segment, assign to segment 0
+        segment_id = 0;
     }
 
     for (int i = segment_id; i >= 0; i--) {

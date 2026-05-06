@@ -1005,9 +1005,9 @@ static const int plane_rd_mult[2][REF_TYPES][PLANE_TYPES] = {{{17, 20}, {16, 20}
  */
 static INLINE void update_coeff_eob_fast(uint16_t* eob, int shift, const int16_t* dequant_ptr, const int16_t* scan,
                                          const TranLow* coeff_ptr, TranLow* qcoeff_ptr, TranLow* dqcoeff_ptr) {
-    int eob_out = *eob;
-    int zbin[2] = {dequant_ptr[0] + ROUND_POWER_OF_TWO(dequant_ptr[0] * 70, 7),
-                   dequant_ptr[1] + ROUND_POWER_OF_TWO(dequant_ptr[1] * 70, 7)};
+    int       eob_out = *eob;
+    const int zbin[2] = {dequant_ptr[0] + ROUND_POWER_OF_TWO(dequant_ptr[0] * 70, 7),
+                         dequant_ptr[1] + ROUND_POWER_OF_TWO(dequant_ptr[1] * 70, 7)};
     for (int i = *eob - 1; i >= 0; i--) {
         const int rc         = scan[i];
         const int qcoeff     = qcoeff_ptr[rc];

@@ -454,19 +454,18 @@ class CDEFFindDirTest : public ::testing::TestWithParam<TestFindDirParam> {
     }
 
     void test_finddir() {
-        int depth, bits, level, count;
-        uint8_t res_ref = 0, res_tst = 0;
-        int32_t var_ref = 0, var_tst = 0;
-
-        for (depth = 8; depth <= 12; depth += 2) {
-            for (count = 0; count < 512; count++) {
+        for (int depth = 8; depth <= 12; depth += 2) {
+            for (int count = 0; count < 512; count++) {
                 const int shift = depth - 8;
-                for (level = 0; level < (1 << depth); level += 1 << shift) {
-                    for (bits = 1; bits <= depth; bits++) {
+                for (int level = 0; level < (1 << depth); level += 1 << shift) {
+                    for (int bits = 1; bits <= depth; bits++) {
                         prepare_data(depth, bits, level);
+                        int32_t var_ref = 0, var_tst = 0;
 
-                        res_ref = func_ref_(src_, size_, &var_ref, shift);
-                        res_tst = func_tst_(src_, size_, &var_tst, shift);
+                        uint8_t res_ref =
+                            func_ref_(src_, size_, &var_ref, shift);
+                        uint8_t res_tst =
+                            func_tst_(src_, size_, &var_tst, shift);
                         ASSERT_EQ(res_tst, res_ref)
                             << "Error: CDEFFindDirTest, SIMD and C mismatch."
                             << "return " << res_tst << " : " << res_ref

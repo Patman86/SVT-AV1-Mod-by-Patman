@@ -160,3 +160,85 @@ def get_cmd_times(cmd, passes=1):
         return total_time / actual_passes
 
     return wallclock_time / actual_passes
+
+
+def collect_nsys_stats(report_path):
+    """Read parity metrics out of an Nsight Systems .nsys-rep capture for the
+    per-job CSV row.
+
+    Strategy: export to SQLite once, then query directly. This is more robust
+    across nsys versions than parsing the CLI's `nsys stats` text output (the
+    set of built-in reports has churned between releases — for instance the
+    `cpu_sampling` stats report present in nsys < 2025 was removed in 2026).
+
+    Returns a dict with safe defaults; never raises so the caller can merge
+    the results unconditionally even when nsys is missing or the capture
+    contains no data for a given metric."""
+    import sqlite3
+
+    out = {
+        "cpu_sampling_top1_func": "",
+        "osrt_total_ms": 0.0,
+    }
+    if not shutil.which("nsys") or not os.path.exists(report_path):
+        return out
+
+    sqlite_path = os.path.splitext(report_path)[0] + ".sqlite"
+    # Cap export at 3 minutes — typical .nsys-rep exports finish in seconds,
+    # but multi-GB captures from long preset-2 runs can stretch toward a
+    # minute on slow IO. The cap is a safety net against an `nsys` regression
+    # hanging the whole sweep, not a target latency.
+    try:
+        subprocess.run(
+            ["nsys", "export", "-t", "sqlite", "-f", "true",
+             "-o", sqlite_path, report_path],
+            capture_output=True, text=True, check=False, timeout=180,
+        )
+    except Exception:
+        return out
+
+    if not os.path.exists(sqlite_path):
+        return out
+
+    try:
+        db = sqlite3.connect(sqlite_path)
+        cur = db.cursor()
+
+        # Total OS runtime time (sem_wait, futex, pthread mutex/cond, syscalls).
+        # OSRT_API columns: start, end, eventClass, globalTid, correlationId, nameId, ...
+        try:
+            row = cur.execute(
+                "SELECT SUM(end - start) FROM OSRT_API"
+            ).fetchone()
+            if row and row[0] is not None:
+                out["osrt_total_ms"] = float(row[0]) / 1e6
+        except sqlite3.OperationalError:
+            pass
+
+        # Top sampled function across all threads — perf record -g equivalent.
+        # SAMPLE/SAMPLING_CALLCHAINS materialize only when the capture window
+        # is long enough to accumulate samples (default 1 kHz). For very short
+        # runs the table may be absent or empty; leave the column empty in
+        # that case rather than fabricating data.
+        try:
+            row = cur.execute("""
+                SELECT s.value, COUNT(*) AS n
+                FROM SAMPLING_CALLCHAINS scc
+                JOIN StringIds s ON s.id = scc.symbol
+                WHERE scc.stackDepth = 0
+                GROUP BY scc.symbol
+                ORDER BY n DESC
+                LIMIT 1
+            """).fetchone()
+            if row:
+                out["cpu_sampling_top1_func"] = row[0]
+        except sqlite3.OperationalError:
+            # SAMPLING_CALLCHAINS missing — short capture or sampling disabled.
+            pass
+
+        db.close()
+    except Exception:
+        # Best-effort; never block the encode job because of profiler parsing.
+        pass
+
+    return out

@@ -2062,9 +2062,8 @@ static void exaustive_light_pd1_features(ModeDecisionContext* md_ctx, PicturePar
             md_ctx->spatial_sse_ctrls.level == SSSE_OFF && md_ctx->md_sq_me_ctrls.enabled == 0 &&
             md_ctx->md_pme_ctrls.enabled == 0 && md_ctx->txt_ctrls.enabled == 0 && md_ctx->unipred3x3_injection == 0 &&
             md_ctx->bipred3x3_ctrls.enabled == 0 && md_ctx->inter_comp_ctrls.tot_comp_types == 1 &&
-            md_ctx->obmc_ctrls.enabled == 0 && md_ctx->filter_intra_ctrls.enabled == 0 &&
-            md_ctx->new_nearest_near_comb_injection == 0 && md_ctx->md_palette_level == 0 &&
-            ppcs->gm_ctrls.enabled == 0 &&
+            md_ctx->filter_intra_ctrls.enabled == 0 && md_ctx->new_nearest_near_comb_injection == 0 &&
+            md_ctx->md_palette_level == 0 && ppcs->gm_ctrls.enabled == 0 &&
             // If TXS enabled at picture level, there are necessary context updates that must be added to LPD1
             ppcs->frm_hdr.tx_mode != TX_MODE_SELECT && md_ctx->txs_ctrls.enabled == 0 && md_ctx->pred_depth_only &&
             md_ctx->md_disallow_nsq_search == true && md_ctx->disallow_4x4 == true &&

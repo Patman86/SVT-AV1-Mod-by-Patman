@@ -175,7 +175,7 @@ void ReferenceHadamard(const int16_t *a, int a_stride, OutputType *b, int bwh) {
 
 template <typename HadamardFuncType>
 struct FuncWithSize {
-    FuncWithSize(HadamardFuncType f, int s) : func(f), block_size(s) {
+    explicit FuncWithSize(HadamardFuncType f, int s) : func(f), block_size(s) {
     }
     HadamardFuncType func;
     int block_size;

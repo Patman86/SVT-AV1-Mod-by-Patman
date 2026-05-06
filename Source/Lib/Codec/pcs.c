@@ -504,7 +504,9 @@ static EbErrorType picture_control_set_ctor(PictureControlSet* object_ptr, EbPtr
         set_restoration_unit_size(
             init_data_ptr->picture_width, init_data_ptr->picture_height, 1, 1, object_ptr->rst_info);
 
-        return_error = svt_av1_alloc_restoration_buffers(object_ptr, init_data_ptr->av1_cm);
+        if (svt_av1_alloc_restoration_buffers(object_ptr, init_data_ptr->av1_cm) != EB_ErrorNone) {
+            return EB_ErrorInsufficientResources;
+        }
 
         int32_t ntiles[2];
         for (int32_t is_uv = 0; is_uv < 2; ++is_uv) {
