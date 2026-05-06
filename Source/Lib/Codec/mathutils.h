@@ -19,7 +19,7 @@
 #include <assert.h>
 
 // Solves Ax = b, where x and b are column vectors of size nx1 and A is nxn
-static INLINE int32_t linsolve(int32_t n, double *A, int32_t stride, double *b, double *x) {
+static INLINE int32_t linsolve(int32_t n, double* A, int32_t stride, double* b, double* x) {
     const double tiny_near_zero = 1.0E-16;
     int32_t      i, j, k;
     double       c;
@@ -39,19 +39,25 @@ static INLINE int32_t linsolve(int32_t n, double *A, int32_t stride, double *b, 
             }
         }
         for (i = k; i < n - 1; i++) {
-            if (fabs(A[k * stride + k]) < tiny_near_zero)
+            if (fabs(A[k * stride + k]) < tiny_near_zero) {
                 return 0;
+            }
             c = A[(i + 1) * stride + k] / A[k * stride + k];
-            for (j = 0; j < n; j++) A[(i + 1) * stride + j] -= c * A[k * stride + j];
+            for (j = 0; j < n; j++) {
+                A[(i + 1) * stride + j] -= c * A[k * stride + j];
+            }
             b[i + 1] -= c * b[k];
         }
     }
     // Backward substitution
     for (i = n - 1; i >= 0; i--) {
-        if (fabs(A[i * stride + i]) < tiny_near_zero)
+        if (fabs(A[i * stride + i]) < tiny_near_zero) {
             return 0;
+        }
         c = 0;
-        for (j = i + 1; j <= n - 1; j++) c += A[i * stride + j] * x[j];
+        for (j = i + 1; j <= n - 1; j++) {
+            c += A[i * stride + j] * x[j];
+        }
         x[i] = (b[i] - c) / A[i * stride + i];
     }
 
@@ -81,21 +87,28 @@ static INLINE int32_t linsolve(int32_t n, double *A, int32_t stride, double *b, 
 // * a, b are the coefficients of each individual equation,
 // * x is the result vector
 // * and n is the problem size
-static INLINE void least_squares_init(double *mat, double *y, int n) {
+static INLINE void least_squares_init(double* mat, double* y, int n) {
     memset(mat, 0, n * n * sizeof(double));
     memset(y, 0, n * sizeof(double));
 }
-static INLINE void least_squares_accumulate(double *mat, double *y, const double *a, double b, int n) {
+
+static INLINE void least_squares_accumulate(double* mat, double* y, const double* a, double b, int n) {
     for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) { mat[i * n + j] += a[i] * a[j]; }
+        for (int j = 0; j < n; j++) {
+            mat[i * n + j] += a[i] * a[j];
+        }
     }
-    for (int i = 0; i < n; i++) { y[i] += a[i] * b; }
+    for (int i = 0; i < n; i++) {
+        y[i] += a[i] * b;
+    }
 }
 
-static INLINE int least_squares_solve(double *mat, double *y, double *x, int n) { return linsolve(n, mat, n, y, x); }
+static INLINE int least_squares_solve(double* mat, double* y, double* x, int n) {
+    return linsolve(n, mat, n, y, x);
+}
 
 // Matrix multiply
-static INLINE void multiply_mat(const double *m1, const double *m2, double *res, const int32_t m1_rows,
+static INLINE void multiply_mat(const double* m1, const double* m2, double* res, const int32_t m1_rows,
                                 const int32_t inner_dim, const int32_t m2_cols) {
     double sum;
 
@@ -103,7 +116,9 @@ static INLINE void multiply_mat(const double *m1, const double *m2, double *res,
     for (row = 0; row < m1_rows; ++row) {
         for (col = 0; col < m2_cols; ++col) {
             sum = 0;
-            for (inner = 0; inner < inner_dim; ++inner) sum += m1[row * inner_dim + inner] * m2[inner * m2_cols + col];
+            for (inner = 0; inner < inner_dim; ++inner) {
+                sum += m1[row * inner_dim + inner] * m2[inner * m2_cols + col];
+            }
             *(res++) = sum;
         }
     }

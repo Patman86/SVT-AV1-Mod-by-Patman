@@ -28,7 +28,7 @@ enum {
 
 typedef struct {
     EbDctor  dctor;
-    uint8_t *data;
+    uint8_t* data;
     uint32_t map_size;
 } SegmentationNeighborMap;
 

@@ -17,31 +17,18 @@
 #include "common_dsp_rtcd.h"
 #include "ac_bias.h"
 #include "block_structures.h"
-/*********************************
-* Picture Average
-*********************************/
-void svt_picture_average_kernel_c(EbByte src0, uint32_t src0_stride, EbByte src1, uint32_t src1_stride, EbByte dst,
-                                  uint32_t dst_stride, uint32_t area_width, uint32_t area_height) {
-    uint32_t x, y;
-
-    for (y = 0; y < area_height; y++) {
-        for (x = 0; x < area_width; x++) { dst[x] = (src0[x] + src1[x] + 1) >> 1; }
-        src0 += src0_stride;
-        src1 += src1_stride;
-        dst += dst_stride;
-    }
-}
-
-void svt_picture_average_kernel1_line_c(EbByte src0, EbByte src1, EbByte dst, uint32_t areaWidth) {
-    uint32_t i;
-    for (i = 0; i < areaWidth; i++) dst[i] = (src0[i] + src1[i] + 1) / 2;
-}
 
 /*********************************
 * Picture Copy Kernel
 *********************************/
-void svt_memcpy_c(void* dst_ptr, void const* src_ptr, size_t size) { memcpy(dst_ptr, src_ptr, size); }
-void svt_memset_c(void* dst_ptr, int c, size_t size) { memset(dst_ptr, c, size); }
+void svt_memcpy_c(void* dst_ptr, void const* src_ptr, size_t size) {
+    memcpy(dst_ptr, src_ptr, size);
+}
+
+void svt_memset_c(void* dst_ptr, int c, size_t size) {
+    memset(dst_ptr, c, size);
+}
+
 void svt_aom_picture_copy_kernel(EbByte src, uint32_t src_stride, EbByte dst, uint32_t dst_stride, uint32_t area_width,
                                  uint32_t area_height,
                                  uint32_t bytes_per_sample) //=1 always)
@@ -123,7 +110,9 @@ void svt_aom_hadamard_4x4_c(const int16_t* src_diff, ptrdiff_t src_stride, int32
 
     // Extra transpose to match SSE2 behavior(i.e., svt_aom_hadamard_4x4_sse2).
     for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) { coeff[i * 4 + j] = (int32_t)buffer2[j * 4 + i]; }
+        for (int j = 0; j < 4; j++) {
+            coeff[i * 4 + j] = (int32_t)buffer2[j * 4 + i];
+        }
     }
 }
 
@@ -181,7 +170,9 @@ void svt_aom_hadamard_8x8_c(const int16_t* src_diff, ptrdiff_t src_stride, int32
         ++tmp_buf;
     }
 
-    for (idx = 0; idx < 64; ++idx) coeff[idx] = (int32_t)buffer2[idx];
+    for (idx = 0; idx < 64; ++idx) {
+        coeff[idx] = (int32_t)buffer2[idx];
+    }
 }
 
 static void hadamard_highbd_col8_first_pass(const int16_t* src_diff, ptrdiff_t src_stride, int16_t* coeff) {
@@ -267,7 +258,9 @@ void svt_aom_highbd_hadamard_8x8_c(const int16_t* src_diff, ptrdiff_t src_stride
         ++tmp_buf;
     }
 
-    for (idx = 0; idx < 64; ++idx) coeff[idx] = (int32_t)buffer2[idx];
+    for (idx = 0; idx < 64; ++idx) {
+        coeff[idx] = (int32_t)buffer2[idx];
+    }
 }
 
 // In place 16x16 2D Hadamard transform
@@ -331,10 +324,14 @@ void svt_aom_hadamard_32x32_c(const int16_t* src_diff, ptrdiff_t src_stride, int
 
 void svt_av1_copy_wxh_8bit_c(uint8_t* src, uint32_t src_stride, uint8_t* dst, uint32_t dst_stride, uint32_t height,
                              uint32_t width) {
-    for (uint32_t j = 0; j < height; j++) { svt_memcpy_c(dst + j * dst_stride, src + j * src_stride, width); }
+    for (uint32_t j = 0; j < height; j++) {
+        svt_memcpy_c(dst + j * dst_stride, src + j * src_stride, width);
+    }
 }
 
 void svt_av1_copy_wxh_16bit_c(uint16_t* src, uint32_t src_stride, uint16_t* dst, uint32_t dst_stride, uint32_t height,
                               uint32_t width) {
-    for (uint32_t j = 0; j < height; j++) { svt_memcpy_c(dst + j * dst_stride, src + j * src_stride, width * 2); }
+    for (uint32_t j = 0; j < height; j++) {
+        svt_memcpy_c(dst + j * dst_stride, src + j * src_stride, width * 2);
+    }
 }

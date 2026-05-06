@@ -25,7 +25,7 @@
 #include "VideoFrame.h"
 
 /** FrameQueue is a class designed to collect YUV video frames. It provides
- * interfaces for generating, store and destory frame containers. It can be
+ * interfaces for generating, store and destroy frame containers. It can be
  * implemented with file-mode or buffer-mode to store the video frames, and it
  * also provides inside sorting by timestamp.
  */

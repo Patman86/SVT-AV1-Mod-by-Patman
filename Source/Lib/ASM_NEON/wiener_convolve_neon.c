@@ -42,12 +42,12 @@ static inline uint16x8_t wiener_convolve5_8_2d_h(const uint8x8_t t0, const uint8
     return vminq_u16(res, im_max_val);
 }
 
-static inline void convolve_add_src_horiz_5tap_neon(const uint8_t *src_ptr, ptrdiff_t src_stride, uint16_t *dst_ptr,
+static inline void convolve_add_src_horiz_5tap_neon(const uint8_t* src_ptr, ptrdiff_t src_stride, uint16_t* dst_ptr,
                                                     ptrdiff_t dst_stride, int w, int h, const int16x4_t x_filter,
                                                     const int32x4_t round_vec, const uint16x8_t im_max_val) {
     do {
-        const uint8_t *s     = src_ptr;
-        uint16_t      *d     = dst_ptr;
+        const uint8_t* s     = src_ptr;
+        uint16_t*      d     = dst_ptr;
         int            width = w;
 
         do {
@@ -94,12 +94,12 @@ static inline uint16x8_t wiener_convolve7_8_2d_h(const uint8x8_t t0, const uint8
     return vminq_u16(res, im_max_val);
 }
 
-static inline void convolve_add_src_horiz_7tap_neon(const uint8_t *src_ptr, ptrdiff_t src_stride, uint16_t *dst_ptr,
+static inline void convolve_add_src_horiz_7tap_neon(const uint8_t* src_ptr, ptrdiff_t src_stride, uint16_t* dst_ptr,
                                                     ptrdiff_t dst_stride, int w, int h, const int16x4_t x_filter,
                                                     const int32x4_t round_vec, const uint16x8_t im_max_val) {
     do {
-        const uint8_t *s     = src_ptr;
-        uint16_t      *d     = dst_ptr;
+        const uint8_t* s     = src_ptr;
+        uint16_t*      d     = dst_ptr;
         int            width = w;
 
         do {
@@ -141,12 +141,12 @@ static inline uint8x8_t wiener_convolve5_8_2d_v(const int16x8_t s0, const int16x
     return vqmovun_s16(vcombine_s16(res_lo, res_hi));
 }
 
-static inline void convolve_add_src_vert_5tap_neon(const uint16_t *src, ptrdiff_t src_stride, uint8_t *dst,
+static inline void convolve_add_src_vert_5tap_neon(const uint16_t* src, ptrdiff_t src_stride, uint8_t* dst,
                                                    ptrdiff_t dst_stride, int w, int h, const int16x4_t y_filter,
                                                    const int32x4_t round_vec) {
     do {
-        const int16_t *s      = (int16_t *)src;
-        uint8_t       *d      = dst;
+        const int16_t* s      = (int16_t*)src;
+        uint8_t*       d      = dst;
         int            height = h;
 
         while (height > 3) {
@@ -209,12 +209,12 @@ static inline uint8x8_t wiener_convolve7_8_2d_v(const int16x8_t s0, const int16x
     return vqmovun_s16(vcombine_s16(res_lo, res_hi));
 }
 
-static inline void convolve_add_src_vert_7tap_neon(const uint16_t *src, ptrdiff_t src_stride, uint8_t *dst,
+static inline void convolve_add_src_vert_7tap_neon(const uint16_t* src, ptrdiff_t src_stride, uint8_t* dst,
                                                    ptrdiff_t dst_stride, int w, int h, const int16x4_t y_filter,
                                                    const int32x4_t round_vec) {
     do {
-        const int16_t *s      = (int16_t *)src;
-        uint8_t       *d      = dst;
+        const int16_t* s      = (int16_t*)src;
+        uint8_t*       d      = dst;
         int            height = h;
 
         while (height > 3) {
@@ -251,7 +251,7 @@ static inline void convolve_add_src_vert_7tap_neon(const uint16_t *src, ptrdiff_
     } while (w != 0);
 }
 
-static inline int get_wiener_filter_taps(const int16_t *filter) {
+static inline int get_wiener_filter_taps(const int16_t* filter) {
     assert(filter[7] == 0);
     if (filter[0] == 0 && filter[6] == 0) {
         return WIENER_WIN_REDUCED;
@@ -262,9 +262,9 @@ static inline int get_wiener_filter_taps(const int16_t *filter) {
 // Wiener filter 2D
 // Apply horizontal filter and store in a temporary buffer. When applying
 // vertical filter, overwrite the original pixel values.
-void svt_av1_wiener_convolve_add_src_neon(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride,
-                                          const int16_t *x_filter, const int16_t *y_filter, int w, int h,
-                                          const ConvolveParams *conv_params) {
+void svt_av1_wiener_convolve_add_src_neon(const uint8_t* src, ptrdiff_t src_stride, uint8_t* dst, ptrdiff_t dst_stride,
+                                          const int16_t* x_filter, const int16_t* y_filter, int w, int h,
+                                          const ConvolveParams* conv_params) {
     (void)conv_params;
 
     assert(w % 8 == 0);

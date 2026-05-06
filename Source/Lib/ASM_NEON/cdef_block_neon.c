@@ -21,7 +21,7 @@
 #define svt_clzll(id, x) _BitScanReverse64(&id, x)
 #endif
 
-void svt_aom_copy_rect8_8bit_to_16bit_neon(uint16_t *dst, int32_t dstride, const uint8_t *src, int32_t sstride,
+void svt_aom_copy_rect8_8bit_to_16bit_neon(uint16_t* dst, int32_t dstride, const uint8_t* src, int32_t sstride,
                                            int32_t v, int32_t h) {
     int32_t i, j;
     for (i = 0; i < v; i++) {
@@ -29,7 +29,9 @@ void svt_aom_copy_rect8_8bit_to_16bit_neon(uint16_t *dst, int32_t dstride, const
             const uint8x8_t row = vld1_u8(&src[i * sstride + j]);
             vst1q_u16(&dst[i * dstride + j], vmovl_u8(row));
         }
-        for (; j < h; j++) { dst[i * dstride + j] = src[i * sstride + j]; }
+        for (; j < h; j++) {
+            dst[i * dstride + j] = src[i * sstride + j];
+        }
     }
 }
 
@@ -297,7 +299,7 @@ static inline uint32x4_t compute_horiz_directions_neon(int16x8_t lines[8], uint3
     return costs[0];
 }
 
-uint8_t svt_aom_cdef_find_dir_neon(const uint16_t *img, int32_t stride, int32_t *var, int32_t coeff_shift) {
+uint8_t svt_aom_cdef_find_dir_neon(const uint16_t* img, int32_t stride, int32_t* var, int32_t coeff_shift) {
     uint32_t  cost[8];
     uint32_t  best_cost = 0;
     int       best_dir  = 0;
@@ -339,9 +341,9 @@ uint8_t svt_aom_cdef_find_dir_neon(const uint16_t *img, int32_t stride, int32_t 
     return best_dir;
 }
 
-void svt_aom_cdef_find_dir_dual_neon(const uint16_t *img1, const uint16_t *img2, int stride, int32_t *var_out_1st,
-                                     int32_t *var_out_2nd, int32_t coeff_shift, uint8_t *out_dir_1st_8x8,
-                                     uint8_t *out_dir_2nd_8x8) {
+void svt_aom_cdef_find_dir_dual_neon(const uint16_t* img1, const uint16_t* img2, int stride, int32_t* var_out_1st,
+                                     int32_t* var_out_2nd, int32_t coeff_shift, uint8_t* out_dir_1st_8x8,
+                                     uint8_t* out_dir_2nd_8x8) {
     // Process first 8x8.
     *out_dir_1st_8x8 = svt_aom_cdef_find_dir_neon(img1, stride, var_out_1st, coeff_shift);
 

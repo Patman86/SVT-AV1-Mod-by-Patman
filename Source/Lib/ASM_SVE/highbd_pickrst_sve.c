@@ -25,7 +25,7 @@
 #include "utility.h"
 
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
-static inline uint16_t highbd_find_average_sve(const uint16_t *src, int src_stride, int width, int height) {
+static inline uint16_t highbd_find_average_sve(const uint16_t* src, int src_stride, int width, int height) {
     uint64x2_t avg_u64 = vdupq_n_u64(0);
     uint16x8_t ones    = vdupq_n_u16(1);
 
@@ -35,7 +35,7 @@ static inline uint16_t highbd_find_average_sve(const uint16_t *src, int src_stri
     int h = height;
     do {
         int             j       = width;
-        const uint16_t *src_ptr = src;
+        const uint16_t* src_ptr = src;
         while (j > 8) {
             uint16x8_t s = vld1q_u16(src_ptr);
             avg_u64      = svt_udotq_u16(avg_u64, s, ones);
@@ -51,8 +51,8 @@ static inline uint16_t highbd_find_average_sve(const uint16_t *src, int src_stri
     return (uint16_t)(vaddvq_u64(avg_u64) / (width * height));
 }
 
-static inline void sub_avg_block_highbd_sve(const uint16_t *buf, int buf_stride, int16_t avg, int width, int height,
-                                            int16_t *buf_avg, int buf_avg_stride) {
+static inline void sub_avg_block_highbd_sve(const uint16_t* buf, int buf_stride, int16_t avg, int width, int height,
+                                            int16_t* buf_avg, int buf_avg_stride) {
     uint16x8_t avg_u16 = vdupq_n_u16(avg);
 
     // Use a predicate to compute the last columns.
@@ -62,8 +62,8 @@ static inline void sub_avg_block_highbd_sve(const uint16_t *buf, int buf_stride,
 
     do {
         int             j           = width;
-        const uint16_t *buf_ptr     = buf;
-        int16_t        *buf_avg_ptr = buf_avg;
+        const uint16_t* buf_ptr     = buf;
+        int16_t*        buf_avg_ptr = buf_avg;
         while (j > 8) {
             uint16x8_t d = vld1q_u16(buf_ptr);
             vst1q_s16(buf_avg_ptr, vreinterpretq_s16_u16(vsubq_u16(d, avg_u16)));
@@ -80,9 +80,9 @@ static inline void sub_avg_block_highbd_sve(const uint16_t *buf, int buf_stride,
     } while (--height > 0);
 }
 
-void svt_av1_compute_stats_highbd_sve(int32_t wiener_win, const uint8_t *dgd8, const uint8_t *src8, int32_t h_start,
+void svt_av1_compute_stats_highbd_sve(int32_t wiener_win, const uint8_t* dgd8, const uint8_t* src8, int32_t h_start,
                                       int32_t h_end, int32_t v_start, int32_t v_end, int32_t dgd_stride,
-                                      int32_t src_stride, int64_t *M, int64_t *H, EbBitDepth bit_depth) {
+                                      int32_t src_stride, int64_t* M, int64_t* H, EbBitDepth bit_depth) {
     if (bit_depth == EB_TWELVE_BIT) {
         svt_av1_compute_stats_highbd_c(
             wiener_win, dgd8, src8, h_start, h_end, v_start, v_end, dgd_stride, src_stride, M, H, bit_depth);
@@ -91,16 +91,16 @@ void svt_av1_compute_stats_highbd_sve(int32_t wiener_win, const uint8_t *dgd8, c
 
     const int32_t   wiener_win2    = wiener_win * wiener_win;
     const int32_t   wiener_halfwin = (wiener_win >> 1);
-    const uint16_t *src            = CONVERT_TO_SHORTPTR(src8);
-    const uint16_t *dgd            = CONVERT_TO_SHORTPTR(dgd8);
+    const uint16_t* src            = CONVERT_TO_SHORTPTR(src8);
+    const uint16_t* dgd            = CONVERT_TO_SHORTPTR(dgd8);
     const int32_t   width          = h_end - h_start;
     const int32_t   height         = v_end - v_start;
     const int32_t   d_stride       = (width + 2 * wiener_halfwin + 15) & ~15;
     const int32_t   s_stride       = (width + 15) & ~15;
-    int16_t        *d, *s;
+    int16_t *       d, *s;
 
-    const uint16_t *dgd_start = dgd + h_start + v_start * dgd_stride;
-    const uint16_t *src_start = src + h_start + v_start * src_stride;
+    const uint16_t* dgd_start = dgd + h_start + v_start * dgd_stride;
+    const uint16_t* src_start = src + h_start + v_start * src_stride;
     const uint16_t  avg       = highbd_find_average_sve(dgd_start, dgd_stride, width, height);
 
     // The maximum input size is width * height, which is
@@ -145,7 +145,9 @@ void svt_av1_compute_stats_highbd_sve(int32_t wiener_win, const uint8_t *dgd8, c
 
         H[k * wiener_win2 + k] /= 4;
 
-        for (; k < wiener_win2; ++k) { M[k] /= 4; }
+        for (; k < wiener_win2; ++k) {
+            M[k] /= 4;
+        }
 
         div4_diagonal_copy_stats_neon(wiener_win2, H);
     }

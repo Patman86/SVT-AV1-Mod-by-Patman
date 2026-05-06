@@ -16,8 +16,8 @@
 #include "definitions.h"
 #include "transpose_neon.h"
 
-static inline void hadamard_highbd_col8_first_pass(int16x8_t *a0, int16x8_t *a1, int16x8_t *a2, int16x8_t *a3,
-                                                   int16x8_t *a4, int16x8_t *a5, int16x8_t *a6, int16x8_t *a7) {
+static inline void hadamard_highbd_col8_first_pass(int16x8_t* a0, int16x8_t* a1, int16x8_t* a2, int16x8_t* a3,
+                                                   int16x8_t* a4, int16x8_t* a5, int16x8_t* a6, int16x8_t* a7) {
     int16x8_t b0 = vaddq_s16(*a0, *a1);
     int16x8_t b1 = vsubq_s16(*a0, *a1);
     int16x8_t b2 = vaddq_s16(*a2, *a3);
@@ -48,7 +48,7 @@ static inline void hadamard_highbd_col8_first_pass(int16x8_t *a0, int16x8_t *a1,
 
 static inline void hadamard_highbd_col4_second_pass(int16x4_t a0, int16x4_t a1, int16x4_t a2, int16x4_t a3,
                                                     int16x4_t a4, int16x4_t a5, int16x4_t a6, int16x4_t a7,
-                                                    int32_t *coeff) {
+                                                    int32_t* coeff) {
     int32x4_t b0 = vaddl_s16(a0, a1);
     int32x4_t b1 = vsubl_s16(a0, a1);
     int32x4_t b2 = vaddl_s16(a2, a3);
@@ -86,7 +86,7 @@ static inline void hadamard_highbd_col4_second_pass(int16x4_t a0, int16x4_t a1, 
     vst1q_s32(coeff + 28, d7);
 }
 
-void svt_aom_highbd_hadamard_8x8_neon(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff) {
+void svt_aom_highbd_hadamard_8x8_neon(const int16_t* src_diff, ptrdiff_t src_stride, int32_t* coeff) {
     int16x4_t b0, b1, b2, b3, b4, b5, b6, b7;
 
     int16x8_t s0 = vld1q_s16(src_diff + 0 * src_stride);

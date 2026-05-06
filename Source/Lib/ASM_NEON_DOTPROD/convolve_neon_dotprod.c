@@ -86,9 +86,9 @@ static inline uint8x8_t convolve4_8_x(const uint8x16_t samples, const int8x8_t f
     return vqrshrun_n_s16(sum, FILTER_BITS - 1);
 }
 
-static inline void convolve_x_sr_4tap_neon_dotprod(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst,
+static inline void convolve_x_sr_4tap_neon_dotprod(const uint8_t* src, ptrdiff_t src_stride, uint8_t* dst,
                                                    ptrdiff_t dst_stride, int width, int height,
-                                                   const int16_t *filter_x) {
+                                                   const int16_t* filter_x) {
     const int16x4_t x_filter = vld1_s16(filter_x + 2);
     // All 4-tap and bilinear filter values are even, so halve them to reduce
     // intermediate precision requirements.
@@ -120,8 +120,8 @@ static inline void convolve_x_sr_4tap_neon_dotprod(const uint8_t *src, ptrdiff_t
         const uint8x16x2_t permute_tbl = vld1q_u8_x2(svt_kDotProdPermuteTbl);
 
         do {
-            const uint8_t *s = src;
-            uint8_t       *d = dst;
+            const uint8_t* s = src;
+            uint8_t*       d = dst;
             int            w = width;
 
             do {
@@ -178,10 +178,10 @@ static inline uint8x8_t convolve8_8_x(uint8x16_t samples, const int8x8_t filter,
     return vqrshrun_n_s16(sum_s16, FILTER_BITS - 1);
 }
 
-void svt_av1_convolve_x_sr_neon_dotprod(const uint8_t *src, int32_t src_stride, uint8_t *dst, int32_t dst_stride,
-                                        int32_t w, int32_t h, const InterpFilterParams *filter_params_x,
-                                        const InterpFilterParams *filter_params_y, const int32_t subpel_x_qn,
-                                        const int32_t subpel_y_qn, ConvolveParams *conv_params) {
+void svt_av1_convolve_x_sr_neon_dotprod(const uint8_t* src, int32_t src_stride, uint8_t* dst, int32_t dst_stride,
+                                        int32_t w, int32_t h, const InterpFilterParams* filter_params_x,
+                                        const InterpFilterParams* filter_params_y, const int32_t subpel_x_qn,
+                                        const int32_t subpel_y_qn, ConvolveParams* conv_params) {
     if (w == 2 || h == 2) {
         svt_av1_convolve_x_sr_c(src,
                                 src_stride,
@@ -200,7 +200,7 @@ void svt_av1_convolve_x_sr_neon_dotprod(const uint8_t *src, int32_t src_stride, 
     const uint8_t horiz_offset = filter_params_x->taps / 2 - 1;
     src -= horiz_offset;
 
-    const int16_t *x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
+    const int16_t* x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
 
     int filter_taps = get_filter_tap(filter_params_x, subpel_x_qn & SUBPEL_MASK);
 
@@ -222,8 +222,8 @@ void svt_av1_convolve_x_sr_neon_dotprod(const uint8_t *src, int32_t src_stride, 
 
     do {
         int            width = w;
-        const uint8_t *s     = src;
-        uint8_t       *d     = dst;
+        const uint8_t* s     = src;
+        uint8_t*       d     = dst;
 
         do {
             uint8x16_t s0, s1, s2, s3;
@@ -277,8 +277,8 @@ static inline uint8x8_t convolve8_8_y(const int8x16_t s0_lo, const int8x16_t s0_
     return vqrshrun_n_s16(sum, FILTER_BITS - 1);
 }
 
-static inline void convolve_y_sr_8tap_neon_dotprod(const uint8_t *src_ptr, int src_stride, uint8_t *dst_ptr,
-                                                   int dst_stride, int w, int h, const int16_t *y_filter_ptr) {
+static inline void convolve_y_sr_8tap_neon_dotprod(const uint8_t* src_ptr, int src_stride, uint8_t* dst_ptr,
+                                                   int dst_stride, int w, int h, const int16_t* y_filter_ptr) {
     // Filter values are even, so halve to reduce intermediate precision reqs.
     const int8x8_t filter = vshrn_n_s16(vld1q_s16(y_filter_ptr), 1);
 
@@ -347,8 +347,8 @@ static inline void convolve_y_sr_8tap_neon_dotprod(const uint8_t *src_ptr, int s
     } else {
         do {
             int            height = h;
-            const uint8_t *s      = src_ptr;
-            uint8_t       *d      = dst_ptr;
+            const uint8_t* s      = src_ptr;
+            uint8_t*       d      = dst_ptr;
 
             uint8x8_t t0, t1, t2, t3, t4, t5, t6;
             load_u8_8x7(s, src_stride, &t0, &t1, &t2, &t3, &t4, &t5, &t6);
@@ -451,8 +451,8 @@ static inline uint8x8_t convolve4_8_y(const int8x16_t s0, const int8x16_t s1, co
     return vqrshrun_n_s16(sum, FILTER_BITS - 1);
 }
 
-static inline void convolve_y_sr_4tap_neon_dotprod(const uint8_t *src_ptr, int src_stride, uint8_t *dst_ptr,
-                                                   int dst_stride, int w, int h, const int16_t *y_filter_ptr) {
+static inline void convolve_y_sr_4tap_neon_dotprod(const uint8_t* src_ptr, int src_stride, uint8_t* dst_ptr,
+                                                   int dst_stride, int w, int h, const int16_t* y_filter_ptr) {
     // Filter values are even, so halve to reduce intermediate precision reqs.
     const int16x8_t    filter_s16      = vcombine_s16(vld1_s16(y_filter_ptr + 2), vdup_n_s16(0));
     const int8x8_t     filter          = vshrn_n_s16(filter_s16, 1);
@@ -516,8 +516,8 @@ static inline void convolve_y_sr_4tap_neon_dotprod(const uint8_t *src_ptr, int s
     } else {
         do {
             int            height = h;
-            const uint8_t *s      = src_ptr;
-            uint8_t       *d      = dst_ptr;
+            const uint8_t* s      = src_ptr;
+            uint8_t*       d      = dst_ptr;
 
             uint8x8_t t0, t1, t2, t3;
             load_u8_8x4(s, src_stride, &t0, &t1, &t2, &t3);
@@ -582,10 +582,10 @@ static inline void convolve_y_sr_4tap_neon_dotprod(const uint8_t *src_ptr, int s
     }
 }
 
-void svt_av1_convolve_y_sr_neon_dotprod(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h,
-                                        const InterpFilterParams *filter_params_x,
-                                        const InterpFilterParams *filter_params_y, const int subpel_x_qn,
-                                        const int subpel_y_qn, ConvolveParams *conv_params) {
+void svt_av1_convolve_y_sr_neon_dotprod(const uint8_t* src, int src_stride, uint8_t* dst, int dst_stride, int w, int h,
+                                        const InterpFilterParams* filter_params_x,
+                                        const InterpFilterParams* filter_params_y, const int subpel_x_qn,
+                                        const int subpel_y_qn, ConvolveParams* conv_params) {
     if (w == 2 || h == 2) {
         svt_av1_convolve_y_sr_c(src,
                                 src_stride,
@@ -617,7 +617,7 @@ void svt_av1_convolve_y_sr_neon_dotprod(const uint8_t *src, int src_stride, uint
         return;
     }
 
-    const int16_t *y_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_y, subpel_y_qn & SUBPEL_MASK);
+    const int16_t* y_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_y, subpel_y_qn & SUBPEL_MASK);
 
     if (y_filter_taps == 4) {
         convolve_y_sr_4tap_neon_dotprod(src - src_stride, src_stride, dst, dst_stride, w, h, y_filter_ptr);
@@ -663,8 +663,8 @@ static inline int16x8_t convolve4_8_2d_h(const uint8x16_t samples, const int8x8_
     return vcombine_s16(vshrn_n_s32(sum0123, ROUND0_BITS - 1), vshrn_n_s32(sum4567, ROUND0_BITS - 1));
 }
 
-static inline void convolve_2d_sr_horiz_4tap_neon_dotprod(const uint8_t *src, ptrdiff_t src_stride, int16_t *dst,
-                                                          ptrdiff_t dst_stride, int w, int h, const int16_t *filter_x) {
+static inline void convolve_2d_sr_horiz_4tap_neon_dotprod(const uint8_t* src, ptrdiff_t src_stride, int16_t* dst,
+                                                          ptrdiff_t dst_stride, int w, int h, const int16_t* filter_x) {
     const int       bd       = 8;
     const int16x4_t x_filter = vld1_s16(filter_x + 2);
     // All 4-tap and bilinear filter values are even, so halve them to reduce
@@ -708,8 +708,8 @@ static inline void convolve_2d_sr_horiz_4tap_neon_dotprod(const uint8_t *src, pt
     } else {
         const uint8x16x2_t permute_tbl = vld1q_u8_x2(svt_kDotProdPermuteTbl);
         do {
-            const uint8_t *s     = src;
-            int16_t       *d     = dst;
+            const uint8_t* s     = src;
+            int16_t*       d     = dst;
             int            width = w;
 
             do {
@@ -733,8 +733,8 @@ static inline void convolve_2d_sr_horiz_4tap_neon_dotprod(const uint8_t *src, pt
         } while (h > 4);
 
         do {
-            const uint8_t *s     = src;
-            int16_t       *d     = dst;
+            const uint8_t* s     = src;
+            int16_t*       d     = dst;
             int            width = w;
 
             do {
@@ -777,8 +777,8 @@ static inline int16x8_t convolve8_8_2d_h(uint8x16_t samples, const int8x8_t filt
     return vcombine_s16(vshrn_n_s32(sum0123, ROUND0_BITS - 1), vshrn_n_s32(sum4567, ROUND0_BITS - 1));
 }
 
-static inline void convolve_2d_sr_horiz_8tap_neon_dotprod(const uint8_t *src, int src_stride, int16_t *im_block,
-                                                          int im_stride, int w, int im_h, const int16_t *x_filter_ptr) {
+static inline void convolve_2d_sr_horiz_8tap_neon_dotprod(const uint8_t* src, int src_stride, int16_t* im_block,
+                                                          int im_stride, int w, int im_h, const int16_t* x_filter_ptr) {
     const int16x8_t x_filter_s16 = vld1q_s16(x_filter_ptr);
     // Filter values are even, so halve to reduce intermediate precision reqs.
     const int8x8_t x_filter = vshrn_n_s16(x_filter_s16, 1);
@@ -790,15 +790,15 @@ static inline void convolve_2d_sr_horiz_8tap_neon_dotprod(const uint8_t *src, in
     // Halve the total because we halved the filter values.
     const int32x4_t correction = vdupq_n_s32(((128 << FILTER_BITS) + horiz_const) / 2);
 
-    const uint8_t *src_ptr    = src;
-    int16_t       *dst_ptr    = im_block;
+    const uint8_t* src_ptr    = src;
+    int16_t*       dst_ptr    = im_block;
     int            dst_stride = im_stride;
     int            height     = im_h;
 
     const uint8x16x3_t permute_tbl = vld1q_u8_x3(svt_kDotProdPermuteTbl);
     do {
-        const uint8_t *s     = src_ptr;
-        int16_t       *d     = dst_ptr;
+        const uint8_t* s     = src_ptr;
+        int16_t*       d     = dst_ptr;
         int            width = w;
 
         do {
@@ -822,8 +822,8 @@ static inline void convolve_2d_sr_horiz_8tap_neon_dotprod(const uint8_t *src, in
     } while (height > 4);
 
     do {
-        const uint8_t *s     = src_ptr;
-        int16_t       *d     = dst_ptr;
+        const uint8_t* s     = src_ptr;
+        int16_t*       d     = dst_ptr;
         int            width = w;
 
         do {
@@ -840,9 +840,9 @@ static inline void convolve_2d_sr_horiz_8tap_neon_dotprod(const uint8_t *src, in
     } while (--height != 0);
 }
 
-static inline void convolve_2d_sr_6tap_neon_dotprod(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride,
-                                                    int w, int h, const int16_t *x_filter_ptr,
-                                                    const int16_t *y_filter_ptr) {
+static inline void convolve_2d_sr_6tap_neon_dotprod(const uint8_t* src, int src_stride, uint8_t* dst, int dst_stride,
+                                                    int w, int h, const int16_t* x_filter_ptr,
+                                                    const int16_t* y_filter_ptr) {
     const int16x8_t y_filter = vld1q_s16(y_filter_ptr);
     // Filter values are even, so halve to reduce intermediate precision reqs.
     const int8x8_t x_filter = vshrn_n_s16(vld1q_s16(x_filter_ptr), 1);
@@ -858,8 +858,8 @@ static inline void convolve_2d_sr_6tap_neon_dotprod(const uint8_t *src, int src_
     const uint8x16x3_t permute_tbl = vld1q_u8_x3(svt_kDotProdPermuteTbl);
 
     do {
-        const uint8_t *s      = src;
-        uint8_t       *d      = dst;
+        const uint8_t* s      = src;
+        uint8_t*       d      = dst;
         int            height = h;
 
         uint8x16_t h_s0, h_s1, h_s2, h_s3, h_s4;
@@ -904,9 +904,9 @@ static inline void convolve_2d_sr_6tap_neon_dotprod(const uint8_t *src, int src_
     } while (w != 0);
 }
 
-static inline void convolve_2d_sr_4tap_neon_dotprod(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride,
-                                                    int w, int h, const int16_t *x_filter_ptr,
-                                                    const int16_t *y_filter_ptr) {
+static inline void convolve_2d_sr_4tap_neon_dotprod(const uint8_t* src, int src_stride, uint8_t* dst, int dst_stride,
+                                                    int w, int h, const int16_t* x_filter_ptr,
+                                                    const int16_t* y_filter_ptr) {
     const int       bd         = 8;
     const int16x8_t vert_const = vdupq_n_s16(1 << (bd - 1));
 
@@ -968,8 +968,8 @@ static inline void convolve_2d_sr_4tap_neon_dotprod(const uint8_t *src, int src_
 
         do {
             int            height = h;
-            const uint8_t *s      = src;
-            uint8_t       *d      = dst;
+            const uint8_t* s      = src;
+            uint8_t*       d      = dst;
 
             uint8x16_t h_s0, h_s1, h_s2;
             load_u8_16x3(src, src_stride, &h_s0, &h_s1, &h_s2);
@@ -1011,10 +1011,10 @@ static inline void convolve_2d_sr_4tap_neon_dotprod(const uint8_t *src, int src_
     }
 }
 
-void svt_av1_convolve_2d_sr_neon_dotprod(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h,
-                                         const InterpFilterParams *filter_params_x,
-                                         const InterpFilterParams *filter_params_y, const int subpel_x_qn,
-                                         const int subpel_y_qn, ConvolveParams *conv_params) {
+void svt_av1_convolve_2d_sr_neon_dotprod(const uint8_t* src, int src_stride, uint8_t* dst, int dst_stride, int w, int h,
+                                         const InterpFilterParams* filter_params_x,
+                                         const InterpFilterParams* filter_params_y, const int subpel_x_qn,
+                                         const int subpel_y_qn, ConvolveParams* conv_params) {
     if (w == 2 || h == 2) {
         svt_av1_convolve_2d_sr_c(src,
                                  src_stride,
@@ -1037,10 +1037,10 @@ void svt_av1_convolve_2d_sr_neon_dotprod(const uint8_t *src, int src_stride, uin
     const int      im_stride      = MAX_SB_SIZE;
     const int      vert_offset    = clamped_y_taps / 2 - 1;
     const int      horiz_offset   = filter_params_x->taps / 2 - 1;
-    const uint8_t *src_ptr        = src - vert_offset * src_stride - horiz_offset;
+    const uint8_t* src_ptr        = src - vert_offset * src_stride - horiz_offset;
 
-    const int16_t *x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
-    const int16_t *y_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_y, subpel_y_qn & SUBPEL_MASK);
+    const int16_t* x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
+    const int16_t* y_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_y, subpel_y_qn & SUBPEL_MASK);
 
     if (x_filter_taps == 2 && y_filter_taps == 2 && w > 4) {
         convolve_2d_sr_2tap_neon(src, src_stride, dst, dst_stride, w, h, x_filter_ptr, y_filter_ptr);

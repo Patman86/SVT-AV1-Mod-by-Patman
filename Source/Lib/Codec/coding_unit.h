@@ -37,28 +37,27 @@ extern "C" {
 #define MAX_CU_COST (0xFFFFFFFFFFFFFFFFull >> 1)
 #define MAX_MODE_COST (13754408443200 * 8) // RDCOST(6544618, 128 * 128 * 255 * 255, 128 * 128 * 255 * 255) * 8;
 
-extern const uint32_t intra_luma_to_chroma[INTRA_MODES];
-
 typedef struct {
     Mv      mfmv0;
     uint8_t ref_frame_offset;
 } TPL_MV_REF;
+
 typedef struct {
     Mv               mv;
     MvReferenceFrame ref_frame;
 } MV_REF;
 
 typedef struct MacroBlockDPlane {
-    int          subsampling_x;
-    int          subsampling_y;
-    struct Buf2D dst;
-    struct Buf2D pre[2];
+    int   subsampling_x;
+    int   subsampling_y;
+    Buf2D dst;
+    Buf2D pre[2];
     // block size in pixels
     uint8_t width, height;
 } MacroBlockDPlane;
 
 typedef struct MacroBlockPlane {
-    struct Buf2D src;
+    Buf2D src;
     /*
         DECLARE_ALIGNED(16, int16_t, src_diff[MAX_SB_SQUARE]);
         TranLow *qcoeff;
@@ -92,7 +91,7 @@ typedef struct MacroBlockD {
     int8_t       chroma_left_available;
     TileInfo     tile;
     int32_t      mi_stride;
-    MbModeInfo **mi;
+    MbModeInfo** mi;
 
     /* Distance of MB away from frame edges in subpixels (1/8th pixel)  */
     int32_t        mb_to_left_edge;
@@ -102,13 +101,13 @@ typedef struct MacroBlockD {
     int            mi_row; // Row position in mi units
     int            mi_col; // Column position in mi units
     uint8_t        neighbors_ref_counts[TOTAL_REFS_PER_FRAME];
-    MbModeInfo    *above_mbmi;
-    MbModeInfo    *left_mbmi;
-    MbModeInfo    *chroma_above_mbmi;
-    MbModeInfo    *chroma_left_mbmi;
-    FRAME_CONTEXT *tile_ctx;
-    TXFM_CONTEXT  *above_txfm_context;
-    TXFM_CONTEXT  *left_txfm_context;
+    MbModeInfo*    above_mbmi;
+    MbModeInfo*    left_mbmi;
+    MbModeInfo*    chroma_above_mbmi;
+    MbModeInfo*    chroma_left_mbmi;
+    FRAME_CONTEXT* tile_ctx;
+    TXFM_CONTEXT*  above_txfm_context;
+    TXFM_CONTEXT*  left_txfm_context;
     BlockSize      bsize;
 } MacroBlockD;
 
@@ -121,8 +120,8 @@ typedef struct Macroblock {
 
 typedef struct IntraBcContext {
     int32_t                 rdmult;
-    struct MacroBlockDPlane xdplane[MAX_MB_PLANE];
-    struct MacroBlockPlane  plane[MAX_MB_PLANE];
+    struct MacroBlockDPlane xdplane[MAX_PLANES];
+    struct MacroBlockPlane  plane[MAX_PLANES];
     MvLimits                mv_limits;
     // The equivalend SAD error of one (whole) bit at the current quantizer
     // for large blocks.
@@ -134,19 +133,19 @@ typedef struct IntraBcContext {
     Mv best_mv;
     // Store the second best motion vector during full-pixel motion search
     Mv           second_best_mv;
-    MacroBlockD *xd;
-    int         *nmv_vec_cost;
-    const int  **mv_cost_stack;
+    MacroBlockD* xd;
+    int*         nmv_vec_cost;
+    const int**  mv_cost_stack;
     // buffer for hash value calculation of a block
     // used only in svt_av1_get_block_hash_value()
     // [two buffers used ping-pong]
-    uint32_t *hash_value_buffer[2];
-    uint8_t   is_exhaustive_allowed;
+    uint32_t* hash_value_buffer[2];
     CRC32C    crc_calculator;
     // use approximate rate for inter cost (set at pic-level b/c some pic-level initializations will
     // be removed)
     uint8_t approx_inter_rate;
 } IntraBcContext;
+
 typedef struct EobData {
     uint16_t y[MAX_TXB_COUNT];
     uint16_t u[MAX_TXB_COUNT_UV];
@@ -160,34 +159,31 @@ typedef struct QuantDcData {
 } QuantDcData;
 
 typedef struct BlkStruct {
-    MacroBlockD *av1xd;
+    MacroBlockD* av1xd;
     // only for MD
-    uint8_t  *neigh_left_recon[3];
-    uint8_t  *neigh_top_recon[3];
-    uint16_t *neigh_left_recon_16bit[3];
-    uint16_t *neigh_top_recon_16bit[3];
+    uint8_t*  neigh_left_recon[3];
+    uint8_t*  neigh_top_recon[3];
+    uint16_t* neigh_left_recon_16bit[3];
+    uint16_t* neigh_top_recon_16bit[3];
     // buffer to store quantized coeffs from MD for the final mode of each block
     // Used when encdec is bypassed
-    EbPictureBufferDesc *coeff_tmp;
+    EbPictureBufferDesc* coeff_tmp;
     // buffer to store recon from MD for the final mode of each block
     // Used when encdec is bypassed
-    EbPictureBufferDesc *recon_tmp;
+    EbPictureBufferDesc* recon_tmp;
     uint64_t             cost;
-    // Similar to cost but does not get updated @ svt_aom_d1_non_square_block_decision() and
-    // svt_aom_d2_inter_depth_block_decision()
-    uint64_t     default_cost;
-    uint64_t     total_rate;
-    uint64_t     full_dist;
-    QuantDcData  quant_dc;
-    EobData      eob;
-    TxType       tx_type[MAX_TXB_COUNT];
-    TxType       tx_type_uv;
-    uint16_t     y_has_coeff;
-    uint8_t      u_has_coeff;
-    uint8_t      v_has_coeff;
-    PaletteInfo *palette_info;
-    uint8_t      palette_mem; // status of palette info alloc
-    uint8_t      palette_size[2];
+    uint64_t             total_rate;
+    uint64_t             full_dist;
+    QuantDcData          quant_dc;
+    EobData              eob;
+    TxType               tx_type[MAX_TXB_COUNT];
+    TxType               tx_type_uv;
+    uint16_t             y_has_coeff;
+    uint8_t              u_has_coeff;
+    uint8_t              v_has_coeff;
+    PaletteInfo*         palette_info;
+    uint8_t              palette_mem; // status of palette info alloc
+    uint8_t              palette_size[2];
 
     BlockModeInfo block_mi;
 
@@ -200,7 +196,6 @@ typedef struct BlkStruct {
     uint16_t mds_idx;
 
     uint8_t qindex;
-    uint8_t split_flag;
     uint8_t drl_index;
     // Store the drl ctx in coding loop to avoid storing final_ref_mv_stack and ref_mv_count for EC
     int8_t drl_ctx[2];
@@ -208,12 +203,6 @@ typedef struct BlkStruct {
     int8_t drl_ctx_near[2];
 
     uint8_t segment_id;
-
-    PartitionType part;
-    uint16_t      best_d1_blk;
-
-    PartitionContextType left_neighbor_partition;
-    PartitionContextType above_neighbor_partition;
 
     // wm
     WarpedMotionParams wm_params_l0;
@@ -223,13 +212,14 @@ typedef struct BlkStruct {
     // ec; skip coeff only. as defined in section 6.10.11 of the av1 text
     unsigned block_has_coeff : 1;
 } BlkStruct;
+
 typedef struct EcBlkStruct {
-    MacroBlockD *av1xd;
+    MacroBlockD* av1xd;
     EobData      eob;
     TxType       tx_type[MAX_TXB_COUNT];
     TxType       tx_type_uv;
 
-    PaletteInfo *palette_info;
+    PaletteInfo* palette_info;
     uint8_t      palette_size[2];
     Mv           predmv[2];
     uint32_t     overlappable_neighbors;
@@ -268,25 +258,25 @@ typedef struct TplSrcStats {
     int32_t        best_rf_idx;
     PredictionMode best_intra_mode;
 } TplSrcStats;
+
 typedef struct SuperBlock {
     EbDctor                   dctor;
-    struct PictureControlSet *pcs;
-    EcBlkStruct              *final_blk_arr;
+    struct PictureControlSet* pcs;
+    EcBlkStruct*              final_blk_arr;
     //for memory free only
-    MacroBlockD   *av1xd;
-    PartitionType *cu_partition_array;
-    unsigned       index : 32;
-    unsigned       org_x : 32;
-    unsigned       org_y : 32;
-    uint8_t        qindex;
-    TileInfo       tile_info;
-    uint16_t       final_blk_cnt; // number of block(s) posted from EncDec to EC
+    MacroBlockD*           av1xd;
+    struct PARTITION_TREE* ptree;
+    unsigned               index : 32;
+    unsigned               org_x : 32;
+    unsigned               org_y : 32;
+    uint8_t                qindex;
+    TileInfo               tile_info;
+    uint16_t               final_blk_cnt; // number of block(s) posted from EncDec to EC
 } SuperBlock;
-EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock *larget_coding_unit_ptr, uint8_t sb_size, uint16_t sb_origin_x,
-                                             uint16_t sb_origin_y, uint16_t sb_index, EncMode enc_mode, bool rtc,
-                                             uint16_t max_block_cnt, bool allintra, ResolutionRange input_resolution,
-                                             struct PictureControlSet *picture_control_set);
 
+EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock* larget_coding_unit_ptr, uint8_t sb_size, uint16_t sb_origin_x,
+                                             uint16_t sb_origin_y, uint16_t sb_index, EncMode enc_mode, bool rtc,
+                                             bool allintra, struct PictureControlSet* pcs);
 #ifdef __cplusplus
 }
 #endif

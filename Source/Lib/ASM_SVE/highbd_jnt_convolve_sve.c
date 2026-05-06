@@ -20,17 +20,17 @@
 #include "neon_sve_bridge.h"
 #include "utility.h"
 
-static inline void highbd_dist_wtd_convolve_x_8tap_sve(const uint16_t *src, int src_stride, uint16_t *dst,
+static inline void highbd_dist_wtd_convolve_x_8tap_sve(const uint16_t* src, int src_stride, uint16_t* dst,
                                                        int dst_stride, int width, int height,
-                                                       const int16_t *x_filter_ptr, const int bd) {
+                                                       const int16_t* x_filter_ptr, const int bd) {
     const int64x1_t offset_vec = vcreate_s64((1 << (bd + FILTER_BITS)) + (1 << (bd + FILTER_BITS - 1)));
     const int64x2_t offset     = vcombine_s64(offset_vec, vdup_n_s64(0));
 
     const int16x8_t filter = vld1q_s16(x_filter_ptr);
 
     do {
-        const int16_t *s = (const int16_t *)src;
-        uint16_t      *d = dst;
+        const int16_t* s = (const int16_t*)src;
+        uint16_t*      d = dst;
         int            w = width;
 
         do {
@@ -57,9 +57,9 @@ static inline void highbd_dist_wtd_convolve_x_8tap_sve(const uint16_t *src, int 
     } while (height != 0);
 }
 
-static inline void highbd_dist_wtd_convolve_x_4tap_sve(const uint16_t *src, int src_stride, uint16_t *dst,
+static inline void highbd_dist_wtd_convolve_x_4tap_sve(const uint16_t* src, int src_stride, uint16_t* dst,
                                                        int dst_stride, int width, int height,
-                                                       const int16_t *x_filter_ptr, const int bd) {
+                                                       const int16_t* x_filter_ptr, const int bd) {
     const int64x2_t offset = vdupq_n_s64((1 << (bd + FILTER_BITS)) + (1 << (bd + FILTER_BITS - 1)));
 
     const int16x4_t x_filter = vld1_s16(x_filter_ptr + 2);
@@ -68,7 +68,7 @@ static inline void highbd_dist_wtd_convolve_x_4tap_sve(const uint16_t *src, int 
     if (width == 4) {
         uint16x8x2_t permute_tbl = vld1q_u16_x2(svt_kHbdDotProdTbl);
 
-        const int16_t *s = (const int16_t *)(src);
+        const int16_t* s = (const int16_t*)(src);
 
         do {
             int16x8_t s0, s1, s2, s3;
@@ -89,8 +89,8 @@ static inline void highbd_dist_wtd_convolve_x_4tap_sve(const uint16_t *src, int 
         uint16x8_t idx = vld1q_u16(svt_kDeinterleaveTbl);
 
         do {
-            const int16_t *s = (const int16_t *)(src);
-            uint16_t      *d = dst;
+            const int16_t* s = (const int16_t*)(src);
+            uint16_t*      d = dst;
             int            w = width;
 
             do {
@@ -118,10 +118,10 @@ static inline void highbd_dist_wtd_convolve_x_4tap_sve(const uint16_t *src, int 
     }
 }
 
-void svt_av1_highbd_jnt_convolve_x_sve(const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h,
-                                       const InterpFilterParams *filter_params_x,
-                                       const InterpFilterParams *filter_params_y, const int subpel_x_qn,
-                                       const int subpel_y_qn, ConvolveParams *conv_params, int bd) {
+void svt_av1_highbd_jnt_convolve_x_sve(const uint16_t* src, int src_stride, uint16_t* dst, int dst_stride, int w, int h,
+                                       const InterpFilterParams* filter_params_x,
+                                       const InterpFilterParams* filter_params_y, const int subpel_x_qn,
+                                       const int subpel_y_qn, ConvolveParams* conv_params, int bd) {
     if (h == 2 || w == 2) {
         svt_av1_highbd_jnt_convolve_x_c(src,
                                         src_stride,
@@ -139,7 +139,7 @@ void svt_av1_highbd_jnt_convolve_x_sve(const uint16_t *src, int src_stride, uint
     }
 
     DECLARE_ALIGNED(16, uint16_t, im_block[(MAX_SB_SIZE + MAX_FILTER_TAP) * MAX_SB_SIZE]);
-    CONV_BUF_TYPE *dst16         = conv_params->dst;
+    CONV_BUF_TYPE* dst16         = conv_params->dst;
     const int      x_filter_taps = get_filter_tap(filter_params_x, subpel_x_qn);
 
     if (x_filter_taps == 6) {
@@ -163,7 +163,7 @@ void svt_av1_highbd_jnt_convolve_x_sve(const uint16_t *src, int src_stride, uint
     const int horiz_offset = filter_params_x->taps / 2 - 1;
     assert(FILTER_BITS == COMPOUND_ROUND1_BITS);
 
-    const int16_t *x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
+    const int16_t* x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
 
     src -= horiz_offset;
 

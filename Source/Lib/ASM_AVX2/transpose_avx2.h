@@ -17,7 +17,7 @@
 #include "definitions.h"
 #include "synonyms_avx2.h"
 
-static INLINE void transpose_32bit_8x8_avx2(const __m256i *const in, __m256i *const out) {
+static INLINE void transpose_32bit_8x8_avx2(const __m256i* const in, __m256i* const out) {
     // Unpack 32 bit elements. Goes from:
     // in[0]: 00 01 02 03  04 05 06 07
     // in[1]: 10 11 12 13  14 15 16 17
@@ -82,7 +82,7 @@ static INLINE void transpose_32bit_8x8_avx2(const __m256i *const in, __m256i *co
     out[7] = yy_unpackhi_epi128(b6, b7);
 }
 
-static INLINE void transpose_64bit_4x4_avx2(const __m256i *const in, __m256i *const out) {
+static INLINE void transpose_64bit_4x4_avx2(const __m256i* const in, __m256i* const out) {
     // Unpack 32 bit elements. Goes from:
     // in[0]: 00 01 02 03
     // in[1]: 10 11 12 13
@@ -109,7 +109,7 @@ static INLINE void transpose_64bit_4x4_avx2(const __m256i *const in, __m256i *co
     out[3] = yy_unpackhi_epi128(a2, a3);
 }
 
-static INLINE void transpose_64bit_4x6_avx2(const __m256i *const in, __m256i *const out) {
+static INLINE void transpose_64bit_4x6_avx2(const __m256i* const in, __m256i* const out) {
     // Unpack 64 bit elements. Goes from:
     // in[0]: 00 01  02 03
     // in[1]: 10 11  12 13
@@ -150,7 +150,7 @@ static INLINE void transpose_64bit_4x6_avx2(const __m256i *const in, __m256i *co
     out[7] = yy_unpackhi_epi128(a6, a6);
 }
 
-static INLINE void transpose_64bit_4x8_avx2(const __m256i *const in, __m256i *const out) {
+static INLINE void transpose_64bit_4x8_avx2(const __m256i* const in, __m256i* const out) {
     // Unpack 64 bit elements. Goes from:
     // in[0]: 00 01  02 03
     // in[1]: 10 11  12 13

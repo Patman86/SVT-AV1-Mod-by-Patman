@@ -22,42 +22,53 @@ from matplotlib.figure import Figure
 from tqdm import tqdm
 
 
+colors = [
+    "blue",
+    "red",
+    "green",
+    "orange",
+    "purple",
+    "brown",
+    "pink",
+    "gray",
+    "olive",
+    "cyan",
+]
+markers = ["o", "s", "^", "D", "v", "<", ">", "p", "*", "h"]
+
+
 def _validate_rd_plot_data(
     per_image_df: pd.DataFrame, quality_metrics: List[str]
 ) -> List[str]:
     """Validate data and return available metrics for RD plotting."""
-    available_metrics = [
-        metric for metric in quality_metrics if metric in per_image_df.columns
-    ]
-
-    if not available_metrics:
-        print("No quality metrics found in per-image data for plotting.")
-        return []
-
     if "file_size_mb" not in per_image_df.columns:
         print(
             "Warning: file_size_mb column not found. Cannot create rate-distortion plots."
         )
         return []
 
+    available_metrics = [
+        metric for metric in quality_metrics if metric in per_image_df.columns
+    ]
+
+    if not available_metrics:
+        print("Warning: No quality metrics found in per-image data for plotting.")
+
     return available_metrics
 
 
 def _get_datasets(per_image_df: pd.DataFrame) -> List[str]:
     """Get unique datasets from the DataFrame."""
-    return (
-        list(per_image_df["dataset"].unique())
-        if "dataset" in per_image_df.columns
-        else ["default"]
-    )
+    if "dataset" in per_image_df.columns:
+        return list(per_image_df["dataset"].unique())
+    return ["default"]
 
 
 def _filter_dataset_data(per_image_df: pd.DataFrame, dataset: str) -> pd.DataFrame:
     """Filter DataFrame for a specific dataset."""
     if "dataset" in per_image_df.columns:
         return per_image_df[per_image_df["dataset"] == dataset]
-    else:
-        return per_image_df
+    return per_image_df
 
 
 def _create_single_rd_plot(image_data: pd.DataFrame, image: str, metric: str) -> Figure:
@@ -65,21 +76,26 @@ def _create_single_rd_plot(image_data: pd.DataFrame, image: str, metric: str) ->
     fig, ax = plt.subplots(figsize=(10, 6))
 
     # Group by encoder and speed combination
+    i = 0
     for (encoder, speed), group in image_data.groupby(["encoder", "speed"]):
         if len(group) > 1:  # Only plot if we have multiple points
             # Sort by quality for proper line connection
             group_sorted = group.sort_values("quality")
 
             # Plot line with markers
+            color = colors[i % len(colors)]
+            marker = markers[(i // len(colors)) % len(markers)]
             label = f"{encoder} (speed={speed})"
             ax.plot(
                 group_sorted["file_size_mb"],
                 group_sorted[metric],
-                marker="o",
+                color=color,
+                marker=marker,
                 label=label,
                 linewidth=2,
                 markersize=6,
             )
+            i += 1
 
     # Customize plot
     ax.set_xlabel("File Size (MB)", fontsize=12)
@@ -90,7 +106,7 @@ def _create_single_rd_plot(image_data: pd.DataFrame, image: str, metric: str) ->
         fontweight="bold",
     )
     ax.grid(True, alpha=0.3)
-    ax.legend(loc="best", fontsize=12)
+    ax.legend(loc="lower right", fontsize=12)
 
     # Adjust layout to prevent legend cutoff
     plt.tight_layout()
@@ -125,7 +141,6 @@ def create_per_image_rd_plots(
                     continue
 
                 dataset_images = dataset_data["image"].unique()
-
                 for image in dataset_images:
                     for metric in available_metrics:
                         # Filter and clean data for this image
@@ -174,11 +189,9 @@ def add_summary_table_to_pdf(
     # Add data rows
     for idx, row in summary_avg_bd_rates_df.iterrows():
         encoder, speed = idx if isinstance(idx, tuple) else (idx, "")
-        row_label = f"{encoder}\n(speed={speed})" if speed != "" else str(encoder)
-        row_data = [row_label] + [
-            f"{value:.2f}%" if pd.notna(value) else "N/A" for value in row.values
-        ]
-        table_data.append(row_data)
+        row_label = f"{encoder} s{speed}" if speed != "" else str(encoder)
+        row_data = [f"{v:.2f}%" if pd.notna(v) else "N/A" for v in row.values]
+        table_data.append([row_label] + row_data)
 
     # Create matplotlib table
     table = ax.table(
@@ -202,10 +215,7 @@ def add_summary_table_to_pdf(
     # Style data rows with alternating colors
     for i in range(1, len(table_data)):
         for j in range(len(header)):
-            if i % 2 == 0:
-                table[(i, j)].set_facecolor("#F5F5F5")
-            else:
-                table[(i, j)].set_facecolor("white")
+            table[(i, j)].set_facecolor(["#EEEEEE", "white"][i % 2])
             table[(i, j)].set_height(0.06)
 
     # Add title
@@ -246,11 +256,9 @@ def add_perf_table_to_pdf(
     # Add data rows
     for idx, row in summary_avg_perf_df.iterrows():
         encoder, speed = idx if isinstance(idx, tuple) else (idx, "")
-        row_label = f"{encoder}\n(speed={speed})" if speed != "" else str(encoder)
-        row_data = [row_label] + [
-            f"{value:.5f}s" if pd.notna(value) else "N/A" for value in row.values
-        ]
-        table_data.append(row_data)
+        row_label = f"{encoder} s{speed}" if speed != "" else str(encoder)
+        row_data = [f"{v:.5f}s" if pd.notna(v) else "N/A" for v in row.values]
+        table_data.append([row_label] + row_data)
 
     # Create matplotlib table
     table = ax.table(
@@ -274,10 +282,7 @@ def add_perf_table_to_pdf(
     # Style data rows with alternating colors
     for i in range(1, len(table_data)):
         for j in range(len(header)):
-            if i % 2 == 0:
-                table[(i, j)].set_facecolor("#F5F5F5")
-            else:
-                table[(i, j)].set_facecolor("white")
+            table[(i, j)].set_facecolor(["#EEEEEE", "white"][i % 2])
             table[(i, j)].set_height(0.06)
 
     # Add title
@@ -317,8 +322,10 @@ def create_bd_rate_plots_pdf(
             add_summary_table_to_pdf(
                 pdf, summary_avg_bd_rates_df, anchor_encoder, anchor_speed
             )
-            if summary_avg_perf_df is not None:
-                add_perf_table_to_pdf(pdf, summary_avg_perf_df)
+        if summary_avg_perf_df is not None:
+            add_perf_table_to_pdf(pdf, summary_avg_perf_df)
+
+        allow_plot_without_timing = False
 
         for metric, avg_bd_rate_df in metric_results.items():
             try:
@@ -327,14 +334,17 @@ def create_bd_rate_plots_pdf(
                     continue
 
                 # Check if encoding time data is available
-                if "avg_encoding_time" not in avg_bd_rate_df.columns:
+                if "avg_encode_time" not in avg_bd_rate_df.columns:
                     print(
                         f"    No encoding time data available for {metric}, skipping plot"
                     )
-                    avg_bd_rate_df["avg_encoding_time"] = 50  # arbitrary value
-                    # continue
-                # Fill missing avg_encoding_time values per encoder and speed with increasing max+offsets
-                max_time = avg_bd_rate_df["avg_encoding_time"].max()
+                    if allow_plot_without_timing:
+                        avg_bd_rate_df["avg_encode_time"] = 50  # arbitrary value
+                    else:
+                        continue
+
+                # Fill missing avg_encode_time values with increasing max+offsets
+                max_time = avg_bd_rate_df["avg_encode_time"].max()
                 dashed_line_pos = max_time + 50
 
                 have_no_runtime_codecs = False
@@ -345,10 +355,10 @@ def create_bd_rate_plots_pdf(
                     mask = (
                         (avg_bd_rate_df["encoder"] == encoder)
                         & (avg_bd_rate_df["speed"] == speed)
-                        & (avg_bd_rate_df["avg_encoding_time"].isna())
+                        & (avg_bd_rate_df["avg_encode_time"].isna())
                     )
                     have_no_runtime_codecs = have_no_runtime_codecs or mask.any()
-                    avg_bd_rate_df.loc[mask, "avg_encoding_time"] = fill_value
+                    avg_bd_rate_df.loc[mask, "avg_encode_time"] = fill_value
 
                 # Create the plot for this metric
                 fig, ax = plt.subplots(figsize=(12, 8))
@@ -367,41 +377,26 @@ def create_bd_rate_plots_pdf(
                 # Get unique encoders
                 encoders = avg_bd_rate_df["encoder"].unique()
 
-                # Define colors and markers for different encoders
-                colors = [
-                    "blue",
-                    "red",
-                    "green",
-                    "orange",
-                    "purple",
-                    "brown",
-                    "pink",
-                    "gray",
-                    "olive",
-                    "cyan",
-                ]
-                markers = ["o", "s", "^", "D", "v", "<", ">", "p", "*", "h"]
-
                 for i, encoder in enumerate(encoders):
                     encoder_data = avg_bd_rate_df[
                         avg_bd_rate_df["encoder"] == encoder
                     ].copy()
 
                     # Filter out entries with missing encoding time data
-                    encoder_data = encoder_data.dropna(subset=["avg_encoding_time"])
+                    encoder_data = encoder_data.dropna(subset=["avg_encode_time"])
 
                     if encoder_data.empty:
                         continue
 
                     # Sort by encoding time for proper line connection
-                    encoder_data = encoder_data.sort_values("avg_encoding_time")
+                    encoder_data = encoder_data.sort_values("avg_encode_time")
 
                     color = colors[i % len(colors)]
-                    marker = markers[i % len(markers)]
+                    marker = markers[(i // len(colors)) % len(markers)]
 
                     # Plot points and connect with lines if multiple points
                     ax.plot(
-                        encoder_data["avg_encoding_time"],
+                        encoder_data["avg_encode_time"],
                         encoder_data["avg_bd_rate"],
                         color=color,
                         marker=marker,
@@ -420,8 +415,8 @@ def create_bd_rate_plots_pdf(
                         y_offset = 15
 
                         ax.annotate(
-                            f"{int(row['speed'])}",
-                            (row["avg_encoding_time"], row["avg_bd_rate"]),
+                            row["speed"],
+                            (row["avg_encode_time"], row["avg_bd_rate"]),
                             xytext=(x_offset, y_offset),
                             textcoords="offset points",
                             ha="center",
@@ -448,7 +443,7 @@ def create_bd_rate_plots_pdf(
                     pad=20,
                 )
                 ax.grid(True, alpha=0.4, linestyle="--")
-                ax.legend(loc="best", fontsize=12)
+                ax.legend(loc="upper right", fontsize=12)
 
                 # Add horizontal line at y=0 for reference
                 ax.axhline(
@@ -503,10 +498,8 @@ def _get_anchor_settings(per_image_df: pd.DataFrame, settings: Dict) -> tuple:
 
     # If no anchor specified in config, use first encoder/speed combination
     if not anchor_encoder or anchor_speed is None:
-        first_encoder = per_image_df["encoder"].iloc[0]
-        first_speed = per_image_df["speed"].iloc[0]
-        anchor_encoder = anchor_encoder or first_encoder
-        anchor_speed = anchor_speed if anchor_speed is not None else first_speed
+        anchor_encoder = per_image_df["encoder"].iloc[0]
+        anchor_speed = per_image_df["speed"].iloc[0]
         print(
             f"No anchor specified in config for BD rate analysis, using first available: {anchor_encoder} speed {anchor_speed}"
         )
@@ -613,7 +606,7 @@ def _create_unified_csv_files(
             columns=["psnr_cb", "psnr_cr"],
             errors="ignore",
         ).mean(axis=1)
-        cols = ["encoder", "speed", "avg_encoding_time", "avg_decoding_time"]
+        cols = ["encoder", "speed", "avg_encode_time", "avg_decode_time"]
         summary_avg_perf_df = unified_avg_bd_rates_df.drop_duplicates(
             subset=["encoder", "speed"]
         )[cols]

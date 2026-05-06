@@ -85,13 +85,15 @@ typedef void (*EbDctor)(void* pobj);
             EB_DELETE_UNCHECKED(pobj); \
     } while (0)
 
-#define EB_DELETE_PTR_ARRAY(pa, count)                        \
-    do {                                                      \
-        uint32_t i;                                           \
-        if (pa) {                                             \
-            for (i = 0; i < count; i++) { EB_DELETE(pa[i]); } \
-            EB_FREE(pa);                                      \
-        }                                                     \
+#define EB_DELETE_PTR_ARRAY(pa, count)    \
+    do {                                  \
+        uint32_t i;                       \
+        if (pa) {                         \
+            for (i = 0; i < count; i++) { \
+                EB_DELETE(pa[i]);         \
+            }                             \
+            EB_FREE(pa);                  \
+        }                                 \
     } while (0)
 
 #undef EB_DELETE_UNCHECK //do not use this outside

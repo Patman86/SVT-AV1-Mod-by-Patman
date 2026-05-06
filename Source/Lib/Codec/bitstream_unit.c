@@ -107,8 +107,9 @@ static void svt_od_ec_enc_normalize(OdEcEnc* enc, OdEcWindow low, unsigned rng) 
     int d;
     int c;
     int s;
-    if (enc->error)
+    if (enc->error) {
         return;
+    }
     c = enc->cnt;
     assert(rng <= 65535U);
     /*The number of leading zeros in the 16-bit binary representation of rng.*/
@@ -199,7 +200,9 @@ void svt_od_ec_enc_reset(OdEcEnc* enc) {
 }
 
 /*Frees the buffers used by the encoder.*/
-void svt_od_ec_enc_clear(OdEcEnc* enc) { EB_FREE_ARRAY(enc->buf); }
+void svt_od_ec_enc_clear(OdEcEnc* enc) {
+    EB_FREE_ARRAY(enc->buf);
+}
 
 /*Encodes a symbol given its frequency in Q15.
   fl: CDF_PROB_TOP minus the cumulative frequency of all symbols that come
@@ -245,8 +248,9 @@ void svt_od_ec_encode_bool_q15(OdEcEnc* enc, int val, unsigned f) {
     assert(32768U <= r);
     v = ((r >> 8) * (uint32_t)(f >> EC_PROB_SHIFT) >> (7 - EC_PROB_SHIFT));
     v += EC_MIN_PROB;
-    if (val)
+    if (val) {
         l += r - v;
+    }
     r = val ? v : r - v;
     svt_od_ec_enc_normalize(enc, l, r);
 #if OD_MEASURE_EC_OVERHEAD
@@ -271,10 +275,6 @@ void svt_od_ec_encode_cdf_q15(OdEcEnc* enc, int s, const uint16_t* icdf, int nsy
     svt_od_ec_encode_q15(enc, s > 0 ? icdf[s - 1] : OD_ICDF(0), icdf[s], s, nsyms);
 }
 
-#if OD_MEASURE_EC_OVERHEAD
-#include <stdio.h>
-#endif
-
 /*Indicates that there are no more symbols to encode.
   All remaining output bytes are flushed to the output buffer.
   od_ec_enc_reset() should be called before using the encoder again.
@@ -290,8 +290,9 @@ unsigned char* svt_od_ec_enc_done(OdEcEnc* enc, uint32_t* nbytes) {
     OdEcWindow     l;
     int            c;
     int            s;
-    if (enc->error)
+    if (enc->error) {
         return NULL;
+    }
 #if OD_MEASURE_EC_OVERHEAD
     {
         uint32_t tell;
@@ -413,7 +414,10 @@ uint32_t svt_od_ec_tell_frac(uint32_t nbits_total, uint32_t rng) {
   Return: The number of bits scaled by 2**OD_BITRES.
           This will always be slightly larger than the exact value (e.g., all
            rounding error is in the positive direction).*/
-uint32_t svt_od_ec_enc_tell_frac(const OdEcEnc* enc) { return svt_od_ec_tell_frac(svt_od_ec_enc_tell(enc), enc->rng); }
+uint32_t svt_od_ec_enc_tell_frac(const OdEcEnc* enc) {
+    return svt_od_ec_tell_frac(svt_od_ec_enc_tell(enc), enc->rng);
+}
+
 /********************************************************************************************************************************/
 /********************************************************************************************************************************/
 /********************************************************************************************************************************/

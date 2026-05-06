@@ -24,14 +24,12 @@
 DECLARE_ALIGNED(16, const uint16_t, svt_kDeinterleaveTbl[8]) = {
   0, 2, 4, 6, 1, 3, 5, 7,
 };
-// clang-format on
 
 DECLARE_ALIGNED(16, const uint16_t, svt_kHbdDotProdTbl[32]) = {
-    // clang-format off
     0, 1, 2, 3, 1, 2, 3, 4, 2, 3, 4, 5, 3, 4, 5, 6,
     4, 5, 6, 7, 5, 6, 7, 0, 6, 7, 0, 1, 7, 0, 1, 2,
-    // clang-format on
 };
+// clang-format on
 
 static inline uint16x8_t convolve8_8_x(int16x8_t s0[8], int16x8_t filter, int64x2_t offset, uint16x8_t max) {
     int64x2_t sum[8];
@@ -57,8 +55,8 @@ static inline uint16x8_t convolve8_8_x(int16x8_t s0[8], int16x8_t filter, int64x
     return vminq_u16(res, max);
 }
 
-static inline void highbd_convolve_x_sr_8tap_sve(const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride,
-                                                 int width, int height, const int16_t *y_filter_ptr, int bd) {
+static inline void highbd_convolve_x_sr_8tap_sve(const uint16_t* src, int src_stride, uint16_t* dst, int dst_stride,
+                                                 int width, int height, const int16_t* y_filter_ptr, int bd) {
     const uint16x8_t max = vdupq_n_u16((1 << bd) - 1);
     // This shim allows to do only one rounding shift instead of two.
     const int64x2_t offset = vcombine_s64(vdup_n_s64(1 << (ROUND0_BITS - 1)), vdup_n_s64(0));
@@ -66,8 +64,8 @@ static inline void highbd_convolve_x_sr_8tap_sve(const uint16_t *src, int src_st
     const int16x8_t filter = vld1q_s16(y_filter_ptr);
 
     do {
-        const int16_t *s = (const int16_t *)src;
-        uint16_t      *d = dst;
+        const int16_t* s = (const int16_t*)src;
+        uint16_t*      d = dst;
         int            w = width;
 
         do {
@@ -124,8 +122,8 @@ static inline uint16x8_t convolve4_8_x(int16x8_t s0[4], int16x8_t filter, int64x
     return vminq_u16(res, max);
 }
 
-static inline void highbd_convolve_x_sr_4tap_sve(const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride,
-                                                 int width, int height, const int16_t *x_filter_ptr, int bd) {
+static inline void highbd_convolve_x_sr_4tap_sve(const uint16_t* src, int src_stride, uint16_t* dst, int dst_stride,
+                                                 int width, int height, const int16_t* x_filter_ptr, int bd) {
     // This shim allows to do only one rounding shift instead of two.
     const int64x2_t offset = vdupq_n_s64(1 << (ROUND0_BITS - 1));
 
@@ -136,7 +134,7 @@ static inline void highbd_convolve_x_sr_4tap_sve(const uint16_t *src, int src_st
         const uint16x4_t max         = vdup_n_u16((1 << bd) - 1);
         uint16x8x2_t     permute_tbl = vld1q_u16_x2(svt_kHbdDotProdTbl);
 
-        const int16_t *s = (const int16_t *)(src);
+        const int16_t* s = (const int16_t*)(src);
 
         do {
             int16x8_t s0, s1, s2, s3;
@@ -158,8 +156,8 @@ static inline void highbd_convolve_x_sr_4tap_sve(const uint16_t *src, int src_st
         uint16x8_t       idx = vld1q_u16(svt_kDeinterleaveTbl);
 
         do {
-            const int16_t *s = (const int16_t *)(src);
-            uint16_t      *d = dst;
+            const int16_t* s = (const int16_t*)(src);
+            uint16_t*      d = dst;
             int            w = width;
 
             do {
@@ -187,10 +185,10 @@ static inline void highbd_convolve_x_sr_4tap_sve(const uint16_t *src, int src_st
     }
 }
 
-void svt_av1_highbd_convolve_x_sr_sve(const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h,
-                                      const InterpFilterParams *filter_params_x,
-                                      const InterpFilterParams *filter_params_y, const int subpel_x_qn,
-                                      const int subpel_y_qn, ConvolveParams *conv_params, int bd) {
+void svt_av1_highbd_convolve_x_sr_sve(const uint16_t* src, int src_stride, uint16_t* dst, int dst_stride, int w, int h,
+                                      const InterpFilterParams* filter_params_x,
+                                      const InterpFilterParams* filter_params_y, const int subpel_x_qn,
+                                      const int subpel_y_qn, ConvolveParams* conv_params, int bd) {
     if (w == 2 || h == 2) {
         svt_av1_highbd_convolve_x_sr_c(src,
                                        src_stride,
@@ -226,7 +224,7 @@ void svt_av1_highbd_convolve_x_sr_sve(const uint16_t *src, int src_stride, uint1
     }
 
     const int      horiz_offset = filter_params_x->taps / 2 - 1;
-    const int16_t *x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
+    const int16_t* x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
 
     src -= horiz_offset;
 

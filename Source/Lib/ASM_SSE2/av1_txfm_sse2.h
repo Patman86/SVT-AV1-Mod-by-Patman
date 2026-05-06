@@ -58,26 +58,32 @@ extern "C" {
         out1 = _mm_packs_epi32(d0, d1);                       \
     }
 
-static INLINE __m128i load_32bit_to_16bit(const int32_t *a) {
-    const __m128i a_low = _mm_loadu_si128((const __m128i *)a);
-    return _mm_packs_epi32(a_low, *(const __m128i *)(a + 4));
+static INLINE __m128i load_32bit_to_16bit(const int32_t* a) {
+    const __m128i a_low = _mm_loadu_si128((const __m128i*)a);
+    return _mm_packs_epi32(a_low, *(const __m128i*)(a + 4));
 }
 
-static INLINE __m128i load_32bit_to_16bit_w4(const int32_t *a) {
-    const __m128i a_low = _mm_loadu_si128((const __m128i *)a);
+static INLINE __m128i load_32bit_to_16bit_w4(const int32_t* a) {
+    const __m128i a_low = _mm_loadu_si128((const __m128i*)a);
     return _mm_packs_epi32(a_low, a_low);
 }
 
-static INLINE void load_buffer_32bit_to_16bit(const int32_t *in, int32_t stride, __m128i *out, int32_t out_size) {
-    for (int32_t i = 0; i < out_size; ++i) out[i] = load_32bit_to_16bit(in + i * stride);
+static INLINE void load_buffer_32bit_to_16bit(const int32_t* in, int32_t stride, __m128i* out, int32_t out_size) {
+    for (int32_t i = 0; i < out_size; ++i) {
+        out[i] = load_32bit_to_16bit(in + i * stride);
+    }
 }
 
-static INLINE void load_buffer_32bit_to_16bit_w4(const int32_t *in, int32_t stride, __m128i *out, int32_t out_size) {
-    for (int32_t i = 0; i < out_size; ++i) out[i] = load_32bit_to_16bit_w4(in + i * stride);
+static INLINE void load_buffer_32bit_to_16bit_w4(const int32_t* in, int32_t stride, __m128i* out, int32_t out_size) {
+    for (int32_t i = 0; i < out_size; ++i) {
+        out[i] = load_32bit_to_16bit_w4(in + i * stride);
+    }
 }
 
-static INLINE void flip_buf_sse2(__m128i *in, __m128i *out, int32_t size) {
-    for (int32_t i = 0; i < size; ++i) out[size - i - 1] = in[i];
+static INLINE void flip_buf_sse2(__m128i* in, __m128i* out, int32_t size) {
+    for (int32_t i = 0; i < size; ++i) {
+        out[size - i - 1] = in[i];
+    }
 }
 
 #ifdef __cplusplus

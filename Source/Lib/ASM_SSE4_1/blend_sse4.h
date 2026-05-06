@@ -26,7 +26,7 @@ static const uint8_t g_blend_a64_mask_shuffle[32] = {
 // Common kernels
 //////////////////////////////////////////////////////////////////////////////
 
-static INLINE __m128i blend_4(const uint8_t *src0, const uint8_t *src1, const __m128i *v_m0_w, const __m128i *v_m1_w) {
+static INLINE __m128i blend_4(const uint8_t* src0, const uint8_t* src1, const __m128i* v_m0_w, const __m128i* v_m1_w) {
     const __m128i v_s0_b = xx_loadl_32(src0);
     const __m128i v_s1_b = xx_loadl_32(src1);
     const __m128i v_s0_w = _mm_cvtepu8_epi16(v_s0_b);
@@ -40,7 +40,7 @@ static INLINE __m128i blend_4(const uint8_t *src0, const uint8_t *src1, const __
     return v_res_w;
 }
 
-static INLINE __m128i blend_8(const uint8_t *src0, const uint8_t *src1, const __m128i *v_m0_w, const __m128i *v_m1_w) {
+static INLINE __m128i blend_8(const uint8_t* src0, const uint8_t* src1, const __m128i* v_m0_w, const __m128i* v_m1_w) {
     const __m128i v_s0_b = xx_loadl_64(src0);
     const __m128i v_s1_b = xx_loadl_64(src1);
     const __m128i v_s0_w = _mm_cvtepu8_epi16(v_s0_b);
@@ -56,8 +56,8 @@ static INLINE __m128i blend_8(const uint8_t *src0, const uint8_t *src1, const __
     return v_res_w;
 }
 
-static INLINE __m128i blend_4_u8(const uint8_t *src0, const uint8_t *src1, const __m128i *v_m0_b, const __m128i *v_m1_b,
-                                 const __m128i *rounding) {
+static INLINE __m128i blend_4_u8(const uint8_t* src0, const uint8_t* src1, const __m128i* v_m0_b, const __m128i* v_m1_b,
+                                 const __m128i* rounding) {
     const __m128i v_s0_b = xx_loadl_32(src0);
     const __m128i v_s1_b = xx_loadl_32(src1);
 
@@ -68,8 +68,8 @@ static INLINE __m128i blend_4_u8(const uint8_t *src0, const uint8_t *src1, const
     return v_res;
 }
 
-static INLINE __m128i blend_8_u8(const uint8_t *src0, const uint8_t *src1, const __m128i *v_m0_b, const __m128i *v_m1_b,
-                                 const __m128i *rounding) {
+static INLINE __m128i blend_8_u8(const uint8_t* src0, const uint8_t* src1, const __m128i* v_m0_b, const __m128i* v_m1_b,
+                                 const __m128i* rounding) {
     const __m128i v_s0_b = xx_loadl_64(src0);
     const __m128i v_s1_b = xx_loadl_64(src1);
 
@@ -80,8 +80,8 @@ static INLINE __m128i blend_8_u8(const uint8_t *src0, const uint8_t *src1, const
     return v_res;
 }
 
-static INLINE __m128i blend_16_u8(const uint8_t *src0, const uint8_t *src1, const __m128i *v_m0_b,
-                                  const __m128i *v_m1_b, const __m128i *rounding) {
+static INLINE __m128i blend_16_u8(const uint8_t* src0, const uint8_t* src1, const __m128i* v_m0_b,
+                                  const __m128i* v_m1_b, const __m128i* rounding) {
     const __m128i v_s0_b = xx_loadu_128(src0);
     const __m128i v_s1_b = xx_loadu_128(src1);
 
@@ -94,9 +94,9 @@ static INLINE __m128i blend_16_u8(const uint8_t *src0, const uint8_t *src1, cons
     return v_res;
 }
 
-typedef __m128i (*BlendUnitFn)(const uint16_t *src0, const uint16_t *src1, const __m128i v_m0_w, const __m128i v_m1_w);
+typedef __m128i (*BlendUnitFn)(const uint16_t* src0, const uint16_t* src1, const __m128i v_m0_w, const __m128i v_m1_w);
 
-static INLINE __m128i blend_4_b10(const uint16_t *src0, const uint16_t *src1, const __m128i v_m0_w,
+static INLINE __m128i blend_4_b10(const uint16_t* src0, const uint16_t* src1, const __m128i v_m0_w,
                                   const __m128i v_m1_w) {
     const __m128i v_s0_w = xx_loadl_64(src0);
     const __m128i v_s1_w = xx_loadl_64(src1);
@@ -111,7 +111,7 @@ static INLINE __m128i blend_4_b10(const uint16_t *src0, const uint16_t *src1, co
     return v_res_w;
 }
 
-static INLINE __m128i blend_8_b10(const uint16_t *src0, const uint16_t *src1, const __m128i v_m0_w,
+static INLINE __m128i blend_8_b10(const uint16_t* src0, const uint16_t* src1, const __m128i v_m0_w,
                                   const __m128i v_m1_w) {
     const __m128i v_s0_w = xx_loadu_128(src0);
     const __m128i v_s1_w = xx_loadu_128(src1);
@@ -126,7 +126,7 @@ static INLINE __m128i blend_8_b10(const uint16_t *src0, const uint16_t *src1, co
     return v_res_w;
 }
 
-static INLINE __m128i blend_4_b12(const uint16_t *src0, const uint16_t *src1, const __m128i v_m0_w,
+static INLINE __m128i blend_4_b12(const uint16_t* src0, const uint16_t* src1, const __m128i v_m0_w,
                                   const __m128i v_m1_w) {
     const __m128i v_s0_w = xx_loadl_64(src0);
     const __m128i v_s1_w = xx_loadl_64(src1);
@@ -150,7 +150,7 @@ static INLINE __m128i blend_4_b12(const uint16_t *src0, const uint16_t *src1, co
     return v_res_w;
 }
 
-static INLINE __m128i blend_8_b12(const uint16_t *src0, const uint16_t *src1, const __m128i v_m0_w,
+static INLINE __m128i blend_8_b12(const uint16_t* src0, const uint16_t* src1, const __m128i v_m0_w,
                                   const __m128i v_m1_w) {
     const __m128i v_s0_w = xx_loadu_128(src0);
     const __m128i v_s1_w = xx_loadu_128(src1);
@@ -179,8 +179,8 @@ static INLINE __m128i blend_8_b12(const uint16_t *src0, const uint16_t *src1, co
 }
 
 /*Functions from convolve_avx2.c*/
-static INLINE void blend_a64_d16_mask_w4_sse41(uint8_t *dst, const CONV_BUF_TYPE *src0, const CONV_BUF_TYPE *src1,
-                                               const __m128i *m, const __m128i *v_round_offset, const __m128i *v_maxval,
+static INLINE void blend_a64_d16_mask_w4_sse41(uint8_t* dst, const CONV_BUF_TYPE* src0, const CONV_BUF_TYPE* src1,
+                                               const __m128i* m, const __m128i* v_round_offset, const __m128i* v_maxval,
                                                int shift) {
     const __m128i max_minus_m   = _mm_sub_epi16(*v_maxval, *m);
     const __m128i s0            = xx_loadl_64(src0);
@@ -196,8 +196,8 @@ static INLINE void blend_a64_d16_mask_w4_sse41(uint8_t *dst, const CONV_BUF_TYPE
     xx_storel_32(dst, res);
 }
 
-static INLINE void blend_a64_d16_mask_w8_sse41(uint8_t *dst, const CONV_BUF_TYPE *src0, const CONV_BUF_TYPE *src1,
-                                               const __m128i *m, const __m128i *v_round_offset, const __m128i *v_maxval,
+static INLINE void blend_a64_d16_mask_w8_sse41(uint8_t* dst, const CONV_BUF_TYPE* src0, const CONV_BUF_TYPE* src1,
+                                               const __m128i* m, const __m128i* v_round_offset, const __m128i* v_maxval,
                                                int shift) {
     const __m128i max_minus_m = _mm_sub_epi16(*v_maxval, *m);
     const __m128i s0          = xx_loadu_128(src0);
@@ -209,14 +209,14 @@ static INLINE void blend_a64_d16_mask_w8_sse41(uint8_t *dst, const CONV_BUF_TYPE
     const __m128i res_e       = _mm_packs_epi32(res_lo, res_hi);
     const __m128i res         = _mm_packus_epi16(res_e, res_e);
 
-    _mm_storel_epi64((__m128i *)(dst), res);
+    _mm_storel_epi64((__m128i*)(dst), res);
 }
 
-static INLINE void aom_lowbd_blend_a64_d16_mask_subw0_subh0_w4_sse4_1(uint8_t *dst, uint32_t dst_stride,
-                                                                      const CONV_BUF_TYPE *src0, uint32_t src0_stride,
-                                                                      const CONV_BUF_TYPE *src1, uint32_t src1_stride,
-                                                                      const uint8_t *mask, uint32_t mask_stride, int h,
-                                                                      const __m128i *round_offset, int shift) {
+static INLINE void aom_lowbd_blend_a64_d16_mask_subw0_subh0_w4_sse4_1(uint8_t* dst, uint32_t dst_stride,
+                                                                      const CONV_BUF_TYPE* src0, uint32_t src0_stride,
+                                                                      const CONV_BUF_TYPE* src1, uint32_t src1_stride,
+                                                                      const uint8_t* mask, uint32_t mask_stride, int h,
+                                                                      const __m128i* round_offset, int shift) {
     const __m128i v_maxval = _mm_set1_epi16(AOM_BLEND_A64_MAX_ALPHA);
     for (int i = 0; i < h; ++i) {
         const __m128i m0 = xx_loadl_32(mask);
@@ -230,11 +230,11 @@ static INLINE void aom_lowbd_blend_a64_d16_mask_subw0_subh0_w4_sse4_1(uint8_t *d
     }
 }
 
-static INLINE void aom_lowbd_blend_a64_d16_mask_subw0_subh0_w8_sse4_1(uint8_t *dst, uint32_t dst_stride,
-                                                                      const CONV_BUF_TYPE *src0, uint32_t src0_stride,
-                                                                      const CONV_BUF_TYPE *src1, uint32_t src1_stride,
-                                                                      const uint8_t *mask, uint32_t mask_stride, int h,
-                                                                      const __m128i *round_offset, int shift) {
+static INLINE void aom_lowbd_blend_a64_d16_mask_subw0_subh0_w8_sse4_1(uint8_t* dst, uint32_t dst_stride,
+                                                                      const CONV_BUF_TYPE* src0, uint32_t src0_stride,
+                                                                      const CONV_BUF_TYPE* src1, uint32_t src1_stride,
+                                                                      const uint8_t* mask, uint32_t mask_stride, int h,
+                                                                      const __m128i* round_offset, int shift) {
     const __m128i v_maxval = _mm_set1_epi16(AOM_BLEND_A64_MAX_ALPHA);
     for (int i = 0; i < h; ++i) {
         const __m128i m0 = xx_loadl_64(mask);
@@ -247,11 +247,11 @@ static INLINE void aom_lowbd_blend_a64_d16_mask_subw0_subh0_w8_sse4_1(uint8_t *d
     }
 }
 
-static INLINE void aom_lowbd_blend_a64_d16_mask_subw1_subh1_w4_sse4_1(uint8_t *dst, uint32_t dst_stride,
-                                                                      const CONV_BUF_TYPE *src0, uint32_t src0_stride,
-                                                                      const CONV_BUF_TYPE *src1, uint32_t src1_stride,
-                                                                      const uint8_t *mask, uint32_t mask_stride, int h,
-                                                                      const __m128i *round_offset, int shift) {
+static INLINE void aom_lowbd_blend_a64_d16_mask_subw1_subh1_w4_sse4_1(uint8_t* dst, uint32_t dst_stride,
+                                                                      const CONV_BUF_TYPE* src0, uint32_t src0_stride,
+                                                                      const CONV_BUF_TYPE* src1, uint32_t src1_stride,
+                                                                      const uint8_t* mask, uint32_t mask_stride, int h,
+                                                                      const __m128i* round_offset, int shift) {
     const __m128i v_maxval = _mm_set1_epi16(AOM_BLEND_A64_MAX_ALPHA);
     const __m128i one_b    = _mm_set1_epi8(1);
     const __m128i two_w    = _mm_set1_epi16(2);
@@ -271,11 +271,11 @@ static INLINE void aom_lowbd_blend_a64_d16_mask_subw1_subh1_w4_sse4_1(uint8_t *d
     }
 }
 
-static INLINE void aom_lowbd_blend_a64_d16_mask_subw1_subh1_w8_sse4_1(uint8_t *dst, uint32_t dst_stride,
-                                                                      const CONV_BUF_TYPE *src0, uint32_t src0_stride,
-                                                                      const CONV_BUF_TYPE *src1, uint32_t src1_stride,
-                                                                      const uint8_t *mask, uint32_t mask_stride, int h,
-                                                                      const __m128i *round_offset, int shift) {
+static INLINE void aom_lowbd_blend_a64_d16_mask_subw1_subh1_w8_sse4_1(uint8_t* dst, uint32_t dst_stride,
+                                                                      const CONV_BUF_TYPE* src0, uint32_t src0_stride,
+                                                                      const CONV_BUF_TYPE* src1, uint32_t src1_stride,
+                                                                      const uint8_t* mask, uint32_t mask_stride, int h,
+                                                                      const __m128i* round_offset, int shift) {
     const __m128i v_maxval = _mm_set1_epi16(AOM_BLEND_A64_MAX_ALPHA);
     const __m128i one_b    = _mm_set1_epi8(1);
     const __m128i two_w    = _mm_set1_epi16(2);
@@ -295,11 +295,11 @@ static INLINE void aom_lowbd_blend_a64_d16_mask_subw1_subh1_w8_sse4_1(uint8_t *d
     }
 }
 
-static INLINE void aom_lowbd_blend_a64_d16_mask_subw1_subh0_w4_sse4_1(uint8_t *dst, uint32_t dst_stride,
-                                                                      const CONV_BUF_TYPE *src0, uint32_t src0_stride,
-                                                                      const CONV_BUF_TYPE *src1, uint32_t src1_stride,
-                                                                      const uint8_t *mask, uint32_t mask_stride, int h,
-                                                                      const __m128i *round_offset, int shift) {
+static INLINE void aom_lowbd_blend_a64_d16_mask_subw1_subh0_w4_sse4_1(uint8_t* dst, uint32_t dst_stride,
+                                                                      const CONV_BUF_TYPE* src0, uint32_t src0_stride,
+                                                                      const CONV_BUF_TYPE* src1, uint32_t src1_stride,
+                                                                      const uint8_t* mask, uint32_t mask_stride, int h,
+                                                                      const __m128i* round_offset, int shift) {
     const __m128i v_maxval = _mm_set1_epi16(AOM_BLEND_A64_MAX_ALPHA);
     const __m128i one_b    = _mm_set1_epi8(1);
     const __m128i zeros    = _mm_setzero_si128();
@@ -316,11 +316,11 @@ static INLINE void aom_lowbd_blend_a64_d16_mask_subw1_subh0_w4_sse4_1(uint8_t *d
     }
 }
 
-static INLINE void aom_lowbd_blend_a64_d16_mask_subw1_subh0_w8_sse4_1(uint8_t *dst, uint32_t dst_stride,
-                                                                      const CONV_BUF_TYPE *src0, uint32_t src0_stride,
-                                                                      const CONV_BUF_TYPE *src1, uint32_t src1_stride,
-                                                                      const uint8_t *mask, uint32_t mask_stride, int h,
-                                                                      const __m128i *round_offset, int shift) {
+static INLINE void aom_lowbd_blend_a64_d16_mask_subw1_subh0_w8_sse4_1(uint8_t* dst, uint32_t dst_stride,
+                                                                      const CONV_BUF_TYPE* src0, uint32_t src0_stride,
+                                                                      const CONV_BUF_TYPE* src1, uint32_t src1_stride,
+                                                                      const uint8_t* mask, uint32_t mask_stride, int h,
+                                                                      const __m128i* round_offset, int shift) {
     const __m128i v_maxval = _mm_set1_epi16(AOM_BLEND_A64_MAX_ALPHA);
     const __m128i one_b    = _mm_set1_epi8(1);
     const __m128i zeros    = _mm_setzero_si128();
@@ -337,11 +337,11 @@ static INLINE void aom_lowbd_blend_a64_d16_mask_subw1_subh0_w8_sse4_1(uint8_t *d
     }
 }
 
-static INLINE void aom_lowbd_blend_a64_d16_mask_subw0_subh1_w4_sse4_1(uint8_t *dst, uint32_t dst_stride,
-                                                                      const CONV_BUF_TYPE *src0, uint32_t src0_stride,
-                                                                      const CONV_BUF_TYPE *src1, uint32_t src1_stride,
-                                                                      const uint8_t *mask, uint32_t mask_stride, int h,
-                                                                      const __m128i *round_offset, int shift) {
+static INLINE void aom_lowbd_blend_a64_d16_mask_subw0_subh1_w4_sse4_1(uint8_t* dst, uint32_t dst_stride,
+                                                                      const CONV_BUF_TYPE* src0, uint32_t src0_stride,
+                                                                      const CONV_BUF_TYPE* src1, uint32_t src1_stride,
+                                                                      const uint8_t* mask, uint32_t mask_stride, int h,
+                                                                      const __m128i* round_offset, int shift) {
     const __m128i v_maxval = _mm_set1_epi16(AOM_BLEND_A64_MAX_ALPHA);
     const __m128i zeros    = _mm_setzero_si128();
     for (int i = 0; i < h; ++i) {
@@ -358,11 +358,11 @@ static INLINE void aom_lowbd_blend_a64_d16_mask_subw0_subh1_w4_sse4_1(uint8_t *d
     }
 }
 
-static INLINE void aom_lowbd_blend_a64_d16_mask_subw0_subh1_w8_sse4_1(uint8_t *dst, uint32_t dst_stride,
-                                                                      const CONV_BUF_TYPE *src0, uint32_t src0_stride,
-                                                                      const CONV_BUF_TYPE *src1, uint32_t src1_stride,
-                                                                      const uint8_t *mask, uint32_t mask_stride, int h,
-                                                                      const __m128i *round_offset, int shift) {
+static INLINE void aom_lowbd_blend_a64_d16_mask_subw0_subh1_w8_sse4_1(uint8_t* dst, uint32_t dst_stride,
+                                                                      const CONV_BUF_TYPE* src0, uint32_t src0_stride,
+                                                                      const CONV_BUF_TYPE* src1, uint32_t src1_stride,
+                                                                      const uint8_t* mask, uint32_t mask_stride, int h,
+                                                                      const __m128i* round_offset, int shift) {
     const __m128i v_maxval = _mm_set1_epi16(AOM_BLEND_A64_MAX_ALPHA);
     const __m128i zeros    = _mm_setzero_si128();
     for (int i = 0; i < h; ++i) {

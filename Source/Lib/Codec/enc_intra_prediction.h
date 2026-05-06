@@ -20,38 +20,48 @@
 extern "C" {
 #endif
 
-struct ModeDecisionCandidateBuffer;
-struct ModeDecisionCandidate;
+// clang-format off
+static const IntraSize svt_aom_intra_unit[] =
+{
+    /*Note: e.g for V: there are case where we need the first
+            pixel from left to pad the ref array */
+    {1,1},//DC_PRED
+    {1,1},//V_PRED
+    {1,1},//H_PRED
+    {2,1},//D45_PRED
+    {1,1},//D135_PRED
+    {1,1},//D113_PRED
+    {1,1},//D157_PRED
+    {1,2},//D203_PRED
+    {2,1},//D67_PRED
+    {1,1},//SMOOTH_PRED
+    {1,1},//SMOOTH_V_PRED
+    {1,1},//SMOOTH_H_PRED
+    {2,2} //PAETH_PRED
+};
+// clang-format on
 
-EbErrorType        svt_av1_intra_prediction(uint8_t hbd_md, struct ModeDecisionContext *ctx, PictureControlSet *pcs,
-                                            ModeDecisionCandidateBuffer *cand_bf);
-extern EbErrorType svt_aom_update_neighbor_samples_array_open_loop_mb(uint8_t use_top_righ_bottom_left,
-                                                                      uint8_t update_top_neighbor, uint8_t *above_ref,
-                                                                      uint8_t *left_ref, EbPictureBufferDesc *input_ptr,
-                                                                      uint32_t stride, uint32_t srcOriginX,
-                                                                      uint32_t srcOriginY, uint8_t bwidth,
-                                                                      uint8_t bheight);
-extern EbErrorType svt_aom_update_neighbor_samples_array_open_loop_mb_recon(
-    uint8_t use_top_righ_bottom_left, uint8_t update_top_neighbor, uint8_t *above_ref, uint8_t *left_ref,
-    uint8_t *recon_ptr, uint32_t stride, uint32_t src_origin_x, uint32_t src_origin_y, uint8_t bwidth, uint8_t bheight,
-    uint32_t width, uint32_t height);
+EbErrorType svt_av1_intra_prediction(uint8_t hbd_md, struct ModeDecisionContext* ctx, PictureControlSet* pcs,
+                                     ModeDecisionCandidateBuffer* cand_bf);
+EbErrorType svt_aom_update_neighbor_samples_array_open_loop_mb(uint8_t use_top_righ_bottom_left,
+                                                               uint8_t update_top_neighbor, uint8_t* above_ref,
+                                                               uint8_t* left_ref, EbPictureBufferDesc* input_ptr,
+                                                               uint32_t stride, uint32_t srcOriginX,
+                                                               uint32_t srcOriginY, uint8_t bwidth, uint8_t bheight);
+EbErrorType svt_aom_update_neighbor_samples_array_open_loop_mb_recon(uint8_t use_top_righ_bottom_left,
+                                                                     uint8_t update_top_neighbor, uint8_t* above_ref,
+                                                                     uint8_t* left_ref, uint8_t* recon_ptr,
+                                                                     uint32_t stride, uint32_t src_origin_x,
+                                                                     uint32_t src_origin_y, uint8_t bwidth,
+                                                                     uint8_t bheight, uint32_t width, uint32_t height);
 
-void svt_av1_predict_intra_block(STAGE stage, const BlockGeom *blk_geom, MacroBlockD *xd, int32_t wpx, int32_t hpx,
-                                 TxSize tx_size, PredictionMode mode, int32_t angle_delta, int32_t use_palette,
-                                 PaletteInfo *palette_info, FilterIntraMode filter_intra_mode, uint8_t *top_neigh_array,
-                                 uint8_t *left_neigh_array, EbPictureBufferDesc *recon_buffer, int32_t col_off,
-                                 int32_t row_off, int32_t plane, BlockSize bsize, uint32_t txb_org_x_pict,
-                                 uint32_t txb_org_y_pict, uint32_t bl_org_x_pict, uint32_t bl_org_y_pict,
-                                 uint32_t bl_org_x_mb, uint32_t bl_org_y_mb, SeqHeader *seq_header_ptr);
-void svt_av1_predict_intra_block_16bit(EbBitDepth bit_depth, STAGE stage, const BlockGeom *blk_geom, MacroBlockD *xd,
-                                       int32_t wpx, int32_t hpx, TxSize tx_size, PredictionMode mode,
-                                       int32_t angle_delta, int32_t use_palette, PaletteInfo *palette_info,
-                                       FilterIntraMode filter_intra_mode, uint16_t *top_neigh_array,
-                                       uint16_t *left_neigh_array, EbPictureBufferDesc *recon_buffer, int32_t col_off,
-                                       int32_t row_off, int32_t plane, BlockSize bsize, uint32_t txb_org_x_pict,
-                                       uint32_t txb_org_y_pict, uint32_t bl_org_x_pict, uint32_t bl_org_y_pict,
-                                       uint32_t bl_org_x_mb, uint32_t bl_org_y_mb, SeqHeader *seq_header_ptr);
-void svt_aom_precompute_intra_pred_for_inter_intra(PictureControlSet *pcs, struct ModeDecisionContext *ctx);
+void svt_av1_predict_intra_block(MacroBlockD* xd, BlockSize bsize, TxSize tx_size, PredictionMode mode,
+                                 int32_t angle_delta, int32_t use_palette, PaletteInfo* palette_info,
+                                 FilterIntraMode filter_intra_mode, uint8_t* top_neigh_array, uint8_t* left_neigh_array,
+                                 EbPictureBufferDesc* recon_buffer, int32_t col_off, int32_t row_off, int32_t plane,
+                                 Part shape, uint32_t dst_offset_x, uint32_t dst_offset_y, SeqHeader* seq_header_ptr,
+                                 EbBitDepth bit_depth);
+void svt_aom_precompute_intra_pred_for_inter_intra(PictureControlSet* pcs, struct ModeDecisionContext* ctx);
 #ifdef __cplusplus
 }
 #endif

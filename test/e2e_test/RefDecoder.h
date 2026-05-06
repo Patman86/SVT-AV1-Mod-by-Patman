@@ -41,23 +41,23 @@ class RefDecoder {
         REF_CODEC_OK,
 
         /*!\brief Unspecified error */
-        REF_CODEC_ERROR = 0 - AOM_CODEC_ERROR,
+        REF_CODEC_ERROR = 0 - SVT_AOM_CODEC_ERROR,
 
         /*!\brief Memory operation failed */
-        REF_CODEC_MEM_ERROR = 0 - AOM_CODEC_MEM_ERROR,
+        REF_CODEC_MEM_ERROR = 0 - SVT_AOM_CODEC_MEM_ERROR,
 
         /*!\brief ABI version mismatch */
-        REF_CODEC_ABI_MISMATCH = 0 - AOM_CODEC_ABI_MISMATCH,
+        REF_CODEC_ABI_MISMATCH = 0 - SVT_AOM_CODEC_ABI_MISMATCH,
 
         /*!\brief Algorithm does not have required capability */
-        REF_CODEC_INCAPABLE = 0 - AOM_CODEC_INCAPABLE,
+        REF_CODEC_INCAPABLE = 0 - SVT_AOM_CODEC_INCAPABLE,
 
         /*!\brief The given Bitstream is not supported.
          *
          * The Bitstream was unable to be parsed at the highest level. The
          * decoder is unable to proceed. This error \ref SHOULD be treated as
          * fatal to the stream. */
-        REF_CODEC_UNSUP_BITSTREAM = 0 - AOM_CODEC_UNSUP_BITSTREAM,
+        REF_CODEC_UNSUP_BITSTREAM = 0 - SVT_AOM_CODEC_UNSUP_BITSTREAM,
 
         /*!\brief Encoded Bitstream uses an unsupported feature
          *
@@ -67,7 +67,7 @@ class RefDecoder {
          * as fatal to the stream or \ref MAY be treated as fatal to the current
          * GOP.
          */
-        REF_CODEC_UNSUP_FEATURE = 0 - AOM_CODEC_UNSUP_FEATURE,
+        REF_CODEC_UNSUP_FEATURE = 0 - SVT_AOM_CODEC_UNSUP_FEATURE,
 
         /*!\brief The coded data for this stream is corrupt or incomplete
          *
@@ -77,17 +77,17 @@ class RefDecoder {
          * the stream or \ref MAY be treated as fatal to the current GOP. If
          * decoding is continued for the current GOP, artifacts may be present.
          */
-        REF_CODEC_CORRUPT_FRAME = 0 - AOM_CODEC_CORRUPT_FRAME,
+        REF_CODEC_CORRUPT_FRAME = 0 - SVT_AOM_CODEC_CORRUPT_FRAME,
 
         /*!\brief An application-supplied parameter is not valid.
          *
          */
-        REF_CODEC_INVALID_PARAM = 0 - AOM_CODEC_INVALID_PARAM,
+        REF_CODEC_INVALID_PARAM = 0 - SVT_AOM_CODEC_INVALID_PARAM,
 
         /*!\brief An iterator reached the end of list.
          *
          */
-        REF_CODEC_LIST_END = 0 - AOM_CODEC_LIST_END,
+        REF_CODEC_LIST_END = 0 - SVT_AOM_CODEC_LIST_END,
 
         /*!\brief Decoder need more input data to generate frame
          *

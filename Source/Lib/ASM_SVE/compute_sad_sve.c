@@ -23,15 +23,15 @@
 #include "sum_neon.h"
 #include "utility.h"
 
-static inline uint32x4_t sadwxhx4d_sve(const uint8_t *src, uint32_t src_stride, const uint8_t *ref, uint32_t ref_stride,
+static inline uint32x4_t sadwxhx4d_sve(const uint8_t* src, uint32_t src_stride, const uint8_t* ref, uint32_t ref_stride,
                                        uint32_t width, uint32_t height) {
     uint32x4_t sum_u32[4] = {vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0)};
 
     do {
         int w = width;
 
-        const uint8_t *src_ptr = src;
-        const uint8_t *ref_ptr = ref;
+        const uint8_t* src_ptr = src;
+        const uint8_t* ref_ptr = ref;
 
         while (w >= 16) {
             const uint8x16_t s = vld1q_u8(src_ptr);
@@ -64,9 +64,9 @@ static inline uint32x4_t sadwxhx4d_sve(const uint8_t *src, uint32_t src_stride, 
     return horizontal_add_4d_u32x4(sum_u32);
 }
 
-static inline void svt_sad_loop_kernelwxh_sve(uint8_t *src, uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                              uint32_t block_width, uint32_t block_height, uint64_t *best_sad,
-                                              int16_t *x_search_center, int16_t *y_search_center,
+static inline void svt_sad_loop_kernelwxh_sve(uint8_t* src, uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                              uint32_t block_width, uint32_t block_height, uint64_t* best_sad,
+                                              int16_t* x_search_center, int16_t* y_search_center,
                                               uint32_t src_stride_raw, int16_t search_area_width,
                                               int16_t search_area_height) {
     for (int y_search_index = 0; y_search_index < search_area_height; y_search_index++) {
@@ -84,10 +84,10 @@ static inline void svt_sad_loop_kernelwxh_sve(uint8_t *src, uint32_t src_stride,
     }
 }
 
-static inline void svt_sad_loop_kernelwxh_small_sve(uint8_t *src, uint32_t src_stride, uint8_t *ref,
+static inline void svt_sad_loop_kernelwxh_small_sve(uint8_t* src, uint32_t src_stride, uint8_t* ref,
                                                     uint32_t ref_stride, uint32_t block_width, uint32_t block_height,
-                                                    uint64_t *best_sad, int16_t *x_search_center,
-                                                    int16_t *y_search_center, uint32_t src_stride_raw,
+                                                    uint64_t* best_sad, int16_t* x_search_center,
+                                                    int16_t* y_search_center, uint32_t src_stride_raw,
                                                     int16_t search_area_width, int16_t search_area_height) {
     for (int y_search_index = 0; y_search_index < search_area_height; y_search_index++) {
         int x_search_index;
@@ -108,9 +108,9 @@ static inline void svt_sad_loop_kernelwxh_small_sve(uint8_t *src, uint32_t src_s
     }
 }
 
-void svt_sad_loop_kernel_sve(uint8_t *src, uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                             uint32_t block_height, uint32_t block_width, uint64_t *best_sad, int16_t *x_search_center,
-                             int16_t *y_search_center, uint32_t src_stride_raw, uint8_t skip_search_line,
+void svt_sad_loop_kernel_sve(uint8_t* src, uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                             uint32_t block_height, uint32_t block_width, uint64_t* best_sad, int16_t* x_search_center,
+                             int16_t* y_search_center, uint32_t src_stride_raw, uint8_t skip_search_line,
                              int16_t search_area_width, int16_t search_area_height) {
     *best_sad = UINT64_MAX;
     // Most of the time search_area_width is a multiple of 8, so specialize for this case so that we run only sad4d.

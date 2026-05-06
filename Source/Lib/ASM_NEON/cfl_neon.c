@@ -15,7 +15,9 @@
 #include "mem_neon.h"
 
 /* Store half of a vector. */
-static inline void vsth_u8(uint8_t *ptr, uint8x8_t val) { vst1_lane_u32((uint32_t *)ptr, vreinterpret_u32_u8(val), 0); }
+static inline void vsth_u8(uint8_t* ptr, uint8x8_t val) {
+    vst1_lane_u32((uint32_t*)ptr, vreinterpret_u32_u8(val), 0);
+}
 
 /* Saturating negate 16-bit integers in a when the corresponding signed 16-bit
 integer in b is negative.
@@ -45,21 +47,21 @@ static inline int16x8_t vsignq_s16(int16x8_t a, int16x8_t b) {
     return veorq_s16(vaddq_s16(a, mask), mask);
 }
 
-static inline int16x4_t predict_w4(const int16_t *pred_buf_q3, int16x4_t alpha_sign, int abs_alpha_q12, int16x4_t dc) {
+static inline int16x4_t predict_w4(const int16_t* pred_buf_q3, int16x4_t alpha_sign, int abs_alpha_q12, int16x4_t dc) {
     const int16x4_t ac_q3       = vld1_s16(pred_buf_q3);
     const int16x4_t ac_sign     = veor_s16(alpha_sign, ac_q3);
     int16x4_t       scaled_luma = vqrdmulh_n_s16(vabs_s16(ac_q3), abs_alpha_q12);
     return vadd_s16(vsign_s16(scaled_luma, ac_sign), dc);
 }
 
-static inline int16x8_t predict_w8(const int16_t *pred_buf_q3, int16x8_t alpha_sign, int abs_alpha_q12, int16x8_t dc) {
+static inline int16x8_t predict_w8(const int16_t* pred_buf_q3, int16x8_t alpha_sign, int abs_alpha_q12, int16x8_t dc) {
     const int16x8_t ac_q3       = vld1q_s16(pred_buf_q3);
     const int16x8_t ac_sign     = veorq_s16(alpha_sign, ac_q3);
     int16x8_t       scaled_luma = vqrdmulhq_n_s16(vabsq_s16(ac_q3), abs_alpha_q12);
     return vaddq_s16(vsignq_s16(scaled_luma, ac_sign), dc);
 }
 
-static inline int16x8x2_t predict_w16(const int16_t *pred_buf_q3, int16x8_t alpha_sign, int abs_alpha_q12,
+static inline int16x8x2_t predict_w16(const int16_t* pred_buf_q3, int16x8_t alpha_sign, int abs_alpha_q12,
                                       int16x8_t dc) {
     const int16x8x2_t ac_q3         = vld1q_s16_x2(pred_buf_q3);
     const int16x8_t   ac_sign_0     = veorq_s16(alpha_sign, ac_q3.val[0]);
@@ -72,7 +74,7 @@ static inline int16x8x2_t predict_w16(const int16_t *pred_buf_q3, int16x8_t alph
     return result;
 }
 
-static inline int16x8x4_t predict_w32(const int16_t *pred_buf_q3, int16x8_t alpha_sign, int abs_alpha_q12,
+static inline int16x8x4_t predict_w32(const int16_t* pred_buf_q3, int16x8_t alpha_sign, int abs_alpha_q12,
                                       int16x8_t dc) {
     const int16x8x4_t ac_q3         = vld1q_s16_x4(pred_buf_q3);
     const int16x8_t   ac_sign_0     = veorq_s16(alpha_sign, ac_q3.val[0]);
@@ -91,13 +93,13 @@ static inline int16x8x4_t predict_w32(const int16_t *pred_buf_q3, int16x8_t alph
     return result;
 }
 
-void svt_aom_cfl_predict_lbd_neon(const int16_t *pred_buf_q3, uint8_t *pred, int32_t pred_stride, uint8_t *dst,
+void svt_aom_cfl_predict_lbd_neon(const int16_t* pred_buf_q3, uint8_t* pred, int32_t pred_stride, uint8_t* dst,
                                   int32_t dst_stride, int32_t alpha_q3, int32_t bit_depth, int32_t width,
                                   int32_t height) {
     (void)bit_depth;
     (void)pred_stride;
     const int16_t        abs_alpha_q12 = abs(alpha_q3) << 9;
-    const int16_t *const end           = pred_buf_q3 + height * CFL_BUF_LINE;
+    const int16_t* const end           = pred_buf_q3 + height * CFL_BUF_LINE;
     if (width == 4) {
         const int16x4_t alpha_sign = vdup_n_s16(alpha_q3);
         const int16x4_t dc         = vdup_n_s16(*pred);
@@ -153,13 +155,13 @@ static inline uint16x8x4_t clamp4q_s16(int16x8x4_t a, int16x8_t max) {
     return result;
 }
 
-void svt_cfl_predict_hbd_neon(const int16_t *pred_buf_q3, uint16_t *pred, int pred_stride, uint16_t *dst,
+void svt_cfl_predict_hbd_neon(const int16_t* pred_buf_q3, uint16_t* pred, int pred_stride, uint16_t* dst,
                               int dst_stride, int alpha_q3, int bd, int width, int height) {
     (void)pred_stride;
     (void)bd; // bd is assumed to be 10.
     const int            max           = (1 << 10) - 1;
     const int16_t        abs_alpha_q12 = abs(alpha_q3) << 9;
-    const int16_t *const end           = pred_buf_q3 + height * CFL_BUF_LINE;
+    const int16_t* const end           = pred_buf_q3 + height * CFL_BUF_LINE;
     if (width == 4) {
         const int16x4_t alpha_sign = vdup_n_s16(alpha_q3);
         const int16x4_t dc         = vdup_n_s16(*pred);
@@ -191,9 +193,9 @@ void svt_cfl_predict_hbd_neon(const int16_t *pred_buf_q3, uint16_t *pred, int pr
     }
 }
 
-void svt_cfl_luma_subsampling_420_lbd_neon(const uint8_t *input, int input_stride, int16_t *pred_buf_q3, int width,
+void svt_cfl_luma_subsampling_420_lbd_neon(const uint8_t* input, int input_stride, int16_t* pred_buf_q3, int width,
                                            int height) {
-    const int16_t *end         = pred_buf_q3 + (height >> 1) * CFL_BUF_LINE;
+    const int16_t* end         = pred_buf_q3 + (height >> 1) * CFL_BUF_LINE;
     const int      luma_stride = input_stride << 1;
     if (width == 4) {
         do {
@@ -258,9 +260,9 @@ void svt_cfl_luma_subsampling_420_lbd_neon(const uint8_t *input, int input_strid
     }
 }
 
-void svt_cfl_luma_subsampling_420_hbd_neon(const uint16_t *input, int input_stride, int16_t *pred_buf_q3, int width,
+void svt_cfl_luma_subsampling_420_hbd_neon(const uint16_t* input, int input_stride, int16_t* pred_buf_q3, int width,
                                            int height) {
-    const int16_t *end         = pred_buf_q3 + (height >> 1) * CFL_BUF_LINE;
+    const int16_t* end         = pred_buf_q3 + (height >> 1) * CFL_BUF_LINE;
     const int      luma_stride = input_stride << 1;
     if (width == 4) {
         do {
@@ -332,8 +334,8 @@ void svt_cfl_luma_subsampling_420_hbd_neon(const uint16_t *input, int input_stri
     }
 }
 
-void svt_subtract_average_neon(int16_t *pred_buf_q3, int width, int height, int round_offset, const int num_pel_log2) {
-    const uint16_t *end = (uint16_t *)pred_buf_q3 + height * CFL_BUF_LINE;
+void svt_subtract_average_neon(int16_t* pred_buf_q3, int width, int height, int round_offset, const int num_pel_log2) {
+    const uint16_t* end = (uint16_t*)pred_buf_q3 + height * CFL_BUF_LINE;
 
     // Round offset is not needed, because Neon will handle the rounding.
     (void)round_offset;
@@ -345,7 +347,7 @@ void svt_subtract_average_neon(int16_t *pred_buf_q3, int width, int height, int 
     // pixels, which are positive integer and only require 15 bits. By using
     // unsigned integer for the sum, we can do one addition operation inside 16
     // bits (8 lanes) before having to convert to 32 bits (4 lanes).
-    const uint16_t *sum_buf = (uint16_t *)pred_buf_q3;
+    const uint16_t* sum_buf = (uint16_t*)pred_buf_q3;
     uint32x4_t      sum     = vdupq_n_u32(0);
 
     if (width == 4) {
@@ -439,7 +441,7 @@ void svt_subtract_average_neon(int16_t *pred_buf_q3, int width, int height, int 
             vst1_s16(pred_buf_q3, vsub_s16(a0, avg_16x4));
 
             pred_buf_q3 += CFL_BUF_LINE;
-        } while ((uint16_t *)pred_buf_q3 < end);
+        } while ((uint16_t*)pred_buf_q3 < end);
     } else if (width == 8) {
         const int16x8_t avg_16x8 = vcombine_s16(avg_16x4, avg_16x4);
         do {
@@ -454,7 +456,7 @@ void svt_subtract_average_neon(int16_t *pred_buf_q3, int width, int height, int 
             store_s16_8x4(pred_buf_q3, CFL_BUF_LINE, a0_avg, a1_avg, a2_avg, a3_avg);
 
             pred_buf_q3 += step;
-        } while ((uint16_t *)pred_buf_q3 < end);
+        } while ((uint16_t*)pred_buf_q3 < end);
     } else if (width == 16) {
         const int16x8_t avg_16x8 = vcombine_s16(avg_16x4, avg_16x4);
         do {
@@ -478,7 +480,7 @@ void svt_subtract_average_neon(int16_t *pred_buf_q3, int width, int height, int 
 
             store_s16_8x4(pred_buf_q3 + 8, CFL_BUF_LINE, a4_avg, a5_avg, a6_avg, a7_avg);
             pred_buf_q3 += step;
-        } while ((uint16_t *)pred_buf_q3 < end);
+        } while ((uint16_t*)pred_buf_q3 < end);
     } else if (width == 32) {
         const int16x8_t avg_16x8 = vcombine_s16(avg_16x4, avg_16x4);
         do {
@@ -522,6 +524,6 @@ void svt_subtract_average_neon(int16_t *pred_buf_q3, int width, int height, int 
 
             store_s16_8x4(pred_buf_q3 + 24, CFL_BUF_LINE, a12_avg, a13_avg, a14_avg, a15_avg);
             pred_buf_q3 += step;
-        } while ((uint16_t *)pred_buf_q3 < end);
+        } while ((uint16_t*)pred_buf_q3 < end);
     }
 }

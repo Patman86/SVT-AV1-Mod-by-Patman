@@ -119,7 +119,7 @@ typedef struct {
     EbColorRange color_range;
 } NoiseArgs;
 
-static EbColorRange find_color_range(EbSvtAv1EncConfiguration *config) {
+static EbColorRange find_color_range(EbSvtAv1EncConfiguration* config) {
     // If the color range is explicitly provided, use it.
     if (config->color_range_provided) {
         return config->color_range;
@@ -132,7 +132,7 @@ static int32_t get_output_noise(int32_t setting_noise, int32_t target_noise, int
     return (target_noise > 0) ? target_noise : (setting_noise > cutoff) ? 1 : 0;
 }
 
-static void set_scaling_points_y(AomFilmGrain *film_grain, const NoiseArgs *noise_args, const uint8_t grain_size) {
+static void set_scaling_points_y(AomFilmGrain* film_grain, const NoiseArgs* noise_args, const uint8_t grain_size) {
     const int32_t num_points    = 6;
     const int32_t range_min     = (noise_args->color_range == EB_CR_STUDIO_RANGE) ? 16 : 0;
     const int32_t range_max     = (noise_args->color_range == EB_CR_STUDIO_RANGE) ? 235 : 255;
@@ -168,10 +168,9 @@ static void set_scaling_points_y(AomFilmGrain *film_grain, const NoiseArgs *nois
     film_grain->scaling_points_y[5][1] = 0;
 }
 
-static void set_scaling_points_uv(AomFilmGrain *film_grain, const NoiseArgs *noise_args, const uint8_t grain_size) {
-    const int32_t noise_setting = (noise_args->str_chroma == -1) ? noise_args->str_luma * 0.6 : noise_args->str_chroma;
+static void set_scaling_points_uv(AomFilmGrain* film_grain, const NoiseArgs* noise_args, const uint8_t grain_size) {
+    const int32_t noise_setting = (noise_args->str_chroma == -1) ? noise_args->str_luma * 0.75 : noise_args->str_chroma;
     const double  noise         = (23 - grain_size) * noise_setting / 50.0;
-    const int32_t range_min     = (noise_args->color_range == EB_CR_STUDIO_RANGE) ? 16 : 0;
 
     if (noise_args->chroma_from_luma == 0) {
         const int32_t num_points = 4;
@@ -202,6 +201,7 @@ static void set_scaling_points_uv(AomFilmGrain *film_grain, const NoiseArgs *noi
             noise_setting, noise, 0);
     } else {
         const int32_t num_points  = 6;
+        const int32_t range_min   = (noise_args->color_range == EB_CR_STUDIO_RANGE) ? 16 : 0;
         const int32_t range_max   = (noise_args->color_range == EB_CR_STUDIO_RANGE) ? 235 : 255;
         const int32_t range       = range_max - range_min;
         const double  range_ratio = range / 255.0;
@@ -238,7 +238,7 @@ static void set_scaling_points_uv(AomFilmGrain *film_grain, const NoiseArgs *noi
     }
 }
 
-static uint8_t get_grain_size(const NoiseArgs *noise_args) {
+static uint8_t get_grain_size(const NoiseArgs* noise_args) {
     if (noise_args->grain_size != -1) {
         return noise_args->grain_size;
     }
@@ -246,10 +246,12 @@ static uint8_t get_grain_size(const NoiseArgs *noise_args) {
     const int32_t height     = noise_args->height;
     const int32_t large_side = (width > height) ? width : height;
 
-    if (large_side <= 1280)
+    if (large_side <= 1280) {
         return 0;
-    if (large_side >= 3840)
+    }
+    if (large_side >= 3840) {
         return 13;
+    }
 
     // arbitrary function that calculates the grain size based on input's largest side,
     // where ~720p and lower gives 0, ~1080p gives 2, and ~2160p and above gives 13
@@ -258,9 +260,9 @@ static uint8_t get_grain_size(const NoiseArgs *noise_args) {
     return (int32_t)(2.0 * pow(normalized, p));
 }
 
-static void svt_av1_generate_noise(const NoiseArgs *noise_args, EbSvtAv1EncConfiguration *cfg) {
-    AomFilmGrain *film_grain;
-    film_grain                 = (AomFilmGrain *)calloc(1, sizeof(AomFilmGrain));
+static void svt_av1_generate_noise(const NoiseArgs* noise_args, EbSvtAv1EncConfiguration* cfg) {
+    AomFilmGrain* film_grain;
+    film_grain                 = (AomFilmGrain*)calloc(1, sizeof(AomFilmGrain));
     const int32_t noise_chroma = noise_args->str_chroma;
     const int32_t grain_size   = get_grain_size(noise_args);
     set_scaling_points_y(film_grain, noise_args, grain_size);
@@ -287,7 +289,7 @@ static void svt_av1_generate_noise(const NoiseArgs *noise_args, EbSvtAv1EncConfi
     cfg->fgs_table                       = film_grain;
 }
 
-EbErrorType svt_av1_generate_noise_table(EbSvtAv1EncConfiguration *config) {
+EbErrorType svt_av1_generate_noise_table(EbSvtAv1EncConfiguration* config) {
     const NoiseArgs args = {.width            = config->source_width,
                             .height           = config->source_height,
                             .str_luma         = config->noise_strength,

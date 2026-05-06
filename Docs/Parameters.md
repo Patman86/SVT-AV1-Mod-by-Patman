@@ -24,7 +24,6 @@ The encoder parameters are listed in this table below along with their
 | **ErrorFile**                      | --errlog             | any string   | `stderr`      | Error file path                                                                                                   |
 | **ReconFile**                      | -o                   | any string   | None          | Reconstructed yuv file path                                                                                       |
 | **StatFile**                       | --stat-file          | any string   | None          | PSNR / SSIM per picture stat output file path, requires `--enable-stat-report 1`                                  |
-| **PredStructFile**                 | --pred-struct-file   | any string   | None          | Manual prediction structure file path                                                                             |
 | **Progress**                       | --progress           | [0-2]        | 1             | Verbosity of the output [0: no progress is printed, 1: default output, 2: detailed output]                        |
 | **NoProgress**                     | --no-progress        | [0-1]        | 0             | Do not print out progress [1: `--progress 0`, 0: `--progress 1`]                                                  |
 | **EncoderMode**                    | --preset             | [-3-13]      | 4             | Encoder preset, presets < 0 are for research purposes. Higher presets means faster encodes, but with a quality tradeoff |
@@ -76,8 +75,8 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **Tune**                         | --tune                      | [0-5]                          | 1           | Optimize the encoding process for different desired outcomes [0 = VQ, 1 = PSNR, 2 = SSIM, 3 = IQ (Image Quality), 4 = MS_SSIM, 5 = Film Grain] |
 | **AdaptiveFilmGrain**            | --adaptive-film-grain       | [0,1]                          | 1           | Allows film grain synthesis to be sourced from different block sizes depending on resolution                  |
 | **MaxTxSize**                    | --max-tx-size               | [32,64]                        | 64          | Restricts use of block transform sizes to the specified value                                                 |
-| **AltSSIMTuning**                | --alt-ssim-tuning           | [0-1]                          | 0           | Enables the usage of VQ optimizations and an alternative SSIM calculation pathway (Only operates with tune 2) |
 | **NoiseNormStrength**            |  --noise-norm-strength      | [0-4]                          | 1           | Selectively boost AC coefficients to improve fine detail retention in certain circumstances                   |
+| **AltSSIMTuning**                | --alt-ssim-tuning           | [0-1]                          | 0           | Enables the usage of VQ optimizations and an alternative SSIM calculation pathway (Only operates with tune 2) |
 
 ## Rate Control Options
 
@@ -260,13 +259,13 @@ SvtAv1EncApp -i in.y4m -b out.ivf --roi-map-file roi_map.txt
 
 | **Configuration file parameter** | **Command line**      | **Range**       | **Default**       | **Description**                                                                                                                                              |
 |----------------------------------|-----------------------|-----------------|-------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Keyint**                       | --keyint              | [-1-`(2^31)-1`] | -2                | Max GOP size (frames), use `s` suffix for seconds (SvtAv1EncApp only) [-2: ~10 seconds (up to 305 frames), -1: "infinite" only for CRF, 0: == -1]            |
+| **Keyint**                       | --keyint              | [-2-`(2^31)-1`] | -2                | Max GOP size (frames), use `s` suffix for seconds (SvtAv1EncApp only) [-2: ~10 seconds (up to 305 frames), -1: "infinite" only for CRF, 0: == -1]            |
 | **MinKeyint**                    | --min-keyint          | [-1-`(2^31)-1`] | -1                | Min GOP size (frames), use `s` suffix for seconds (SvtAv1EncApp only) [-1: multiple of the mini-gop length (automatic), 0: no minimum]                       |
 | **IntraRefreshType**             | --irefresh-type       | [1-2]           | 2                 | Intra refresh type [1: FWD Frame (Open GOP), 2: KEY Frame (Closed GOP)]                                                                                      |
 | **SceneChangeDetection**         | --scd                 | [0-1]           | 1                 | Scene change detection control                                                                                                                               |
 | **Lookahead**                    | --lookahead           | [-1,0-120]      | -1                | Number of frames in the future to look ahead, beyond minigop, temporal filtering, and rate control [-1: auto]                                                |
 | **HierarchicalLevels**           | --hierarchical-levels | [2-5]           | <=M12:5 , else: 4 | Set hierarchical levels beyond the base layer [2: 3 temporal layers, 3: 4 temporal layers, 5: 6 temporal layers]                                             |
-| **PredStructure**                | --pred-struct         | [1-2]           | 2                 | Set prediction structure [1: low delay, 2: random access]                                                                                                    |
+| **PredStructure**                | --pred-struct         | [0-2]           | 2                 | Set prediction structure [0: all intra, 1: low delay, 2: random access]                                                                                      |
 | **ForceKeyFrames**               | --force-key-frames    | any string      | None              | Force key frames at the comma separated specifiers. `#f` for frames, `#.#s` for seconds                                                                      |
 | **EnableDg**                     | --enable-dg           | [0-1]           | 1                 | Enable Dynamic GoP. The algorithm changes the hierarchical structure based on the content                                                                    |
 | **StartupMgSize**                | --startup-mg-size     | [0, 2, 3, 4]    | 0                 | Specify another mini-gop configuration for the first mini-gop after the key-frame [0: OFF, 2: 3 temporal layers, 3: 4 temporal layers, 4: 5 temporal layers] |
@@ -366,7 +365,7 @@ The `--force-key-frames` option is meant to allow the non-uniform placement of k
 
 Other options such as updating the Bitrate and resolution during the encoding sessions have been added to the API (starting v1.8.0) by using the abstract structure `EbPrivDataNode` and a programming sample showing its
  usage can be found by tracking the marcos FTR_RATE_ON_FLY_SAMPLE and FTR_RES_ON_FLY_SAMPLE respectively. In the case of a resolution update request, please note that the encoder library will assume
- the upscaling and downscaling to have been preformed prior to passing the frames.
+ the upscaling and downscaling to have been performed prior to passing the frames.
 
 ### Color Description Options
 

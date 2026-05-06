@@ -52,18 +52,18 @@ DECLARE_ALIGNED(32, static const uint8_t, bilinear_filters_avx2[512]) = {
     exp_src_lo = _mm256_unpacklo_epi8(src_reg, reg); \
     exp_src_hi = _mm256_unpackhi_epi8(src_reg, reg);
 
-#define LOAD_SRC_DST                                      \
-    /* load source and destination */                     \
-    src_reg = _mm256_loadu_si256((__m256i const *)(src)); \
-    dst_reg = _mm256_loadu_si256((__m256i const *)(dst));
+#define LOAD_SRC_DST                                     \
+    /* load source and destination */                    \
+    src_reg = _mm256_loadu_si256((__m256i const*)(src)); \
+    dst_reg = _mm256_loadu_si256((__m256i const*)(dst));
 
-#define AVG_NEXT_SRC(src_reg, size_stride)                                   \
-    src_next_reg = _mm256_loadu_si256((__m256i const *)(src + size_stride)); \
-    /* average between current and next stride source */                     \
+#define AVG_NEXT_SRC(src_reg, size_stride)                                  \
+    src_next_reg = _mm256_loadu_si256((__m256i const*)(src + size_stride)); \
+    /* average between current and next stride source */                    \
     src_reg = _mm256_avg_epu8(src_reg, src_next_reg);
 
-#define MERGE_NEXT_SRC(src_reg, size_stride)                                 \
-    src_next_reg = _mm256_loadu_si256((__m256i const *)(src + size_stride)); \
+#define MERGE_NEXT_SRC(src_reg, size_stride)                                \
+    src_next_reg = _mm256_loadu_si256((__m256i const*)(src + size_stride)); \
     MERGE_WITH_SRC(src_reg, src_next_reg)
 
 #define CALC_SUM_SSE_INSIDE_LOOP                            \
@@ -83,62 +83,62 @@ DECLARE_ALIGNED(32, static const uint8_t, bilinear_filters_avx2[512]) = {
     sse_reg = _mm256_add_epi32(sse_reg, exp_src_hi);
 
 // final calculation to sum and sse
-#define CALC_SUM_AND_SSE                                                 \
-    res_cmp    = _mm256_cmpgt_epi16(zero_reg, sum_reg);                  \
-    sse_reg_hi = _mm256_srli_si256(sse_reg, 8);                          \
-    sum_reg_lo = _mm256_unpacklo_epi16(sum_reg, res_cmp);                \
-    sum_reg_hi = _mm256_unpackhi_epi16(sum_reg, res_cmp);                \
-    sse_reg    = _mm256_add_epi32(sse_reg, sse_reg_hi);                  \
-    sum_reg    = _mm256_add_epi32(sum_reg_lo, sum_reg_hi);               \
-                                                                         \
-    sse_reg_hi = _mm256_srli_si256(sse_reg, 4);                          \
-    sum_reg_hi = _mm256_srli_si256(sum_reg, 8);                          \
-                                                                         \
-    sse_reg       = _mm256_add_epi32(sse_reg, sse_reg_hi);               \
-    sum_reg       = _mm256_add_epi32(sum_reg, sum_reg_hi);               \
-    *((int *)sse) = _mm_cvtsi128_si32(_mm256_castsi256_si128(sse_reg)) + \
-        _mm_cvtsi128_si32(_mm256_extractf128_si256(sse_reg, 1));         \
-    sum_reg_hi = _mm256_srli_si256(sum_reg, 4);                          \
-    sum_reg    = _mm256_add_epi32(sum_reg, sum_reg_hi);                  \
+#define CALC_SUM_AND_SSE                                                \
+    res_cmp    = _mm256_cmpgt_epi16(zero_reg, sum_reg);                 \
+    sse_reg_hi = _mm256_srli_si256(sse_reg, 8);                         \
+    sum_reg_lo = _mm256_unpacklo_epi16(sum_reg, res_cmp);               \
+    sum_reg_hi = _mm256_unpackhi_epi16(sum_reg, res_cmp);               \
+    sse_reg    = _mm256_add_epi32(sse_reg, sse_reg_hi);                 \
+    sum_reg    = _mm256_add_epi32(sum_reg_lo, sum_reg_hi);              \
+                                                                        \
+    sse_reg_hi = _mm256_srli_si256(sse_reg, 4);                         \
+    sum_reg_hi = _mm256_srli_si256(sum_reg, 8);                         \
+                                                                        \
+    sse_reg      = _mm256_add_epi32(sse_reg, sse_reg_hi);               \
+    sum_reg      = _mm256_add_epi32(sum_reg, sum_reg_hi);               \
+    *((int*)sse) = _mm_cvtsi128_si32(_mm256_castsi256_si128(sse_reg)) + \
+        _mm_cvtsi128_si32(_mm256_extractf128_si256(sse_reg, 1));        \
+    sum_reg_hi = _mm256_srli_si256(sum_reg, 4);                         \
+    sum_reg    = _mm256_add_epi32(sum_reg, sum_reg_hi);                 \
     sum = _mm_cvtsi128_si32(_mm256_castsi256_si128(sum_reg)) + _mm_cvtsi128_si32(_mm256_extractf128_si256(sum_reg, 1));
 
 // Functions related to sub pixel variance width 16
-#define LOAD_SRC_DST_INSERT(src_stride, dst_stride)                                                                    \
-    /* load source and destination of 2 rows and insert*/                                                              \
-    src_reg = _mm256_inserti128_si256(                                                                                 \
-        _mm256_castsi128_si256(_mm_loadu_si128((__m128i *)(src))), _mm_loadu_si128((__m128i *)(src + src_stride)), 1); \
-    dst_reg = _mm256_inserti128_si256(                                                                                 \
-        _mm256_castsi128_si256(_mm_loadu_si128((__m128i *)(dst))), _mm_loadu_si128((__m128i *)(dst + dst_stride)), 1);
+#define LOAD_SRC_DST_INSERT(src_stride, dst_stride)                                                                  \
+    /* load source and destination of 2 rows and insert*/                                                            \
+    src_reg = _mm256_inserti128_si256(                                                                               \
+        _mm256_castsi128_si256(_mm_loadu_si128((__m128i*)(src))), _mm_loadu_si128((__m128i*)(src + src_stride)), 1); \
+    dst_reg = _mm256_inserti128_si256(                                                                               \
+        _mm256_castsi128_si256(_mm_loadu_si128((__m128i*)(dst))), _mm_loadu_si128((__m128i*)(dst + dst_stride)), 1);
 
-#define AVG_NEXT_SRC_INSERT(src_reg, size_stride)                                                                   \
-    src_next_reg = _mm256_inserti128_si256(_mm256_castsi128_si256(_mm_loadu_si128((__m128i *)(src + size_stride))), \
-                                           _mm_loadu_si128((__m128i *)(src + (size_stride << 1))),                  \
-                                           1);                                                                      \
-    /* average between current and next stride source */                                                            \
+#define AVG_NEXT_SRC_INSERT(src_reg, size_stride)                                                                  \
+    src_next_reg = _mm256_inserti128_si256(_mm256_castsi128_si256(_mm_loadu_si128((__m128i*)(src + size_stride))), \
+                                           _mm_loadu_si128((__m128i*)(src + (size_stride << 1))),                  \
+                                           1);                                                                     \
+    /* average between current and next stride source */                                                           \
     src_reg = _mm256_avg_epu8(src_reg, src_next_reg);
 
-#define MERGE_NEXT_SRC_INSERT(src_reg, size_stride)                                                                 \
-    src_next_reg = _mm256_inserti128_si256(_mm256_castsi128_si256(_mm_loadu_si128((__m128i *)(src + size_stride))), \
-                                           _mm_loadu_si128((__m128i *)(src + (src_stride + size_stride))),          \
-                                           1);                                                                      \
+#define MERGE_NEXT_SRC_INSERT(src_reg, size_stride)                                                                \
+    src_next_reg = _mm256_inserti128_si256(_mm256_castsi128_si256(_mm_loadu_si128((__m128i*)(src + size_stride))), \
+                                           _mm_loadu_si128((__m128i*)(src + (src_stride + size_stride))),          \
+                                           1);                                                                     \
     MERGE_WITH_SRC(src_reg, src_next_reg)
 
-#define LOAD_SRC_NEXT_BYTE_INSERT                                                                                      \
-    /* load source and another source from next row   */                                                               \
-    src_reg = _mm256_inserti128_si256(                                                                                 \
-        _mm256_castsi128_si256(_mm_loadu_si128((__m128i *)(src))), _mm_loadu_si128((__m128i *)(src + src_stride)), 1); \
-    /* load source and next row source from 1 byte onwards   */                                                        \
-    src_next_reg = _mm256_inserti128_si256(_mm256_castsi128_si256(_mm_loadu_si128((__m128i *)(src + 1))),              \
-                                           _mm_loadu_si128((__m128i *)(src + src_stride + 1)),                         \
+#define LOAD_SRC_NEXT_BYTE_INSERT                                                                                    \
+    /* load source and another source from next row   */                                                             \
+    src_reg = _mm256_inserti128_si256(                                                                               \
+        _mm256_castsi128_si256(_mm_loadu_si128((__m128i*)(src))), _mm_loadu_si128((__m128i*)(src + src_stride)), 1); \
+    /* load source and next row source from 1 byte onwards   */                                                      \
+    src_next_reg = _mm256_inserti128_si256(_mm256_castsi128_si256(_mm_loadu_si128((__m128i*)(src + 1))),             \
+                                           _mm_loadu_si128((__m128i*)(src + src_stride + 1)),                        \
                                            1);
 
 #define LOAD_DST_INSERT                \
     dst_reg = _mm256_inserti128_si256( \
-        _mm256_castsi128_si256(_mm_loadu_si128((__m128i *)(dst))), _mm_loadu_si128((__m128i *)(dst + dst_stride)), 1);
+        _mm256_castsi128_si256(_mm_loadu_si128((__m128i*)(dst))), _mm_loadu_si128((__m128i*)(dst + dst_stride)), 1);
 
 #define LOAD_SRC_MERGE_128BIT(filter)                                \
-    __m128i src_reg_0     = _mm_loadu_si128((__m128i *)(src));       \
-    __m128i src_reg_1     = _mm_loadu_si128((__m128i *)(src + 1));   \
+    __m128i src_reg_0     = _mm_loadu_si128((__m128i*)(src));        \
+    __m128i src_reg_1     = _mm_loadu_si128((__m128i*)(src + 1));    \
     __m128i src_lo        = _mm_unpacklo_epi8(src_reg_0, src_reg_1); \
     __m128i src_hi        = _mm_unpackhi_epi8(src_reg_0, src_reg_1); \
     __m128i filter_128bit = _mm256_castsi256_si128(filter);          \
@@ -157,8 +157,8 @@ DECLARE_ALIGNED(32, static const uint8_t, bilinear_filters_avx2[512]) = {
     src_lo = _mm_srai_epi16(src_lo, 4);         \
     src_hi = _mm_srai_epi16(src_hi, 4);
 
-unsigned int svt_aom_sub_pixel_variance32xh_avx2(const uint8_t *src, int src_stride, int x_offset, int y_offset,
-                                                 const uint8_t *dst, int dst_stride, int height, unsigned int *sse) {
+unsigned int svt_aom_sub_pixel_variance32xh_avx2(const uint8_t* src, int src_stride, int x_offset, int y_offset,
+                                                 const uint8_t* dst, int dst_stride, int height, unsigned int* sse) {
     __m256i src_reg, dst_reg, exp_src_lo, exp_src_hi, exp_dst_lo, exp_dst_hi;
     __m256i sse_reg, sum_reg, sse_reg_hi, res_cmp, sum_reg_lo, sum_reg_hi;
     __m256i zero_reg;
@@ -195,7 +195,7 @@ unsigned int svt_aom_sub_pixel_variance32xh_avx2(const uint8_t *src, int src_str
             __m256i filter, pw8, src_next_reg;
 
             y_offset <<= 5;
-            filter = _mm256_load_si256((__m256i const *)(bilinear_filters_avx2 + y_offset));
+            filter = _mm256_load_si256((__m256i const*)(bilinear_filters_avx2 + y_offset));
             pw8    = _mm256_set1_epi16(8);
             for (i = 0; i < height; i++) {
                 LOAD_SRC_DST
@@ -224,7 +224,7 @@ unsigned int svt_aom_sub_pixel_variance32xh_avx2(const uint8_t *src, int src_str
             __m256i src_next_reg, src_avg;
             // load source and another source starting from the next
             // following byte
-            src_reg = _mm256_loadu_si256((__m256i const *)(src));
+            src_reg = _mm256_loadu_si256((__m256i const*)(src));
             AVG_NEXT_SRC(src_reg, 1)
             for (i = 0; i < height; i++) {
                 src_avg = src_reg;
@@ -243,11 +243,11 @@ unsigned int svt_aom_sub_pixel_variance32xh_avx2(const uint8_t *src, int src_str
         } else {
             __m256i filter, pw8, src_next_reg, src_avg;
             y_offset <<= 5;
-            filter = _mm256_load_si256((__m256i const *)(bilinear_filters_avx2 + y_offset));
+            filter = _mm256_load_si256((__m256i const*)(bilinear_filters_avx2 + y_offset));
             pw8    = _mm256_set1_epi16(8);
             // load source and another source starting from the next
             // following byte
-            src_reg = _mm256_loadu_si256((__m256i const *)(src));
+            src_reg = _mm256_loadu_si256((__m256i const*)(src));
             AVG_NEXT_SRC(src_reg, 1)
             for (i = 0; i < height; i++) {
                 // save current source average
@@ -266,7 +266,7 @@ unsigned int svt_aom_sub_pixel_variance32xh_avx2(const uint8_t *src, int src_str
         if (y_offset == 0) {
             __m256i filter, pw8, src_next_reg;
             x_offset <<= 5;
-            filter = _mm256_load_si256((__m256i const *)(bilinear_filters_avx2 + x_offset));
+            filter = _mm256_load_si256((__m256i const*)(bilinear_filters_avx2 + x_offset));
             pw8    = _mm256_set1_epi16(8);
             for (i = 0; i < height; i++) {
                 LOAD_SRC_DST
@@ -280,9 +280,9 @@ unsigned int svt_aom_sub_pixel_variance32xh_avx2(const uint8_t *src, int src_str
         } else if (y_offset == 4) {
             __m256i filter, pw8, src_next_reg, src_pack;
             x_offset <<= 5;
-            filter  = _mm256_load_si256((__m256i const *)(bilinear_filters_avx2 + x_offset));
+            filter  = _mm256_load_si256((__m256i const*)(bilinear_filters_avx2 + x_offset));
             pw8     = _mm256_set1_epi16(8);
-            src_reg = _mm256_loadu_si256((__m256i const *)(src));
+            src_reg = _mm256_loadu_si256((__m256i const*)(src));
             MERGE_NEXT_SRC(src_reg, 1)
             FILTER_SRC(filter)
             // convert each 16 bit to 8 bit to each low and high lane source
@@ -304,13 +304,13 @@ unsigned int svt_aom_sub_pixel_variance32xh_avx2(const uint8_t *src, int src_str
         } else {
             __m256i xfilter, yfilter, pw8, src_next_reg, src_pack;
             x_offset <<= 5;
-            xfilter = _mm256_load_si256((__m256i const *)(bilinear_filters_avx2 + x_offset));
+            xfilter = _mm256_load_si256((__m256i const*)(bilinear_filters_avx2 + x_offset));
             y_offset <<= 5;
-            yfilter = _mm256_load_si256((__m256i const *)(bilinear_filters_avx2 + y_offset));
+            yfilter = _mm256_load_si256((__m256i const*)(bilinear_filters_avx2 + y_offset));
             pw8     = _mm256_set1_epi16(8);
             // load source and another source starting from the next
             // following byte
-            src_reg = _mm256_loadu_si256((__m256i const *)(src));
+            src_reg = _mm256_loadu_si256((__m256i const*)(src));
             MERGE_NEXT_SRC(src_reg, 1)
 
             FILTER_SRC(xfilter)
@@ -337,8 +337,8 @@ unsigned int svt_aom_sub_pixel_variance32xh_avx2(const uint8_t *src, int src_str
     return sum;
 }
 
-unsigned int svt_aom_sub_pixel_variance16xh_avx2(const uint8_t *src, int src_stride, int x_offset, int y_offset,
-                                                 const uint8_t *dst, int dst_stride, int height, unsigned int *sse) {
+unsigned int svt_aom_sub_pixel_variance16xh_avx2(const uint8_t* src, int src_stride, int x_offset, int y_offset,
+                                                 const uint8_t* dst, int dst_stride, int height, unsigned int* sse) {
     __m256i src_reg, dst_reg, exp_src_lo, exp_src_hi, exp_dst_lo, exp_dst_hi;
     __m256i sse_reg, sum_reg, sse_reg_hi, res_cmp, sum_reg_lo, sum_reg_hi;
     __m256i zero_reg;
@@ -374,7 +374,7 @@ unsigned int svt_aom_sub_pixel_variance16xh_avx2(const uint8_t *src, int src_str
         } else {
             __m256i filter, pw8, src_next_reg;
             y_offset <<= 5;
-            filter = _mm256_load_si256((__m256i const *)(bilinear_filters_avx2 + y_offset));
+            filter = _mm256_load_si256((__m256i const*)(bilinear_filters_avx2 + y_offset));
             pw8    = _mm256_set1_epi16(8);
             for (i = 0; i < height; i += 2) {
                 LOAD_SRC_DST_INSERT(src_stride, dst_stride)
@@ -422,8 +422,8 @@ unsigned int svt_aom_sub_pixel_variance16xh_avx2(const uint8_t *src, int src_str
                 src += src_stride << 1;
             }
             // last 2 rows processing happens here
-            __m128i src_reg_0 = _mm_loadu_si128((__m128i *)(src));
-            __m128i src_reg_1 = _mm_loadu_si128((__m128i *)(src + 1));
+            __m128i src_reg_0 = _mm_loadu_si128((__m128i*)(src));
+            __m128i src_reg_1 = _mm_loadu_si128((__m128i*)(src + 1));
             src_reg_0         = _mm_avg_epu8(src_reg_0, src_reg_1);
             src_next_reg      = _mm256_permute2x128_si256(src_avg, _mm256_castsi128_si256(src_reg_0), 0x21);
             LOAD_DST_INSERT
@@ -434,7 +434,7 @@ unsigned int svt_aom_sub_pixel_variance16xh_avx2(const uint8_t *src, int src_str
             // x_offset = 4  and y_offset = bilin interpolation
             __m256i filter, pw8, src_next_reg, src_avg, src_temp;
             y_offset <<= 5;
-            filter = _mm256_load_si256((__m256i const *)(bilinear_filters_avx2 + y_offset));
+            filter = _mm256_load_si256((__m256i const*)(bilinear_filters_avx2 + y_offset));
             pw8    = _mm256_set1_epi16(8);
             // load and insert source and next row source
             LOAD_SRC_NEXT_BYTE_INSERT
@@ -454,8 +454,8 @@ unsigned int svt_aom_sub_pixel_variance16xh_avx2(const uint8_t *src, int src_str
                 src += src_stride << 1;
             }
             // last 2 rows processing happens here
-            __m128i src_reg_0 = _mm_loadu_si128((__m128i *)(src));
-            __m128i src_reg_1 = _mm_loadu_si128((__m128i *)(src + 1));
+            __m128i src_reg_0 = _mm_loadu_si128((__m128i*)(src));
+            __m128i src_reg_1 = _mm_loadu_si128((__m128i*)(src + 1));
             src_reg_0         = _mm_avg_epu8(src_reg_0, src_reg_1);
             src_next_reg      = _mm256_permute2x128_si256(src_avg, _mm256_castsi128_si256(src_reg_0), 0x21);
             LOAD_DST_INSERT
@@ -468,7 +468,7 @@ unsigned int svt_aom_sub_pixel_variance16xh_avx2(const uint8_t *src, int src_str
         if (y_offset == 0) {
             __m256i filter, pw8, src_next_reg;
             x_offset <<= 5;
-            filter = _mm256_load_si256((__m256i const *)(bilinear_filters_avx2 + x_offset));
+            filter = _mm256_load_si256((__m256i const*)(bilinear_filters_avx2 + x_offset));
             pw8    = _mm256_set1_epi16(8);
             for (i = 0; i < height; i += 2) {
                 LOAD_SRC_DST_INSERT(src_stride, dst_stride)
@@ -482,7 +482,7 @@ unsigned int svt_aom_sub_pixel_variance16xh_avx2(const uint8_t *src, int src_str
         } else if (y_offset == 4) {
             __m256i filter, pw8, src_next_reg, src_pack;
             x_offset <<= 5;
-            filter = _mm256_load_si256((__m256i const *)(bilinear_filters_avx2 + x_offset));
+            filter = _mm256_load_si256((__m256i const*)(bilinear_filters_avx2 + x_offset));
             pw8    = _mm256_set1_epi16(8);
             // load and insert source and next row source
             LOAD_SRC_NEXT_BYTE_INSERT
@@ -520,9 +520,9 @@ unsigned int svt_aom_sub_pixel_variance16xh_avx2(const uint8_t *src, int src_str
             // x_offset = bilin interpolation and y_offset = bilin interpolation
             __m256i xfilter, yfilter, pw8, src_next_reg, src_pack;
             x_offset <<= 5;
-            xfilter = _mm256_load_si256((__m256i const *)(bilinear_filters_avx2 + x_offset));
+            xfilter = _mm256_load_si256((__m256i const*)(bilinear_filters_avx2 + x_offset));
             y_offset <<= 5;
-            yfilter = _mm256_load_si256((__m256i const *)(bilinear_filters_avx2 + y_offset));
+            yfilter = _mm256_load_si256((__m256i const*)(bilinear_filters_avx2 + y_offset));
             pw8     = _mm256_set1_epi16(8);
             // load and insert source and next row source
             LOAD_SRC_NEXT_BYTE_INSERT

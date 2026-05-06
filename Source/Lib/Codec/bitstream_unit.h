@@ -25,10 +25,6 @@ extern "C" {
 #endif
 #endif
 
-// Bistream Slice Buffer Size
-#define EB_BITSTREAM_SLICE_BUFFER_SIZE 0x300000
-#define SLICE_HEADER_COUNT 256
-
 /**********************************
  * Bitstream Unit Types
  **********************************/
@@ -42,9 +38,9 @@ typedef struct OutputBitstreamUnit {
 /**********************************
      * Extern Function Declarations
      **********************************/
-extern EbErrorType svt_aom_output_bitstream_unit_ctor(OutputBitstreamUnit* bitstream_ptr, uint32_t buffer_size);
+EbErrorType svt_aom_output_bitstream_unit_ctor(OutputBitstreamUnit* bitstream_ptr, uint32_t buffer_size);
 
-extern EbErrorType svt_aom_output_bitstream_reset(OutputBitstreamUnit* bitstream_ptr);
+EbErrorType svt_aom_output_bitstream_reset(OutputBitstreamUnit* bitstream_ptr);
 
 /********************************************************************************************************************************/
 /********************************************************************************************************************************/
@@ -71,6 +67,7 @@ static INLINE int32_t get_msb(uint32_t n) {
     _BitScanReverse(&first_set_bit, n);
     return first_set_bit;
 }
+
 #undef USE_MSC_INTRINSICS
 #else
 // Returns (int32_t)floor(log2(n)). n must be > 0.
@@ -137,16 +134,6 @@ compile-time type checking  */
 #if !defined(OVERRIDE_OD_COPY)
 #define OD_COPY(dst, src, n) (svt_memcpy((dst), (src), sizeof(*(dst)) * (n) + 0 * ((dst) - (src))))
 #endif
-
-/** Copy n elements of memory from src to dst, allowing overlapping regions.
-The 0* term provides compile-time type checking */
-#if !defined(OVERRIDE_OD_MOVE)
-#define OD_MOVE(dst, src, n) (memmove((dst), (src), sizeof(*(dst)) * (n) + 0 * ((dst) - (src))))
-#endif
-
-/*All of these macros should expect floats as arguments.*/
-#define OD_SIGNMASK(a) (-((a) < 0))
-#define OD_FLIPSIGNI(a, b) (((a) + OD_SIGNMASK(b)) ^ OD_SIGNMASK(b))
 
 /********************************************************************************************************************************/
 //entcode.h
@@ -322,6 +309,7 @@ typedef struct AomWriter {
     OdEcEnc              ec;
     uint8_t              allow_update_cdf;
 } AomWriter;
+
 static INLINE void aom_start_encode(AomWriter* br, OutputBitstreamUnit* source) {
     br->buffer        = source->buffer_av1;
     br->buffer_size   = source->size;
@@ -329,7 +317,9 @@ static INLINE void aom_start_encode(AomWriter* br, OutputBitstreamUnit* source) 
     br->pos           = 0;
     svt_od_ec_enc_init(&br->ec, 62025);
 }
-EbErrorType           svt_realloc_output_bitstream_unit(OutputBitstreamUnit* output_bitstream_ptr, uint32_t sz);
+
+EbErrorType svt_realloc_output_bitstream_unit(OutputBitstreamUnit* output_bitstream_ptr, uint32_t sz);
+
 static INLINE int32_t aom_stop_encode(AomWriter* w) {
     uint32_t bytes = 0;
     uint8_t* data  = svt_od_ec_enc_done(&w->ec, &bytes);
@@ -345,15 +335,17 @@ static INLINE int32_t aom_stop_encode(AomWriter* w) {
         w->buffer      = w->buffer_parent->buffer_av1;
         w->buffer_size = bytes + 1;
     }
-    if (svt_memcpy != NULL)
+    if (svt_memcpy != NULL) {
         svt_memcpy(w->buffer, data, bytes);
-    else
+    } else {
         svt_memcpy_c(w->buffer, data, bytes);
+    }
 
     w->pos = bytes;
     svt_od_ec_enc_clear(&w->ec);
     return nb_bits;
 }
+
 static INLINE void aom_write(AomWriter* w, int bit, int prob) {
     int p = (0x7FFFFF - (prob << 15) + prob) >> 8;
 #if CONFIG_BITSTREAM_DEBUG
@@ -368,7 +360,9 @@ static INLINE void aom_write_bit(AomWriter* w, int bit) {
 }
 
 static INLINE void aom_write_literal(AomWriter* w, unsigned data, int bits) {
-    for (int bit = bits - 1; bit >= 0; bit--) aom_write_bit(w, 1 & (data >> bit));
+    for (int bit = bits - 1; bit >= 0; bit--) {
+        aom_write_bit(w, 1 & (data >> bit));
+    }
 }
 
 static INLINE void aom_write_cdf(AomWriter* w, int symb, const AomCdfProb* cdf, int nsymbs) {
@@ -380,8 +374,9 @@ static INLINE void aom_write_cdf(AomWriter* w, int symb, const AomCdfProb* cdf, 
 
 static INLINE void aom_write_symbol(AomWriter* w, int symb, AomCdfProb* cdf, int nsymbs) {
     aom_write_cdf(w, symb, cdf, nsymbs);
-    if (w->allow_update_cdf)
+    if (w->allow_update_cdf) {
         update_cdf(cdf, symb, nsymbs);
+    }
 }
 
 /********************************************************************************************************************************/

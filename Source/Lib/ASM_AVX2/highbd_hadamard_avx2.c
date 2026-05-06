@@ -14,7 +14,7 @@
 #include "aom_dsp_rtcd.h"
 #include "definitions.h"
 
-static void highbd_hadamard_col8_avx2(__m256i *in, int iter) {
+static void highbd_hadamard_col8_avx2(__m256i* in, int iter) {
     __m256i a0 = in[0];
     __m256i a1 = in[1];
     __m256i a2 = in[2];
@@ -90,18 +90,18 @@ static void highbd_hadamard_col8_avx2(__m256i *in, int iter) {
     }
 }
 
-void svt_aom_highbd_hadamard_8x8_avx2(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff) {
+void svt_aom_highbd_hadamard_8x8_avx2(const int16_t* src_diff, ptrdiff_t src_stride, int32_t* coeff) {
     __m128i src16[8];
     __m256i src32[8];
 
-    src16[0] = _mm_loadu_si128((const __m128i *)src_diff);
-    src16[1] = _mm_loadu_si128((const __m128i *)(src_diff += src_stride));
-    src16[2] = _mm_loadu_si128((const __m128i *)(src_diff += src_stride));
-    src16[3] = _mm_loadu_si128((const __m128i *)(src_diff += src_stride));
-    src16[4] = _mm_loadu_si128((const __m128i *)(src_diff += src_stride));
-    src16[5] = _mm_loadu_si128((const __m128i *)(src_diff += src_stride));
-    src16[6] = _mm_loadu_si128((const __m128i *)(src_diff += src_stride));
-    src16[7] = _mm_loadu_si128((const __m128i *)(src_diff + src_stride));
+    src16[0] = _mm_loadu_si128((const __m128i*)src_diff);
+    src16[1] = _mm_loadu_si128((const __m128i*)(src_diff += src_stride));
+    src16[2] = _mm_loadu_si128((const __m128i*)(src_diff += src_stride));
+    src16[3] = _mm_loadu_si128((const __m128i*)(src_diff += src_stride));
+    src16[4] = _mm_loadu_si128((const __m128i*)(src_diff += src_stride));
+    src16[5] = _mm_loadu_si128((const __m128i*)(src_diff += src_stride));
+    src16[6] = _mm_loadu_si128((const __m128i*)(src_diff += src_stride));
+    src16[7] = _mm_loadu_si128((const __m128i*)(src_diff + src_stride));
 
     src32[0] = _mm256_cvtepi16_epi32(src16[0]);
     src32[1] = _mm256_cvtepi16_epi32(src16[1]);
@@ -115,19 +115,19 @@ void svt_aom_highbd_hadamard_8x8_avx2(const int16_t *src_diff, ptrdiff_t src_str
     highbd_hadamard_col8_avx2(src32, 0);
     highbd_hadamard_col8_avx2(src32, 1);
 
-    _mm256_storeu_si256((__m256i *)coeff, src32[0]);
+    _mm256_storeu_si256((__m256i*)coeff, src32[0]);
     coeff += 8;
-    _mm256_storeu_si256((__m256i *)coeff, src32[1]);
+    _mm256_storeu_si256((__m256i*)coeff, src32[1]);
     coeff += 8;
-    _mm256_storeu_si256((__m256i *)coeff, src32[2]);
+    _mm256_storeu_si256((__m256i*)coeff, src32[2]);
     coeff += 8;
-    _mm256_storeu_si256((__m256i *)coeff, src32[3]);
+    _mm256_storeu_si256((__m256i*)coeff, src32[3]);
     coeff += 8;
-    _mm256_storeu_si256((__m256i *)coeff, src32[4]);
+    _mm256_storeu_si256((__m256i*)coeff, src32[4]);
     coeff += 8;
-    _mm256_storeu_si256((__m256i *)coeff, src32[5]);
+    _mm256_storeu_si256((__m256i*)coeff, src32[5]);
     coeff += 8;
-    _mm256_storeu_si256((__m256i *)coeff, src32[6]);
+    _mm256_storeu_si256((__m256i*)coeff, src32[6]);
     coeff += 8;
-    _mm256_storeu_si256((__m256i *)coeff, src32[7]);
+    _mm256_storeu_si256((__m256i*)coeff, src32[7]);
 }

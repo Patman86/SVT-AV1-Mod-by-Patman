@@ -15,8 +15,8 @@
 #include "mem_neon.h"
 #include "sum_neon.h"
 
-static AOM_FORCE_INLINE uint32x4_t sad_8x4_dual_neon(const uint8_t *restrict src_ptr, uint32_t src_stride,
-                                                     const uint8_t *restrict ref_ptr, uint32_t ref_stride, int mult) {
+static AOM_FORCE_INLINE uint32x4_t sad_8x4_dual_neon(const uint8_t* restrict src_ptr, uint32_t src_stride,
+                                                     const uint8_t* restrict ref_ptr, uint32_t ref_stride, int mult) {
     uint32x4_t sum = vdupq_n_u32(0);
 
     int h = 4;
@@ -40,8 +40,8 @@ static AOM_FORCE_INLINE uint32x4_t sad_8x4_dual_neon(const uint8_t *restrict src
     return sum;
 }
 
-static AOM_FORCE_INLINE uint32x4_t sad_8x8_dual_neon(const uint8_t *restrict src_ptr, uint32_t src_stride,
-                                                     const uint8_t *restrict ref_ptr, uint32_t ref_stride, int mult) {
+static AOM_FORCE_INLINE uint32x4_t sad_8x8_dual_neon(const uint8_t* restrict src_ptr, uint32_t src_stride,
+                                                     const uint8_t* restrict ref_ptr, uint32_t ref_stride, int mult) {
     uint32x4_t sum = vdupq_n_u32(0);
 
     int h = 8;

@@ -20,11 +20,13 @@ static inline int32x4_t k_means_multiply_add_neon(const int16x8_t a) {
     return vpaddq_s32(l, h);
 }
 
-void svt_av1_calc_indices_dim1_neon(const int *data, const int *centroids, uint8_t *indices, int n, int k) {
+void svt_av1_calc_indices_dim1_neon(const int* data, const int* centroids, uint8_t* indices, int n, int k) {
     int16x8_t cents[PALETTE_MAX_SIZE];
 
     int j = 0;
-    do { cents[j] = vdupq_n_s16((int16_t)centroids[j]); } while (++j != k);
+    do {
+        cents[j] = vdupq_n_s16((int16_t)centroids[j]);
+    } while (++j != k);
 
     do {
         const int16x8_t input0 = vcombine_s16(vmovn_s32(vld1q_s32(data)), vmovn_s32(vld1q_s32(data + 4)));
@@ -62,12 +64,12 @@ void svt_av1_calc_indices_dim1_neon(const int *data, const int *centroids, uint8
     } while (n != 0);
 }
 
-void svt_av1_calc_indices_dim2_neon(const int *data, const int *centroids, uint8_t *indices, int n, int k) {
+void svt_av1_calc_indices_dim2_neon(const int* data, const int* centroids, uint8_t* indices, int n, int k) {
     int16x8_t cents[PALETTE_MAX_SIZE];
 
     int j = 0;
     do {
-        int32x4_t cxcy_s32 = vreinterpretq_s32_u64(vld1q_dup_u64((const uint64_t *)&centroids[2 * j]));
+        int32x4_t cxcy_s32 = vreinterpretq_s32_u64(vld1q_dup_u64((const uint64_t*)&centroids[2 * j]));
         cents[j]           = vcombine_s16(vmovn_s32(cxcy_s32), vmovn_s32(cxcy_s32));
     } while (++j != k);
 

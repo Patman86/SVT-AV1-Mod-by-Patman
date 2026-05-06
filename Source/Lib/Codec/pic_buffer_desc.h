@@ -33,45 +33,71 @@ extern "C" {
      ************************************/
 typedef struct EbPictureBufferDesc {
     EbDctor dctor;
-    // Buffer Ptrs
-    EbByte buffer_y; // pointer to the Y luma buffer
-    EbByte buffer_cb; // pointer to the U chroma buffer
-    EbByte buffer_cr; // pointer to the V chroma buffer
-    //Bit increment
-    EbByte buffer_bit_inc_y; // pointer to the Y luma buffer Bit increment
-    EbByte buffer_bit_inc_cb; // pointer to the U chroma buffer Bit increment
-    EbByte buffer_bit_inc_cr; // pointer to the V chroma buffer Bit increment
 
-    uint16_t stride_y; // pointer to the Y luma buffer
-    uint16_t stride_cb; // pointer to the U chroma buffer
-    uint16_t stride_cr; // pointer to the V chroma buffer
+    // Buffer Ptrs point to the start of the picture. If there are borders, the left and above borders
+    // will be accessed using a negative offset.
+    union {
+        struct {
+            uint8_t* y_buffer; // pointer to the Y luma buffer
+            uint8_t* u_buffer; // pointer to the U (Cb) chroma buffer
+            uint8_t* v_buffer; // pointer to the V (Cr) chroma buffer
+        };
 
-    uint16_t stride_bit_inc_y; // pointer to the Y luma buffer Bit increment
-    uint16_t stride_bit_inc_cb; // pointer to the U chroma buffer Bit increment
-    uint16_t stride_bit_inc_cr; // pointer to the V chroma buffer Bit increment
+        uint8_t* buffer[MAX_PLANES];
+    };
+
+    // Bit increment buffers point to the start of the picture. If there are borders, the left and above borders
+    // will be accessed using a negative offset.
+    union {
+        struct {
+            uint8_t* y_buffer_bit_inc; // pointer to the Y luma buffer bit increment
+            uint8_t* u_buffer_bit_inc; // pointer to the U (Cb) chroma buffer bit increment
+            uint8_t* v_buffer_bit_inc; // pointer to the V (Cr) chroma buffer bit increment
+        };
+
+        uint8_t* buffer_bit_inc[MAX_PLANES];
+    };
+
+    // Strides
+    union {
+        struct {
+            uint16_t y_stride; // stride for the Y luma buffer
+            uint16_t u_stride; // stride for the U (Cb) luma buffer
+            uint16_t v_stride; // stride for the V (Cr) luma buffer
+        };
+
+        uint16_t stride[MAX_PLANES];
+    };
+
+    // Bit increment strides
+    union {
+        struct {
+            uint16_t y_stride_bit_inc; // stride for the Y luma buffer bit increment
+            uint16_t u_stride_bit_inc; // stride for the U (Cb) luma buffer bit increment
+            uint16_t v_stride_bit_inc; // stride for the V (Cr) luma buffer bit increment
+        };
+
+        uint16_t stride_bit_inc[MAX_PLANES];
+    };
+
+    // Buffer Parameters
+    // Save the pointer to the actual allocated memory, to use for copies and freeing
+    uint8_t* buffer_alloc;
+    size_t   buffer_alloc_sz;
+    uint32_t luma_size; // Allocated size of the luma buffer
+    uint32_t chroma_size; // Allocated size of the chroma buffers
+    bool     packed_flag; // Indicates if sample buffers are packed or not
 
     // Picture Parameters
-    uint16_t      org_x; // Horizontal padding distance
-    uint16_t      org_y; // Vertical padding distance
-    uint16_t      origin_bot_y; // Vertical bottom padding distance
-    uint16_t      width; // Luma picture width which excludes the padding
-    uint16_t      height; // Luma picture height which excludes the padding
-    uint16_t      max_width; // input Luma picture width
-    uint16_t      max_height; // input Luma picture height
+    uint16_t      border; // Padding applied to top/left/right/bottom of picture (luma dimensions)
+    uint16_t      max_width; // input Luma picture width (excludes the padding)
+    uint16_t      max_height; // input Luma picture height (excludes the padding)
+    uint16_t      width; // Luma picture width (excludes the padding)
+    uint16_t      height; // Luma picture height (excludes the padding)
     EbBitDepth    bit_depth; // Pixel Bit Depth
     EbColorFormat color_format; // Chroma Subsumpling
 
-    // Buffer Parameters
-    uint32_t luma_size; // Size of the luma buffer
-    uint32_t chroma_size; // Size of the chroma buffers
-    bool     packed_flag; // Indicates if sample buffers are packed or not
-
-    bool     film_grain_flag; // Indicates if film grain parameters are present for the frame
     uint32_t buffer_enable_mask;
-
-    // internal bit-depth: when equals 1 internal bit-depth is 16bits regardless of the input
-    // bit-depth
-    bool is_16bit_pipeline;
 } EbPictureBufferDesc;
 
 #define YV12_FLAG_HIGHBITDEPTH 8
@@ -83,46 +109,57 @@ typedef struct Yv12BufferConfig {
             int32_t uv_width;
             int32_t alpha_width;
         };
+
         int32_t widths[3];
     };
+
     union {
         struct {
             int32_t y_height;
             int32_t uv_height;
             int32_t alpha_height;
         };
+
         int32_t heights[3];
     };
+
     union {
         struct {
             int32_t y_crop_width;
             int32_t uv_crop_width;
         };
+
         int32_t crop_widths[2];
     };
+
     union {
         struct {
             int32_t y_crop_height;
             int32_t uv_crop_height;
         };
+
         int32_t crop_heights[2];
     };
+
     union {
         struct {
             int32_t y_stride;
             int32_t uv_stride;
             int32_t alpha_stride;
         };
+
         int32_t strides[3];
     };
+
     union {
         struct {
-            uint8_t *y_buffer;
-            uint8_t *u_buffer;
-            uint8_t *v_buffer;
-            uint8_t *alpha_buffer;
+            uint8_t* y_buffer;
+            uint8_t* u_buffer;
+            uint8_t* v_buffer;
+            uint8_t* alpha_buffer;
         };
-        uint8_t *buffers[4];
+
+        uint8_t* buffers[4];
     };
 
     // Indicate whether y_buffer, u_buffer, and v_buffer points to the internally
@@ -131,14 +168,14 @@ typedef struct Yv12BufferConfig {
     // This is needed to store y_buffer, u_buffer, and v_buffer when set reference
     // uses an external refernece, and restore those buffer pointers after the
     // external reference frame is no longer used.
-    uint8_t *store_buf_adr[3];
+    uint8_t* store_buf_adr[3];
 
     // If the frame is stored in a 16-bit buffer, this stores an 8-bit version
     // for use in global motion detection. It is allocated on-demand.
-    uint8_t *y_buffer_8bit;
+    uint8_t* y_buffer_8bit;
     int32_t  buf_8bit_valid;
 
-    uint8_t                  *buffer_alloc;
+    uint8_t*                  buffer_alloc;
     size_t                    buffer_alloc_sz;
     int32_t                   border;
     size_t                    frame_size;
@@ -158,15 +195,15 @@ typedef struct Yv12BufferConfig {
     int32_t flags;
 } Yv12BufferConfig;
 
-void svt_aom_link_eb_to_aom_buffer_desc(EbPictureBufferDesc *picBuffDsc, Yv12BufferConfig *aomBuffDsc,
+void svt_aom_link_eb_to_aom_buffer_desc(EbPictureBufferDesc* picBuffDsc, Yv12BufferConfig* aomBuffDsc,
                                         uint16_t pad_right, uint16_t pad_bottom, bool is_16bit);
 
-void svt_aom_link_eb_to_aom_buffer_desc_8bit(EbPictureBufferDesc *picBuffDsc, Yv12BufferConfig *aomBuffDsc);
+void svt_aom_link_eb_to_aom_buffer_desc_8bit(EbPictureBufferDesc* picBuffDsc, Yv12BufferConfig* aomBuffDsc);
 
 typedef struct AomCodecFrameBuffer {
-    uint8_t *data; /**< pointer to the data buffer */
+    uint8_t* data; /**< pointer to the data buffer */
     size_t   size; /**< Size of data in bytes */
-    void    *priv; /**< Frame's private data */
+    void*    priv; /**< Frame's private data */
 } AomCodecFrameBuffer;
 
 /*!\brief get frame buffer callback prototype
@@ -187,7 +224,7 @@ typedef struct AomCodecFrameBuffer {
     * \param[in] new_size     Size in bytes needed by the buffer
     * \param[in,out] fb       pointer to AomCodecFrameBuffer
     */
-typedef int32_t (*AomGetFrameBufferCbFn)(void *priv, size_t min_size, AomCodecFrameBuffer *fb);
+typedef int32_t (*AomGetFrameBufferCbFn)(void* priv, size_t min_size, AomCodecFrameBuffer* fb);
 
 #define AOM_BORDER_IN_PIXELS 288
 
@@ -201,11 +238,8 @@ typedef struct EbPictureBufferDescInitData {
     EbColorFormat color_format;
     uint32_t      buffer_enable_mask;
     int32_t       rest_units_per_tile;
-    uint16_t      left_padding;
-    uint16_t      right_padding;
-    uint16_t      top_padding;
-    uint16_t      bot_padding;
-    bool          split_mode; //ON: allocate 8bit data seperately from nbit data
+    uint16_t      border;
+    bool          split_mode; //ON: allocate 8bit data separately from nbit data
 
     uint8_t mfmv;
     bool    is_16bit_pipeline;
@@ -216,20 +250,17 @@ typedef struct EbPictureBufferDescInitData {
      * Extern Function Declarations
      **************************************/
 
-extern EbErrorType svt_picture_buffer_desc_ctor_noy8b(EbPictureBufferDesc *object_ptr,
-                                                      const EbPtr          object_init_data_ptr);
-extern EbErrorType svt_picture_buffer_desc_ctor(EbPictureBufferDesc *object_ptr, const EbPtr object_init_data_ptr);
+EbErrorType svt_picture_buffer_desc_ctor_noy8b(EbPictureBufferDesc* object_ptr, const EbPtr object_init_data_ptr);
+EbErrorType svt_picture_buffer_desc_ctor(EbPictureBufferDesc* object_ptr, const EbPtr object_init_data_ptr);
 
-extern EbErrorType svt_recon_picture_buffer_desc_ctor(EbPictureBufferDesc *object_ptr, EbPtr object_init_data_ptr);
-extern EbErrorType svt_picture_buffer_desc_noy8b_update(EbPictureBufferDesc *object_ptr,
-                                                        const EbPtr          object_init_data_ptr);
-extern EbErrorType svt_picture_buffer_desc_update(EbPictureBufferDesc *pictureBufferDescPtr,
-                                                  const EbPtr          object_init_data_ptr);
-extern EbErrorType svt_recon_picture_buffer_desc_update(EbPictureBufferDesc *object_ptr, EbPtr object_init_data_ptr);
+EbErrorType svt_recon_picture_buffer_desc_ctor(EbPictureBufferDesc* object_ptr, EbPtr object_init_data_ptr);
+EbErrorType svt_picture_buffer_desc_noy8b_update(EbPictureBufferDesc* object_ptr, const EbPtr object_init_data_ptr);
+EbErrorType svt_picture_buffer_desc_update(EbPictureBufferDesc* pictureBufferDescPtr, const EbPtr object_init_data_ptr);
+EbErrorType svt_recon_picture_buffer_desc_update(EbPictureBufferDesc* object_ptr, EbPtr object_init_data_ptr);
 
-int32_t svt_aom_realloc_frame_buffer(Yv12BufferConfig *ybf, int32_t width, int32_t height, int32_t ss_x, int32_t ss_y,
+int32_t svt_aom_realloc_frame_buffer(Yv12BufferConfig* ybf, int32_t width, int32_t height, int32_t ss_x, int32_t ss_y,
                                      int32_t use_highbitdepth, int32_t border, int32_t byte_alignment,
-                                     AomCodecFrameBuffer *fb, AomGetFrameBufferCbFn cb, void *cb_priv);
+                                     AomCodecFrameBuffer* fb, AomGetFrameBufferCbFn cb, void* cb_priv);
 #ifdef __cplusplus
 }
 #endif

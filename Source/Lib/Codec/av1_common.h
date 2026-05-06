@@ -54,6 +54,7 @@ typedef struct SgFilterCtrls {
     // if 1, enable Wiener filtering to be used for chroma planes, else use for luma plane only
     bool use_chroma;
 } SgFilterCtrls;
+
 typedef struct Av1Common {
     int32_t  mi_rows;
     int32_t  mi_cols;

@@ -26,8 +26,8 @@ DECLARE_ALIGNED(32, static const uint8_t, filtd4[]) = {
     2, 3, 4, 5, 3, 4, 5, 6, 4, 5, 6, 7, 5, 6, 7, 8, 2, 3, 4, 5, 3, 4, 5, 6, 4, 5, 6, 7, 5, 6, 7, 8,
 };
 
-typedef void filter8_1dfunction(const uint8_t *src_ptr, ptrdiff_t src_pitch, uint8_t *output_ptr, ptrdiff_t out_pitch,
-                                uint32_t output_height, const int16_t *filter);
+typedef void filter8_1dfunction(const uint8_t* src_ptr, ptrdiff_t src_pitch, uint8_t* output_ptr, ptrdiff_t out_pitch,
+                                uint32_t output_height, const int16_t* filter);
 
 filter8_1dfunction svt_aom_filter_block1d16_v8_ssse3;
 filter8_1dfunction svt_aom_filter_block1d16_h8_ssse3;
@@ -44,13 +44,13 @@ filter8_1dfunction svt_aom_filter_block1d4_v2_ssse3;
 filter8_1dfunction svt_aom_filter_block1d4_h2_ssse3;
 
 #define FUN_CONV_1D(name, step_q4, filter, dir, src_start, avg, opt)                                             \
-    void svt_aom_convolve8_##name##_##opt(const uint8_t *src,                                                    \
+    void svt_aom_convolve8_##name##_##opt(const uint8_t* src,                                                    \
                                           ptrdiff_t      src_stride,                                             \
-                                          uint8_t       *dst,                                                    \
+                                          uint8_t*       dst,                                                    \
                                           ptrdiff_t      dst_stride,                                             \
-                                          const int16_t *filter_x,                                               \
+                                          const int16_t* filter_x,                                               \
                                           int            x_step_q4,                                              \
-                                          const int16_t *filter_y,                                               \
+                                          const int16_t* filter_y,                                               \
                                           int            y_step_q4,                                              \
                                           int            w,                                                      \
                                           int            h) {                                                               \
@@ -124,25 +124,25 @@ filter8_1dfunction svt_aom_filter_block1d4_h2_ssse3;
         }                                                                                                        \
     }
 
-static void svt_aom_filter_block1d4_h4_ssse3(const uint8_t *src_ptr, ptrdiff_t src_pixels_per_line, uint8_t *output_ptr,
-                                             ptrdiff_t output_pitch, uint32_t output_height, const int16_t *filter) {
+static void svt_aom_filter_block1d4_h4_ssse3(const uint8_t* src_ptr, ptrdiff_t src_pixels_per_line, uint8_t* output_ptr,
+                                             ptrdiff_t output_pitch, uint32_t output_height, const int16_t* filter) {
     __m128i      filtersReg;
     __m128i      addFilterReg32, filt1Reg, firstFilters, srcReg32b1, srcRegFilt32b1_1;
     unsigned int i;
     src_ptr -= 3;
     addFilterReg32 = _mm_set1_epi16(32);
-    filtersReg     = _mm_loadu_si128((const __m128i *)filter);
+    filtersReg     = _mm_loadu_si128((const __m128i*)filter);
     filtersReg     = _mm_srai_epi16(filtersReg, 1);
     // converting the 16 bit (short) to 8 bit (byte) and have the same data
     // in both lanes of 128 bit register.
     filtersReg = _mm_packs_epi16(filtersReg, filtersReg);
 
     firstFilters = _mm_shuffle_epi8(filtersReg, _mm_set1_epi32(0x5040302u));
-    filt1Reg     = _mm_loadu_si128((__m128i const *)(filtd4));
+    filt1Reg     = _mm_loadu_si128((__m128i const*)(filtd4));
 
     for (i = output_height; i > 0; i -= 1) {
         // load the 2 strides of source
-        srcReg32b1 = _mm_loadu_si128((const __m128i *)src_ptr);
+        srcReg32b1 = _mm_loadu_si128((const __m128i*)src_ptr);
 
         // filter the source buffer
         srcRegFilt32b1_1 = _mm_shuffle_epi8(srcReg32b1, filt1Reg);
@@ -162,13 +162,13 @@ static void svt_aom_filter_block1d4_h4_ssse3(const uint8_t *src_ptr, ptrdiff_t s
 
         src_ptr += src_pixels_per_line;
 
-        *((uint32_t *)(output_ptr)) = _mm_cvtsi128_si32(srcRegFilt32b1_1);
+        *((uint32_t*)(output_ptr)) = _mm_cvtsi128_si32(srcRegFilt32b1_1);
         output_ptr += output_pitch;
     }
 }
 
-static void svt_aom_filter_block1d4_v4_ssse3(const uint8_t *src_ptr, ptrdiff_t src_pitch, uint8_t *output_ptr,
-                                             ptrdiff_t out_pitch, uint32_t output_height, const int16_t *filter) {
+static void svt_aom_filter_block1d4_v4_ssse3(const uint8_t* src_ptr, ptrdiff_t src_pitch, uint8_t* output_ptr,
+                                             ptrdiff_t out_pitch, uint32_t output_height, const int16_t* filter) {
     __m128i      filtersReg;
     __m128i      addFilterReg32;
     __m128i      srcReg2, srcReg3, srcReg23, srcReg4, srcReg34, srcReg5, srcReg45, srcReg6, srcReg56;
@@ -180,7 +180,7 @@ static void svt_aom_filter_block1d4_v4_ssse3(const uint8_t *src_ptr, ptrdiff_t s
     ptrdiff_t    src_stride, dst_stride;
 
     addFilterReg32 = _mm_set1_epi16(32);
-    filtersReg     = _mm_loadu_si128((const __m128i *)filter);
+    filtersReg     = _mm_loadu_si128((const __m128i*)filter);
     // converting the 16 bit (short) to  8 bit (byte) and have the
     // same data in both lanes of 128 bit register.
     filtersReg = _mm_srai_epi16(filtersReg, 1);
@@ -192,11 +192,11 @@ static void svt_aom_filter_block1d4_v4_ssse3(const uint8_t *src_ptr, ptrdiff_t s
     src_stride = src_pitch << 1;
     dst_stride = out_pitch << 1;
 
-    srcReg2  = _mm_loadl_epi64((const __m128i *)(src_ptr + src_pitch * 2));
-    srcReg3  = _mm_loadl_epi64((const __m128i *)(src_ptr + src_pitch * 3));
+    srcReg2  = _mm_loadl_epi64((const __m128i*)(src_ptr + src_pitch * 2));
+    srcReg3  = _mm_loadl_epi64((const __m128i*)(src_ptr + src_pitch * 3));
     srcReg23 = _mm_unpacklo_epi32(srcReg2, srcReg3);
 
-    srcReg4 = _mm_loadl_epi64((const __m128i *)(src_ptr + src_pitch * 4));
+    srcReg4 = _mm_loadl_epi64((const __m128i*)(src_ptr + src_pitch * 4));
 
     // have consecutive loads on the same 256 register
     srcReg34 = _mm_unpacklo_epi32(srcReg3, srcReg4);
@@ -204,10 +204,10 @@ static void svt_aom_filter_block1d4_v4_ssse3(const uint8_t *src_ptr, ptrdiff_t s
     srcReg23_34_lo = _mm_unpacklo_epi8(srcReg23, srcReg34);
 
     for (i = output_height; i > 1; i -= 2) {
-        srcReg5  = _mm_loadl_epi64((const __m128i *)(src_ptr + src_pitch * 5));
+        srcReg5  = _mm_loadl_epi64((const __m128i*)(src_ptr + src_pitch * 5));
         srcReg45 = _mm_unpacklo_epi32(srcReg4, srcReg5);
 
-        srcReg6  = _mm_loadl_epi64((const __m128i *)(src_ptr + src_pitch * 6));
+        srcReg6  = _mm_loadl_epi64((const __m128i*)(src_ptr + src_pitch * 6));
         srcReg56 = _mm_unpacklo_epi32(srcReg5, srcReg6);
 
         // merge every two consecutive registers
@@ -237,8 +237,8 @@ static void svt_aom_filter_block1d4_v4_ssse3(const uint8_t *src_ptr, ptrdiff_t s
 
         src_ptr += src_stride;
 
-        *((uint32_t *)(output_ptr))             = _mm_cvtsi128_si32(resReglo);
-        *((uint32_t *)(output_ptr + out_pitch)) = _mm_cvtsi128_si32(resReghi);
+        *((uint32_t*)(output_ptr))             = _mm_cvtsi128_si32(resReglo);
+        *((uint32_t*)(output_ptr + out_pitch)) = _mm_cvtsi128_si32(resReghi);
 
         output_ptr += dst_stride;
 
@@ -248,8 +248,8 @@ static void svt_aom_filter_block1d4_v4_ssse3(const uint8_t *src_ptr, ptrdiff_t s
     }
 }
 
-static void svt_aom_filter_block1d8_h4_ssse3(const uint8_t *src_ptr, ptrdiff_t src_pixels_per_line, uint8_t *output_ptr,
-                                             ptrdiff_t output_pitch, uint32_t output_height, const int16_t *filter) {
+static void svt_aom_filter_block1d8_h4_ssse3(const uint8_t* src_ptr, ptrdiff_t src_pixels_per_line, uint8_t* output_ptr,
+                                             ptrdiff_t output_pitch, uint32_t output_height, const int16_t* filter) {
     __m128i      filtersReg;
     __m128i      addFilterReg32, filt2Reg, filt3Reg;
     __m128i      secondFilters, thirdFilters;
@@ -258,7 +258,7 @@ static void svt_aom_filter_block1d8_h4_ssse3(const uint8_t *src_ptr, ptrdiff_t s
     unsigned int i;
     src_ptr -= 3;
     addFilterReg32 = _mm_set1_epi16(32);
-    filtersReg     = _mm_loadu_si128((const __m128i *)filter);
+    filtersReg     = _mm_loadu_si128((const __m128i*)filter);
     filtersReg     = _mm_srai_epi16(filtersReg, 1);
     // converting the 16 bit (short) to 8 bit (byte) and have the same data
     // in both lanes of 128 bit register.
@@ -271,11 +271,11 @@ static void svt_aom_filter_block1d8_h4_ssse3(const uint8_t *src_ptr, ptrdiff_t s
     // across 256 bit register
     thirdFilters = _mm_shuffle_epi8(filtersReg, _mm_set1_epi16(0x504u));
 
-    filt2Reg = _mm_loadu_si128((__m128i const *)(filt_h4 + 32));
-    filt3Reg = _mm_loadu_si128((__m128i const *)(filt_h4 + 32 * 2));
+    filt2Reg = _mm_loadu_si128((__m128i const*)(filt_h4 + 32));
+    filt3Reg = _mm_loadu_si128((__m128i const*)(filt_h4 + 32 * 2));
 
     for (i = output_height; i > 0; i -= 1) {
-        srcReg32b1 = _mm_loadu_si128((const __m128i *)src_ptr);
+        srcReg32b1 = _mm_loadu_si128((const __m128i*)src_ptr);
 
         // filter the source buffer
         srcRegFilt32b3 = _mm_shuffle_epi8(srcReg32b1, filt2Reg);
@@ -296,14 +296,14 @@ static void svt_aom_filter_block1d8_h4_ssse3(const uint8_t *src_ptr, ptrdiff_t s
 
         src_ptr += src_pixels_per_line;
 
-        _mm_storel_epi64((__m128i *)output_ptr, srcRegFilt32b1_1);
+        _mm_storel_epi64((__m128i*)output_ptr, srcRegFilt32b1_1);
 
         output_ptr += output_pitch;
     }
 }
 
-static void svt_aom_filter_block1d8_v4_ssse3(const uint8_t *src_ptr, ptrdiff_t src_pitch, uint8_t *output_ptr,
-                                             ptrdiff_t out_pitch, uint32_t output_height, const int16_t *filter) {
+static void svt_aom_filter_block1d8_v4_ssse3(const uint8_t* src_ptr, ptrdiff_t src_pitch, uint8_t* output_ptr,
+                                             ptrdiff_t out_pitch, uint32_t output_height, const int16_t* filter) {
     __m128i      filtersReg;
     __m128i      srcReg2, srcReg3, srcReg4, srcReg5, srcReg6;
     __m128i      srcReg23, srcReg34, srcReg45, srcReg56;
@@ -314,7 +314,7 @@ static void svt_aom_filter_block1d8_v4_ssse3(const uint8_t *src_ptr, ptrdiff_t s
     ptrdiff_t    src_stride, dst_stride;
 
     addFilterReg32 = _mm_set1_epi16(32);
-    filtersReg     = _mm_loadu_si128((const __m128i *)filter);
+    filtersReg     = _mm_loadu_si128((const __m128i*)filter);
     // converting the 16 bit (short) to  8 bit (byte) and have the
     // same data in both lanes of 128 bit register.
     filtersReg = _mm_srai_epi16(filtersReg, 1);
@@ -331,21 +331,21 @@ static void svt_aom_filter_block1d8_v4_ssse3(const uint8_t *src_ptr, ptrdiff_t s
     src_stride = src_pitch << 1;
     dst_stride = out_pitch << 1;
 
-    srcReg2  = _mm_loadl_epi64((const __m128i *)(src_ptr + src_pitch * 2));
-    srcReg3  = _mm_loadl_epi64((const __m128i *)(src_ptr + src_pitch * 3));
+    srcReg2  = _mm_loadl_epi64((const __m128i*)(src_ptr + src_pitch * 2));
+    srcReg3  = _mm_loadl_epi64((const __m128i*)(src_ptr + src_pitch * 3));
     srcReg23 = _mm_unpacklo_epi8(srcReg2, srcReg3);
 
-    srcReg4 = _mm_loadl_epi64((const __m128i *)(src_ptr + src_pitch * 4));
+    srcReg4 = _mm_loadl_epi64((const __m128i*)(src_ptr + src_pitch * 4));
 
     // have consecutive loads on the same 256 register
     srcReg34 = _mm_unpacklo_epi8(srcReg3, srcReg4);
 
     for (i = output_height; i > 1; i -= 2) {
-        srcReg5 = _mm_loadl_epi64((const __m128i *)(src_ptr + src_pitch * 5));
+        srcReg5 = _mm_loadl_epi64((const __m128i*)(src_ptr + src_pitch * 5));
 
         srcReg45 = _mm_unpacklo_epi8(srcReg4, srcReg5);
 
-        srcReg6 = _mm_loadl_epi64((const __m128i *)(src_ptr + src_pitch * 6));
+        srcReg6 = _mm_loadl_epi64((const __m128i*)(src_ptr + src_pitch * 6));
 
         srcReg56 = _mm_unpacklo_epi8(srcReg5, srcReg6);
 
@@ -373,8 +373,8 @@ static void svt_aom_filter_block1d8_v4_ssse3(const uint8_t *src_ptr, ptrdiff_t s
 
         src_ptr += src_stride;
 
-        _mm_storel_epi64((__m128i *)output_ptr, (resReg23_45));
-        _mm_storel_epi64((__m128i *)(output_ptr + out_pitch), (resReg34_56));
+        _mm_storel_epi64((__m128i*)output_ptr, (resReg23_45));
+        _mm_storel_epi64((__m128i*)(output_ptr + out_pitch), (resReg34_56));
 
         output_ptr += dst_stride;
 
@@ -385,9 +385,9 @@ static void svt_aom_filter_block1d8_v4_ssse3(const uint8_t *src_ptr, ptrdiff_t s
     }
 }
 
-static void svt_aom_filter_block1d16_h4_ssse3(const uint8_t *src_ptr, ptrdiff_t src_pixels_per_line,
-                                              uint8_t *output_ptr, ptrdiff_t output_pitch, uint32_t output_height,
-                                              const int16_t *filter) {
+static void svt_aom_filter_block1d16_h4_ssse3(const uint8_t* src_ptr, ptrdiff_t src_pixels_per_line,
+                                              uint8_t* output_ptr, ptrdiff_t output_pitch, uint32_t output_height,
+                                              const int16_t* filter) {
     __m128i      filtersReg;
     __m128i      addFilterReg32, filt2Reg, filt3Reg;
     __m128i      secondFilters, thirdFilters;
@@ -396,7 +396,7 @@ static void svt_aom_filter_block1d16_h4_ssse3(const uint8_t *src_ptr, ptrdiff_t 
     unsigned int i;
     src_ptr -= 3;
     addFilterReg32 = _mm_set1_epi16(32);
-    filtersReg     = _mm_loadu_si128((const __m128i *)filter);
+    filtersReg     = _mm_loadu_si128((const __m128i*)filter);
     filtersReg     = _mm_srai_epi16(filtersReg, 1);
     // converting the 16 bit (short) to 8 bit (byte) and have the same data
     // in both lanes of 128 bit register.
@@ -409,11 +409,11 @@ static void svt_aom_filter_block1d16_h4_ssse3(const uint8_t *src_ptr, ptrdiff_t 
     // across 256 bit register
     thirdFilters = _mm_shuffle_epi8(filtersReg, _mm_set1_epi16(0x504u));
 
-    filt2Reg = _mm_loadu_si128((__m128i const *)(filt_h4 + 32));
-    filt3Reg = _mm_loadu_si128((__m128i const *)(filt_h4 + 32 * 2));
+    filt2Reg = _mm_loadu_si128((__m128i const*)(filt_h4 + 32));
+    filt3Reg = _mm_loadu_si128((__m128i const*)(filt_h4 + 32 * 2));
 
     for (i = output_height; i > 0; i -= 1) {
-        srcReg32b1 = _mm_loadu_si128((const __m128i *)src_ptr);
+        srcReg32b1 = _mm_loadu_si128((const __m128i*)src_ptr);
 
         // filter the source buffer
         srcRegFilt32b3 = _mm_shuffle_epi8(srcReg32b1, filt2Reg);
@@ -427,7 +427,7 @@ static void svt_aom_filter_block1d16_h4_ssse3(const uint8_t *src_ptr, ptrdiff_t 
 
         // reading stride of the next 16 bytes
         // (part of it was being read by earlier read)
-        srcReg32b2 = _mm_loadu_si128((const __m128i *)(src_ptr + 8));
+        srcReg32b2 = _mm_loadu_si128((const __m128i*)(src_ptr + 8));
 
         // filter the source buffer
         srcRegFilt32b3 = _mm_shuffle_epi8(srcReg32b2, filt2Reg);
@@ -452,14 +452,14 @@ static void svt_aom_filter_block1d16_h4_ssse3(const uint8_t *src_ptr, ptrdiff_t 
 
         src_ptr += src_pixels_per_line;
 
-        _mm_storeu_si128((__m128i *)output_ptr, srcRegFilt32b1_1);
+        _mm_storeu_si128((__m128i*)output_ptr, srcRegFilt32b1_1);
 
         output_ptr += output_pitch;
     }
 }
 
-static void svt_aom_filter_block1d16_v4_ssse3(const uint8_t *src_ptr, ptrdiff_t src_pitch, uint8_t *output_ptr,
-                                              ptrdiff_t out_pitch, uint32_t output_height, const int16_t *filter) {
+static void svt_aom_filter_block1d16_v4_ssse3(const uint8_t* src_ptr, ptrdiff_t src_pitch, uint8_t* output_ptr,
+                                              ptrdiff_t out_pitch, uint32_t output_height, const int16_t* filter) {
     __m128i      filtersReg;
     __m128i      srcReg2, srcReg3, srcReg4, srcReg5, srcReg6;
     __m128i      srcReg23_lo, srcReg23_hi, srcReg34_lo, srcReg34_hi;
@@ -473,7 +473,7 @@ static void svt_aom_filter_block1d16_v4_ssse3(const uint8_t *src_ptr, ptrdiff_t 
     ptrdiff_t    src_stride, dst_stride;
 
     addFilterReg32 = _mm_set1_epi16(32);
-    filtersReg     = _mm_loadu_si128((const __m128i *)filter);
+    filtersReg     = _mm_loadu_si128((const __m128i*)filter);
     // converting the 16 bit (short) to  8 bit (byte) and have the
     // same data in both lanes of 128 bit register.
     filtersReg = _mm_srai_epi16(filtersReg, 1);
@@ -490,24 +490,24 @@ static void svt_aom_filter_block1d16_v4_ssse3(const uint8_t *src_ptr, ptrdiff_t 
     src_stride = src_pitch << 1;
     dst_stride = out_pitch << 1;
 
-    srcReg2     = _mm_loadu_si128((const __m128i *)(src_ptr + src_pitch * 2));
-    srcReg3     = _mm_loadu_si128((const __m128i *)(src_ptr + src_pitch * 3));
+    srcReg2     = _mm_loadu_si128((const __m128i*)(src_ptr + src_pitch * 2));
+    srcReg3     = _mm_loadu_si128((const __m128i*)(src_ptr + src_pitch * 3));
     srcReg23_lo = _mm_unpacklo_epi8(srcReg2, srcReg3);
     srcReg23_hi = _mm_unpackhi_epi8(srcReg2, srcReg3);
 
-    srcReg4 = _mm_loadu_si128((const __m128i *)(src_ptr + src_pitch * 4));
+    srcReg4 = _mm_loadu_si128((const __m128i*)(src_ptr + src_pitch * 4));
 
     // have consecutive loads on the same 256 register
     srcReg34_lo = _mm_unpacklo_epi8(srcReg3, srcReg4);
     srcReg34_hi = _mm_unpackhi_epi8(srcReg3, srcReg4);
 
     for (i = output_height; i > 1; i -= 2) {
-        srcReg5 = _mm_loadu_si128((const __m128i *)(src_ptr + src_pitch * 5));
+        srcReg5 = _mm_loadu_si128((const __m128i*)(src_ptr + src_pitch * 5));
 
         srcReg45_lo = _mm_unpacklo_epi8(srcReg4, srcReg5);
         srcReg45_hi = _mm_unpackhi_epi8(srcReg4, srcReg5);
 
-        srcReg6 = _mm_loadu_si128((const __m128i *)(src_ptr + src_pitch * 6));
+        srcReg6 = _mm_loadu_si128((const __m128i*)(src_ptr + src_pitch * 6));
 
         srcReg56_lo = _mm_unpacklo_epi8(srcReg5, srcReg6);
         srcReg56_hi = _mm_unpackhi_epi8(srcReg5, srcReg6);
@@ -551,8 +551,8 @@ static void svt_aom_filter_block1d16_v4_ssse3(const uint8_t *src_ptr, ptrdiff_t 
 
         src_ptr += src_stride;
 
-        _mm_storeu_si128((__m128i *)output_ptr, (resReg23_45));
-        _mm_storeu_si128((__m128i *)(output_ptr + out_pitch), (resReg34_56));
+        _mm_storeu_si128((__m128i*)output_ptr, (resReg23_45));
+        _mm_storeu_si128((__m128i*)(output_ptr + out_pitch), (resReg34_56));
 
         output_ptr += dst_stride;
 

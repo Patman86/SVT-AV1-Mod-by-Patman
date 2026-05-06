@@ -18,7 +18,7 @@
 #include "mem_neon.h"
 #include "neon_sve_bridge.h"
 
-static inline void mse_8xn_16bit_sve(const uint16_t *src, const uint16_t *dst, const int32_t dstride, uint64x2_t *sse,
+static inline void mse_8xn_16bit_sve(const uint16_t* src, const uint16_t* dst, const int32_t dstride, uint64x2_t* sse,
                                      uint8_t height, uint8_t subsampling_factor) {
     do {
         const uint16x8_t s0 = vld1q_u16(src);
@@ -38,7 +38,7 @@ static inline void mse_8xn_16bit_sve(const uint16_t *src, const uint16_t *dst, c
     } while (height != 0);
 }
 
-static inline void mse_4xn_16bit_sve(const uint16_t *src, const uint16_t *dst, const int32_t dstride, uint64x2_t *sse,
+static inline void mse_4xn_16bit_sve(const uint16_t* src, const uint16_t* dst, const int32_t dstride, uint64x2_t* sse,
                                      uint8_t height, uint8_t subsampling_factor) {
     do {
         const uint16x8_t s0 = load_u16_4x2(src, 4 * subsampling_factor);
@@ -57,8 +57,8 @@ static inline void mse_4xn_16bit_sve(const uint16_t *src, const uint16_t *dst, c
     } while (height != 0);
 }
 
-uint64_t svt_aom_compute_cdef_dist_16bit_sve(const uint16_t *dst, int32_t dstride, const uint16_t *src,
-                                             const CdefList *dlist, int32_t cdef_count, BlockSize bsize,
+uint64_t svt_aom_compute_cdef_dist_16bit_sve(const uint16_t* dst, int32_t dstride, const uint16_t* src,
+                                             const CdefList* dlist, int32_t cdef_count, BlockSize bsize,
                                              int32_t coeff_shift, uint8_t subsampling_factor) {
     uint64_t sum;
     int32_t  bi, bx, by;

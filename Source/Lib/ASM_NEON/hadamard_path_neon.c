@@ -17,7 +17,7 @@
 #include "mem_neon.h"
 #include "transpose_neon.h"
 
-static inline void hadamard_4x4_one_pass(int16x4_t *a0, int16x4_t *a1, int16x4_t *a2, int16x4_t *a3) {
+static inline void hadamard_4x4_one_pass(int16x4_t* a0, int16x4_t* a1, int16x4_t* a2, int16x4_t* a3) {
     const int16x4_t b0 = vhadd_s16(*a0, *a1);
     const int16x4_t b1 = vhsub_s16(*a0, *a1);
     const int16x4_t b2 = vhadd_s16(*a2, *a3);
@@ -29,7 +29,7 @@ static inline void hadamard_4x4_one_pass(int16x4_t *a0, int16x4_t *a1, int16x4_t
     *a3 = vsub_s16(b1, b3);
 }
 
-void svt_aom_hadamard_4x4_neon(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff) {
+void svt_aom_hadamard_4x4_neon(const int16_t* src_diff, ptrdiff_t src_stride, tran_low_t* coeff) {
     int16x4_t a0 = vld1_s16(src_diff);
     int16x4_t a1 = vld1_s16(src_diff + src_stride);
     int16x4_t a2 = vld1_s16(src_diff + 2 * src_stride);
@@ -47,7 +47,7 @@ void svt_aom_hadamard_4x4_neon(const int16_t *src_diff, ptrdiff_t src_stride, tr
     store_s16_to_tran_low(coeff + 12, a3);
 }
 
-static inline void hadamard8x8_one_pass(int16x8_t *a) {
+static inline void hadamard8x8_one_pass(int16x8_t* a) {
     const int16x8_t b0 = vaddq_s16(a[0], a[1]);
     const int16x8_t b1 = vsubq_s16(a[0], a[1]);
     const int16x8_t b2 = vaddq_s16(a[2], a[3]);
@@ -76,7 +76,7 @@ static inline void hadamard8x8_one_pass(int16x8_t *a) {
     a[7] = vaddq_s16(c1, c5);
 }
 
-void svt_aom_hadamard_8x8_neon(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff) {
+void svt_aom_hadamard_8x8_neon(const int16_t* src_diff, ptrdiff_t src_stride, int32_t* coeff) {
     int16x8_t a[8];
 
     a[0] = vld1q_s16(src_diff);
@@ -102,7 +102,7 @@ void svt_aom_hadamard_8x8_neon(const int16_t *src_diff, ptrdiff_t src_stride, in
     store_s16q_to_tran_low(coeff + 56, a[7]);
 }
 
-void svt_aom_hadamard_16x16_neon(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff) {
+void svt_aom_hadamard_16x16_neon(const int16_t* src_diff, ptrdiff_t src_stride, tran_low_t* coeff) {
     /* Rearrange 16x16 to 8x32 and remove stride.
      * Top left first. */
     svt_aom_hadamard_8x8_neon(src_diff + 0 + 0 * src_stride, src_stride, coeff + 0);
@@ -202,7 +202,7 @@ void svt_aom_hadamard_16x16_neon(const int16_t *src_diff, ptrdiff_t src_stride, 
     }
 }
 
-void svt_aom_hadamard_32x32_neon(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff) {
+void svt_aom_hadamard_32x32_neon(const int16_t* src_diff, ptrdiff_t src_stride, tran_low_t* coeff) {
     /* Top left first. */
     svt_aom_hadamard_16x16_neon(src_diff + 0 + 0 * src_stride, src_stride, coeff + 0);
     /* Top right. */
@@ -235,75 +235,4 @@ void svt_aom_hadamard_32x32_neon(const int16_t *src_diff, ptrdiff_t src_stride, 
 
         coeff += 4;
     }
-}
-
-uint32_t hadamard_path_neon(Buf2D residualBuf, Buf2D coeffBuf, Buf2D inputBuf, Buf2D predBuf, BlockSize bsize) {
-    assert(residualBuf.buf != NULL && residualBuf.buf0 == NULL && residualBuf.width == 0 && residualBuf.height == 0 &&
-           residualBuf.stride != 0);
-    assert(coeffBuf.buf != NULL && coeffBuf.buf0 == NULL && coeffBuf.width == 0 && coeffBuf.height == 0 &&
-           coeffBuf.stride == block_size_wide[bsize]);
-    assert(inputBuf.buf != NULL && inputBuf.buf0 == NULL && inputBuf.width == 0 && inputBuf.height == 0 &&
-           inputBuf.stride != 0);
-    assert(predBuf.buf != NULL && predBuf.buf0 == NULL && predBuf.width == 0 && predBuf.height == 0 &&
-           predBuf.stride != 0);
-    uint32_t input_idx, pred_idx, res_idx;
-
-    uint32_t satd_cost = 0;
-
-    const TxSize tx_size = AOMMIN(TX_32X32, eb_max_txsize_lookup[bsize]);
-
-    const int stepr = eb_tx_size_high_unit[tx_size];
-    const int stepc = eb_tx_size_wide_unit[tx_size];
-    const int txbw  = tx_size_wide[tx_size];
-    const int txbh  = tx_size_high[tx_size];
-
-    const int max_blocks_wide = block_size_wide[bsize] >> MI_SIZE_LOG2;
-    const int max_blocks_high = block_size_wide[bsize] >> MI_SIZE_LOG2;
-    int       row, col;
-
-    for (row = 0; row < max_blocks_high; row += stepr) {
-        for (col = 0; col < max_blocks_wide; col += stepc) {
-            input_idx = ((row * inputBuf.stride) + col) << 2;
-            pred_idx  = ((row * predBuf.stride) + col) << 2;
-            res_idx   = 0;
-
-            svt_aom_residual_kernel(inputBuf.buf,
-                                    input_idx,
-                                    inputBuf.stride,
-                                    predBuf.buf,
-                                    pred_idx,
-                                    predBuf.stride,
-                                    (int16_t *)residualBuf.buf,
-                                    res_idx,
-                                    residualBuf.stride,
-                                    0, // inputBuf.buf and predBuf.buf 8-bit
-                                    txbw,
-                                    txbh);
-
-            switch (tx_size) {
-            case TX_4X4:
-                svt_aom_hadamard_4x4((int16_t *)residualBuf.buf, residualBuf.stride, &(((int32_t *)coeffBuf.buf)[0]));
-                break;
-
-            case TX_8X8:
-                svt_aom_hadamard_8x8_neon(
-                    (int16_t *)residualBuf.buf, residualBuf.stride, &(((int32_t *)coeffBuf.buf)[0]));
-                break;
-
-            case TX_16X16:
-                svt_aom_hadamard_16x16_neon(
-                    (int16_t *)residualBuf.buf, residualBuf.stride, &(((int32_t *)coeffBuf.buf)[0]));
-                break;
-
-            case TX_32X32:
-                svt_aom_hadamard_32x32_neon(
-                    (int16_t *)residualBuf.buf, residualBuf.stride, &(((int32_t *)coeffBuf.buf)[0]));
-                break;
-
-            default: assert(0);
-            }
-            satd_cost += svt_aom_satd_neon(&(((int32_t *)coeffBuf.buf)[0]), tx_size_2d[tx_size]);
-        }
-    }
-    return (satd_cost);
 }

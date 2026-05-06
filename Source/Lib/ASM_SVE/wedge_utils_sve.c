@@ -17,7 +17,7 @@
 #include "definitions.h"
 #include "neon_sve_bridge.h"
 
-uint64_t svt_av1_wedge_sse_from_residuals_sve(const int16_t *r1, const int16_t *d, const uint8_t *m, int N) {
+uint64_t svt_av1_wedge_sse_from_residuals_sve(const int16_t* r1, const int16_t* d, const uint8_t* m, int N) {
     assert(N % 64 == 0);
 
     // Predicate pattern with first 8 elements true.
@@ -61,7 +61,7 @@ uint64_t svt_av1_wedge_sse_from_residuals_sve(const int16_t *r1, const int16_t *
     return ROUND_POWER_OF_TWO(csse, 2 * WEDGE_WEIGHT_BITS);
 }
 
-int8_t svt_av1_wedge_sign_from_residuals_sve(const int16_t *ds, const uint8_t *m, int N, int64_t limit) {
+int8_t svt_av1_wedge_sign_from_residuals_sve(const int16_t* ds, const uint8_t* m, int N, int64_t limit) {
     assert(N % 16 == 0);
 
     // Predicate pattern with first 8 elements true.

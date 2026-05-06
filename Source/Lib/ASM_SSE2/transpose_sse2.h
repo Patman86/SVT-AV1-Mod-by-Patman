@@ -24,7 +24,7 @@ extern "C" {
 }
 #endif
 
-static INLINE void partial_transpose_8bit_8x8(const __m128i *const in, __m128i *const out) {
+static INLINE void partial_transpose_8bit_8x8(const __m128i* const in, __m128i* const out) {
     // Unpack 8 bit elements. Goes from:
     // in[0]: 00 01 02 03 04 05 06 07
     // in[1]: 10 11 12 13 14 15 16 17
@@ -65,7 +65,7 @@ static INLINE void partial_transpose_8bit_8x8(const __m128i *const in, __m128i *
     out[3] = _mm_unpackhi_epi32(b1, b3);
 }
 
-static INLINE void transpose_16bit_4x4(const __m128i *const in, __m128i *const out) {
+static INLINE void transpose_16bit_4x4(const __m128i* const in, __m128i* const out) {
     // Unpack 16 bit elements. Goes from:
     // in[0]: 00 01 02 03  XX XX XX XX
     // in[1]: 10 11 12 13  XX XX XX XX
@@ -88,7 +88,7 @@ static INLINE void transpose_16bit_4x4(const __m128i *const in, __m128i *const o
     out[3] = _mm_srli_si128(out[2], 8);
 }
 
-static INLINE void transpose_16bit_4x8(const __m128i *const in, __m128i *const out) {
+static INLINE void transpose_16bit_4x8(const __m128i* const in, __m128i* const out) {
     // Unpack 16 bit elements. Goes from:
     // in[0]: 00 01 02 03  XX XX XX XX
     // in[1]: 10 11 12 13  XX XX XX XX
@@ -129,7 +129,7 @@ static INLINE void transpose_16bit_4x8(const __m128i *const in, __m128i *const o
     out[3] = _mm_unpackhi_epi64(b2, b3);
 }
 
-static INLINE void transpose_16bit_8x4(const __m128i *const in, __m128i *const out) {
+static INLINE void transpose_16bit_8x4(const __m128i* const in, __m128i* const out) {
     // Unpack 16 bit elements. Goes from:
     // in[0]: 00 01 02 03  04 05 06 07
     // in[1]: 10 11 12 13  14 15 16 17
@@ -176,7 +176,7 @@ static INLINE void transpose_16bit_8x4(const __m128i *const in, __m128i *const o
     out[7]              = _mm_unpackhi_epi64(b6, zeros);
 }
 
-static INLINE void transpose_16bit_8x8(const __m128i *const in, __m128i *const out) {
+static INLINE void transpose_16bit_8x8(const __m128i* const in, __m128i* const out) {
     // Unpack 16 bit elements. Goes from:
     // in[0]: 00 01 02 03  04 05 06 07
     // in[1]: 10 11 12 13  14 15 16 17
@@ -241,7 +241,7 @@ static INLINE void transpose_16bit_8x8(const __m128i *const in, __m128i *const o
     out[7] = _mm_unpackhi_epi64(b6, b7);
 }
 
-static INLINE void transpose_32bit_4x4(const __m128i *const in, __m128i *const out) {
+static INLINE void transpose_32bit_4x4(const __m128i* const in, __m128i* const out) {
     // Unpack 32 bit elements. Goes from:
     // in[0]: 00 01 02 03
     // in[1]: 10 11 12 13
@@ -269,7 +269,7 @@ static INLINE void transpose_32bit_4x4(const __m128i *const in, __m128i *const o
     out[3] = _mm_unpackhi_epi64(a2, a3);
 }
 
-static INLINE void transpose_64bit_4x4_sse2(const __m128i *const in, __m128i *const out) {
+static INLINE void transpose_64bit_4x4_sse2(const __m128i* const in, __m128i* const out) {
     out[0] = _mm_unpacklo_epi64(in[0], in[2]);
     out[4] = _mm_unpacklo_epi64(in[1], in[3]);
     out[1] = _mm_unpacklo_epi64(in[4], in[6]);
@@ -280,7 +280,7 @@ static INLINE void transpose_64bit_4x4_sse2(const __m128i *const in, __m128i *co
     out[7] = _mm_unpackhi_epi64(in[5], in[7]);
 }
 
-static INLINE void transpose_32bit_8x8_sse2(const __m128i *const in, __m128i *const out) {
+static INLINE void transpose_32bit_8x8_sse2(const __m128i* const in, __m128i* const out) {
     const __m128i a00 = _mm_unpacklo_epi32(in[0], in[2]);
     const __m128i a01 = _mm_unpacklo_epi32(in[1], in[3]);
     const __m128i a10 = _mm_unpacklo_epi32(in[4], in[6]);

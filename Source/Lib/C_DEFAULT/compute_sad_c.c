@@ -11,15 +11,16 @@
 
 #include "compute_sad_c.h"
 #include "utility.h"
+
 /*******************************************
 *   returns NxM Sum of Absolute Differences
 Note: moved from picture operators.
 keep this function here for profiling
 issues.
 *******************************************/
-uint32_t NOINLINE svt_nxm_sad_kernel_helper_c(const uint8_t *src, // input parameter, source samples Ptr
+uint32_t NOINLINE svt_nxm_sad_kernel_helper_c(const uint8_t* src, // input parameter, source samples Ptr
                                               uint32_t       src_stride, // input parameter, source stride
-                                              const uint8_t *ref, // input parameter, reference samples Ptr
+                                              const uint8_t* ref, // input parameter, reference samples Ptr
                                               uint32_t       ref_stride, // input parameter, reference stride
                                               uint32_t       height, // input parameter, block height (M)
                                               uint32_t       width) // input parameter, block width (N)
@@ -28,7 +29,9 @@ uint32_t NOINLINE svt_nxm_sad_kernel_helper_c(const uint8_t *src, // input param
     uint32_t sad = 0;
 
     for (y = 0; y < height; y++) {
-        for (x = 0; x < width; x++) sad += EB_ABS_DIFF(src[x], ref[x]);
+        for (x = 0; x < width; x++) {
+            sad += EB_ABS_DIFF(src[x], ref[x]);
+        }
         src += src_stride;
         ref += ref_stride;
     }
@@ -36,9 +39,9 @@ uint32_t NOINLINE svt_nxm_sad_kernel_helper_c(const uint8_t *src, // input param
     return sad;
 }
 
-uint32_t svt_aom_sad_16b_kernel_c(uint16_t *src, // input parameter, source samples Ptr
+uint32_t svt_aom_sad_16b_kernel_c(uint16_t* src, // input parameter, source samples Ptr
                                   uint32_t  src_stride, // input parameter, source stride
-                                  uint16_t *ref, // input parameter, reference samples Ptr
+                                  uint16_t* ref, // input parameter, reference samples Ptr
                                   uint32_t  ref_stride, // input parameter, reference stride
                                   uint32_t  height, // input parameter, block height (M)
                                   uint32_t  width) // input parameter, block width (N)
@@ -47,7 +50,9 @@ uint32_t svt_aom_sad_16b_kernel_c(uint16_t *src, // input parameter, source samp
     uint32_t sad = 0;
 
     for (y = 0; y < height; y++) {
-        for (x = 0; x < width; x++) sad += EB_ABS_DIFF(src[x], ref[x]);
+        for (x = 0; x < width; x++) {
+            sad += EB_ABS_DIFF(src[x], ref[x]);
+        }
         src += src_stride;
         ref += ref_stride;
     }
@@ -55,13 +60,13 @@ uint32_t svt_aom_sad_16b_kernel_c(uint16_t *src, // input parameter, source samp
     return sad;
 }
 
-void svt_sad_loop_kernel_c(uint8_t  *src, // input parameter, source samples Ptr
+void svt_sad_loop_kernel_c(uint8_t*  src, // input parameter, source samples Ptr
                            uint32_t  src_stride, // input parameter, source stride
-                           uint8_t  *ref, // input parameter, reference samples Ptr
+                           uint8_t*  ref, // input parameter, reference samples Ptr
                            uint32_t  ref_stride, // input parameter, reference stride
                            uint32_t  block_height, // input parameter, block height (M)
                            uint32_t  block_width, // input parameter, block width (N)
-                           uint64_t *best_sad, int16_t *x_search_center, int16_t *y_search_center,
+                           uint64_t* best_sad, int16_t* x_search_center, int16_t* y_search_center,
                            uint32_t src_stride_raw, // input parameter, source stride (no line skipping)
                            uint8_t skip_search_line, int16_t search_area_width, int16_t search_area_height) {
     (void)skip_search_line;
@@ -96,14 +101,14 @@ void svt_sad_loop_kernel_c(uint8_t  *src, // input parameter, source samples Ptr
 }
 
 #define sadMxN(m, n)                                                                                            \
-    uint32_t svt_aom_sad##m##x##n##_c(const uint8_t *src, int src_stride, const uint8_t *ref, int ref_stride) { \
+    uint32_t svt_aom_sad##m##x##n##_c(const uint8_t* src, int src_stride, const uint8_t* ref, int ref_stride) { \
         return svt_nxm_sad_kernel_helper_c(src, src_stride, ref, ref_stride, n, m);                             \
     }
 
 // Calculate sad against 4 reference locations and store each in sad_array
 #define sadMxNx4D(m, n)                                                                                              \
     void svt_aom_sad##m##x##n##x4d_c(                                                                                \
-        const uint8_t *src, int src_stride, const uint8_t *const ref_array[], int ref_stride, uint32_t *sad_array) { \
+        const uint8_t* src, int src_stride, const uint8_t* const ref_array[], int ref_stride, uint32_t* sad_array) { \
         int i;                                                                                                       \
         for (i = 0; i < 4; ++i) {                                                                                    \
             sad_array[i] = svt_aom_sad##m##x##n##_c(src, src_stride, ref_array[i], ref_stride);                      \

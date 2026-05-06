@@ -340,17 +340,18 @@ typedef struct QuantizationParams {
     /*!< Indicates the base frame qindex */
     uint8_t base_q_idx;
     /*!< Indicates the DC quantizer relative to base_q_idx - applicable for non-RC configuration(s) only*/
-    int8_t delta_q_dc[MAX_MB_PLANE];
+    int8_t delta_q_dc[MAX_PLANES];
     /*!< Indicates the AC quantizer relative to base_q_idx - applicable for non-RC configuration(s) only*/
-    int8_t delta_q_ac[MAX_MB_PLANE];
+    int8_t delta_q_ac[MAX_PLANES];
     /*!<Specifies that the quantizer matrix will be used to compute quantizers*/
     uint8_t using_qmatrix;
     /*!< Specifies the level in the quantizer matrix that should be used for
      * each plane decoding */
-    uint8_t qm[MAX_MB_PLANE];
+    uint8_t qm[MAX_PLANES];
     /*!< qindex for every segment ID */
     uint8_t qindex[MAX_SEGMENTS];
 } QuantizationParams;
+
 typedef struct DeltaQParams {
     /*!< Specifies whether quantizer index delta values are present */
     uint8_t delta_q_present;
@@ -413,6 +414,7 @@ typedef struct SkipModeInfo {
     int ref_frame_idx_1;
 
 } SkipModeInfo;
+
 typedef struct GlobalMotionParams {
     /*!< Specifies the transform type */
     TransformationType gm_type;
@@ -570,7 +572,7 @@ typedef struct FrameHeader {
     CdefParams cdef_params;
 
     /*!< Loop Restoration Parameters */
-    LrParams lr_params[MAX_MB_PLANE];
+    LrParams lr_params[MAX_PLANES];
 
     /*!< Specifies how the transform size is determined */
     TxMode tx_mode;
@@ -599,7 +601,7 @@ typedef struct FrameHeader {
 } FrameHeader;
 
 typedef struct Dequant {
-    DECLARE_ALIGNED(16, int16_t, dequant_qtx[MAX_SEGMENTS][MAX_MB_PLANE][2]); // 0: DC, 1: AC
+    DECLARE_ALIGNED(16, int16_t, dequant_qtx[MAX_SEGMENTS][MAX_PLANES][2]); // 0: DC, 1: AC
 } Dequant;
 
 #ifdef __cplusplus

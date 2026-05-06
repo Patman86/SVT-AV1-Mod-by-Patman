@@ -15,7 +15,7 @@
 #include "enc_dec_segments.h"
 
 static void enc_dec_segments_dctor(EbPtr p) {
-    EncDecSegments *obj = (EncDecSegments *)p;
+    EncDecSegments* obj = (EncDecSegments*)p;
     uint32_t        row_index;
     for (row_index = 0; row_index < obj->segment_max_row_count; ++row_index) {
         EB_DESTROY_MUTEX(obj->row_array[row_index].assignment_mutex);
@@ -33,7 +33,7 @@ static void enc_dec_segments_dctor(EbPtr p) {
     EB_FREE_ARRAY(obj->x_start_array);
 }
 
-EbErrorType svt_aom_enc_dec_segments_ctor(EncDecSegments *segments_ptr, uint32_t segment_col_count,
+EbErrorType svt_aom_enc_dec_segments_ctor(EncDecSegments* segments_ptr, uint32_t segment_col_count,
                                           uint32_t segment_row_count) {
     uint32_t row_index;
 
@@ -68,7 +68,7 @@ EbErrorType svt_aom_enc_dec_segments_ctor(EncDecSegments *segments_ptr, uint32_t
     return EB_ErrorNone;
 }
 
-void svt_aom_enc_dec_segments_init(EncDecSegments *segments_ptr, uint32_t segColCount, uint32_t segRowCount,
+void svt_aom_enc_dec_segments_init(EncDecSegments* segments_ptr, uint32_t segColCount, uint32_t segRowCount,
                                    uint32_t pic_width_sb, uint32_t pic_height_sb) {
     segColCount = (segColCount < pic_width_sb) ? segColCount : pic_width_sb;
     segRowCount = (segRowCount < pic_height_sb) ? segRowCount : pic_height_sb;
@@ -131,13 +131,15 @@ void svt_aom_enc_dec_segments_init(EncDecSegments *segments_ptr, uint32_t segCol
             // Check that segment is valid
             if (segments_ptr->valid_sb_count_array[segment_index]) {
                 // Right Neighbor
-                if (segment_index < segments_ptr->row_array[row_index].ending_seg_index)
+                if (segment_index < segments_ptr->row_array[row_index].ending_seg_index) {
                     ++segments_ptr->dep_map.dependency_map[segment_index + 1];
+                }
                 // Bottom Neighbor
                 if (row_index < segments_ptr->segment_row_count - 1 &&
                     segment_index + segments_ptr->segment_band_count >=
-                        segments_ptr->row_array[row_index + 1].starting_seg_index)
+                        segments_ptr->row_array[row_index + 1].starting_seg_index) {
                     ++segments_ptr->dep_map.dependency_map[segment_index + segments_ptr->segment_band_count];
+                }
             }
         }
     }

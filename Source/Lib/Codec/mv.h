@@ -38,13 +38,16 @@ typedef struct {
 } SubpelMvLimits;
 
 #pragma pack(push, 1)
+
 typedef union Mv {
     struct {
         int16_t x;
         int16_t y;
     };
+
     uint32_t as_int; /* facilitates faster equality tests and copies */
 } Mv;
+
 #pragma pack(pop)
 
 typedef struct CandidateMv {
@@ -65,6 +68,7 @@ static AOM_INLINE Mv get_mv_from_fullmv(const Mv* full_mv) {
     const Mv subpel_mv = {{(int16_t)GET_MV_SUBPEL(full_mv->x), (int16_t)GET_MV_SUBPEL(full_mv->y)}};
     return subpel_mv;
 }
+
 static INLINE void clamp_mv(Mv* mv, int32_t min_col, int32_t max_col, int32_t min_row, int32_t max_row) {
     mv->x = (int16_t)clamp(mv->x, min_col, max_col);
     mv->y = (int16_t)clamp(mv->y, min_row, max_row);

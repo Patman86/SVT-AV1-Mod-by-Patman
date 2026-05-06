@@ -13,15 +13,15 @@
 
 #include "rc_tasks.h"
 
-static EbErrorType rate_control_tasks_ctor(RateControlTasks *context_ptr, EbPtr object_init_data_ptr) {
+static EbErrorType rate_control_tasks_ctor(RateControlTasks* context_ptr, EbPtr object_init_data_ptr) {
     (void)context_ptr;
     (void)object_init_data_ptr;
 
     return EB_ErrorNone;
 }
 
-EbErrorType svt_aom_rate_control_tasks_creator(EbPtr *object_dbl_ptr, EbPtr object_init_data_ptr) {
-    RateControlTasks *obj;
+EbErrorType svt_aom_rate_control_tasks_creator(EbPtr* object_dbl_ptr, EbPtr object_init_data_ptr) {
+    RateControlTasks* obj;
 
     *object_dbl_ptr = NULL;
     EB_NEW(obj, rate_control_tasks_ctor, object_init_data_ptr);

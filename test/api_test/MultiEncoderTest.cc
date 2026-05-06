@@ -99,7 +99,7 @@ static void configure_encoder(
         config.rtc = true;
         config.intra_period_length = -1;
         config.hierarchical_levels = 0;
-        config.pred_structure = 1;  // LOW_DELAY
+        config.pred_structure = LOW_DELAY;
 
         config.rate_control_mode = SVT_AV1_RC_MODE_CBR;
         config.target_bit_rate = kTargetBitrateKbps * 1000;
@@ -113,7 +113,7 @@ static void configure_encoder(
         config.rtc = false;
         config.intra_period_length = 32;
         config.hierarchical_levels = 4;
-        config.pred_structure = 2;  // RANDOM_ACCESS
+        config.pred_structure = RANDOM_ACCESS;
 
         config.rate_control_mode = SVT_AV1_RC_MODE_CQP_OR_CRF;
         config.qp = 30;

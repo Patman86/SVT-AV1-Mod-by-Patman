@@ -34,24 +34,25 @@ enum {
     MV_COST_OPT,
     MV_COST_NONE // Use 0 as as cost irrespective of the current mv
 } UENUM1BYTE(MV_COST_TYPE);
+
 typedef struct svt_mv_cost_param {
     // The reference mv used to compute the mv cost
-    const Mv    *ref_mv;
+    const Mv*    ref_mv;
     Mv           full_ref_mv;
     MV_COST_TYPE mv_cost_type;
-    const int   *mvjcost;
-    const int   *mvcost[2];
+    const int*   mvjcost;
+    const int*   mvcost[2];
     int          error_per_bit;
     int          early_exit_th;
     // A multiplier used to convert rate to sad cost
     int sad_per_bit;
-} MV_COST_PARAMS;
+} svt_mv_cost_param;
 
 // =============================================================================
 //  Motion Search
 // =============================================================================
-extern struct svt_buf_2d {
-    uint8_t *buf;
+typedef struct svt_buf_2d {
+    uint8_t* buf;
     int      width;
     int      height;
     int      stride;
@@ -59,16 +60,17 @@ extern struct svt_buf_2d {
 
 typedef struct {
     // The reference buffer
-    struct svt_buf_2d *ref;
+    svt_buf_2d* ref;
 
     // The source and predictors/mask used by translational search
-    struct svt_buf_2d *src;
+    svt_buf_2d* src;
 } MSBuffers;
+
 // =============================================================================
 //  Subpixel Motion Search
 // =============================================================================
 typedef struct {
-    const AomVarianceFnPtr *vfp;
+    const AomVarianceFnPtr* vfp;
 
     SUBPEL_SEARCH_TYPE subpel_search_type;
 
@@ -96,21 +98,22 @@ typedef struct {
     uint8_t           ref_idx;
     SubpelMvLimits    mv_limits;
     // For calculating mv cost
-    MV_COST_PARAMS mv_cost_params;
+    svt_mv_cost_param mv_cost_params;
 
     // Distortion calculation params
     SUBPEL_SEARCH_VAR_PARAMS var_params;
 } SUBPEL_MOTION_SEARCH_PARAMS;
-typedef int(fractional_mv_step_fp)(void *ictx, MacroBlockD *xd, const struct AV1Common *const cm,
-                                   SUBPEL_MOTION_SEARCH_PARAMS *ms_params, Mv start_mv, Mv *bestmv, int *distortion,
-                                   unsigned int *sse1, int qp, BlockSize bsize, uint8_t is_intra_bordered);
+
+typedef int(fractional_mv_step_fp)(void* ictx, MacroBlockD* xd, const struct AV1Common* const cm,
+                                   SUBPEL_MOTION_SEARCH_PARAMS* ms_params, Mv start_mv, Mv* bestmv, int* distortion,
+                                   unsigned int* sse1, int qp, BlockSize bsize, uint8_t is_intra_bordered);
 extern fractional_mv_step_fp svt_av1_find_best_sub_pixel_tree;
 extern fractional_mv_step_fp svt_av1_find_best_sub_pixel_tree_pruned;
 
-int svt_aom_fp_mv_err_cost(const Mv *mv, const MV_COST_PARAMS *mv_cost_params);
+int svt_aom_fp_mv_err_cost(const Mv* mv, const svt_mv_cost_param* mv_cost_params);
 
-static INLINE void svt_av1_set_subpel_mv_search_range(SubpelMvLimits *subpel_limits, const FullMvLimits *mv_limits,
-                                                      const Mv *ref_mv) {
+static INLINE void svt_av1_set_subpel_mv_search_range(SubpelMvLimits* subpel_limits, const FullMvLimits* mv_limits,
+                                                      const Mv* ref_mv) {
     const int max_mv = GET_MV_SUBPEL(MAX_FULL_PEL_VAL);
     const int minc   = AOMMAX(GET_MV_SUBPEL(mv_limits->col_min), ref_mv->x - max_mv);
     const int maxc   = AOMMIN(GET_MV_SUBPEL(mv_limits->col_max), ref_mv->x + max_mv);
@@ -123,7 +126,7 @@ static INLINE void svt_av1_set_subpel_mv_search_range(SubpelMvLimits *subpel_lim
     subpel_limits->row_max = AOMMIN(MV_UPP - 1, maxr);
 }
 
-static INLINE int svt_av1_is_subpelmv_in_range(const SubpelMvLimits *mv_limits, Mv mv) {
+static INLINE int svt_av1_is_subpelmv_in_range(const SubpelMvLimits* mv_limits, Mv mv) {
     return (mv.x >= mv_limits->col_min) && (mv.x <= mv_limits->col_max) && (mv.y >= mv_limits->row_min) &&
         (mv.y <= mv_limits->row_max);
 }
@@ -132,7 +135,7 @@ static INLINE int svt_av1_is_subpelmv_in_range(const SubpelMvLimits *mv_limits, 
 // joint_cost and comp_cost. joint_costs covers the cost of transmitting
 // JOINT_MV, and comp_cost covers the cost of transmitting the actual motion
 // vector.
-static INLINE int svt_mv_cost(const Mv *mv, const int *joint_cost, const int *const comp_cost[2]) {
+static INLINE int svt_mv_cost(const Mv* mv, const int* joint_cost, const int* const comp_cost[2]) {
     // The y-component (row component) of the MV is coded first, so the cost is in the 0th idx
     return joint_cost[svt_av1_get_mv_joint(mv)] + comp_cost[0][CLIP3(MV_LOW, MV_UPP, mv->y)] +
         comp_cost[1][CLIP3(MV_LOW, MV_UPP, mv->x)];

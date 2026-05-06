@@ -15,6 +15,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
+# Constants
+BYTES_IN_MB = 1024.0 * 1024.0  # Conversion factor from bytes to megabytes
+
 
 class DataReaders:
     """Centralized data readers for encoding, decoding, and QM logs."""
@@ -23,44 +26,33 @@ class DataReaders:
         self,
         paths: Dict[str, str],
         common_settings: Dict,
-        bytes_to_mb: float = 1024 * 1024,
     ):
         self.paths = paths
         self.common_settings = common_settings
-        self.bytes_to_mb = bytes_to_mb
 
         # File paths
         self.encoding_csv_file = paths["enc_csv_path"]
         self.decoding_csv_file = paths["dec_csv_path"]
         self.encoded_dir = paths["encoded_dir"]
 
-    def _extract_image_name(self, file_path: str) -> str:
-        """Extract image name from various file path formats."""
-        filename = os.path.basename(file_path)
-        # Remove extensions and get base name
-        image_name = filename.split(".")[0]
-        return image_name
-
-    def _get_file_size_mb(self, file_path: str) -> float:
+    @staticmethod
+    def _get_file_size_mb(file_path: str) -> float:
         """Get file size in MB for a single file."""
         try:
             if os.path.exists(file_path):
                 size_bytes = os.path.getsize(file_path)
-                return round(size_bytes / self.bytes_to_mb, 4)
+                return round(size_bytes / BYTES_IN_MB, 4)
         except OSError:
             pass
         return float("nan")
 
     @staticmethod
-    def _safe_read_csv(
-        file_path: str, bytes_to_mb: float = 1024 * 1024, **kwargs
-    ) -> Optional[pd.DataFrame]:
+    def _safe_read_csv(file_path: str, **kwargs) -> Optional[pd.DataFrame]:
         """
         Safely read CSV file with error handling and standardized column renaming.
 
         Args:
             file_path: Path to CSV file
-            bytes_to_mb: Conversion factor from bytes to MB (default: 1024 * 1024)
             **kwargs: Additional arguments to pass to pd.read_csv
 
         Returns:
@@ -74,36 +66,11 @@ class DataReaders:
 
             # Comprehensive column renaming to standardize across all CSV files
             column_renames = {
-                # Encoder/decoder naming standardization
-                "codec": "encoder",
-                "codec_name": "encoder",
+                # Encoder naming standardization
                 "encoder_name": "encoder",
-                # Quality parameter standardization
-                "qp": "quality",
-                # Thread naming standardization
-                "nthreads": "threads",
-                # Time-related standardization
-                "decode_time": "decoding_time",
-                "runtime": "encoding_time",
                 # File naming standardization
                 "input_file": "image_file",
-                "output_file": "encoded_path",
-                # Quality metrics standardization (case sensitive fixes)
-                "ssimulacra": "SSIMULACRA2",
-                "ssimulacra2": "SSIMULACRA2",
-                "ms-ssim": "ms_ssim",
-                "vmaf-neg": "vmaf_neg",
-                # Size standardization
-                "file_size_bytes": "file_size_bytes",
-                "filesize(bytes)": "file_size_bytes",
             }
-
-            # Add any other case variations for SSIMULACRA2
-            if "SSIMULACRA2" not in df.columns:
-                for col in df.columns:
-                    if col.lower() == "ssimulacra2":
-                        column_renames[col] = "SSIMULACRA2"
-                        break
 
             # Apply renaming only for columns that exist
             actual_renames = {
@@ -111,10 +78,6 @@ class DataReaders:
             }
             if actual_renames:
                 df = df.rename(columns=actual_renames)
-
-            # Convert file size from bytes to MB if needed
-            if "file_size_bytes" in df.columns and "file_size_mb" not in df.columns:
-                df["file_size_mb"] = df["file_size_bytes"] / bytes_to_mb
 
             return df
 
@@ -355,7 +318,7 @@ class DataReaders:
                     ssimulacra_path = os.path.join(dir_path, ssimulacra_file)
                     ssimulacra_value = self._read_ssimulacra_file(ssimulacra_path)
                     if ssimulacra_value is not None:
-                        metrics["SSIMULACRA2"] = ssimulacra_value
+                        metrics["ssimulacra2"] = ssimulacra_value
 
                 results.append(metrics)
                 processed_images.add(image_name)
@@ -376,7 +339,7 @@ class DataReaders:
                     "speed": speed,
                     "quality": quality,
                     "threads": threads,
-                    "SSIMULACRA2": ssimulacra_value,
+                    "ssimulacra2": ssimulacra_value,
                 }
 
                 results.append(metrics)
@@ -519,7 +482,7 @@ class DataReaders:
             encoded_file = os.path.join(dir_path, f"{image}{extension}")
             if os.path.exists(encoded_file):
                 file_size_bytes = os.path.getsize(encoded_file)
-                return file_size_bytes / self.bytes_to_mb
+                return file_size_bytes / BYTES_IN_MB
             else:
                 print(f"Warning: Could not find encoded file {encoded_file}")
 
@@ -528,7 +491,7 @@ class DataReaders:
             if file.startswith(image + "."):
                 encoded_file = os.path.join(dir_path, file)
                 file_size_bytes = os.path.getsize(encoded_file)
-                return file_size_bytes / self.bytes_to_mb
+                return file_size_bytes / BYTES_IN_MB
 
         print(
             f"Warning: Could not find any encoded file for image '{image}' in {dir_path}"
@@ -602,13 +565,13 @@ class DataReaders:
             "quality",
             "threads",
             "file_size_mb",
-            "encoding_time",
-            "decoding_time",
+            "encode_time",
+            "decode_time",
         ]
 
         # Add quality metrics columns (if they exist)
         qm_columns = [
-            "SSIMULACRA2",
+            "ssimulacra2",
             "psnr_y",
             "psnr_cb",
             "psnr_cr",
@@ -676,10 +639,10 @@ class DataReaders:
             print(f"✗ Decoding+QM CSV file not found: {self.decoding_csv_file}")
             return None
 
-        df = DataReaders._safe_read_csv(self.decoding_csv_file, self.bytes_to_mb)
+        df = DataReaders._safe_read_csv(self.decoding_csv_file)
         if df is None:
             return None
-        df["image"] = df["image_file"].apply(self._extract_image_name)
+        df["image"] = df["image_file"].str.split(".").str[0]
         return df
 
     def read_encoding_csv_data(self) -> pd.DataFrame | None:
@@ -688,18 +651,16 @@ class DataReaders:
             print(f"✗ Encoding CSV file not found: {self.encoding_csv_file}")
             return None
 
-        df = DataReaders._safe_read_csv(self.encoding_csv_file, self.bytes_to_mb)
+        df = DataReaders._safe_read_csv(self.encoding_csv_file)
         if df is None:
             return None
 
         # Extract image name from file path
-        df["image"] = df["image_file"].apply(self._extract_image_name)
+        df["image"] = df["image_file"].str.split(".").str[0]
 
         # Calculate file size for each encoded file
-        if "file_size_bytes" in df.columns:
-            df["file_size_mb"] = df["file_size_bytes"] / self.bytes_to_mb
-        elif "output_size" in df.columns:
-            df["file_size_mb"] = df["output_size"] / self.bytes_to_mb
+        if "output_size" in df.columns:
+            df["file_size_mb"] = df["output_size"] / BYTES_IN_MB
         else:
             df["file_size_mb"] = df["encoded_path"].apply(self._get_file_size_mb)
 
@@ -710,8 +671,10 @@ class DataReaders:
             "speed",
             "quality",
             "threads",
-            "encoding_time",
+            "encode_time",
             "file_size_mb",
+            "input_size",
+            "output_size",
             "encoded_path",
         ]
         # Only keep columns that exist in the DataFrame
@@ -733,12 +696,10 @@ class DataReaders:
         return merged_df
 
     @staticmethod
-    def read_preprocessed_per_image_data(fname, bytes_to_mb):
-        df = DataReaders._safe_read_csv(fname, bytes_to_mb)
+    def read_preprocessed_per_image_data(fname):
+        df = DataReaders._safe_read_csv(fname)
         if df is None:
             return pd.DataFrame()
         if "image" not in df.columns and "image_file" in df.columns:
             df["image"] = df["image_file"].str.split(".").str[0]
-        if "psnr" not in df.columns and "psnr_y" in df.columns:
-            df["psnr"] = df["psnr_y"]
         return df

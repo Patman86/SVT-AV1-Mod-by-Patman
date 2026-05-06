@@ -13,15 +13,15 @@
 
 #include "resource_coordination_results.h"
 
-EbErrorType resource_coordination_result_ctor(ResourceCoordinationResults *object_ptr, EbPtr object_init_data_ptr) {
+EbErrorType resource_coordination_result_ctor(ResourceCoordinationResults* object_ptr, EbPtr object_init_data_ptr) {
     (void)object_ptr;
     (void)object_init_data_ptr;
 
     return EB_ErrorNone;
 }
 
-EbErrorType svt_aom_resource_coordination_result_creator(EbPtr *object_dbl_ptr, EbPtr object_init_data_ptr) {
-    ResourceCoordinationResults *obj;
+EbErrorType svt_aom_resource_coordination_result_creator(EbPtr* object_dbl_ptr, EbPtr object_init_data_ptr) {
+    ResourceCoordinationResults* obj;
 
     *object_dbl_ptr = NULL;
     EB_NEW(obj, resource_coordination_result_ctor, object_init_data_ptr);

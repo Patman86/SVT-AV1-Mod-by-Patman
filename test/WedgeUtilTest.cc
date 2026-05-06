@@ -23,7 +23,7 @@
  *
  ******************************************************************************/
 #include "gtest/gtest.h"
-#include "definitions.h"
+#include "common_utils.h"
 #include "utility.h"
 #include "aom_dsp_rtcd.h"
 #include "random.h"
@@ -426,20 +426,20 @@ TEST_P(AomSumSquaresTest, MatchTest) {
 #if ARCH_X86_64
 INSTANTIATE_TEST_SUITE_P(
     SSE2, AomSumSquaresTest,
-    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
                        ::testing::Values(svt_aom_sum_squares_i16_sse2)));
 #endif  // ARCH_X86_64
 
 #if ARCH_AARCH64
 INSTANTIATE_TEST_SUITE_P(
     NEON, AomSumSquaresTest,
-    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
                        ::testing::Values(svt_aom_sum_squares_i16_neon)));
 
 #if HAVE_SVE
 INSTANTIATE_TEST_SUITE_P(
     SVE, AomSumSquaresTest,
-    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
                        ::testing::Values(svt_aom_sum_squares_i16_sve)));
 #endif  // HAVE_SVE
 #endif  // ARCH_AARCH64

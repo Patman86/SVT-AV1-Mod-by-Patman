@@ -1,111 +1,166 @@
-
 # Code Style
 
-This style guide comes from [`dav1d`](https://code.videolan.org/videolan/dav1d/wikis/Coding-style)
+This style guide is derived from [`dav1d`](https://code.videolan.org/videolan/dav1d/wikis/Coding-style) with modifications. The authoritative source is the `.clang-format` file in this directory.
 
-Tabs vs Spaces\
-**No tabs,** only spaces; 4-space indentation
+## Tabs vs Spaces
+
+**No tabs,** only spaces; 4-space indentation.
 
 Be aware that some tools might add tabs when auto aligning the code, please check your commits with a diff tool for tabs.
 
-For multi-line statements, the indentation of the next line depends on the context of the statement and braces around it.\
-For example, if you have a long assignment, you can choose to either align it to the = of the first line, or (if that leads to less lines of code) just indent 1 level further from the first line's indentation level:
+## Line Length
+
+Lines should not exceed **120 characters**. Exceptions may be allowed on a case-by-case basis if wrapping would lead to exceptional ugliness.
+
+## Indentation and Alignment
+
+- Continuation indent is 4 spaces
+- Align code after open brackets:
 
 ``` c
-const int my_var = something1 &&
-                   something2;
+int result = my_function(argument1,
+                         argument2,
+                         argument3);
 ```
 
-or
+- Align consecutive assignments and declarations:
+
+``` c
+int    short_var  = 1;
+int    longer_var = 2;
+double other_var  = 3.0;
+```
+
+- Binary operators stay at the end of the line when breaking:
 
 ``` c
 const int my_var = something1 +
     something2 - something3 * something4;
 ```
 
-However, if there are braces, the first non-whitespace character of the line should be aligned with the brace level that it is part of:
+- Break before ternary operators:
 
 ``` c
-const int my_var = (something1 +
-                    something2) * something3;
+int result = condition
+    ? value_if_true
+    : value_if_false;
 ```
 
-Use `CamelCase` for types and `under_score` for variable names (`TypeName my_instance;`)\
+## Naming Conventions
+
+Use `CamelCase` for types and `under_score` for variable names (`TypeName my_instance;`).
+
+## Pointer Alignment
+
+Pointers are aligned to the left (next to the type):
+
+``` c
+int* pointer;
+const char* string;
+```
+
+## Const Usage
+
 Use const where possible, except in forward function declarations in header files, where we only use it for const-arrays:
 
 ``` c
-int my_func(const array *values, int arg);
+int my_func(const array* values, int arg);
 
 [..]
 
-int my_func(const array *const values, const int num) {
+int my_func(const array* const values, const int num) {
     [..]
 }
 ```
 
-Braces go on the same line for single-line statements, but on a new line for multi-line statements:
+## Braces
+
+**Braces are always required** for control statements (if, else, for, while, do, switch). This is enforced by clang-format with `InsertBraces: true`.
+
+``` c
+// Correct
+if (condition) {
+    do_something();
+}
+
+// Wrong - braces required even for single statements
+if (condition)
+    do_something();
+```
+
+Opening braces go on the same line as the statement:
 
 ``` c
 static void function(const int argument) {
     do_something();
 }
+
+if (condition) {
+    do_something();
+} else {
+    do_something_else();
+}
 ```
 
-versus
+For multi-line function declarations, the brace still stays on the same line:
 
 ``` c
 static void function(const int argument1,
-                     const int argument2)
-{
+                     const int argument2) {
     do_something();
 }
 ```
 
-Braces are only necessary for multi-line code blocks or multi-line condition statements;
+## Switch/Case
 
-``` c
-if (condition1 && condition2)
-    do_something();
-```
-
-and
-
-``` c
-if (condition) {
-    do_something_1();
-    do_something_2();
-}
-```
-
-and
-
-``` c
-if (condition1 &&
-    condition2)
-{
-    do_something();
-}
-```
-
-Switch/case are indented at the same level, and the code block is indented one level deeper:
+Case labels are at the same indentation level as the switch statement. Single-line case labels are **not allowed**:
 
 ``` c
 switch (a) {
 case 1:
     bla();
     break;
+case 2:
+    foo();
+    break;
+default:
+    bar();
+    break;
 }
 ```
 
-but for very trivial blocks, you can also put everything on one single line:
+## Functions
 
-``` c
-switch (a) {
-case 1: bla(); break;
-}
-```
+- Short functions (empty body only) may be on a single line
+- All parameters of a declaration can be on the next line
+- Function names are not indented when wrapped
 
-Lines should idealy not be longer than 80 characters. We allow exceptions if wrapping the line would lead to exceptional ugliness, and this is done on a case-by-case basis.\
+## Spacing
+
+- Space after control statement keywords (`if (`, `for (`, `while (`)
+- No space after C-style casts: `(int)value`
+- No spaces inside parentheses: `func(arg)` not `func( arg )`
+- Space before assignment operators: `x = 1`
+- One space before trailing comments
+
+## Empty Lines
+
+- Maximum of 1 consecutive empty line
+- No empty lines at the start of blocks
+- Separate definition blocks with empty lines
+
+## Comments
+
+- Comments are not automatically reflowed
+- Trailing comments have 1 space before them
+
+## Includes
+
+- Includes are **not** automatically sorted (to preserve intentional ordering)
+- Include categories are prioritized: system headers, then project headers
+
+## Other Guidelines
+
 Don't use `goto` except for standard error handling.\
 Use native types (`int`, `unsigned`, etc.) for scalar variables where the upper bound of a size doesn't matter.\
 Use sized types (`uint8_t`, `int16_t`, etc.) for vector/array variables where the upper bound of the size matters.\

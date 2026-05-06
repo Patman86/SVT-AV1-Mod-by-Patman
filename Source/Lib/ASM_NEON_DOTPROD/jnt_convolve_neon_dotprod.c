@@ -65,10 +65,10 @@ static inline uint16x8_t convolve8_8_x(uint8x16_t samples, const int8x8_t x_filt
     return vreinterpretq_u16_s16(res);
 }
 
-static inline void dist_wtd_convolve_x_dist_wtd_avg_neon_dotprod(const uint8_t *src, int src_stride, uint8_t *dst8,
+static inline void dist_wtd_convolve_x_dist_wtd_avg_neon_dotprod(const uint8_t* src, int src_stride, uint8_t* dst8,
                                                                  int dst8_stride, int w, int h,
-                                                                 const InterpFilterParams *filter_params_x,
-                                                                 const int subpel_x_qn, ConvolveParams *conv_params) {
+                                                                 const InterpFilterParams* filter_params_x,
+                                                                 const int subpel_x_qn, ConvolveParams* conv_params) {
     assert(w % 4 == 0);
     assert(h % 4 == 0);
 
@@ -82,7 +82,7 @@ static inline void dist_wtd_convolve_x_dist_wtd_avg_neon_dotprod(const uint8_t *
     const uint16_t bck_offset = conv_params->bck_offset;
 
     // Horizontal filter.
-    const int16_t  *x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
+    const int16_t*  x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
     const int16x8_t x_filter_s16 = vld1q_s16(x_filter_ptr);
 
     // Dot-product constants and other shims.
@@ -95,9 +95,9 @@ static inline void dist_wtd_convolve_x_dist_wtd_avg_neon_dotprod(const uint8_t *
         ((128 << FILTER_BITS) + (round_offset << ROUND0_BITS) + (1 << (ROUND0_BITS - 1))) / 2);
 
     const int      horiz_offset = filter_params_x->taps / 2 - 1;
-    const uint8_t *src_ptr      = src - horiz_offset;
-    CONV_BUF_TYPE *dst_ptr      = conv_params->dst;
-    uint8_t       *dst8_ptr     = dst8;
+    const uint8_t* src_ptr      = src - horiz_offset;
+    CONV_BUF_TYPE* dst_ptr      = conv_params->dst;
+    uint8_t*       dst8_ptr     = dst8;
     int            dst_stride   = conv_params->dst_stride;
     int            height       = h;
 
@@ -139,9 +139,9 @@ static inline void dist_wtd_convolve_x_dist_wtd_avg_neon_dotprod(const uint8_t *
         const int8x8_t x_filter = vshrn_n_s16(x_filter_s16, 1);
 
         do {
-            const uint8_t *s     = src_ptr;
-            CONV_BUF_TYPE *d     = dst_ptr;
-            uint8_t       *d_u8  = dst8_ptr;
+            const uint8_t* s     = src_ptr;
+            CONV_BUF_TYPE* d     = dst_ptr;
+            uint8_t*       d_u8  = dst8_ptr;
             int            width = w;
 
             do {
@@ -188,10 +188,10 @@ static inline void dist_wtd_convolve_x_dist_wtd_avg_neon_dotprod(const uint8_t *
     }
 }
 
-static inline void dist_wtd_convolve_x_avg_neon_dotprod(const uint8_t *src, int src_stride, uint8_t *dst8,
+static inline void dist_wtd_convolve_x_avg_neon_dotprod(const uint8_t* src, int src_stride, uint8_t* dst8,
                                                         int dst8_stride, int w, int h,
-                                                        const InterpFilterParams *filter_params_x,
-                                                        const int subpel_x_qn, ConvolveParams *conv_params) {
+                                                        const InterpFilterParams* filter_params_x,
+                                                        const int subpel_x_qn, ConvolveParams* conv_params) {
     assert(w % 4 == 0);
     assert(h % 4 == 0);
 
@@ -202,7 +202,7 @@ static inline void dist_wtd_convolve_x_avg_neon_dotprod(const uint8_t *src, int 
     const int16x8_t round_offset_vec = vdupq_n_s16(round_offset);
 
     // Horizontal filter.
-    const int16_t  *x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
+    const int16_t*  x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
     const int16x8_t x_filter_s16 = vld1q_s16(x_filter_ptr);
 
     // Dot-product constants and other shims.
@@ -215,9 +215,9 @@ static inline void dist_wtd_convolve_x_avg_neon_dotprod(const uint8_t *src, int 
         ((128 << FILTER_BITS) + (round_offset << ROUND0_BITS) + (1 << (ROUND0_BITS - 1))) / 2);
 
     const int      horiz_offset = filter_params_x->taps / 2 - 1;
-    const uint8_t *src_ptr      = src - horiz_offset;
-    CONV_BUF_TYPE *dst_ptr      = conv_params->dst;
-    uint8_t       *dst8_ptr     = dst8;
+    const uint8_t* src_ptr      = src - horiz_offset;
+    CONV_BUF_TYPE* dst_ptr      = conv_params->dst;
+    uint8_t*       dst8_ptr     = dst8;
     int            dst_stride   = conv_params->dst_stride;
     int            height       = h;
 
@@ -258,9 +258,9 @@ static inline void dist_wtd_convolve_x_avg_neon_dotprod(const uint8_t *src, int 
         const int8x8_t x_filter = vshrn_n_s16(x_filter_s16, 1);
 
         do {
-            const uint8_t *s     = src_ptr;
-            CONV_BUF_TYPE *d     = dst_ptr;
-            uint8_t       *d_u8  = dst8_ptr;
+            const uint8_t* s     = src_ptr;
+            CONV_BUF_TYPE* d     = dst_ptr;
+            uint8_t*       d_u8  = dst8_ptr;
             int            width = w;
 
             do {
@@ -294,9 +294,9 @@ static inline void dist_wtd_convolve_x_avg_neon_dotprod(const uint8_t *src, int 
     }
 }
 
-static inline void dist_wtd_convolve_x_neon_dotprod(const uint8_t *src, int src_stride, int w, int h,
-                                                    const InterpFilterParams *filter_params_x, const int subpel_x_qn,
-                                                    ConvolveParams *conv_params) {
+static inline void dist_wtd_convolve_x_neon_dotprod(const uint8_t* src, int src_stride, int w, int h,
+                                                    const InterpFilterParams* filter_params_x, const int subpel_x_qn,
+                                                    ConvolveParams* conv_params) {
     assert(w % 4 == 0);
     assert(h % 4 == 0);
 
@@ -306,7 +306,7 @@ static inline void dist_wtd_convolve_x_neon_dotprod(const uint8_t *src, int src_
         (1 << (offset_bits - COMPOUND_ROUND1_BITS - 1));
 
     // Horizontal filter.
-    const int16_t  *x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
+    const int16_t*  x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
     const int16x8_t x_filter_s16 = vld1q_s16(x_filter_ptr);
 
     // Dot-product constants and other shims.
@@ -319,8 +319,8 @@ static inline void dist_wtd_convolve_x_neon_dotprod(const uint8_t *src, int src_
         ((128 << FILTER_BITS) + (round_offset << ROUND0_BITS) + (1 << (ROUND0_BITS - 1))) / 2);
 
     const int      horiz_offset = filter_params_x->taps / 2 - 1;
-    const uint8_t *src_ptr      = src - horiz_offset;
-    CONV_BUF_TYPE *dst_ptr      = conv_params->dst;
+    const uint8_t* src_ptr      = src - horiz_offset;
+    CONV_BUF_TYPE* dst_ptr      = conv_params->dst;
     int            dst_stride   = conv_params->dst_stride;
     int            height       = h;
 
@@ -353,8 +353,8 @@ static inline void dist_wtd_convolve_x_neon_dotprod(const uint8_t *src, int src_
         const int8x8_t x_filter = vshrn_n_s16(x_filter_s16, 1);
 
         do {
-            const uint8_t *s     = src_ptr;
-            CONV_BUF_TYPE *d     = dst_ptr;
+            const uint8_t* s     = src_ptr;
+            CONV_BUF_TYPE* d     = dst_ptr;
             int            width = w;
 
             do {
@@ -379,10 +379,10 @@ static inline void dist_wtd_convolve_x_neon_dotprod(const uint8_t *src, int src_
     }
 }
 
-void svt_av1_jnt_convolve_x_neon_dotprod(const uint8_t *src, int src_stride, uint8_t *dst8, int dst8_stride, int w,
-                                         int h, const InterpFilterParams *filter_params_x,
-                                         const InterpFilterParams *filter_params_y, const int subpel_x_qn,
-                                         const int subpel_y_qn, ConvolveParams *conv_params) {
+void svt_av1_jnt_convolve_x_neon_dotprod(const uint8_t* src, int src_stride, uint8_t* dst8, int dst8_stride, int w,
+                                         int h, const InterpFilterParams* filter_params_x,
+                                         const InterpFilterParams* filter_params_y, const int subpel_x_qn,
+                                         const int subpel_y_qn, ConvolveParams* conv_params) {
     if (w == 2 || h == 2) {
         svt_av1_jnt_convolve_x_c(src,
                                  src_stride,
@@ -456,8 +456,8 @@ static inline int16x8_t convolve8_8_2d_h(uint8x16_t samples, const int8x8_t x_fi
     return vcombine_s16(vshrn_n_s32(sum[0], ROUND0_BITS - 1), vshrn_n_s32(sum[1], ROUND0_BITS - 1));
 }
 
-static inline void jnt_convolve_2d_horiz_neon_dotprod(const uint8_t *src, int src_stride, int16_t *im_block,
-                                                      const int im_stride, const int16_t *x_filter_ptr, const int im_h,
+static inline void jnt_convolve_2d_horiz_neon_dotprod(const uint8_t* src, int src_stride, int16_t* im_block,
+                                                      const int im_stride, const int16_t* x_filter_ptr, const int im_h,
                                                       int w) {
     const int bd = 8;
     // Dot product constants and other shims.
@@ -469,8 +469,8 @@ static inline void jnt_convolve_2d_horiz_neon_dotprod(const uint8_t *src, int sr
     const int32x4_t  correction  = vdupq_n_s32(((128 << FILTER_BITS) + horiz_const) / 2);
     const uint8x16_t range_limit = vdupq_n_u8(128);
 
-    const uint8_t *src_ptr    = src;
-    int16_t       *dst_ptr    = im_block;
+    const uint8_t* src_ptr    = src;
+    int16_t*       dst_ptr    = im_block;
     int            dst_stride = im_stride;
     int            height     = im_h;
 
@@ -514,8 +514,8 @@ static inline void jnt_convolve_2d_horiz_neon_dotprod(const uint8_t *src, int sr
         const int8x8_t x_filter = vshrn_n_s16(x_filter_s16, 1);
 
         do {
-            const uint8_t *s     = src_ptr;
-            int16_t       *d     = dst_ptr;
+            const uint8_t* s     = src_ptr;
+            int16_t*       d     = dst_ptr;
             int            width = w;
 
             do {
@@ -539,8 +539,8 @@ static inline void jnt_convolve_2d_horiz_neon_dotprod(const uint8_t *src, int sr
         } while (height > 4);
 
         do {
-            const uint8_t *s     = src_ptr;
-            int16_t       *d     = dst_ptr;
+            const uint8_t* s     = src_ptr;
+            int16_t*       d     = dst_ptr;
             int            width = w;
 
             do {
@@ -560,10 +560,10 @@ static inline void jnt_convolve_2d_horiz_neon_dotprod(const uint8_t *src, int sr
     }
 }
 
-void svt_av1_jnt_convolve_2d_neon_dotprod(const uint8_t *src, int src_stride, uint8_t *dst8, int dst8_stride, int w,
-                                          int h, const InterpFilterParams *filter_params_x,
-                                          const InterpFilterParams *filter_params_y, const int subpel_x_qn,
-                                          const int subpel_y_qn, ConvolveParams *conv_params) {
+void svt_av1_jnt_convolve_2d_neon_dotprod(const uint8_t* src, int src_stride, uint8_t* dst8, int dst8_stride, int w,
+                                          int h, const InterpFilterParams* filter_params_x,
+                                          const InterpFilterParams* filter_params_y, const int subpel_x_qn,
+                                          const int subpel_y_qn, ConvolveParams* conv_params) {
     assert(w % 4 == 0);
     assert(h % 4 == 0);
 
@@ -591,9 +591,9 @@ void svt_av1_jnt_convolve_2d_neon_dotprod(const uint8_t *src, int src_stride, ui
     const int      im_stride    = MAX_SB_SIZE;
     const int      vert_offset  = clamped_y_taps / 2 - 1;
     const int      horiz_offset = filter_params_x->taps / 2 - 1;
-    const uint8_t *src_ptr      = src - vert_offset * src_stride - horiz_offset;
-    const int16_t *x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
-    const int16_t *y_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_y, subpel_y_qn & SUBPEL_MASK);
+    const uint8_t* src_ptr      = src - vert_offset * src_stride - horiz_offset;
+    const int16_t* x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
+    const int16_t* y_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_y, subpel_y_qn & SUBPEL_MASK);
 
     const int16x8_t y_filter = vld1q_s16(y_filter_ptr);
 
@@ -655,16 +655,16 @@ static inline uint16x8_t convolve4_8_y(const int8x16_t s0, const int8x16_t s1, c
     return vreinterpretq_u16_s16(vrsraq_n_s16(round_offset, sum, ROUND0_BITS - 1));
 }
 
-static inline void dist_wtd_convolve_y_4tap_neon_dotprod(const uint8_t *src_ptr, int32_t src_stride, int32_t w,
-                                                         int32_t h, const int16_t *y_filter_ptr,
-                                                         ConvolveParams *conv_params) {
+static inline void dist_wtd_convolve_y_4tap_neon_dotprod(const uint8_t* src_ptr, int32_t src_stride, int32_t w,
+                                                         int32_t h, const int16_t* y_filter_ptr,
+                                                         ConvolveParams* conv_params) {
     const int     bd           = 8;
     const int     offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int16_t round_offset = (1 << (offset_bits - COMPOUND_ROUND1_BITS)) +
         (1 << (offset_bits - COMPOUND_ROUND1_BITS - 1));
     const int16x8_t round_offset_vec = vdupq_n_s16(round_offset);
 
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int32_t  dst_stride = conv_params->dst_stride;
 
     // Filter values are even, so halve to reduce intermediate precision reqs.
@@ -730,8 +730,8 @@ static inline void dist_wtd_convolve_y_4tap_neon_dotprod(const uint8_t *src_ptr,
     } else {
         do {
             int32_t        height = h;
-            const uint8_t *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
+            const uint8_t* s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
 
             uint8x8_t t0, t1, t2, t3;
             load_u8_8x4(s, src_stride, &t0, &t1, &t2, &t3);
@@ -796,10 +796,10 @@ static inline void dist_wtd_convolve_y_4tap_neon_dotprod(const uint8_t *src_ptr,
     }
 }
 
-static inline void dist_wtd_convolve_y_4tap_dist_wtd_avg_neon_dotprod(const uint8_t *src_ptr, int32_t src_stride,
-                                                                      uint8_t *dst8_ptr, int32_t dst8_stride, int32_t w,
-                                                                      int32_t h, const int16_t *y_filter_ptr,
-                                                                      ConvolveParams *conv_params) {
+static inline void dist_wtd_convolve_y_4tap_dist_wtd_avg_neon_dotprod(const uint8_t* src_ptr, int32_t src_stride,
+                                                                      uint8_t* dst8_ptr, int32_t dst8_stride, int32_t w,
+                                                                      int32_t h, const int16_t* y_filter_ptr,
+                                                                      ConvolveParams* conv_params) {
     const int     bd           = 8;
     const int     offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int16_t round_offset = (1 << (offset_bits - COMPOUND_ROUND1_BITS)) +
@@ -808,7 +808,7 @@ static inline void dist_wtd_convolve_y_4tap_dist_wtd_avg_neon_dotprod(const uint
 
     const uint16_t fwd_offset = conv_params->fwd_offset;
     const uint16_t bck_offset = conv_params->bck_offset;
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int32_t  dst_stride = conv_params->dst_stride;
 
     // Filter values are even, so halve to reduce intermediate precision reqs.
@@ -892,9 +892,9 @@ static inline void dist_wtd_convolve_y_4tap_dist_wtd_avg_neon_dotprod(const uint
     } else {
         do {
             int32_t        height = h;
-            const uint8_t *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
-            uint8_t       *d_u8   = dst8_ptr;
+            const uint8_t* s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
+            uint8_t*       d_u8   = dst8_ptr;
 
             uint8x8_t t0, t1, t2, t3;
             load_u8_8x4(s, src_stride, &t0, &t1, &t2, &t3);
@@ -981,17 +981,17 @@ static inline void dist_wtd_convolve_y_4tap_dist_wtd_avg_neon_dotprod(const uint
     }
 }
 
-static inline void dist_wtd_convolve_y_4tap_avg_neon_dotprod(const uint8_t *src_ptr, int32_t src_stride,
-                                                             uint8_t *dst8_ptr, int32_t dst8_stride, int32_t w,
-                                                             int32_t h, const int16_t *y_filter_ptr,
-                                                             ConvolveParams *conv_params) {
+static inline void dist_wtd_convolve_y_4tap_avg_neon_dotprod(const uint8_t* src_ptr, int32_t src_stride,
+                                                             uint8_t* dst8_ptr, int32_t dst8_stride, int32_t w,
+                                                             int32_t h, const int16_t* y_filter_ptr,
+                                                             ConvolveParams* conv_params) {
     const int     bd           = 8;
     const int     offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int16_t round_offset = (1 << (offset_bits - COMPOUND_ROUND1_BITS)) +
         (1 << (offset_bits - COMPOUND_ROUND1_BITS - 1));
     const int16x8_t round_offset_vec = vdupq_n_s16(round_offset);
 
-    CONV_BUF_TYPE  *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE*  dst_ptr    = conv_params->dst;
     const int32_t   dst_stride = conv_params->dst_stride;
     const int16x8_t filter_s16 = vcombine_s16(vld1_s16(y_filter_ptr + 2), vdup_n_s16(0));
 
@@ -1068,9 +1068,9 @@ static inline void dist_wtd_convolve_y_4tap_avg_neon_dotprod(const uint8_t *src_
     } else {
         do {
             int32_t        height = h;
-            const uint8_t *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
-            uint8_t       *d_u8   = dst8_ptr;
+            const uint8_t* s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
+            uint8_t*       d_u8   = dst8_ptr;
 
             uint8x8_t t0, t1, t2, t3;
             load_u8_8x4(s, src_stride, &t0, &t1, &t2, &t3);
@@ -1175,16 +1175,16 @@ static inline uint16x8_t convolve8_8_y(const int8x16_t s0_lo, const int8x16_t s0
     return vreinterpretq_u16_s16(vrsraq_n_s16(round_offset, sum, ROUND0_BITS - 1));
 }
 
-static inline void dist_wtd_convolve_y_8tap_neon_dotprod(const uint8_t *src_ptr, int32_t src_stride, int32_t w,
-                                                         int32_t h, const int16_t *y_filter_ptr,
-                                                         ConvolveParams *conv_params) {
+static inline void dist_wtd_convolve_y_8tap_neon_dotprod(const uint8_t* src_ptr, int32_t src_stride, int32_t w,
+                                                         int32_t h, const int16_t* y_filter_ptr,
+                                                         ConvolveParams* conv_params) {
     const int     bd           = 8;
     const int     offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int16_t round_offset = (1 << (offset_bits - COMPOUND_ROUND1_BITS)) +
         (1 << (offset_bits - COMPOUND_ROUND1_BITS - 1));
     const int16x8_t round_offset_vec = vdupq_n_s16(round_offset);
 
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int32_t  dst_stride = conv_params->dst_stride;
     // Filter values are even, so halve to reduce intermediate precision reqs.
     const int8x8_t filter = vshrn_n_s16(vld1q_s16(y_filter_ptr), 1);
@@ -1255,8 +1255,8 @@ static inline void dist_wtd_convolve_y_8tap_neon_dotprod(const uint8_t *src_ptr,
     } else {
         do {
             int32_t        height = h;
-            const uint8_t *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
+            const uint8_t* s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
 
             uint8x8_t t0, t1, t2, t3, t4, t5, t6;
             load_u8_8x7(s, src_stride, &t0, &t1, &t2, &t3, &t4, &t5, &t6);
@@ -1333,10 +1333,10 @@ static inline void dist_wtd_convolve_y_8tap_neon_dotprod(const uint8_t *src_ptr,
     }
 }
 
-static inline void dist_wtd_convolve_y_8tap_dist_wtd_avg_neon_dotprod(const uint8_t *src_ptr, int32_t src_stride,
-                                                                      uint8_t *dst8_ptr, int32_t dst8_stride, int32_t w,
-                                                                      int32_t h, const int16_t *y_filter_ptr,
-                                                                      ConvolveParams *conv_params) {
+static inline void dist_wtd_convolve_y_8tap_dist_wtd_avg_neon_dotprod(const uint8_t* src_ptr, int32_t src_stride,
+                                                                      uint8_t* dst8_ptr, int32_t dst8_stride, int32_t w,
+                                                                      int32_t h, const int16_t* y_filter_ptr,
+                                                                      ConvolveParams* conv_params) {
     const int     bd           = 8;
     const int     offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int16_t round_offset = (1 << (offset_bits - COMPOUND_ROUND1_BITS)) +
@@ -1345,7 +1345,7 @@ static inline void dist_wtd_convolve_y_8tap_dist_wtd_avg_neon_dotprod(const uint
 
     const uint16_t fwd_offset = conv_params->fwd_offset;
     const uint16_t bck_offset = conv_params->bck_offset;
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int32_t  dst_stride = conv_params->dst_stride;
 
     // Filter values are even, so halve to reduce intermediate precision reqs.
@@ -1434,9 +1434,9 @@ static inline void dist_wtd_convolve_y_8tap_dist_wtd_avg_neon_dotprod(const uint
     } else {
         do {
             int32_t        height = h;
-            const uint8_t *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
-            uint8_t       *d_u8   = dst8_ptr;
+            const uint8_t* s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
+            uint8_t*       d_u8   = dst8_ptr;
 
             uint8x8_t t0, t1, t2, t3, t4, t5, t6;
             load_u8_8x7(s, src_stride, &t0, &t1, &t2, &t3, &t4, &t5, &t6);
@@ -1534,17 +1534,17 @@ static inline void dist_wtd_convolve_y_8tap_dist_wtd_avg_neon_dotprod(const uint
     }
 }
 
-static inline void dist_wtd_convolve_y_8tap_avg_neon_dotprod(const uint8_t *src_ptr, int32_t src_stride,
-                                                             uint8_t *dst8_ptr, int32_t dst8_stride, int32_t w,
-                                                             int32_t h, const int16_t *y_filter_ptr,
-                                                             ConvolveParams *conv_params) {
+static inline void dist_wtd_convolve_y_8tap_avg_neon_dotprod(const uint8_t* src_ptr, int32_t src_stride,
+                                                             uint8_t* dst8_ptr, int32_t dst8_stride, int32_t w,
+                                                             int32_t h, const int16_t* y_filter_ptr,
+                                                             ConvolveParams* conv_params) {
     const int     bd           = 8;
     const int     offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int16_t round_offset = (1 << (offset_bits - COMPOUND_ROUND1_BITS)) +
         (1 << (offset_bits - COMPOUND_ROUND1_BITS - 1));
     const int16x8_t round_offset_vec = vdupq_n_s16(round_offset);
 
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int32_t  dst_stride = conv_params->dst_stride;
 
     // Filter values are even, so halve to reduce intermediate precision reqs.
@@ -1625,9 +1625,9 @@ static inline void dist_wtd_convolve_y_8tap_avg_neon_dotprod(const uint8_t *src_
     } else {
         do {
             int32_t        height = h;
-            const uint8_t *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
-            uint8_t       *d_u8   = dst8_ptr;
+            const uint8_t* s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
+            uint8_t*       d_u8   = dst8_ptr;
 
             uint8x8_t t0, t1, t2, t3, t4, t5, t6;
             load_u8_8x7(s, src_stride, &t0, &t1, &t2, &t3, &t4, &t5, &t6);
@@ -1709,10 +1709,10 @@ static inline void dist_wtd_convolve_y_8tap_avg_neon_dotprod(const uint8_t *src_
     }
 }
 
-void svt_av1_jnt_convolve_y_neon_dotprod(const uint8_t *src, int32_t src_stride, uint8_t *dst8, int32_t dst8_stride,
-                                         int32_t w, int32_t h, const InterpFilterParams *filter_params_x,
-                                         const InterpFilterParams *filter_params_y, const int32_t subpel_x_qn,
-                                         const int32_t subpel_y_qn, ConvolveParams *conv_params) {
+void svt_av1_jnt_convolve_y_neon_dotprod(const uint8_t* src, int32_t src_stride, uint8_t* dst8, int32_t dst8_stride,
+                                         int32_t w, int32_t h, const InterpFilterParams* filter_params_x,
+                                         const InterpFilterParams* filter_params_y, const int32_t subpel_x_qn,
+                                         const int32_t subpel_y_qn, ConvolveParams* conv_params) {
     assert(w % 4 == 0);
     assert(h % 4 == 0);
     (void)filter_params_x;
@@ -1733,7 +1733,7 @@ void svt_av1_jnt_convolve_y_neon_dotprod(const uint8_t *src, int32_t src_stride,
         return;
     }
 
-    const int16_t *y_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_y, subpel_y_qn & SUBPEL_MASK);
+    const int16_t* y_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_y, subpel_y_qn & SUBPEL_MASK);
 
     if (get_filter_tap(filter_params_y, subpel_y_qn) <= 4) {
         if (conv_params->do_average) {

@@ -52,7 +52,6 @@ set(all_files
     pic_operators_intrin_sse4_1.c
     reconinter_sse4.c
     selfguided_sse4.c
-    temporal_filtering_constants.h
     temporal_filtering_sse4_1.c
     warp_plane_sse4.c
     )

@@ -19,7 +19,7 @@
  * Based on adding an "energy gap" term to each candidate block's distortion, which is the difference
  * of the "energy" (SATD - SAD) of the source and recon blocks
  */
-uint64_t svt_psy_distortion(const uint8_t *input, const uint32_t input_stride, const uint8_t *recon,
+uint64_t svt_psy_distortion(const uint8_t* input, const uint32_t input_stride, const uint8_t* recon,
                             const uint32_t recon_stride, const uint32_t width, const uint32_t height) {
     uint64_t energy_gap = 0;
 
@@ -28,11 +28,13 @@ uint64_t svt_psy_distortion(const uint8_t *input, const uint32_t input_stride, c
             for (uint32_t i = 0; i < width; i += 8) {
                 int32_t        coeffs[64];
                 int16_t        block_as_16bit[64];
-                const uint8_t *block_input = input + j * input_stride + i;
-                const uint8_t *recon_input = recon + j * recon_stride + i;
+                const uint8_t* block_input = input + j * input_stride + i;
+                const uint8_t* recon_input = recon + j * recon_stride + i;
 
                 for (int h = 0; h < 8; h++) {
-                    for (int w = 0; w < 8; w++) { block_as_16bit[h * 8 + w] = block_input[w]; }
+                    for (int w = 0; w < 8; w++) {
+                        block_as_16bit[h * 8 + w] = block_input[w];
+                    }
 
                     block_input += input_stride;
                 }
@@ -42,7 +44,9 @@ uint64_t svt_psy_distortion(const uint8_t *input, const uint32_t input_stride, c
                 int32_t input_energy = ((svt_aom_satd(coeffs, 64) + 2) >> 2) - ((coeffs[0] + 2) >> 2);
 
                 for (int h = 0; h < 8; h++) {
-                    for (int w = 0; w < 8; w++) { block_as_16bit[h * 8 + w] = recon_input[w]; }
+                    for (int w = 0; w < 8; w++) {
+                        block_as_16bit[h * 8 + w] = recon_input[w];
+                    }
 
                     recon_input += recon_stride;
                 }
@@ -59,11 +63,13 @@ uint64_t svt_psy_distortion(const uint8_t *input, const uint32_t input_stride, c
             for (uint32_t i = 0; i < width; i += 4) {
                 int32_t        coeffs[16];
                 int16_t        block_as_16bit[16];
-                const uint8_t *block_input = input + j * input_stride + i;
-                const uint8_t *recon_input = recon + j * recon_stride + i;
+                const uint8_t* block_input = input + j * input_stride + i;
+                const uint8_t* recon_input = recon + j * recon_stride + i;
 
                 for (int h = 0; h < 4; h++) {
-                    for (int w = 0; w < 4; w++) { block_as_16bit[h * 4 + w] = block_input[w]; }
+                    for (int w = 0; w < 4; w++) {
+                        block_as_16bit[h * 4 + w] = block_input[w];
+                    }
 
                     block_input += input_stride;
                 }
@@ -73,7 +79,9 @@ uint64_t svt_psy_distortion(const uint8_t *input, const uint32_t input_stride, c
                 int32_t input_energy = (svt_aom_satd(coeffs, 16) << 1) - coeffs[0];
 
                 for (int h = 0; h < 4; h++) {
-                    for (int w = 0; w < 4; w++) { block_as_16bit[h * 4 + w] = recon_input[w]; }
+                    for (int w = 0; w < 4; w++) {
+                        block_as_16bit[h * 4 + w] = recon_input[w];
+                    }
 
                     recon_input += recon_stride;
                 }
@@ -92,7 +100,7 @@ uint64_t svt_psy_distortion(const uint8_t *input, const uint32_t input_stride, c
 
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
 /* High bit-depth version of "AC Bias" */
-uint64_t svt_psy_distortion_hbd(const uint16_t *input, const uint32_t input_stride, const uint16_t *recon,
+uint64_t svt_psy_distortion_hbd(const uint16_t* input, const uint32_t input_stride, const uint16_t* recon,
                                 const uint32_t recon_stride, const uint32_t width, const uint32_t height) {
     uint64_t energy_gap = 0;
 
@@ -101,11 +109,11 @@ uint64_t svt_psy_distortion_hbd(const uint16_t *input, const uint32_t input_stri
             for (uint32_t i = 0; i < width; i += 8) {
                 int32_t coeffs[64];
 
-                svt_aom_highbd_hadamard_8x8((int16_t *)input + j * input_stride + i, input_stride, coeffs);
+                svt_aom_highbd_hadamard_8x8((int16_t*)input + j * input_stride + i, input_stride, coeffs);
 
                 int32_t input_energy = ((svt_aom_satd(coeffs, 64) + 2) >> 2) - ((coeffs[0] + 2) >> 2);
 
-                svt_aom_highbd_hadamard_8x8((int16_t *)recon + j * recon_stride + i, recon_stride, coeffs);
+                svt_aom_highbd_hadamard_8x8((int16_t*)recon + j * recon_stride + i, recon_stride, coeffs);
 
                 int32_t recon_energy = ((svt_aom_satd(coeffs, 64) + 2) >> 2) - ((coeffs[0] + 2) >> 2);
 
@@ -118,11 +126,11 @@ uint64_t svt_psy_distortion_hbd(const uint16_t *input, const uint32_t input_stri
                 int32_t coeffs[16];
 
                 // HBD coefficients can fit in 16 bits, so the regular Hadamard 4x4 function can be used here safely
-                svt_aom_hadamard_4x4((int16_t *)input + j * input_stride + i, input_stride, coeffs);
+                svt_aom_hadamard_4x4((int16_t*)input + j * input_stride + i, input_stride, coeffs);
 
                 int32_t input_energy = (svt_aom_satd(coeffs, 16) << 1) - coeffs[0];
 
-                svt_aom_hadamard_4x4((int16_t *)recon + j * recon_stride + i, recon_stride, coeffs);
+                svt_aom_hadamard_4x4((int16_t*)recon + j * recon_stride + i, recon_stride, coeffs);
 
                 int32_t recon_energy = (svt_aom_satd(coeffs, 16) << 1) - coeffs[0];
 
@@ -139,17 +147,18 @@ uint64_t svt_psy_distortion_hbd(const uint16_t *input, const uint32_t input_stri
 /*
  * Public function that mirrors the arguments of `spatial_full_dist_type_fun()`
  */
-uint64_t get_svt_psy_full_dist(const void *s, const uint32_t so, const uint32_t sp, const void *r, const uint32_t ro,
+uint64_t get_svt_psy_full_dist(const void* s, const uint32_t so, const uint32_t sp, const void* r, const uint32_t ro,
                                const uint32_t rp, const uint32_t w, const uint32_t h, const uint8_t is_hbd,
                                const double ac_bias) {
     if (is_hbd)
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
-        return llrint(svt_psy_distortion_hbd((const uint16_t *)s + so, sp, (uint16_t *)r + ro, rp, w, h) * ac_bias);
+        return llrint(svt_psy_distortion_hbd((const uint16_t*)s + so, sp, (uint16_t*)r + ro, rp, w, h) * ac_bias);
 #else
         return 0;
 #endif
-    else
-        return llrint(svt_psy_distortion((const uint8_t *)s + so, sp, (const uint8_t *)r + ro, rp, w, h) * ac_bias);
+    else {
+        return llrint(svt_psy_distortion((const uint8_t*)s + so, sp, (const uint8_t*)r + ro, rp, w, h) * ac_bias);
+    }
 }
 
 /*
@@ -162,14 +171,16 @@ uint64_t get_svt_psy_full_dist(const void *s, const uint32_t so, const uint32_t 
  * Much faster than `get_svt_psy_full_dist()` as it can re-use existing block coefficients instead of computing new
  * ones, but subjective visual quality benefits are significantly more modest
  */
-uint64_t svt_psy_adjust_rate_light(const int32_t *coeff, uint64_t coeff_bits, const uint32_t width,
+uint64_t svt_psy_adjust_rate_light(const int32_t* coeff, uint64_t coeff_bits, const uint32_t width,
                                    const uint32_t height, const double ac_bias) {
     uint64_t       energy = 0;
-    const int32_t *buf    = coeff;
+    const int32_t* buf    = coeff;
 
     for (uint32_t j = 0; j < height; j++) {
         // Skip the DC coefficient from the calculation
-        for (uint32_t i = j ? 0 : 1; i < width; i++) { energy += (uint64_t)llabs((int64_t)buf[i]); }
+        for (uint32_t i = j ? 0 : 1; i < width; i++) {
+            energy += (uint64_t)llabs((int64_t)buf[i]);
+        }
         buf += width;
     }
 
@@ -184,12 +195,17 @@ uint64_t svt_psy_adjust_rate_light(const int32_t *coeff, uint64_t coeff_bits, co
 }
 
 double get_effective_ac_bias(const double ac_bias, const bool is_islice, const uint8_t temporal_layer_index) {
-    if (is_islice)
+    if (is_islice) {
         return ac_bias * 0.3;
+    }
     switch (temporal_layer_index) {
-    case 0: return ac_bias * 0.6;
-    case 1: return ac_bias * 0.8;
-    case 2: return ac_bias * 0.9;
-    default: return ac_bias;
+    case 0:
+        return ac_bias * 0.6;
+    case 1:
+        return ac_bias * 0.8;
+    case 2:
+        return ac_bias * 0.9;
+    default:
+        return ac_bias;
     }
 }

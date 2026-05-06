@@ -22,8 +22,8 @@
 extern "C" {
 #endif
 
-SIMD_INLINE void residual_kernel4_avx2(const uint8_t *input, const uint32_t input_stride, const uint8_t *pred,
-                                       const uint32_t pred_stride, int16_t *residual, const uint32_t residual_stride,
+SIMD_INLINE void residual_kernel4_avx2(const uint8_t* input, const uint32_t input_stride, const uint8_t* pred,
+                                       const uint32_t pred_stride, int16_t* residual, const uint32_t residual_stride,
                                        const uint32_t area_height) {
     const __m256i zero = _mm256_setzero_si256();
     uint32_t      y    = area_height;
@@ -47,8 +47,8 @@ SIMD_INLINE void residual_kernel4_avx2(const uint8_t *input, const uint32_t inpu
     } while (y);
 }
 
-SIMD_INLINE void residual_kernel8_avx2(const uint8_t *input, const uint32_t input_stride, const uint8_t *pred,
-                                       const uint32_t pred_stride, int16_t *residual, const uint32_t residual_stride,
+SIMD_INLINE void residual_kernel8_avx2(const uint8_t* input, const uint32_t input_stride, const uint8_t* pred,
+                                       const uint32_t pred_stride, int16_t* residual, const uint32_t residual_stride,
                                        const uint32_t area_height) {
     const __m256i zero = _mm256_setzero_si256();
     uint32_t      y    = area_height;
@@ -73,8 +73,8 @@ SIMD_INLINE void residual_kernel8_avx2(const uint8_t *input, const uint32_t inpu
     } while (y);
 }
 
-SIMD_INLINE void residual_kernel16_avx2(const uint8_t *input, const uint32_t input_stride, const uint8_t *pred,
-                                        const uint32_t pred_stride, int16_t *residual, const uint32_t residual_stride,
+SIMD_INLINE void residual_kernel16_avx2(const uint8_t* input, const uint32_t input_stride, const uint8_t* pred,
+                                        const uint32_t pred_stride, int16_t* residual, const uint32_t residual_stride,
                                         const uint32_t area_height) {
     const __m256i zero = _mm256_setzero_si256();
     uint32_t      y    = area_height;
@@ -91,8 +91,8 @@ SIMD_INLINE void residual_kernel16_avx2(const uint8_t *input, const uint32_t inp
         const __m256i re_lo = _mm256_sub_epi16(in_lo, pr_lo);
         const __m256i re_hi = _mm256_sub_epi16(in_hi, pr_hi);
 
-        _mm256_storeu_si256((__m256i *)(residual + 0 * residual_stride), re_lo);
-        _mm256_storeu_si256((__m256i *)(residual + 1 * residual_stride), re_hi);
+        _mm256_storeu_si256((__m256i*)(residual + 0 * residual_stride), re_lo);
+        _mm256_storeu_si256((__m256i*)(residual + 1 * residual_stride), re_hi);
         input += 2 * input_stride;
         pred += 2 * pred_stride;
         residual += 2 * residual_stride;
@@ -100,7 +100,7 @@ SIMD_INLINE void residual_kernel16_avx2(const uint8_t *input, const uint32_t inp
     } while (y);
 }
 
-static INLINE void distortion_avx2_intrin(const __m256i input, const __m256i recon, __m256i *const sum) {
+static INLINE void distortion_avx2_intrin(const __m256i input, const __m256i recon, __m256i* const sum) {
     const __m256i in   = _mm256_unpacklo_epi8(input, _mm256_setzero_si256());
     const __m256i re   = _mm256_unpacklo_epi8(recon, _mm256_setzero_si256());
     const __m256i diff = _mm256_sub_epi16(in, re);
@@ -108,10 +108,10 @@ static INLINE void distortion_avx2_intrin(const __m256i input, const __m256i rec
     *sum               = _mm256_add_epi32(*sum, dist);
 }
 
-static INLINE void spatial_full_distortion_kernel16_avx2_intrin(const uint8_t *const input, const uint8_t *const recon,
-                                                                __m256i *const sum) {
-    const __m128i in8  = _mm_loadu_si128((__m128i *)input);
-    const __m128i re8  = _mm_loadu_si128((__m128i *)recon);
+static INLINE void spatial_full_distortion_kernel16_avx2_intrin(const uint8_t* const input, const uint8_t* const recon,
+                                                                __m256i* const sum) {
+    const __m128i in8  = _mm_loadu_si128((__m128i*)input);
+    const __m128i re8  = _mm_loadu_si128((__m128i*)recon);
     const __m256i in16 = _mm256_cvtepu8_epi16(in8);
     const __m256i re16 = _mm256_cvtepu8_epi16(re8);
     const __m256i diff = _mm256_sub_epi16(in16, re16);
@@ -119,10 +119,10 @@ static INLINE void spatial_full_distortion_kernel16_avx2_intrin(const uint8_t *c
     *sum               = _mm256_add_epi32(*sum, dist);
 }
 
-static INLINE void full_distortion_kernel4_avx2_intrin(const uint16_t *const input, const uint16_t *const recon,
-                                                       __m256i *const sum) {
-    __m128i in   = _mm_loadl_epi64((__m128i *)input);
-    __m128i re   = _mm_loadl_epi64((__m128i *)recon);
+static INLINE void full_distortion_kernel4_avx2_intrin(const uint16_t* const input, const uint16_t* const recon,
+                                                       __m256i* const sum) {
+    __m128i in   = _mm_loadl_epi64((__m128i*)input);
+    __m128i re   = _mm_loadl_epi64((__m128i*)recon);
     __m128i max  = _mm_max_epu16(in, re);
     __m128i min  = _mm_min_epu16(in, re);
     __m128i diff = _mm_sub_epi16(max, min);
@@ -132,7 +132,7 @@ static INLINE void full_distortion_kernel4_avx2_intrin(const uint16_t *const inp
     *sum         = _mm256_add_epi32(*sum, zero);
 }
 
-static INLINE void full_distortion_kernel16_avx2_intrin(__m256i in, __m256i re, __m256i *const sum) {
+static INLINE void full_distortion_kernel16_avx2_intrin(__m256i in, __m256i re, __m256i* const sum) {
     __m256i max  = _mm256_max_epu16(in, re);
     __m256i min  = _mm256_min_epu16(in, re);
     __m256i diff = _mm256_sub_epi16(max, min);
@@ -141,18 +141,18 @@ static INLINE void full_distortion_kernel16_avx2_intrin(__m256i in, __m256i re, 
     *sum = _mm256_add_epi32(*sum, diff);
 }
 
-static INLINE void sum32_to64(__m256i *const sum32, __m256i *const sum64) {
+static INLINE void sum32_to64(__m256i* const sum32, __m256i* const sum64) {
     //Save partial sum into large 64bit register instead of 32 bit (which could overflow)
     *sum64 = _mm256_add_epi64(*sum64, _mm256_unpacklo_epi32(*sum32, _mm256_setzero_si256()));
     *sum64 = _mm256_add_epi64(*sum64, _mm256_unpackhi_epi32(*sum32, _mm256_setzero_si256()));
     *sum32 = _mm256_setzero_si256();
 }
 
-static INLINE void spatial_full_distortion_kernel32_leftover_avx2_intrin(const uint8_t *const input,
-                                                                         const uint8_t *const recon,
-                                                                         __m256i *const sum0, __m256i *const sum1) {
-    const __m256i in     = _mm256_loadu_si256((__m256i *)input);
-    const __m256i re     = _mm256_loadu_si256((__m256i *)recon);
+static INLINE void spatial_full_distortion_kernel32_leftover_avx2_intrin(const uint8_t* const input,
+                                                                         const uint8_t* const recon,
+                                                                         __m256i* const sum0, __m256i* const sum1) {
+    const __m256i in     = _mm256_loadu_si256((__m256i*)input);
+    const __m256i re     = _mm256_loadu_si256((__m256i*)recon);
     const __m256i max    = _mm256_max_epu8(in, re);
     const __m256i min    = _mm256_min_epu8(in, re);
     const __m256i diff   = _mm256_sub_epi8(max, min);
@@ -164,10 +164,10 @@ static INLINE void spatial_full_distortion_kernel32_leftover_avx2_intrin(const u
     *sum1                = _mm256_add_epi32(*sum1, dist_h);
 }
 
-static INLINE void spatial_full_distortion_kernel32_avx2_intrin(const uint8_t *const input, const uint8_t *const recon,
-                                                                __m256i *const sum) {
-    const __m256i in     = _mm256_loadu_si256((__m256i *)input);
-    const __m256i re     = _mm256_loadu_si256((__m256i *)recon);
+static INLINE void spatial_full_distortion_kernel32_avx2_intrin(const uint8_t* const input, const uint8_t* const recon,
+                                                                __m256i* const sum) {
+    const __m256i in     = _mm256_loadu_si256((__m256i*)input);
+    const __m256i re     = _mm256_loadu_si256((__m256i*)recon);
     const __m256i max    = _mm256_max_epu8(in, re);
     const __m256i min    = _mm256_min_epu8(in, re);
     const __m256i diff   = _mm256_sub_epi8(max, min);

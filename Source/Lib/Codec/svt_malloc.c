@@ -25,7 +25,10 @@ void svt_print_alloc_fail_impl(const char* file, int line) {
 
 static EbHandle g_malloc_mutex;
 
-static void malloc_mutex_cleanup(void) { svt_destroy_mutex(g_malloc_mutex); }
+static void malloc_mutex_cleanup(void) {
+    svt_destroy_mutex(g_malloc_mutex);
+}
+
 static ONCE_ROUTINE(create_malloc_mutex) {
     g_malloc_mutex = svt_create_mutex();
     atexit(malloc_mutex_cleanup);
@@ -33,6 +36,7 @@ static ONCE_ROUTINE(create_malloc_mutex) {
 }
 
 DEFINE_ONCE(g_malloc_once);
+
 static EbHandle get_malloc_mutex() {
     svt_run_once(&g_malloc_once, create_malloc_mutex);
     return g_malloc_mutex;
@@ -108,8 +112,9 @@ static bool for_each_hash_entry(MemoryEntry* bucket, uint32_t start, Predicate p
 
     do {
         MemoryEntry* e = bucket + i;
-        if (pred(e, param))
+        if (pred(e, param)) {
             return true;
+        }
         i++;
         i = TO_INDEX(i);
     } while (i != s);
@@ -168,7 +173,8 @@ static bool count_mem_entry(MemoryEntry* e, void* param) {
 static inline void get_memory_usage_and_scale(size_t amount, double* const usage, char* const scale) {
     static const char scales[] = {' ', 'K', 'M', 'G', 'T'};
     size_t            i        = 1;
-    for (; i < sizeof(scales) && amount >= (size_t)1 << (++i * 10););
+    for (; i < sizeof(scales) && amount >= (size_t)1 << (++i * 10);)
+        ;
     *scale = scales[--i];
     *usage = (double)amount / (double)((size_t)1 << (i * 10));
 }
@@ -196,8 +202,9 @@ static bool add_location(MemoryEntry* e, void* param) {
 
 static bool collect_mem(MemoryEntry* e, void* param) {
     EbPtrType* type = param;
-    if (e->ptr && e->type == *type)
+    if (e->ptr && e->type == *type) {
         for_each_hash_entry(g_profile_entry, 0, add_location, e);
+    }
     //Loop entire bucket.
     return false;
 }
@@ -289,8 +296,9 @@ void svt_decrease_component_count() {
     if (!g_component_count) {
         bool leaked = false;
         for_each_hash_entry(g_mem_entry, 0, print_leak, &leaked);
-        if (!leaked)
+        if (!leaked) {
             SVT_INFO("you have no memory leak\n");
+        }
     }
     svt_release_mutex(m);
 }
@@ -298,8 +306,9 @@ void svt_decrease_component_count() {
 void svt_add_mem_entry_impl(void* ptr, EbPtrType type, size_t count, const char* file, uint32_t line) {
     if (for_each_mem_entry(hash(ptr),
                            add_mem_entry,
-                           &(MemoryEntry){.ptr = ptr, .type = type, .count = count, .file = file, .line = line}))
+                           &(MemoryEntry){.ptr = ptr, .type = type, .count = count, .file = file, .line = line})) {
         return;
+    }
     if (g_add_mem_entry_warning) {
         SVT_ERROR(
             "can't add memory entry.\n"
@@ -309,10 +318,12 @@ void svt_add_mem_entry_impl(void* ptr, EbPtrType type, size_t count, const char*
 }
 
 void svt_remove_mem_entry(void* ptr, EbPtrType type) {
-    if (!ptr)
+    if (!ptr) {
         return;
-    if (for_each_mem_entry(hash(ptr), remove_mem_entry, &(MemoryEntry){.ptr = ptr, .type = type}))
+    }
+    if (for_each_mem_entry(hash(ptr), remove_mem_entry, &(MemoryEntry){.ptr = ptr, .type = type})) {
         return;
+    }
     if (g_remove_mem_entry_warning) {
         SVT_ERROR("something wrong. you freed a unallocated memory %p, type = %s\n", ptr, mem_type_name(type));
         g_remove_mem_entry_warning = false;

@@ -88,6 +88,7 @@ set(all_files
         coefficients.h
         common_dsp_rtcd.c
         common_dsp_rtcd.h
+        common_utils.c
         common_utils.h
         compute_mean.h
         compute_sad.h
@@ -104,8 +105,6 @@ set(all_files
         definitions.h
         dlf_process.c
         dlf_process.h
-        dwt.c
-        dwt.h
         enc_cdef.c
         enc_cdef.h
         enc_dec_process.c
@@ -240,12 +239,16 @@ set(all_files
         random.h
         ransac.c
         ransac.h
+        rc_aq.c
+        rc_crf_cqp.c
         rc_process.c
         rc_process.h
         rc_results.c
         rc_results.h
+        rc_tables.h
         rc_tasks.c
         rc_tasks.h
+        rc_vbr_cbr.c
         rd_cost.c
         rd_cost.h
         reference_object.c

@@ -34,10 +34,6 @@ extern "C" {
 
 #define WARPEDDIFF_PREC_BITS (WARPEDMODEL_PREC_BITS - WARPEDPIXEL_PREC_BITS)
 
-#define LEAST_SQUARES_SAMPLES_MAX_BITS 3
-#define LEAST_SQUARES_SAMPLES_MAX (1 << LEAST_SQUARES_SAMPLES_MAX_BITS)
-#define SAMPLES_ARRAY_SIZE (LEAST_SQUARES_SAMPLES_MAX * 2)
-
 extern const int16_t svt_aom_warped_filter[WARPEDPIXEL_PREC_SHIFTS * 3 + 1][8];
 
 EB_ALIGN(16)
@@ -74,20 +70,20 @@ static const uint8_t warp_pad_right[14][16] = {{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
                                                {0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
                                                {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}};
 
-void svt_av1_warp_plane(WarpedMotionParams *wm, int use_hbd, int bd, const uint8_t *ref, const uint8_t *ref_2b,
-                        int width, int height, int stride, uint8_t *pred, int p_col, int p_row, int p_width,
-                        int p_height, int p_stride, int subsampling_x, int subsampling_y, ConvolveParams *conv_params);
+void svt_av1_warp_plane(WarpedMotionParams* wm, int use_hbd, int bd, const uint8_t* ref, const uint8_t* ref_2b,
+                        int width, int height, int stride, uint8_t* pred, int p_col, int p_row, int p_width,
+                        int p_height, int p_stride, int subsampling_x, int subsampling_y, ConvolveParams* conv_params);
 
-bool svt_find_projection(int np, int *pts1, int *pts2, BlockSize bsize, const Mv mv, WarpedMotionParams *wm_params,
+bool svt_find_projection(int np, int* pts1, int* pts2, BlockSize bsize, const Mv mv, WarpedMotionParams* wm_params,
                          int mi_row, int mi_col);
 
-int svt_get_shear_params(WarpedMotionParams *wm);
+int svt_get_shear_params(WarpedMotionParams* wm);
 
-void svt_warp_plane(WarpedMotionParams *wm, const uint8_t *const ref, int width, int height, int stride, uint8_t *pred,
+void svt_warp_plane(WarpedMotionParams* wm, const uint8_t* const ref, int width, int height, int stride, uint8_t* pred,
                     int p_col, int p_row, int p_width, int p_height, int p_stride, int subsampling_x, int subsampling_y,
-                    ConvolveParams *conv_params);
+                    ConvolveParams* conv_params);
 
-uint8_t svt_aom_select_samples(const Mv mv, int *pts, int *pts_inref, int len, BlockSize bsize);
+uint8_t svt_aom_select_samples(const Mv mv, int* pts, int* pts_inref, int len, BlockSize bsize);
 
 #ifdef __cplusplus
 }

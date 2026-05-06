@@ -18,6 +18,10 @@
  * @author Cidana-Ryan
  *
  ******************************************************************************/
+// for getenv on windows
+#if defined(_WIN32) && !defined(_CRT_SECURE_NO_WARNINGS)
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 #include <stdio.h>
 #include "definitions.h"
 #include "VideoSource.h"

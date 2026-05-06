@@ -19,19 +19,21 @@ typedef int64_t TranHigh;
 
 #define AOM_QM_BITS 5
 
-static INLINE void update_qp(__m256i *qp) {
+static INLINE void update_qp(__m256i* qp) {
     int32_t i;
-    for (i = 0; i < 5; ++i) qp[i] = _mm256_permute2x128_si256(qp[i], qp[i], 0x11);
+    for (i = 0; i < 5; ++i) {
+        qp[i] = _mm256_permute2x128_si256(qp[i], qp[i], 0x11);
+    }
 }
 
-static INLINE void init_qp_add_shift(const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr,
-                                     const int16_t *dequant_ptr, const int16_t *quant_shift_ptr, __m256i *qp,
+static INLINE void init_qp_add_shift(const int16_t* zbin_ptr, const int16_t* round_ptr, const int16_t* quant_ptr,
+                                     const int16_t* dequant_ptr, const int16_t* quant_shift_ptr, __m256i* qp,
                                      const int add_shift) {
-    __m128i       zbin        = _mm_loadu_si128((const __m128i *)zbin_ptr);
-    __m128i       round       = _mm_loadu_si128((const __m128i *)round_ptr);
-    const __m128i quant       = _mm_loadu_si128((const __m128i *)quant_ptr);
-    const __m128i dequant     = _mm_loadu_si128((const __m128i *)dequant_ptr);
-    const __m128i quant_shift = _mm_loadu_si128((const __m128i *)quant_shift_ptr);
+    __m128i       zbin        = _mm_loadu_si128((const __m128i*)zbin_ptr);
+    __m128i       round       = _mm_loadu_si128((const __m128i*)round_ptr);
+    const __m128i quant       = _mm_loadu_si128((const __m128i*)quant_ptr);
+    const __m128i dequant     = _mm_loadu_si128((const __m128i*)dequant_ptr);
+    const __m128i quant_shift = _mm_loadu_si128((const __m128i*)quant_shift_ptr);
     if (add_shift) {
         const __m128i add = _mm_set1_epi16((int16_t)add_shift);
         zbin              = _mm_add_epi16(zbin, add);
@@ -49,7 +51,7 @@ static INLINE void init_qp_add_shift(const int16_t *zbin_ptr, const int16_t *rou
 // Note:
 // *x is vector multiplied by *y which is 8 int32_t parallel multiplication
 // and right shift 16.  The output, 8 int32_t is save in *p.
-static INLINE void mm256_mul_shift_epi32(const __m256i *x, const __m256i *y, __m256i *p, int shift) {
+static INLINE void mm256_mul_shift_epi32(const __m256i* x, const __m256i* y, __m256i* p, int shift) {
     __m256i prod_lo       = _mm256_mul_epi32(*x, *y);
     prod_lo               = _mm256_srli_epi64(prod_lo, shift);
     __m256i       prod_hi = _mm256_srli_epi64(*x, 32);
@@ -62,13 +64,13 @@ static INLINE void mm256_mul_shift_epi32(const __m256i *x, const __m256i *y, __m
     *p      = _mm256_blend_epi32(prod_lo, prod_hi, 0xAA); //interleave prod_lo, prod_hi
 }
 
-static INLINE void clamp_epi32(__m256i *x, __m256i min, __m256i max) {
+static INLINE void clamp_epi32(__m256i* x, __m256i min, __m256i max) {
     *x = _mm256_min_epi32(*x, max);
     *x = _mm256_max_epi32(*x, min);
 }
 
-static INLINE void quantize(const __m256i *qp, __m256i c, const int16_t *iscan_ptr, TranLow *qcoeff, TranLow *dqcoeff,
-                            __m256i *eob, __m256i min, __m256i max, int shift_dq) {
+static INLINE void quantize(const __m256i* qp, __m256i c, const int16_t* iscan_ptr, TranLow* qcoeff, TranLow* dqcoeff,
+                            __m256i* eob, __m256i min, __m256i max, int shift_dq) {
     const __m256i zero   = _mm256_setzero_si256();
     const __m256i abs    = _mm256_abs_epi32(c);
     const __m256i flag1  = _mm256_cmpgt_epi32(qp[0], abs);
@@ -90,10 +92,10 @@ static INLINE void quantize(const __m256i *qp, __m256i c, const int16_t *iscan_p
         q  = _mm256_andnot_si256(flag1, q);
         dq = _mm256_andnot_si256(flag1, dq);
 
-        _mm256_store_si256((__m256i *)qcoeff, q);
-        _mm256_store_si256((__m256i *)dqcoeff, dq);
+        _mm256_store_si256((__m256i*)qcoeff, q);
+        _mm256_store_si256((__m256i*)dqcoeff, dq);
 
-        const __m128i isc   = _mm_loadu_si128((const __m128i *)iscan_ptr);
+        const __m128i isc   = _mm_loadu_si128((const __m128i*)iscan_ptr);
         const __m256i iscan = _mm256_cvtepi16_epi32(isc);
 
         const __m256i zc      = _mm256_cmpeq_epi32(dq, zero);
@@ -102,12 +104,13 @@ static INLINE void quantize(const __m256i *qp, __m256i c, const int16_t *iscan_p
         cur_eob               = _mm256_and_si256(cur_eob, nz);
         *eob                  = _mm256_max_epi32(cur_eob, *eob);
     } else {
-        _mm256_store_si256((__m256i *)qcoeff, zero);
-        _mm256_store_si256((__m256i *)dqcoeff, zero);
+        _mm256_store_si256((__m256i*)qcoeff, zero);
+        _mm256_store_si256((__m256i*)dqcoeff, zero);
     }
 }
-static INLINE void quantize_qm(const __m256i *qp, __m256i c, const int16_t *iscan_ptr, TranLow *qcoeff,
-                               TranLow *dqcoeff, __m256i *eob, __m256i min, __m256i max, __m256i qm, __m256i iqm,
+
+static INLINE void quantize_qm(const __m256i* qp, __m256i c, const int16_t* iscan_ptr, TranLow* qcoeff,
+                               TranLow* dqcoeff, __m256i* eob, __m256i min, __m256i max, __m256i qm, __m256i iqm,
                                int shift_dq, const __m256i shift16) {
     const __m256i zero   = _mm256_setzero_si256();
     const __m256i abs    = _mm256_abs_epi32(c);
@@ -136,10 +139,10 @@ static INLINE void quantize_qm(const __m256i *qp, __m256i c, const int16_t *isca
         q  = _mm256_andnot_si256(flag1, q);
         dq = _mm256_andnot_si256(flag1, dq);
 
-        _mm256_store_si256((__m256i *)qcoeff, q);
-        _mm256_store_si256((__m256i *)dqcoeff, dq);
+        _mm256_store_si256((__m256i*)qcoeff, q);
+        _mm256_store_si256((__m256i*)dqcoeff, dq);
 
-        const __m128i isc   = _mm_loadu_si128((const __m128i *)iscan_ptr);
+        const __m128i isc   = _mm_loadu_si128((const __m128i*)iscan_ptr);
         const __m256i iscan = _mm256_cvtepi16_epi32(isc);
 
         const __m256i zc      = _mm256_cmpeq_epi32(dq, zero);
@@ -148,28 +151,28 @@ static INLINE void quantize_qm(const __m256i *qp, __m256i c, const int16_t *isca
         cur_eob               = _mm256_and_si256(cur_eob, nz);
         *eob                  = _mm256_max_epi32(cur_eob, *eob);
     } else {
-        _mm256_store_si256((__m256i *)qcoeff, zero);
-        _mm256_store_si256((__m256i *)dqcoeff, zero);
+        _mm256_store_si256((__m256i*)qcoeff, zero);
+        _mm256_store_si256((__m256i*)dqcoeff, zero);
     }
 }
 
-static INLINE __m256i load_bytes_to_m256_avx2(const QmVal *p) {
-    __m128i small_load = _mm_loadl_epi64((const __m128i *)p);
+static INLINE __m256i load_bytes_to_m256_avx2(const QmVal* p) {
+    __m128i small_load = _mm_loadl_epi64((const __m128i*)p);
     return _mm256_cvtepu8_epi32(small_load);
 }
 
-void svt_av1_quantize_b_qm_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr,
-                                const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr,
-                                TranLow *qcoeff_ptr, TranLow *dqcoeff_ptr, const int16_t *dequant_ptr,
-                                uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan, const QmVal *qm_ptr,
-                                const QmVal *iqm_ptr, const int32_t log_scale) {
+void svt_av1_quantize_b_qm_avx2(const TranLow* coeff_ptr, intptr_t n_coeffs, const int16_t* zbin_ptr,
+                                const int16_t* round_ptr, const int16_t* quant_ptr, const int16_t* quant_shift_ptr,
+                                TranLow* qcoeff_ptr, TranLow* dqcoeff_ptr, const int16_t* dequant_ptr,
+                                uint16_t* eob_ptr, const int16_t* scan, const int16_t* iscan, const QmVal* qm_ptr,
+                                const QmVal* iqm_ptr, const int32_t log_scale) {
     (void)scan;
     const uint32_t step = 8;
 
     __m256i qp[5], coeff;
     init_qp_add_shift(zbin_ptr, round_ptr, quant_ptr, dequant_ptr, quant_shift_ptr, qp, log_scale);
     qp[0] = _mm256_slli_epi32(qp[0], AOM_QM_BITS);
-    coeff = _mm256_load_si256((const __m256i *)coeff_ptr);
+    coeff = _mm256_load_si256((const __m256i*)coeff_ptr);
 
     __m256i qm, iqm;
     qm  = load_bytes_to_m256_avx2(qm_ptr);
@@ -191,7 +194,7 @@ void svt_av1_quantize_b_qm_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs, con
         iqm_ptr += step;
         n_coeffs -= step;
 
-        coeff = _mm256_load_si256((const __m256i *)coeff_ptr);
+        coeff = _mm256_load_si256((const __m256i*)coeff_ptr);
         qm    = load_bytes_to_m256_avx2(qm_ptr);
         iqm   = load_bytes_to_m256_avx2(iqm_ptr);
         quantize_qm(qp, coeff, iscan, qcoeff_ptr, dqcoeff_ptr, &eob, min, max, qm, iqm, log_scale, shift16);
@@ -209,10 +212,10 @@ void svt_av1_quantize_b_qm_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs, con
     }
 }
 
-void svt_aom_quantize_b_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr,
-                             const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr,
-                             TranLow *qcoeff_ptr, TranLow *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr,
-                             const int16_t *scan, const int16_t *iscan, const QmVal *qm_ptr, const QmVal *iqm_ptr,
+void svt_aom_quantize_b_avx2(const TranLow* coeff_ptr, intptr_t n_coeffs, const int16_t* zbin_ptr,
+                             const int16_t* round_ptr, const int16_t* quant_ptr, const int16_t* quant_shift_ptr,
+                             TranLow* qcoeff_ptr, TranLow* dqcoeff_ptr, const int16_t* dequant_ptr, uint16_t* eob_ptr,
+                             const int16_t* scan, const int16_t* iscan, const QmVal* qm_ptr, const QmVal* iqm_ptr,
                              const int32_t log_scale) {
     (void)qm_ptr;
     (void)iqm_ptr;
@@ -221,7 +224,7 @@ void svt_aom_quantize_b_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs, const 
 
     __m256i qp[5], coeff;
     init_qp_add_shift(zbin_ptr, round_ptr, quant_ptr, dequant_ptr, quant_shift_ptr, qp, log_scale);
-    coeff = _mm256_load_si256((const __m256i *)coeff_ptr);
+    coeff = _mm256_load_si256((const __m256i*)coeff_ptr);
 
     __m256i eob = _mm256_setzero_si256();
     __m256i min = _mm256_set1_epi32(INT16_MIN);
@@ -236,7 +239,7 @@ void svt_aom_quantize_b_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs, const 
         iscan += step;
         n_coeffs -= step;
 
-        coeff = _mm256_load_si256((const __m256i *)coeff_ptr);
+        coeff = _mm256_load_si256((const __m256i*)coeff_ptr);
         quantize(qp, coeff, iscan, qcoeff_ptr, dqcoeff_ptr, &eob, min, max, log_scale);
     }
     {
@@ -252,8 +255,8 @@ void svt_aom_quantize_b_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs, const 
     }
 }
 
-static INLINE void quantize_highbd_qm(const __m256i *qp, __m256i c, const int16_t *iscan_ptr, TranLow *qcoeff,
-                                      TranLow *dqcoeff, __m256i *eob, int shift_dq, const __m256i wt, const __m256i iwt,
+static INLINE void quantize_highbd_qm(const __m256i* qp, __m256i c, const int16_t* iscan_ptr, TranLow* qcoeff,
+                                      TranLow* dqcoeff, __m256i* eob, int shift_dq, const __m256i wt, const __m256i iwt,
                                       const __m256i shift16) {
     const __m256i zero   = _mm256_setzero_si256();
     const __m256i abs    = _mm256_abs_epi32(c);
@@ -283,10 +286,10 @@ static INLINE void quantize_highbd_qm(const __m256i *qp, __m256i c, const int16_
         q  = _mm256_andnot_si256(flag1, q);
         dq = _mm256_andnot_si256(flag1, dq);
 
-        _mm256_store_si256((__m256i *)qcoeff, q);
-        _mm256_store_si256((__m256i *)dqcoeff, dq);
+        _mm256_store_si256((__m256i*)qcoeff, q);
+        _mm256_store_si256((__m256i*)dqcoeff, dq);
 
-        const __m128i isc   = _mm_loadu_si128((const __m128i *)iscan_ptr);
+        const __m128i isc   = _mm_loadu_si128((const __m128i*)iscan_ptr);
         const __m256i iscan = _mm256_cvtepi16_epi32(isc);
 
         const __m256i zc      = _mm256_cmpeq_epi32(dq, zero);
@@ -295,15 +298,16 @@ static INLINE void quantize_highbd_qm(const __m256i *qp, __m256i c, const int16_
         cur_eob               = _mm256_and_si256(cur_eob, nz);
         *eob                  = _mm256_max_epi32(cur_eob, *eob);
     } else {
-        _mm256_store_si256((__m256i *)qcoeff, zero);
-        _mm256_store_si256((__m256i *)dqcoeff, zero);
+        _mm256_store_si256((__m256i*)qcoeff, zero);
+        _mm256_store_si256((__m256i*)dqcoeff, zero);
     }
 }
-void svt_av1_highbd_quantize_b_qm_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr,
-                                       const int16_t *round_ptr, const int16_t *quant_ptr,
-                                       const int16_t *quant_shift_ptr, TranLow *qcoeff_ptr, TranLow *dqcoeff_ptr,
-                                       const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan,
-                                       const int16_t *iscan, const QmVal *qm_ptr, const QmVal *iqm_ptr,
+
+void svt_av1_highbd_quantize_b_qm_avx2(const TranLow* coeff_ptr, intptr_t n_coeffs, const int16_t* zbin_ptr,
+                                       const int16_t* round_ptr, const int16_t* quant_ptr,
+                                       const int16_t* quant_shift_ptr, TranLow* qcoeff_ptr, TranLow* dqcoeff_ptr,
+                                       const int16_t* dequant_ptr, uint16_t* eob_ptr, const int16_t* scan,
+                                       const int16_t* iscan, const QmVal* qm_ptr, const QmVal* iqm_ptr,
                                        const int32_t log_scale) {
     (void)scan;
     const uint32_t step = 8;
@@ -311,7 +315,7 @@ void svt_av1_highbd_quantize_b_qm_avx2(const TranLow *coeff_ptr, intptr_t n_coef
     __m256i qp[5], coeff, qm, iqm;
     init_qp_add_shift(zbin_ptr, round_ptr, quant_ptr, dequant_ptr, quant_shift_ptr, qp, log_scale);
     qp[0] = _mm256_slli_epi32(qp[0], AOM_QM_BITS); // zbin = zbin << 5
-    coeff = _mm256_load_si256((const __m256i *)coeff_ptr);
+    coeff = _mm256_load_si256((const __m256i*)coeff_ptr);
     qm    = load_bytes_to_m256_avx2(qm_ptr);
     iqm   = load_bytes_to_m256_avx2(iqm_ptr);
 
@@ -328,7 +332,7 @@ void svt_av1_highbd_quantize_b_qm_avx2(const TranLow *coeff_ptr, intptr_t n_coef
         iqm_ptr += step;
         iscan += step;
         n_coeffs -= step;
-        coeff = _mm256_load_si256((const __m256i *)coeff_ptr);
+        coeff = _mm256_load_si256((const __m256i*)coeff_ptr);
         qm    = load_bytes_to_m256_avx2(qm_ptr);
         iqm   = load_bytes_to_m256_avx2(iqm_ptr);
         quantize_highbd_qm(qp, coeff, iscan, qcoeff_ptr, dqcoeff_ptr, &eob, log_scale, qm, iqm, shift16);
@@ -346,8 +350,8 @@ void svt_av1_highbd_quantize_b_qm_avx2(const TranLow *coeff_ptr, intptr_t n_coef
     }
 }
 
-static INLINE void quantize_highbd(const __m256i *qp, __m256i c, const int16_t *iscan_ptr, TranLow *qcoeff,
-                                   TranLow *dqcoeff, __m256i *eob, int shift_dq) {
+static INLINE void quantize_highbd(const __m256i* qp, __m256i c, const int16_t* iscan_ptr, TranLow* qcoeff,
+                                   TranLow* dqcoeff, __m256i* eob, int shift_dq) {
     const __m256i zero   = _mm256_setzero_si256();
     const __m256i abs    = _mm256_abs_epi32(c);
     const __m256i flag1  = _mm256_cmpgt_epi32(qp[0], abs);
@@ -368,10 +372,10 @@ static INLINE void quantize_highbd(const __m256i *qp, __m256i c, const int16_t *
         q  = _mm256_andnot_si256(flag1, q);
         dq = _mm256_andnot_si256(flag1, dq);
 
-        _mm256_store_si256((__m256i *)qcoeff, q);
-        _mm256_store_si256((__m256i *)dqcoeff, dq);
+        _mm256_store_si256((__m256i*)qcoeff, q);
+        _mm256_store_si256((__m256i*)dqcoeff, dq);
 
-        const __m128i isc   = _mm_loadu_si128((const __m128i *)iscan_ptr);
+        const __m128i isc   = _mm_loadu_si128((const __m128i*)iscan_ptr);
         const __m256i iscan = _mm256_cvtepi16_epi32(isc);
 
         const __m256i zc      = _mm256_cmpeq_epi32(dq, zero);
@@ -380,16 +384,16 @@ static INLINE void quantize_highbd(const __m256i *qp, __m256i c, const int16_t *
         cur_eob               = _mm256_and_si256(cur_eob, nz);
         *eob                  = _mm256_max_epi32(cur_eob, *eob);
     } else {
-        _mm256_store_si256((__m256i *)qcoeff, zero);
-        _mm256_store_si256((__m256i *)dqcoeff, zero);
+        _mm256_store_si256((__m256i*)qcoeff, zero);
+        _mm256_store_si256((__m256i*)dqcoeff, zero);
     }
 }
 
-void svt_aom_highbd_quantize_b_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr,
-                                    const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr,
-                                    TranLow *qcoeff_ptr, TranLow *dqcoeff_ptr, const int16_t *dequant_ptr,
-                                    uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan, const QmVal *qm_ptr,
-                                    const QmVal *iqm_ptr, const int32_t log_scale) {
+void svt_aom_highbd_quantize_b_avx2(const TranLow* coeff_ptr, intptr_t n_coeffs, const int16_t* zbin_ptr,
+                                    const int16_t* round_ptr, const int16_t* quant_ptr, const int16_t* quant_shift_ptr,
+                                    TranLow* qcoeff_ptr, TranLow* dqcoeff_ptr, const int16_t* dequant_ptr,
+                                    uint16_t* eob_ptr, const int16_t* scan, const int16_t* iscan, const QmVal* qm_ptr,
+                                    const QmVal* iqm_ptr, const int32_t log_scale) {
     (void)qm_ptr;
     (void)iqm_ptr;
     (void)scan;
@@ -397,7 +401,7 @@ void svt_aom_highbd_quantize_b_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs,
 
     __m256i qp[5], coeff;
     init_qp_add_shift(zbin_ptr, round_ptr, quant_ptr, dequant_ptr, quant_shift_ptr, qp, log_scale);
-    coeff = _mm256_load_si256((const __m256i *)coeff_ptr);
+    coeff = _mm256_load_si256((const __m256i*)coeff_ptr);
 
     __m256i eob = _mm256_setzero_si256();
     quantize_highbd(qp, coeff, iscan, qcoeff_ptr, dqcoeff_ptr, &eob, log_scale);
@@ -409,7 +413,7 @@ void svt_aom_highbd_quantize_b_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs,
         dqcoeff_ptr += step;
         iscan += step;
         n_coeffs -= step;
-        coeff = _mm256_load_si256((const __m256i *)coeff_ptr);
+        coeff = _mm256_load_si256((const __m256i*)coeff_ptr);
         quantize_highbd(qp, coeff, iscan, qcoeff_ptr, dqcoeff_ptr, &eob, log_scale);
     }
     {
@@ -425,30 +429,30 @@ void svt_aom_highbd_quantize_b_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs,
     }
 }
 
-static INLINE void init_one_qp_fp(const __m128i *p, __m256i *qp) {
+static INLINE void init_one_qp_fp(const __m128i* p, __m256i* qp) {
     const __m128i zero = _mm_setzero_si128();
     const __m128i dc   = _mm_unpacklo_epi16(*p, zero);
     const __m128i ac   = _mm_unpackhi_epi16(*p, zero);
     *qp                = _mm256_insertf128_si256(_mm256_castsi128_si256(dc), ac, 1);
 }
 
-static INLINE void init_qp_fp(const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *dequant_ptr,
-                              int log_scale, __m256i *qp) {
-    __m128i round = _mm_loadu_si128((const __m128i *)round_ptr);
+static INLINE void init_qp_fp(const int16_t* round_ptr, const int16_t* quant_ptr, const int16_t* dequant_ptr,
+                              int log_scale, __m256i* qp) {
+    __m128i round = _mm_loadu_si128((const __m128i*)round_ptr);
     if (log_scale) {
         const __m128i round_scale = _mm_set1_epi16(1 << (15 - log_scale));
         round                     = _mm_mulhrs_epi16(round, round_scale);
     }
-    const __m128i quant   = _mm_loadu_si128((const __m128i *)quant_ptr);
-    const __m128i dequant = _mm_loadu_si128((const __m128i *)dequant_ptr);
+    const __m128i quant   = _mm_loadu_si128((const __m128i*)quant_ptr);
+    const __m128i dequant = _mm_loadu_si128((const __m128i*)dequant_ptr);
 
     init_one_qp_fp(&round, &qp[0]);
     init_one_qp_fp(&quant, &qp[1]);
     init_one_qp_fp(&dequant, &qp[2]);
 }
 
-static INLINE void quantize_highbd_fp(const __m256i *qp, __m256i *c, const int16_t *iscan_ptr, int log_scale,
-                                      TranLow *qcoeff, TranLow *dqcoeff, __m256i *eob) {
+static INLINE void quantize_highbd_fp(const __m256i* qp, __m256i* c, const int16_t* iscan_ptr, int log_scale,
+                                      TranLow* qcoeff, TranLow* dqcoeff, __m256i* eob) {
     const __m256i abs_coeff = _mm256_abs_epi32(*c);
     __m256i       q         = _mm256_add_epi32(abs_coeff, qp[0]);
 
@@ -469,10 +473,10 @@ static INLINE void quantize_highbd_fp(const __m256i *qp, __m256i *c, const int16
     q          = _mm256_sign_epi32(q, *c);
     dq         = _mm256_sign_epi32(dq, *c);
 
-    _mm256_storeu_si256((__m256i *)qcoeff, q);
-    _mm256_storeu_si256((__m256i *)dqcoeff, dq);
+    _mm256_storeu_si256((__m256i*)qcoeff, q);
+    _mm256_storeu_si256((__m256i*)dqcoeff, dq);
 
-    const __m128i isc   = _mm_loadu_si128((const __m128i *)iscan_ptr);
+    const __m128i isc   = _mm_loadu_si128((const __m128i*)iscan_ptr);
     const __m128i zr    = _mm_setzero_si128();
     const __m128i lo    = _mm_unpacklo_epi16(isc, zr);
     const __m128i hi    = _mm_unpackhi_epi16(isc, zr);
@@ -486,16 +490,16 @@ static INLINE void quantize_highbd_fp(const __m256i *qp, __m256i *c, const int16
     *eob                  = _mm256_max_epi32(cur_eob, *eob);
 }
 
-static INLINE void update_qp_fp(__m256i *qp) {
+static INLINE void update_qp_fp(__m256i* qp) {
     qp[0] = _mm256_permute2x128_si256(qp[0], qp[0], 0x11);
     qp[1] = _mm256_permute2x128_si256(qp[1], qp[1], 0x11);
     qp[2] = _mm256_permute2x128_si256(qp[2], qp[2], 0x11);
 }
 
-void svt_av1_highbd_quantize_fp_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr,
-                                     const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr,
-                                     TranLow *qcoeff_ptr, TranLow *dqcoeff_ptr, const int16_t *dequant_ptr,
-                                     uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan, int16_t log_scale) {
+void svt_av1_highbd_quantize_fp_avx2(const TranLow* coeff_ptr, intptr_t n_coeffs, const int16_t* zbin_ptr,
+                                     const int16_t* round_ptr, const int16_t* quant_ptr, const int16_t* quant_shift_ptr,
+                                     TranLow* qcoeff_ptr, TranLow* dqcoeff_ptr, const int16_t* dequant_ptr,
+                                     uint16_t* eob_ptr, const int16_t* scan, const int16_t* iscan, int16_t log_scale) {
     (void)scan;
     (void)zbin_ptr;
     (void)quant_shift_ptr;
@@ -503,7 +507,7 @@ void svt_av1_highbd_quantize_fp_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs
     __m256i            qp[3], coeff;
 
     init_qp_fp(round_ptr, quant_ptr, dequant_ptr, log_scale, qp);
-    coeff = _mm256_loadu_si256((const __m256i *)coeff_ptr);
+    coeff = _mm256_loadu_si256((const __m256i*)coeff_ptr);
 
     __m256i eob = _mm256_setzero_si256();
     quantize_highbd_fp(qp, &coeff, iscan, log_scale, qcoeff_ptr, dqcoeff_ptr, &eob);
@@ -516,7 +520,7 @@ void svt_av1_highbd_quantize_fp_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs
 
     update_qp_fp(qp);
     while (n_coeffs > 0) {
-        coeff = _mm256_loadu_si256((const __m256i *)coeff_ptr);
+        coeff = _mm256_loadu_si256((const __m256i*)coeff_ptr);
         quantize_highbd_fp(qp, &coeff, iscan, log_scale, qcoeff_ptr, dqcoeff_ptr, &eob);
 
         coeff_ptr += step;
@@ -557,8 +561,8 @@ static inline __m256i mm256_mullo_epi64(const __m256i a, const __m256i b) {
     return prod;
 }
 
-static INLINE void quantize_highbd_fp_qm(const __m256i *qp, __m256i *c, const int16_t *iscan_ptr, int log_scale,
-                                         TranLow *qcoeff, TranLow *dqcoeff, __m256i *eob, const __m256i qm,
+static INLINE void quantize_highbd_fp_qm(const __m256i* qp, __m256i* c, const int16_t* iscan_ptr, int log_scale,
+                                         TranLow* qcoeff, TranLow* dqcoeff, __m256i* eob, const __m256i qm,
                                          const __m256i iqm) {
     const __m256i abs_coeff = _mm256_abs_epi32(*c);
     __m256i       q         = _mm256_add_epi32(abs_coeff, qp[0]);
@@ -593,10 +597,10 @@ static INLINE void quantize_highbd_fp_qm(const __m256i *qp, __m256i *c, const in
     q                 = _mm256_sign_epi32(q, *c);
     dq                = _mm256_sign_epi32(dq, *c);
 
-    _mm256_storeu_si256((__m256i *)qcoeff, q);
-    _mm256_storeu_si256((__m256i *)dqcoeff, dq);
+    _mm256_storeu_si256((__m256i*)qcoeff, q);
+    _mm256_storeu_si256((__m256i*)dqcoeff, dq);
 
-    const __m128i isc   = _mm_loadu_si128((const __m128i *)iscan_ptr);
+    const __m128i isc   = _mm_loadu_si128((const __m128i*)iscan_ptr);
     const __m128i zr    = _mm_setzero_si128();
     const __m128i lo    = _mm_unpacklo_epi16(isc, zr);
     const __m128i hi    = _mm_unpackhi_epi16(isc, zr);
@@ -610,11 +614,11 @@ static INLINE void quantize_highbd_fp_qm(const __m256i *qp, __m256i *c, const in
     *eob                  = _mm256_max_epi32(cur_eob, *eob);
 }
 
-void svt_av1_highbd_quantize_fp_qm_avx2(const TranLow *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr,
-                                        const int16_t *round_ptr, const int16_t *quant_ptr,
-                                        const int16_t *quant_shift_ptr, TranLow *qcoeff_ptr, TranLow *dqcoeff_ptr,
-                                        const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan,
-                                        const int16_t *iscan, const QmVal *qm_ptr, const QmVal *iqm_ptr,
+void svt_av1_highbd_quantize_fp_qm_avx2(const TranLow* coeff_ptr, intptr_t n_coeffs, const int16_t* zbin_ptr,
+                                        const int16_t* round_ptr, const int16_t* quant_ptr,
+                                        const int16_t* quant_shift_ptr, TranLow* qcoeff_ptr, TranLow* dqcoeff_ptr,
+                                        const int16_t* dequant_ptr, uint16_t* eob_ptr, const int16_t* scan,
+                                        const int16_t* iscan, const QmVal* qm_ptr, const QmVal* iqm_ptr,
                                         int16_t log_scale) {
     (void)scan;
     (void)zbin_ptr;
@@ -624,7 +628,7 @@ void svt_av1_highbd_quantize_fp_qm_avx2(const TranLow *coeff_ptr, intptr_t n_coe
     init_qp_fp(round_ptr, quant_ptr, dequant_ptr, log_scale, qp);
     __m256i eob = _mm256_setzero_si256();
 
-    __m256i coeff = _mm256_loadu_si256((const __m256i *)coeff_ptr);
+    __m256i coeff = _mm256_loadu_si256((const __m256i*)coeff_ptr);
     __m256i qm    = load_bytes_to_m256_avx2(qm_ptr);
     __m256i iqm   = load_bytes_to_m256_avx2(iqm_ptr);
     quantize_highbd_fp_qm(qp, &coeff, iscan, log_scale, qcoeff_ptr, dqcoeff_ptr, &eob, qm, iqm);
@@ -639,7 +643,7 @@ void svt_av1_highbd_quantize_fp_qm_avx2(const TranLow *coeff_ptr, intptr_t n_coe
         iqm_ptr += step;
         n_coeffs -= step;
 
-        coeff = _mm256_loadu_si256((const __m256i *)coeff_ptr);
+        coeff = _mm256_loadu_si256((const __m256i*)coeff_ptr);
         qm    = load_bytes_to_m256_avx2(qm_ptr);
         iqm   = load_bytes_to_m256_avx2(iqm_ptr);
         quantize_highbd_fp_qm(qp, &coeff, iscan, log_scale, qcoeff_ptr, dqcoeff_ptr, &eob, qm, iqm);

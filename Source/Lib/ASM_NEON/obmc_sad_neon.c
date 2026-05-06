@@ -15,7 +15,7 @@
 #include "sum_neon.h"
 #include "obmc_constants_neon.h"
 
-static inline void obmc_sad_8x1_s16_neon(int16x8_t ref_s16, const int32_t *mask, const int32_t *wsrc, uint32x4_t *sum) {
+static inline void obmc_sad_8x1_s16_neon(int16x8_t ref_s16, const int32_t* mask, const int32_t* wsrc, uint32x4_t* sum) {
     int32x4_t wsrc_lo = vld1q_s32(wsrc);
     int32x4_t wsrc_hi = vld1q_s32(wsrc + 4);
 
@@ -34,8 +34,8 @@ static inline void obmc_sad_8x1_s16_neon(int16x8_t ref_s16, const int32_t *mask,
     *sum = vrsraq_n_u32(*sum, abs_hi, 12);
 }
 
-static inline void obmc_sad_8x1_s32_neon(uint32x4_t ref_u32_lo, uint32x4_t ref_u32_hi, const int32_t *mask,
-                                         const int32_t *wsrc, uint32x4_t sum[2]) {
+static inline void obmc_sad_8x1_s32_neon(uint32x4_t ref_u32_lo, uint32x4_t ref_u32_hi, const int32_t* mask,
+                                         const int32_t* wsrc, uint32x4_t sum[2]) {
     int32x4_t wsrc_lo = vld1q_s32(wsrc);
     int32x4_t wsrc_hi = vld1q_s32(wsrc + 4);
     int32x4_t mask_lo = vld1q_s32(mask);
@@ -51,8 +51,8 @@ static inline void obmc_sad_8x1_s32_neon(uint32x4_t ref_u32_lo, uint32x4_t ref_u
     sum[1] = vrsraq_n_u32(sum[1], abs_hi, 12);
 }
 
-static inline unsigned int obmc_sad_large_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc,
-                                               const int32_t *mask, int width, int height) {
+static inline unsigned int obmc_sad_large_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc,
+                                               const int32_t* mask, int width, int height) {
     uint32x4_t sum[2] = {vdupq_n_u32(0), vdupq_n_u32(0)};
 
     // Use tbl for doing a double-width zero extension from 8->32 bits since we
@@ -65,7 +65,7 @@ static inline unsigned int obmc_sad_large_neon(const uint8_t *ref, int ref_strid
     int h = height;
     do {
         int            w       = width;
-        const uint8_t *ref_ptr = ref;
+        const uint8_t* ref_ptr = ref;
         do {
             uint8x16_t r = vld1q_u8(ref_ptr);
 
@@ -89,28 +89,28 @@ static inline unsigned int obmc_sad_large_neon(const uint8_t *ref, int ref_strid
     return vaddvq_u32(vaddq_u32(sum[0], sum[1]));
 }
 
-static inline unsigned int obmc_sad_128xh_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc,
-                                               const int32_t *mask, int h) {
+static inline unsigned int obmc_sad_128xh_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc,
+                                               const int32_t* mask, int h) {
     return obmc_sad_large_neon(ref, ref_stride, wsrc, mask, 128, h);
 }
 
-static inline unsigned int obmc_sad_64xh_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc,
-                                              const int32_t *mask, int h) {
+static inline unsigned int obmc_sad_64xh_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc,
+                                              const int32_t* mask, int h) {
     return obmc_sad_large_neon(ref, ref_stride, wsrc, mask, 64, h);
 }
 
-static inline unsigned int obmc_sad_32xh_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc,
-                                              const int32_t *mask, int h) {
+static inline unsigned int obmc_sad_32xh_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc,
+                                              const int32_t* mask, int h) {
     return obmc_sad_large_neon(ref, ref_stride, wsrc, mask, 32, h);
 }
 
-static inline unsigned int obmc_sad_16xh_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc,
-                                              const int32_t *mask, int h) {
+static inline unsigned int obmc_sad_16xh_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc,
+                                              const int32_t* mask, int h) {
     return obmc_sad_large_neon(ref, ref_stride, wsrc, mask, 16, h);
 }
 
-static inline unsigned int obmc_sad_8xh_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc,
-                                             const int32_t *mask, int height) {
+static inline unsigned int obmc_sad_8xh_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc,
+                                             const int32_t* mask, int height) {
     uint32x4_t sum = vdupq_n_u32(0);
 
     int h = height;
@@ -128,8 +128,8 @@ static inline unsigned int obmc_sad_8xh_neon(const uint8_t *ref, int ref_stride,
     return vaddvq_u32(sum);
 }
 
-static inline unsigned int obmc_sad_4xh_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc,
-                                             const int32_t *mask, int height) {
+static inline unsigned int obmc_sad_4xh_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc,
+                                             const int32_t* mask, int height) {
     uint32x4_t sum = vdupq_n_u32(0);
 
     int h = height / 2;
@@ -147,75 +147,91 @@ static inline unsigned int obmc_sad_4xh_neon(const uint8_t *ref, int ref_stride,
     return vaddvq_u32(sum);
 }
 
-unsigned int svt_aom_obmc_sad4x4_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+unsigned int svt_aom_obmc_sad4x4_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_4xh_neon(ref, ref_stride, wsrc, mask, 4);
 }
-unsigned int svt_aom_obmc_sad4x8_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad4x8_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_4xh_neon(ref, ref_stride, wsrc, mask, 8);
 }
-unsigned int svt_aom_obmc_sad4x16_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad4x16_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_4xh_neon(ref, ref_stride, wsrc, mask, 16);
 }
 
-unsigned int svt_aom_obmc_sad8x4_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+unsigned int svt_aom_obmc_sad8x4_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_8xh_neon(ref, ref_stride, wsrc, mask, 4);
 }
-unsigned int svt_aom_obmc_sad8x8_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad8x8_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_8xh_neon(ref, ref_stride, wsrc, mask, 8);
 }
-unsigned int svt_aom_obmc_sad8x16_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad8x16_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_8xh_neon(ref, ref_stride, wsrc, mask, 16);
 }
-unsigned int svt_aom_obmc_sad8x32_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad8x32_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_8xh_neon(ref, ref_stride, wsrc, mask, 32);
 }
 
-unsigned int svt_aom_obmc_sad16x4_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+unsigned int svt_aom_obmc_sad16x4_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_16xh_neon(ref, ref_stride, wsrc, mask, 4);
 }
-unsigned int svt_aom_obmc_sad16x8_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad16x8_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_16xh_neon(ref, ref_stride, wsrc, mask, 8);
 }
-unsigned int svt_aom_obmc_sad16x16_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad16x16_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_16xh_neon(ref, ref_stride, wsrc, mask, 16);
 }
-unsigned int svt_aom_obmc_sad16x32_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad16x32_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_16xh_neon(ref, ref_stride, wsrc, mask, 32);
 }
-unsigned int svt_aom_obmc_sad16x64_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad16x64_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_16xh_neon(ref, ref_stride, wsrc, mask, 64);
 }
 
-unsigned int svt_aom_obmc_sad32x8_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+unsigned int svt_aom_obmc_sad32x8_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_32xh_neon(ref, ref_stride, wsrc, mask, 8);
 }
-unsigned int svt_aom_obmc_sad32x16_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad32x16_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_32xh_neon(ref, ref_stride, wsrc, mask, 16);
 }
-unsigned int svt_aom_obmc_sad32x32_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad32x32_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_32xh_neon(ref, ref_stride, wsrc, mask, 32);
 }
-unsigned int svt_aom_obmc_sad32x64_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad32x64_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_32xh_neon(ref, ref_stride, wsrc, mask, 64);
 }
 
-unsigned int svt_aom_obmc_sad64x16_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+unsigned int svt_aom_obmc_sad64x16_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_64xh_neon(ref, ref_stride, wsrc, mask, 16);
 }
-unsigned int svt_aom_obmc_sad64x32_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad64x32_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_64xh_neon(ref, ref_stride, wsrc, mask, 32);
 }
-unsigned int svt_aom_obmc_sad64x64_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad64x64_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_64xh_neon(ref, ref_stride, wsrc, mask, 64);
 }
-unsigned int svt_aom_obmc_sad64x128_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad64x128_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_64xh_neon(ref, ref_stride, wsrc, mask, 128);
 }
 
-unsigned int svt_aom_obmc_sad128x64_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc, const int32_t *mask) {
+unsigned int svt_aom_obmc_sad128x64_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc, const int32_t* mask) {
     return obmc_sad_128xh_neon(ref, ref_stride, wsrc, mask, 64);
 }
-unsigned int svt_aom_obmc_sad128x128_neon(const uint8_t *ref, int ref_stride, const int32_t *wsrc,
-                                          const int32_t *mask) {
+
+unsigned int svt_aom_obmc_sad128x128_neon(const uint8_t* ref, int ref_stride, const int32_t* wsrc,
+                                          const int32_t* mask) {
     return obmc_sad_128xh_neon(ref, ref_stride, wsrc, mask, 128);
 }

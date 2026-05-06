@@ -19,7 +19,7 @@
 #include "temporal_filtering.h"
 #include "utility.h"
 
-static void process_block_hbd_sve(int h, int w, uint16_t *buff_hbd_start, uint32_t *accum, uint16_t *count,
+static void process_block_hbd_sve(int h, int w, uint16_t* buff_hbd_start, uint32_t* accum, uint16_t* count,
                                   uint32_t stride) {
     do {
         int width = w;
@@ -51,7 +51,7 @@ static void process_block_hbd_sve(int h, int w, uint16_t *buff_hbd_start, uint32
     } while (--h != 0);
 }
 
-static void process_block_lbd_sve(int h, int w, uint8_t *buff_lbd_start, uint32_t *accum, uint16_t *count,
+static void process_block_lbd_sve(int h, int w, uint8_t* buff_lbd_start, uint32_t* accum, uint16_t* count,
                                   uint32_t stride) {
     do {
         int width = w;
@@ -84,50 +84,58 @@ static void process_block_lbd_sve(int h, int w, uint8_t *buff_lbd_start, uint32_
     } while (--h != 0);
 }
 
-void svt_aom_get_final_filtered_pixels_sve(MeContext *me_ctx, EbByte *src_center_ptr_start,
-                                           uint16_t **altref_buffer_highbd_start, uint32_t **accum, uint16_t **count,
-                                           const uint32_t *stride, int blk_y_src_offset, int blk_ch_src_offset,
+void svt_aom_get_final_filtered_pixels_sve(MeContext* me_ctx, EbByte* src_center_ptr_start,
+                                           uint16_t** altref_buffer_highbd_start, uint32_t** accum, uint16_t** count,
+                                           const uint32_t* stride, int blk_y_src_offset, int blk_ch_src_offset,
                                            uint16_t blk_width_ch, uint16_t blk_height_ch, bool is_highbd) {
     assert(blk_width_ch % 16 == 0);
-    assert(BW % 16 == 0);
+    assert(TF_BW % 16 == 0);
 
     if (!is_highbd) {
         //Process luma
-        process_block_lbd_sve(
-            BH, BW, &src_center_ptr_start[C_Y][blk_y_src_offset], accum[C_Y], count[C_Y], stride[C_Y] - BW);
+        process_block_lbd_sve(TF_BH,
+                              TF_BW,
+                              &src_center_ptr_start[PLANE_Y][blk_y_src_offset],
+                              accum[PLANE_Y],
+                              count[PLANE_Y],
+                              stride[PLANE_Y] - TF_BW);
         // Process chroma
         if (me_ctx->tf_chroma) {
             process_block_lbd_sve(blk_height_ch,
                                   blk_width_ch,
-                                  &src_center_ptr_start[C_U][blk_ch_src_offset],
-                                  accum[C_U],
-                                  count[C_U],
-                                  stride[C_U] - blk_width_ch);
+                                  &src_center_ptr_start[PLANE_U][blk_ch_src_offset],
+                                  accum[PLANE_U],
+                                  count[PLANE_U],
+                                  stride[PLANE_U] - blk_width_ch);
             process_block_lbd_sve(blk_height_ch,
                                   blk_width_ch,
-                                  &src_center_ptr_start[C_V][blk_ch_src_offset],
-                                  accum[C_V],
-                                  count[C_V],
-                                  stride[C_V] - blk_width_ch);
+                                  &src_center_ptr_start[PLANE_V][blk_ch_src_offset],
+                                  accum[PLANE_V],
+                                  count[PLANE_V],
+                                  stride[PLANE_V] - blk_width_ch);
         }
     } else {
         // Process luma
-        process_block_hbd_sve(
-            BH, BW, &altref_buffer_highbd_start[C_Y][blk_y_src_offset], accum[C_Y], count[C_Y], stride[C_Y] - BW);
+        process_block_hbd_sve(TF_BH,
+                              TF_BW,
+                              &altref_buffer_highbd_start[PLANE_Y][blk_y_src_offset],
+                              accum[PLANE_Y],
+                              count[PLANE_Y],
+                              stride[PLANE_Y] - TF_BW);
         // Process chroma
         if (me_ctx->tf_chroma) {
             process_block_hbd_sve(blk_height_ch,
                                   blk_width_ch,
-                                  &altref_buffer_highbd_start[C_U][blk_ch_src_offset],
-                                  accum[C_U],
-                                  count[C_U],
-                                  stride[C_U] - blk_width_ch);
+                                  &altref_buffer_highbd_start[PLANE_U][blk_ch_src_offset],
+                                  accum[PLANE_U],
+                                  count[PLANE_U],
+                                  stride[PLANE_U] - blk_width_ch);
             process_block_hbd_sve(blk_height_ch,
                                   blk_width_ch,
-                                  &altref_buffer_highbd_start[C_V][blk_ch_src_offset],
-                                  accum[C_V],
-                                  count[C_V],
-                                  stride[C_V] - blk_width_ch);
+                                  &altref_buffer_highbd_start[PLANE_V][blk_ch_src_offset],
+                                  accum[PLANE_V],
+                                  count[PLANE_V],
+                                  stride[PLANE_V] - blk_width_ch);
         }
     }
 }

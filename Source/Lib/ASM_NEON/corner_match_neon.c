@@ -18,7 +18,7 @@
 static const uint8_t mask_table[] = {255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
                                      255, 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0};
 
-double svt_av1_compute_cross_correlation_neon(unsigned char *im1, int stride1, int x1, int y1, unsigned char *im2,
+double svt_av1_compute_cross_correlation_neon(unsigned char* im1, int stride1, int x1, int y1, unsigned char* im2,
                                               int stride2, int x2, int y2, uint8_t match_sz) {
     // match_sz must be an odd number between 3 and 15.
     assert(match_sz % 2 == 1);
@@ -30,8 +30,8 @@ double svt_av1_compute_cross_correlation_neon(unsigned char *im1, int stride1, i
 
     const uint8x16_t mask = vld1q_u8(mask_table + 15 - match_sz);
 
-    uint8_t *im1_start = im1 + (y1 - match_sz_by2) * stride1 + x1 - match_sz_by2;
-    uint8_t *im2_start = im2 + (y2 - match_sz_by2) * stride2 + x2 - match_sz_by2;
+    uint8_t* im1_start = im1 + (y1 - match_sz_by2) * stride1 + x1 - match_sz_by2;
+    uint8_t* im2_start = im2 + (y2 - match_sz_by2) * stride2 + x2 - match_sz_by2;
 
     uint16x8_t sum1_u16   = vdupq_n_u16(0);
     uint16x8_t sum2_u16   = vdupq_n_u16(0);

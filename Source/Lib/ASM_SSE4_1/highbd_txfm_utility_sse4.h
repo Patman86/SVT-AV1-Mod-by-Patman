@@ -27,18 +27,18 @@
         y3 = _mm_unpackhi_epi64(u1, u3);              \
     } while (0)
 
-static INLINE void transpose_4x4(const __m128i *in, __m128i *out) {
+static INLINE void transpose_4x4(const __m128i* in, __m128i* out) {
     TRANSPOSE_4X4(in[0], in[1], in[2], in[3], out[0], out[1], out[2], out[3]);
 }
 
-static INLINE void transpose_8x8(const __m128i *in, __m128i *out) {
+static INLINE void transpose_8x8(const __m128i* in, __m128i* out) {
     TRANSPOSE_4X4(in[0], in[2], in[4], in[6], out[0], out[2], out[4], out[6]);
     TRANSPOSE_4X4(in[1], in[3], in[5], in[7], out[8], out[10], out[12], out[14]);
     TRANSPOSE_4X4(in[8], in[10], in[12], in[14], out[1], out[3], out[5], out[7]);
     TRANSPOSE_4X4(in[9], in[11], in[13], in[15], out[9], out[11], out[13], out[15]);
 }
 
-static INLINE void transpose_16x16(const __m128i *in, __m128i *out) {
+static INLINE void transpose_16x16(const __m128i* in, __m128i* out) {
     // Upper left 8x8
     TRANSPOSE_4X4(in[0], in[4], in[8], in[12], out[0], out[4], out[8], out[12]);
     TRANSPOSE_4X4(in[1], in[5], in[9], in[13], out[16], out[20], out[24], out[28]);
@@ -65,8 +65,8 @@ static INLINE void transpose_16x16(const __m128i *in, __m128i *out) {
 
 // Note:
 //  rounding = 1 << (bit - 1)
-static INLINE __m128i half_btf_sse4_1(const __m128i *w0, const __m128i *n0, const __m128i *w1, const __m128i *n1,
-                                      const __m128i *rounding, int32_t bit) {
+static INLINE __m128i half_btf_sse4_1(const __m128i* w0, const __m128i* n0, const __m128i* w1, const __m128i* n1,
+                                      const __m128i* rounding, int32_t bit) {
     __m128i x, y;
 
     x = _mm_mullo_epi32(*w0, *n0);
@@ -77,7 +77,7 @@ static INLINE __m128i half_btf_sse4_1(const __m128i *w0, const __m128i *n0, cons
     return x;
 }
 
-static INLINE __m128i half_btf_0_sse4_1(const __m128i *w0, const __m128i *n0, const __m128i *rounding, int32_t bit) {
+static INLINE __m128i half_btf_0_sse4_1(const __m128i* w0, const __m128i* n0, const __m128i* rounding, int32_t bit) {
     __m128i x;
 
     x = _mm_mullo_epi32(*w0, *n0);

@@ -51,12 +51,16 @@ extern "C" {
         out1               = _mm_subs_epi16(_in0, _in1); \
     } while (0)
 
-static INLINE void round_shift_16bit_ssse3(__m128i *in, int32_t size, int32_t bit) {
+static INLINE void round_shift_16bit_ssse3(__m128i* in, int32_t size, int32_t bit) {
     if (bit < 0) {
         const __m128i scale = _mm_set1_epi16(1 << (15 + bit));
-        for (int32_t i = 0; i < size; ++i) in[i] = _mm_mulhrs_epi16(in[i], scale);
+        for (int32_t i = 0; i < size; ++i) {
+            in[i] = _mm_mulhrs_epi16(in[i], scale);
+        }
     } else if (bit > 0) {
-        for (int32_t i = 0; i < size; ++i) in[i] = _mm_slli_epi16(in[i], bit);
+        for (int32_t i = 0; i < size; ++i) {
+            in[i] = _mm_slli_epi16(in[i], bit);
+        }
     }
 }
 
@@ -215,7 +219,7 @@ DECLARE_ALIGNED(16, static const int16_t, av1_eob_to_eobxy_32x8_default[8]) = {
     0x071f,
 };
 
-DECLARE_ALIGNED(16, static const int16_t *, av1_eob_to_eobxy_default[TX_SIZES_ALL]) = {
+DECLARE_ALIGNED(16, static const int16_t*, av1_eob_to_eobxy_default[TX_SIZES_ALL]) = {
     NULL,
     av1_eob_to_eobxy_8x8_default,
     av1_eob_to_eobxy_16x16_default,
@@ -246,7 +250,7 @@ static const int32_t tx_size_wide_log2_eob[TX_SIZES_ALL] = {
     2, 3, 4, 5, 5, 2, 3, 3, 4, 4, 5, 5, 5, 2, 4, 3, 5, 4, 5,
 };
 
-static INLINE void get_eobx_eoby_scan_default(int32_t *eobx, int32_t *eoby, TxSize tx_size, int32_t eob) {
+static INLINE void get_eobx_eoby_scan_default(int32_t* eobx, int32_t* eoby, TxSize tx_size, int32_t eob) {
     if (eob == 1) {
         *eobx = 0;
         *eoby = 0;
@@ -265,7 +269,7 @@ static int32_t eob_fill[32] = {
     31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
 };
 
-static INLINE void get_eobx_eoby_scan_h_identity(int32_t *eobx, int32_t *eoby, TxSize tx_size, int32_t eob) {
+static INLINE void get_eobx_eoby_scan_h_identity(int32_t* eobx, int32_t* eoby, TxSize tx_size, int32_t eob) {
     eob -= 1;
     const int32_t txfm_size_col = tx_size_wide[tx_size];
     const int32_t eobx_max      = AOMMIN(32, txfm_size_col) - 1;
@@ -275,7 +279,7 @@ static INLINE void get_eobx_eoby_scan_h_identity(int32_t *eobx, int32_t *eoby, T
     *eoby = eob_fill[temp_eoby];
 }
 
-static INLINE void get_eobx_eoby_scan_v_identity(int32_t *eobx, int32_t *eoby, TxSize tx_size, int32_t eob) {
+static INLINE void get_eobx_eoby_scan_v_identity(int32_t* eobx, int32_t* eoby, TxSize tx_size, int32_t eob) {
     eob -= 1;
     const int32_t txfm_size_row = tx_size_high[tx_size];
     const int32_t eoby_max      = AOMMIN(32, txfm_size_row) - 1;
@@ -283,9 +287,9 @@ static INLINE void get_eobx_eoby_scan_v_identity(int32_t *eobx, int32_t *eoby, T
     *eoby                       = (eob >= eoby_max) ? eoby_max : eob_fill[eob];
 }
 
-typedef void (*Transform1dSsse3)(const __m128i *input, __m128i *output, int8_t cos_bit);
+typedef void (*Transform1dSsse3)(const __m128i* input, __m128i* output, int8_t cos_bit);
 
-void svt_av1_lowbd_inv_txfm2d_add_ssse3(const int32_t *input, uint8_t *output_r, int32_t stride_r, uint8_t *output_w,
+void svt_av1_lowbd_inv_txfm2d_add_ssse3(const int32_t* input, uint8_t* output_r, int32_t stride_r, uint8_t* output_w,
                                         int32_t stride_w, TxType tx_type, TxSize tx_size, int32_t eob);
 #ifdef __cplusplus
 } // extern "C"
