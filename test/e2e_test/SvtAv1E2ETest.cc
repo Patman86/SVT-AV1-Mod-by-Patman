@@ -130,8 +130,9 @@ static const std::vector<EncTestSetting> default_enc_settings = {
     {"QpTest5", {{"RateControlMode", "0"}, {"QP", "44"}}, default_test_vectors},
     {"QpTest6", {{"RateControlMode", "0"}, {"QP", "63"}}, default_test_vectors},
 
-    // test enable_dlf_flag, default is 0
-    {"DlfTest1", {{"LoopFilterEnable", "1"}}, default_test_vectors},
+    // test enable_dlf_flag, default is 1
+    {"DlfTest1", {{"LoopFilterEnable", "0"}}, default_test_vectors},
+    {"DlfTest2", {{"LoopFilterEnable", "2"}}, default_test_vectors},
 
     // test film_grain_denoise_strength, default is 0
     {"FilmGrainTest1", {{"FilmGrain", "0"}, {"BlankFrame", "10"}}, default_test_vectors},
@@ -142,9 +143,6 @@ static const std::vector<EncTestSetting> default_enc_settings = {
 
     // Skip enable_denoise_flag, enable_warped_motion, in_loop_me_flag and
     // ext_block_flag, since they are not used in encoder;
-
-    // test constrained intra, default is 0
-    {"ConstrainIntraTest1", {{"ConstrainedIntra", "1"}}, default_test_vectors},
 
     // test rate control modes, default is 0, 1 and 2 is supported
     {"RateControlTest2", {{"RateControlMode", "1"}}, default_test_vectors},
@@ -161,74 +159,28 @@ static const std::vector<EncTestSetting> default_enc_settings = {
     {"AdapQTest1", {{"AdaptiveQuantization", "1"}}, default_test_vectors},
 
     // test enable_tf, default is 1;
-    {"AltrefTest1", {{"EnableTF", "0"}}, default_test_vectors},
+    {"AltrefTest1", {{"EnableTf", "0"}}, default_test_vectors},
 
     // test tile settings
     {"TileTest1", {{"TileRow", "1"}}, default_test_vectors},
     {"TileTest2", {{"TileCol", "1"}}, default_test_vectors},
     {"TileTest3", {{"TileCol", "1"}, {"TileRow", "1"}}, default_test_vectors},
 
-    // Validate by setting a high bitrate and MinQpAllowed, push the encoder to producing
-    // small partitions.
-
-    // test pallete mode
-    {"PaletteModeTest1",
-     {{"PaletteMode", "1"}, {"ScreenContentMode", "1"}, {"EncoderMode", "1"}},
-     screen_test_vectors},
-    {"PaletteModeTest2",
-     {{"PaletteMode", "2"}, {"ScreenContentMode", "1"}, {"EncoderMode", "1"}},
-     screen_test_vectors},
-    {"PaletteModeTest3",
-     {{"PaletteMode", "3"}, {"ScreenContentMode", "1"}, {"EncoderMode", "1"}},
-     screen_test_vectors},
-    {"PaletteModeTest4",
-     {{"PaletteMode", "4"}, {"ScreenContentMode", "1"}, {"EncoderMode", "1"}},
-     screen_test_vectors},
-    {"PaletteModeTest5",
-     {{"PaletteMode", "5"}, {"ScreenContentMode", "1"}, {"EncoderMode", "1"}},
-     screen_test_vectors},
-    {"PaletteModeTest6",
-     {{"PaletteMode", "6"}, {"ScreenContentMode", "1"}, {"EncoderMode", "1"}},
-     screen_test_vectors},
-    {"PaletteModeTest7",
-     {{"PaletteMode", "0"}, {"ScreenContentMode", "1"}, {"EncoderMode", "1"}},
-     screen_test_vectors},
-
     // test overlay frame
     {"OverlayTest1", {{"EnableOverlays", "1"}}, default_test_vectors},
     {"OverlayTest2", {{"EnableOverlays", "1"}, {"LevelOfParallelism", "1"}}, default_test_vectors},
     {"OverlayTest3", {{"EnableOverlays", "1"}, {"EncoderMode", "5"}}, default_test_vectors},
 
-#ifdef ENBALE_16BIT_PIPELINE_TEST
-    // test 8-bit stream under 16-bit pipeline mode
-    {"16bitPipelineTest1", {{"Encoder16BitPipeline", "1"}}, default_test_vectors},
-#endif // ENBALE_16BIT_PIPELINE_TEST
-
     // test super resolution mode
     {"SuperResTest1", {{"SuperresMode", "2"}}, default_test_vectors},
-    {"SuperResTest2", {{"SuperresMode", "2"}, {"Obmc", "0"}, {"EncoderMode", "7"}}, default_test_vectors},
-    {"SuperResTest3", {{"SuperresMode", "2"}, {"Obmc", "1"}, {"EncoderMode", "7"}}, default_test_vectors},
-#ifdef ENBALE_16BIT_PIPELINE_TEST
-    {"SuperResTest4", {{"SuperresMode", "2"}, {"Obmc", "1"}, {"Encoder16BitPipeline", "1"}}, default_test_vectors},
-#endif // ENBALE_16BIT_PIPELINE_TEST
-    {"SuperResTest5", {{"SuperresMode", "4"}}, default_test_vectors},
+    {"SuperResTest2", {{"SuperresMode", "4"}}, default_test_vectors},
 
     // test Reference Scaling mode
     { "RefScalingTest1", {{"ResizeMode", "2"}}, default_test_vectors },
-    // reference scaling tests with OBMC
-    { "RefScalingTest2", {{"ResizeMode", "2"}, {"Obmc", "0"}, {"EncoderMode", "7"}}, default_test_vectors },
-    { "RefScalingTest3", {{"ResizeMode", "2"}, {"Obmc", "1"}, {"EncoderMode", "7"}}, default_test_vectors },
-#ifdef ENBALE_16BIT_PIPELINE_TEST
-    { "RefScalingTest4", {{"ResizeMode", "2"}, {"Obmc", "1"}, {"Encoder16BitPipeline", "1"}}, default_test_vectors },
-#endif // ENBALE_16BIT_PIPELINE_TEST
-    { "RefScalingTest5", {{"ResizeMode", "2"}, {"ScreenContentMode", "1"}, {"EncoderMode", "7"}}, screen_test_vectors },
-    { "RefScalingTest6", {{"ResizeMode", "2"}, {"ScreenContentMode", "2"}, {"EncoderMode", "7"}}, screen_test_vectors },
-    // reference scaling tests with loop restoration
-    { "RefScalingTest7", {{"ResizeMode", "2"}, {"EnableRestoration", "1"}, {"EncoderMode", "7"}}, default_test_vectors },
-    // reference scaling tests for dynamic mode
+    { "RefScalingTest2", {{"ResizeMode", "2"}, {"ScreenContentMode", "1"}, {"EncoderMode", "7"}}, screen_test_vectors },
 
     // reference scaling tests with super resolution
-    { "SuperResRefScalingTest0", {{"SuperresMode", "2"}, {"ResizeMode", "2"}, {"EncoderMode", "7"}}, default_test_vectors },
+    { "SuperResRefScalingTest1", {{"SuperresMode", "2"}, {"ResizeMode", "2"}, {"EncoderMode", "7"}}, default_test_vectors },
 
     // test by using a dummy source of color bar
     {"DummySrcTest1", {{"EncoderMode", "7"}}, dummy_test_vectors},
@@ -510,23 +462,6 @@ static const std::vector<EncTestSetting> generate_super_res_settings() {
             count++;
         }
     }
-#ifdef ENBALE_16BIT_PIPELINE_TEST
-    // 16-bit test cases
-    for (size_t i = 8; i <= 16; i++) {
-        for (size_t j = 8; j <= 16; j++) {
-            string idx = std::to_string(count);
-            string name = test_prefix + idx;
-            EncTestSetting setting{name,
-                                   {{"SuperresMode", "1"},
-                                    {"SuperresDenom", std::to_string(i)},
-                                    {"SuperresKfDenom", std::to_string(j)},
-                                    {"Encoder16BitPipeline", "1"}},
-                                   default_test_vectors};
-            settings.push_back(setting);
-            count++;
-        }
-    }
-#endif  // ENBALE_16BIT_PIPELINE_TEST
     return settings;
 }
 
@@ -593,25 +528,7 @@ static const std::vector<EncTestSetting> generate_ref_scaling_settings() {
             count++;
         }
     }
-#ifdef ENBALE_16BIT_PIPELINE_TEST
-    // 16-bit test cases
-    for (size_t i = 8; i <= 16; i++) {
-        for (size_t j = 8; j <= 16; j++) {
-            string idx = std::to_string(count);
-            string name = test_prefix + idx;
-            EncTestSetting setting{name,
-                                   {{"ResizeMode", "1"},
-                                    {"ResizeDenom", std::to_string(i)},
-                                    {"ResizeKfDenom", std::to_string(j)}},
-                                   {"Encoder16BitPipeline", "1"}},
-                default_test_vectors
-        };
-        settings.push_back(setting);
-        count++;
-    }
-}
-#endif  // ENBALE_16BIT_PIPELINE_TEST
-return settings;
+    return settings;
 }
 
 INSTANTIATE_TEST_SUITE_P(REFSCALINGTEST, SuperResTest,

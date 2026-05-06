@@ -15,7 +15,7 @@
 #include "definitions.h"
 #include "mem_neon.h"
 
-int64_t svt_av1_block_error_neon(const TranLow *coeff, const TranLow *dqcoeff, intptr_t block_size, int64_t *ssz) {
+int64_t svt_av1_block_error_neon(const TranLow* coeff, const TranLow* dqcoeff, intptr_t block_size, int64_t* ssz) {
     int64x2_t error   = vdupq_n_s64(0);
     int64x2_t sqcoeff = vdupq_n_s64(0);
 

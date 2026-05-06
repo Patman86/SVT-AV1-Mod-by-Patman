@@ -53,10 +53,11 @@ static INLINE TransformationType get_wmtype(const WarpedMotionParams* gm) {
         !gm->wmmat[3]) {
         return ((!gm->wmmat[1] && !gm->wmmat[0]) ? IDENTITY : TRANSLATION);
     }
-    if (gm->wmmat[2] == gm->wmmat[5] && gm->wmmat[3] == -gm->wmmat[4])
+    if (gm->wmmat[2] == gm->wmmat[5] && gm->wmmat[3] == -gm->wmmat[4]) {
         return ROTZOOM;
-    else
+    } else {
         return AFFINE;
+    }
 }
 
 void svt_av1_convert_model_to_params(const double* params, WarpedMotionParams* model) {
@@ -105,8 +106,10 @@ static void force_wmtype(WarpedMotionParams* wm, TransformationType wmtype) {
         wm->wmmat[4] = -wm->wmmat[3];
         wm->wmmat[5] = wm->wmmat[2];
         AOM_FALLTHROUGH_INTENDED;
-    case AFFINE: break;
-    default: assert(0);
+    case AFFINE:
+        break;
+    default:
+        assert(0);
     }
     wm->wmtype = wmtype;
 }
@@ -256,16 +259,20 @@ static void correspondence_from_mvs(PictureParentControlSet* pcs, Correspondence
             for (int i = 0; i < num_blocks_per_sb; i++) {
                 // If the starting x/y position is outside the frame, don't include it
                 if ((b64_x * pcs->scs->b64_size) + (i % blocks_per_line) * block_size >= pcs->aligned_width ||
-                    (b64_y * pcs->scs->b64_size) + (i / blocks_per_line) * block_size >= pcs->aligned_height)
+                    (b64_y * pcs->scs->b64_size) + (i / blocks_per_line) * block_size >= pcs->aligned_height) {
                     continue;
+                }
                 uint8_t n_idx = starting_n_idx + i;
 
                 if (!pcs->enable_me_8x8) {
-                    if (n_idx >= MAX_SB64_PU_COUNT_NO_8X8)
+                    if (n_idx >= MAX_SB64_PU_COUNT_NO_8X8) {
                         n_idx = me_idx_85_8x8_to_16x16_conversion[n_idx - MAX_SB64_PU_COUNT_NO_8X8];
-                    if (!pcs->enable_me_16x16)
-                        if (n_idx >= MAX_SB64_PU_COUNT_WO_16X16)
+                    }
+                    if (!pcs->enable_me_16x16) {
+                        if (n_idx >= MAX_SB64_PU_COUNT_WO_16X16) {
                             n_idx = me_idx_16x16_to_parent_32x32_conversion[n_idx - MAX_SB64_PU_COUNT_WO_16X16];
+                        }
+                    }
                 }
 
                 uint8_t      total_me_cnt  = pcs->pa_me_data->me_results[b64_idx]->total_me_candidate_index[n_idx];
@@ -280,8 +287,9 @@ static void correspondence_from_mvs(PictureParentControlSet* pcs, Correspondence
                     assert(me_cand->direction <= 2);
 
                     // don't consider bipred candidates
-                    if (me_cand->direction == 2)
+                    if (me_cand->direction == 2) {
                         continue;
+                    }
 
                     if (me_cand->direction == 0) {
                         if (list_idx == me_cand->ref0_list && ref_idx == me_cand->ref_idx_l0) {

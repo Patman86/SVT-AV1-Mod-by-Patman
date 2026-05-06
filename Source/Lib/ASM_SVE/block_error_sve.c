@@ -16,7 +16,7 @@
 #include "mem_neon.h"
 #include "neon_sve_bridge.h"
 
-int64_t svt_av1_block_error_sve(const tran_low_t *coeff, const tran_low_t *dqcoeff, intptr_t block_size, int64_t *ssz) {
+int64_t svt_av1_block_error_sve(const tran_low_t* coeff, const tran_low_t* dqcoeff, intptr_t block_size, int64_t* ssz) {
     int64x2_t error[2]   = {vdupq_n_s64(0), vdupq_n_s64(0)};
     int64x2_t sqcoeff[2] = {vdupq_n_s64(0), vdupq_n_s64(0)};
 

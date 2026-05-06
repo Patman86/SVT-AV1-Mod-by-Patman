@@ -31,10 +31,10 @@
 // In contrast, the output of the non-d16 functions will not be further rounded,
 // so we *should* use ROUND_POWER_OF_TWO there.
 
-void svt_aom_lowbd_blend_a64_d16_mask_c(uint8_t *dst, uint32_t dst_stride, const CONV_BUF_TYPE *src0,
-                                        uint32_t src0_stride, const CONV_BUF_TYPE *src1, uint32_t src1_stride,
-                                        const uint8_t *mask, uint32_t mask_stride, int w, int h, int subw, int subh,
-                                        ConvolveParams *conv_params) {
+void svt_aom_lowbd_blend_a64_d16_mask_c(uint8_t* dst, uint32_t dst_stride, const CONV_BUF_TYPE* src0,
+                                        uint32_t src0_stride, const CONV_BUF_TYPE* src1, uint32_t src1_stride,
+                                        const uint8_t* mask, uint32_t mask_stride, int w, int h, int subw, int subh,
+                                        ConvolveParams* conv_params) {
     int       i, j;
     const int bd           = 8;
     const int offset_bits  = bd + 2 * FILTER_BITS - conv_params->round_0;
@@ -42,8 +42,8 @@ void svt_aom_lowbd_blend_a64_d16_mask_c(uint8_t *dst, uint32_t dst_stride, const
         (1 << (offset_bits - conv_params->round_1 - 1));
     const int round_bits = 2 * FILTER_BITS - conv_params->round_0 - conv_params->round_1;
 
-    assert(IMPLIES((void *)src0 == dst, src0_stride == dst_stride));
-    assert(IMPLIES((void *)src1 == dst, src1_stride == dst_stride));
+    assert(IMPLIES((void*)src0 == dst, src0_stride == dst_stride));
+    assert(IMPLIES((void*)src1 == dst, src1_stride == dst_stride));
 
     assert(h >= 4);
     assert(w >= 4);
@@ -102,15 +102,15 @@ void svt_aom_lowbd_blend_a64_d16_mask_c(uint8_t *dst, uint32_t dst_stride, const
     }
 }
 
-void svt_aom_highbd_blend_a64_d16_mask_c(uint8_t *dst_8, uint32_t dst_stride, const CONV_BUF_TYPE *src0,
-                                         uint32_t src0_stride, const CONV_BUF_TYPE *src1, uint32_t src1_stride,
-                                         const uint8_t *mask, uint32_t mask_stride, int w, int h, int subw, int subh,
-                                         ConvolveParams *conv_params, const int bd) {
+void svt_aom_highbd_blend_a64_d16_mask_c(uint8_t* dst_8, uint32_t dst_stride, const CONV_BUF_TYPE* src0,
+                                         uint32_t src0_stride, const CONV_BUF_TYPE* src1, uint32_t src1_stride,
+                                         const uint8_t* mask, uint32_t mask_stride, int w, int h, int subw, int subh,
+                                         ConvolveParams* conv_params, const int bd) {
     const int offset_bits  = bd + 2 * FILTER_BITS - conv_params->round_0;
     const int round_offset = (1 << (offset_bits - conv_params->round_1)) +
         (1 << (offset_bits - conv_params->round_1 - 1));
     const int round_bits = 2 * FILTER_BITS - conv_params->round_0 - conv_params->round_1;
-    uint16_t *dst        = (uint16_t *)dst_8;
+    uint16_t* dst        = (uint16_t*)dst_8;
 
     assert(IMPLIES(src0 == dst, src0_stride == dst_stride));
     assert(IMPLIES(src1 == dst, src1_stride == dst_stride));
@@ -125,9 +125,15 @@ void svt_aom_highbd_blend_a64_d16_mask_c(uint8_t *dst_8, uint32_t dst_stride, co
     unsigned int saturation_value;
     switch (bd) {
     case 8:
-    default: saturation_value = 255; break;
-    case 10: saturation_value = 1023; break;
-    case 12: saturation_value = 4095; break;
+    default:
+        saturation_value = 255;
+        break;
+    case 10:
+        saturation_value = 1023;
+        break;
+    case 12:
+        saturation_value = 4095;
+        break;
     }
 
     if (subw == 0 && subh == 0) {
@@ -198,8 +204,8 @@ void svt_aom_highbd_blend_a64_d16_mask_c(uint8_t *dst_8, uint32_t dst_stride, co
 // as described for AOM_BLEND_A64 in aom_dsp/blend.h. src0 or src1 can
 // be the same as dst, or dst can be different from both sources.
 
-void svt_aom_blend_a64_mask_c(uint8_t *dst, uint32_t dst_stride, const uint8_t *src0, uint32_t src0_stride,
-                              const uint8_t *src1, uint32_t src1_stride, const uint8_t *mask, uint32_t mask_stride,
+void svt_aom_blend_a64_mask_c(uint8_t* dst, uint32_t dst_stride, const uint8_t* src0, uint32_t src0_stride,
+                              const uint8_t* src1, uint32_t src1_stride, const uint8_t* mask, uint32_t mask_stride,
                               int w, int h, int subw, int subh) {
     int i, j;
 
@@ -245,13 +251,13 @@ void svt_aom_blend_a64_mask_c(uint8_t *dst, uint32_t dst_stride, const uint8_t *
     }
 }
 
-void svt_aom_highbd_blend_a64_mask_c(uint8_t *dst_8, uint32_t dst_stride, const uint8_t *src0_8, uint32_t src0_stride,
-                                     const uint8_t *src1_8, uint32_t src1_stride, const uint8_t *mask,
+void svt_aom_highbd_blend_a64_mask_c(uint8_t* dst_8, uint32_t dst_stride, const uint8_t* src0_8, uint32_t src0_stride,
+                                     const uint8_t* src1_8, uint32_t src1_stride, const uint8_t* mask,
                                      uint32_t mask_stride, int w, int h, int subw, int subh, int bd) {
     int             i, j;
-    uint16_t       *dst  = (uint16_t *)dst_8;
-    const uint16_t *src0 = (uint16_t *)src0_8;
-    const uint16_t *src1 = (uint16_t *)src1_8;
+    uint16_t*       dst  = (uint16_t*)dst_8;
+    const uint16_t* src0 = (uint16_t*)src0_8;
+    const uint16_t* src1 = (uint16_t*)src1_8;
     (void)bd;
 
     assert(IMPLIES(src0 == dst, src0_stride == dst_stride));
@@ -299,8 +305,8 @@ void svt_aom_highbd_blend_a64_mask_c(uint8_t *dst_8, uint32_t dst_stride, const 
 }
 
 /*Vertical mask related blend functions*/
-void svt_aom_blend_a64_vmask_c(uint8_t *dst, uint32_t dst_stride, const uint8_t *src0, uint32_t src0_stride,
-                               const uint8_t *src1, uint32_t src1_stride, const uint8_t *mask, int w, int h) {
+void svt_aom_blend_a64_vmask_c(uint8_t* dst, uint32_t dst_stride, const uint8_t* src0, uint32_t src0_stride,
+                               const uint8_t* src1, uint32_t src1_stride, const uint8_t* mask, int w, int h) {
     int i, j;
 
     assert(IMPLIES(src0 == dst, src0_stride == dst_stride));
@@ -320,8 +326,8 @@ void svt_aom_blend_a64_vmask_c(uint8_t *dst, uint32_t dst_stride, const uint8_t 
 }
 
 /*Horizontal mask related blend functions*/
-void svt_aom_blend_a64_hmask_c(uint8_t *dst, uint32_t dst_stride, const uint8_t *src0, uint32_t src0_stride,
-                               const uint8_t *src1, uint32_t src1_stride, const uint8_t *mask, int w, int h) {
+void svt_aom_blend_a64_hmask_c(uint8_t* dst, uint32_t dst_stride, const uint8_t* src0, uint32_t src0_stride,
+                               const uint8_t* src1, uint32_t src1_stride, const uint8_t* mask, int w, int h) {
     int i, j;
 
     assert(IMPLIES(src0 == dst, src0_stride == dst_stride));

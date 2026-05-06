@@ -83,7 +83,7 @@ Select the Variance Boost formula (the "curve") used to boost superblocks based 
 
 |Image|Description|
 |-|-|
-|![orig](./img/vb_rock_sb_orig.png)  | 1. Variance Boost (`svt_variance_adjust_qp()`) loops over all 64x64 superblocks; first horizontally, then vertically. |
+|![orig](./img/vb_rock_sb_orig.png)  | 1. Variance Boost (`svt_av1_variance_adjust_qp()`) loops over all 64x64 superblocks; first horizontally, then vertically. |
 |![grid](./img/vb_rock_sb_grid.png)  | 2. The algorithm then splits each superblock into 8x8 subblocks and calculates the variance of each one of them, receiving 64 values in total. |
 |![var](./img/vb_rock_sb_var.png)    | 3. Each subblock's variance correlates to how much contrast there is for that area. Lower values equate to less contrast, and any value below 256 (for curves 0 and 1), or 1024 (for curve 2) is considered *low variance*. In the superblock pictured, more than half of its subblocks are considered low variance when using curve 0.  |
 |![ord](./img/vb_rock_sb_var_ord.png)| 4. In `av1_get_deltaq_sb_variance_boost()`, these values are then ranked from lowest to highest variance. Then, three of these values are picked and averaged in a 1:2:1 ratio; in this case, octiles 3, 4, and 5 (i.e. the values at the end of the 3rd, 4th, and 5th row highlighted in magenta). |
@@ -100,7 +100,7 @@ Select the Variance Boost formula (the "curve") used to boost superblocks based 
 ## Notes
 
 The feature settings that are described in this document were compiled at
-v4.0.1 of the code and may not reflect the current status of the code. The
+v4.1.0 of the code and may not reflect the current status of the code. The
 description in this document represents an example showing how features would
 interact with the SVT architecture. For the most up-to-date settings, it's
 recommended to review the section of the code implementing this feature.

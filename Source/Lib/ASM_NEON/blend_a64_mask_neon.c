@@ -43,8 +43,8 @@ static inline uint8x8_t alpha_blend_a64_u8x8(uint8x8_t m, uint8x8_t a, uint8x8_t
     return vrshrn_n_u16(blend_u16, AOM_BLEND_A64_ROUND_BITS);
 }
 
-void svt_aom_blend_a64_hmask_neon(uint8_t *dst, uint32_t dst_stride, const uint8_t *src0, uint32_t src0_stride,
-                                  const uint8_t *src1, uint32_t src1_stride, const uint8_t *mask, int w, int h) {
+void svt_aom_blend_a64_hmask_neon(uint8_t* dst, uint32_t dst_stride, const uint8_t* src0, uint32_t src0_stride,
+                                  const uint8_t* src1, uint32_t src1_stride, const uint8_t* mask, int w, int h) {
     assert(IMPLIES(src0 == dst, src0_stride == dst_stride));
     assert(IMPLIES(src1 == dst, src1_stride == dst_stride));
 
@@ -103,7 +103,7 @@ void svt_aom_blend_a64_hmask_neon(uint8_t *dst, uint32_t dst_stride, const uint8
         } while (h != 0);
     } else {
         assert(w == 2);
-        const uint8x8_t m0 = vreinterpret_u8_u16(vld1_dup_u16((uint16_t *)mask));
+        const uint8x8_t m0 = vreinterpret_u8_u16(vld1_dup_u16((uint16_t*)mask));
         do {
             uint8x8_t s0 = load_u8_2x2(src0, src0_stride);
             uint8x8_t s1 = load_u8_2x2(src1, src1_stride);
@@ -120,8 +120,8 @@ void svt_aom_blend_a64_hmask_neon(uint8_t *dst, uint32_t dst_stride, const uint8
     }
 }
 
-void svt_aom_blend_a64_vmask_neon(uint8_t *dst, uint32_t dst_stride, const uint8_t *src0, uint32_t src0_stride,
-                                  const uint8_t *src1, uint32_t src1_stride, const uint8_t *mask, int w, int h) {
+void svt_aom_blend_a64_vmask_neon(uint8_t* dst, uint32_t dst_stride, const uint8_t* src0, uint32_t src0_stride,
+                                  const uint8_t* src1, uint32_t src1_stride, const uint8_t* mask, int w, int h) {
     assert(IMPLIES(src0 == dst, src0_stride == dst_stride));
     assert(IMPLIES(src1 == dst, src1_stride == dst_stride));
 
@@ -187,7 +187,7 @@ void svt_aom_blend_a64_vmask_neon(uint8_t *dst, uint32_t dst_stride, const uint8
         assert(w == 2);
         do {
             uint16x4_t m0 = vdup_n_u16(0);
-            m0            = vld1_lane_u16((uint16_t *)mask, m0, 0);
+            m0            = vld1_lane_u16((uint16_t*)mask, m0, 0);
             uint8x8_t m   = vzip_u8(vreinterpret_u8_u16(m0), vreinterpret_u8_u16(m0)).val[0];
             uint8x8_t s0  = load_u8_2x2(src0, src0_stride);
             uint8x8_t s1  = load_u8_2x2(src1, src1_stride);
@@ -224,10 +224,10 @@ static inline uint8x8_t alpha_blend_a64_d16_u16x8(uint16x8_t m, uint16x8_t a, ui
     return vqrshrn_n_u16(res, 2 * FILTER_BITS - ROUND0_BITS - COMPOUND_ROUND1_BITS);
 }
 
-void svt_aom_lowbd_blend_a64_d16_mask_neon(uint8_t *dst, uint32_t dst_stride, const CONV_BUF_TYPE *src0,
-                                           uint32_t src0_stride, const CONV_BUF_TYPE *src1, uint32_t src1_stride,
-                                           const uint8_t *mask, uint32_t mask_stride, int w, int h, int subw, int subh,
-                                           ConvolveParams *conv_params) {
+void svt_aom_lowbd_blend_a64_d16_mask_neon(uint8_t* dst, uint32_t dst_stride, const CONV_BUF_TYPE* src0,
+                                           uint32_t src0_stride, const CONV_BUF_TYPE* src1, uint32_t src1_stride,
+                                           const uint8_t* mask, uint32_t mask_stride, int w, int h, int subw, int subh,
+                                           ConvolveParams* conv_params) {
     (void)conv_params;
 
     const int bd           = 8;
@@ -236,8 +236,8 @@ void svt_aom_lowbd_blend_a64_d16_mask_neon(uint8_t *dst, uint32_t dst_stride, co
         (1 << (offset_bits - COMPOUND_ROUND1_BITS - 1));
     const uint16x8_t offset_vec = vdupq_n_u16(round_offset);
 
-    assert(IMPLIES((void *)src0 == dst, src0_stride == dst_stride));
-    assert(IMPLIES((void *)src1 == dst, src1_stride == dst_stride));
+    assert(IMPLIES((void*)src0 == dst, src0_stride == dst_stride));
+    assert(IMPLIES((void*)src1 == dst, src1_stride == dst_stride));
 
     assert(h >= 4);
     assert(w >= 4);
@@ -412,8 +412,8 @@ void svt_aom_lowbd_blend_a64_d16_mask_neon(uint8_t *dst, uint32_t dst_stride, co
     }
 }
 
-void svt_aom_blend_a64_mask_neon(uint8_t *dst, uint32_t dst_stride, const uint8_t *src0, uint32_t src0_stride,
-                                 const uint8_t *src1, uint32_t src1_stride, const uint8_t *mask, uint32_t mask_stride,
+void svt_aom_blend_a64_mask_neon(uint8_t* dst, uint32_t dst_stride, const uint8_t* src0, uint32_t src0_stride,
+                                 const uint8_t* src1, uint32_t src1_stride, const uint8_t* mask, uint32_t mask_stride,
                                  int w, int h, int subw, int subh) {
     int i;
 

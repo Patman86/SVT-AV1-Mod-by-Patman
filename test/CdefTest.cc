@@ -1068,7 +1068,7 @@ class CDEFSearchOneDualTest
     }
 
     void RunTest(int num_loop) {
-        // setup enviroment
+        // setup environment
         const int start_gi = 0;
         const int nb_strengths = 8;
         int lvl_luma_ref[CDEF_MAX_STRENGTHS],

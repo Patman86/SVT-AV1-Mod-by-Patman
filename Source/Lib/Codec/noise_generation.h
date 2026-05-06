@@ -15,6 +15,6 @@
 #include "definitions.h"
 #include "EbSvtAv1Enc.h"
 
-EbErrorType svt_av1_generate_noise_table(EbSvtAv1EncConfiguration *config);
+EbErrorType svt_av1_generate_noise_table(EbSvtAv1EncConfiguration* config);
 
-#endif // EbNoiseGeneration_h
+#endif // EbPhotonNoiseTable_h

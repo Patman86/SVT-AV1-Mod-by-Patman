@@ -36,14 +36,14 @@ typedef enum EbAv1MetadataType {
 /*!\brief Metadata payload. */
 typedef struct SvtMetadata {
     uint32_t type; /**< Metadata type */
-    uint8_t *payload; /**< Metadata payload data */
+    uint8_t* payload; /**< Metadata payload data */
     size_t   sz; /**< Metadata payload size */
 } SvtMetadataT;
 
 /*!\brief Array of aom_metadata structs for an image. */
 typedef struct SvtMetadataArray {
     size_t         sz; /* Number of metadata structs in the list */
-    SvtMetadataT **metadata_array; /* Array of metadata structs */
+    SvtMetadataT** metadata_array; /* Array of metadata structs */
 } SvtMetadataArrayT;
 
 /*!\brief Frame size struct in metadata. */
@@ -70,7 +70,7 @@ typedef struct SvtMetadataFrameSize {
  * \return Returns the newly allocated SvtMetadataT struct. If data is NULL,
  * sz is 0, or memory allocation fails, it returns NULL.
  */
-EB_API SvtMetadataT *svt_metadata_alloc(const uint32_t type, const uint8_t *data, const size_t sz);
+EB_API SvtMetadataT* svt_metadata_alloc(const uint32_t type, const uint8_t* data, const size_t sz);
 
 /*!\brief Free metadata struct.
  *
@@ -78,7 +78,7 @@ EB_API SvtMetadataT *svt_metadata_alloc(const uint32_t type, const uint8_t *data
  *
  * \param[in]    ptr       Metadata struct pointer
  */
-EB_API void svt_metadata_free(void *ptr);
+EB_API void svt_metadata_free(void* ptr);
 
 /*!\brief Alloc memory for SvtMetadataArrayT struct.
  *
@@ -89,7 +89,7 @@ EB_API void svt_metadata_free(void *ptr);
  *
  * \param[in]    sz       Size of internal metadata list buffer
  */
-EB_API SvtMetadataArrayT *svt_metadata_array_alloc(const size_t sz);
+EB_API SvtMetadataArrayT* svt_metadata_array_alloc(const size_t sz);
 
 /*!\brief Free metadata array struct.
  *
@@ -97,7 +97,7 @@ EB_API SvtMetadataArrayT *svt_metadata_array_alloc(const size_t sz);
  *
  * \param[in]    arr       Metadata array struct pointer
  */
-EB_API void svt_metadata_array_free(void *arr);
+EB_API void svt_metadata_array_free(void* arr);
 
 /*!\brief Add metadata to image.
  *
@@ -113,7 +113,7 @@ EB_API void svt_metadata_array_free(void *arr);
  * \return Returns 0 on success. If buffer or data is NULL, sz is 0, or memory
  * allocation fails, it returns -1.
  */
-EB_API int svt_add_metadata(struct EbBufferHeaderType *buffer, const uint32_t type, const uint8_t *data,
+EB_API int svt_add_metadata(struct EbBufferHeaderType* buffer, const uint32_t type, const uint8_t* data,
                             const size_t sz);
 
 /*!\brief Return metadata size.
@@ -123,7 +123,7 @@ EB_API int svt_add_metadata(struct EbBufferHeaderType *buffer, const uint32_t ty
  * \param[in]    metadata       Metadata array struct pointer
  * \param[in]    type           Metadata type descriptor
  */
-EB_API size_t svt_metadata_size(SvtMetadataArrayT *metadata, const EbAv1MetadataType type);
+EB_API size_t svt_metadata_size(SvtMetadataArrayT* metadata, const EbAv1MetadataType type);
 
 /*!\brief Parse string into EbSvtAv1MasteringDisplayInfo struct.
  *
@@ -135,7 +135,7 @@ EB_API size_t svt_metadata_size(SvtMetadataArrayT *metadata, const EbAv1Metadata
  *
  * \return Returns 1 on success. 0 on failure.
  */
-EB_API int svt_aom_parse_mastering_display(struct EbSvtAv1MasteringDisplayInfo *mdi, const char *md_str);
+EB_API int svt_aom_parse_mastering_display(struct EbSvtAv1MasteringDisplayInfo* mdi, const char* md_str);
 
 /*!\brief Parse string into EbContentLightLevel struct.
  *
@@ -147,7 +147,7 @@ EB_API int svt_aom_parse_mastering_display(struct EbSvtAv1MasteringDisplayInfo *
  *
  * \return Returns 1 on success. 0 on failure.
  */
-EB_API int svt_aom_parse_content_light_level(struct EbContentLightLevel *cll, const char *cll_str);
+EB_API int svt_aom_parse_content_light_level(struct EbContentLightLevel* cll, const char* cll_str);
 
 #ifdef __cplusplus
 }

@@ -24,26 +24,24 @@ extern "C" {
      * ModeDecisionSb
      *   performs CL (SB)
      *******************************************/
-void svt_aom_mode_decision_sb_light_pd0(SequenceControlSet *scs, PictureControlSet *pcs, ModeDecisionContext *ctx,
-                                        const MdcSbData *const mdcResultTbPtr);
-void svt_aom_mode_decision_sb_light_pd1(SequenceControlSet *scs, PictureControlSet *pcs, ModeDecisionContext *ctx,
-                                        const MdcSbData *const mdcResultTbPtr);
-void svt_aom_mode_decision_sb(SequenceControlSet *scs, PictureControlSet *pcs, ModeDecisionContext *ctx,
-                              const MdcSbData *const mdcResultTbPtr);
-extern void svt_aom_encode_decode(SequenceControlSet *scs, PictureControlSet *pcs, SuperBlock *sb_ptr, uint32_t sb_addr,
-                                  uint32_t sb_origin_x, uint32_t sb_origin_y, EncDecContext *ed_ctx);
-extern EbErrorType svt_aom_encdec_update(SequenceControlSet *scs, PictureControlSet *pcs, SuperBlock *sb_ptr,
-                                         uint32_t sb_addr, uint32_t sb_origin_x, uint32_t sb_origin_y,
-                                         EncDecContext *ed_ctx);
+bool svt_aom_pick_partition_lpd0(SequenceControlSet* scs, PictureControlSet* pcs, ModeDecisionContext* ctx, MdScan* mds,
+                                 PC_TREE* pc_tree, int mi_row, int mi_col);
+void svt_aom_init_sb_data(SequenceControlSet* scs, PictureControlSet* pcs, ModeDecisionContext* ctx);
+bool svt_aom_pick_partition(SequenceControlSet* scs, PictureControlSet* pcs, ModeDecisionContext* ctx, MdScan* mds,
+                            PC_TREE* pc_tree, int mi_row, int mi_col);
+void svt_aom_pick_partition_lpd1(SequenceControlSet* scs, PictureControlSet* pcs, ModeDecisionContext* ctx, MdScan* mds,
+                                 PC_TREE* pc_tree, int mi_row, int mi_col);
+void svt_aom_encode_sb(SequenceControlSet* scs, PictureControlSet* pcs, EncDecContext* ctx, SuperBlock* sb_ptr,
+                       PC_TREE* pc_tree, PARTITION_TREE* ptree, int mi_row, int mi_col);
 
-void svt_aom_store16bit_input_src(EbPictureBufferDesc *input_sample16bit_buffer, PictureControlSet *pcs, uint32_t sb_x,
+void svt_aom_store16bit_input_src(EbPictureBufferDesc* input_sample16bit_buffer, PictureControlSet* pcs, uint32_t sb_x,
                                   uint32_t sb_y, uint32_t sb_w, uint32_t sb_h);
 
-void svt_aom_residual_kernel(uint8_t *input, uint32_t input_offset, uint32_t input_stride, uint8_t *pred,
-                             uint32_t pred_offset, uint32_t pred_stride, int16_t *residual, uint32_t residual_offset,
+void svt_aom_residual_kernel(uint8_t* input, uint32_t input_offset, uint32_t input_stride, uint8_t* pred,
+                             uint32_t pred_offset, uint32_t pred_stride, int16_t* residual, uint32_t residual_offset,
                              uint32_t residual_stride, bool hbd, uint32_t area_width, uint32_t area_height);
 
-void svt_aom_move_blk_data(PictureControlSet *pcs, EncDecContext *ed_ctx, BlkStruct *src_cu, EcBlkStruct *dst_cu);
+void svt_aom_move_blk_data(PictureControlSet* pcs, EncDecContext* ed_ctx, BlkStruct* src_cu, EcBlkStruct* dst_cu);
 #ifdef __cplusplus
 }
 #endif

@@ -25,7 +25,7 @@
 // This file implements a version of svt_sad_loop_kernel that is specifically
 // tuned for the Neoverse V2 core.
 
-static inline uint32x4_t sad8xhx4d_neoverse_v2(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
+static inline uint32x4_t sad8xhx4d_neoverse_v2(const uint8_t* src, uint32_t src_stride, const uint8_t* ref,
                                                uint32_t ref_stride, uint32_t h) {
     uint16x8_t sum[4];
     sum[0] = vdupq_n_u16(0);
@@ -51,9 +51,9 @@ static inline uint32x4_t sad8xhx4d_neoverse_v2(const uint8_t *src, uint32_t src_
     return horizontal_add_4d_u16x8(sum);
 }
 
-static inline void svt_sad_loop_kernel8xh_neoverse_v2(uint8_t *src, uint32_t src_stride, uint8_t *ref,
-                                                      uint32_t ref_stride, uint32_t block_height, uint64_t *best_sad,
-                                                      int16_t *x_search_center, int16_t *y_search_center,
+static inline void svt_sad_loop_kernel8xh_neoverse_v2(uint8_t* src, uint32_t src_stride, uint8_t* ref,
+                                                      uint32_t ref_stride, uint32_t block_height, uint64_t* best_sad,
+                                                      int16_t* x_search_center, int16_t* y_search_center,
                                                       uint32_t src_stride_raw, int16_t search_area_width,
                                                       int16_t search_area_height) {
     for (int y_search_index = 0; y_search_index < search_area_height; y_search_index++) {
@@ -73,7 +73,7 @@ static inline void svt_sad_loop_kernel8xh_neoverse_v2(uint8_t *src, uint32_t src
     }
 }
 
-static inline uint32x4_t sad16xhx4d_neoverse_v2(const uint8_t *src, int src_stride, const uint8_t *ref, int ref_stride,
+static inline uint32x4_t sad16xhx4d_neoverse_v2(const uint8_t* src, int src_stride, const uint8_t* ref, int ref_stride,
                                                 int h) {
     uint32x4_t sum[4] = {vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0)};
 
@@ -94,9 +94,9 @@ static inline uint32x4_t sad16xhx4d_neoverse_v2(const uint8_t *src, int src_stri
     return horizontal_add_4d_u32x4(sum);
 }
 
-static inline void svt_sad_loop_kernel16xh_neoverse_v2(uint8_t *src, uint32_t src_stride, uint8_t *ref,
-                                                       uint32_t ref_stride, uint32_t block_height, uint64_t *best_sad,
-                                                       int16_t *x_search_center, int16_t *y_search_center,
+static inline void svt_sad_loop_kernel16xh_neoverse_v2(uint8_t* src, uint32_t src_stride, uint8_t* ref,
+                                                       uint32_t ref_stride, uint32_t block_height, uint64_t* best_sad,
+                                                       int16_t* x_search_center, int16_t* y_search_center,
                                                        uint32_t src_stride_raw, uint8_t skip_search_line,
                                                        int16_t search_area_width, int16_t search_area_height) {
     int16_t y_search_start = 0;
@@ -124,10 +124,10 @@ static inline void svt_sad_loop_kernel16xh_neoverse_v2(uint8_t *src, uint32_t sr
     }
 }
 
-static inline void svt_sad_loop_kernel16xh_small_neoverse_v2(uint8_t *src, uint32_t src_stride, uint8_t *ref,
+static inline void svt_sad_loop_kernel16xh_small_neoverse_v2(uint8_t* src, uint32_t src_stride, uint8_t* ref,
                                                              uint32_t ref_stride, uint32_t block_height,
-                                                             uint64_t *best_sad, int16_t *x_search_center,
-                                                             int16_t *y_search_center, uint32_t src_stride_raw,
+                                                             uint64_t* best_sad, int16_t* x_search_center,
+                                                             int16_t* y_search_center, uint32_t src_stride_raw,
                                                              uint8_t skip_search_line, int16_t search_area_width,
                                                              int16_t search_area_height) {
     int16_t y_search_start = 0;
@@ -158,7 +158,7 @@ static inline void svt_sad_loop_kernel16xh_small_neoverse_v2(uint8_t *src, uint3
     }
 }
 
-static inline uint32x4_t sadwxhx4d_large_neoverse_v2(const uint8_t *src, int src_stride, const uint8_t *ref,
+static inline uint32x4_t sadwxhx4d_large_neoverse_v2(const uint8_t* src, int src_stride, const uint8_t* ref,
                                                      int ref_stride, int w, int h) {
     uint32x4_t sum_lo[4] = {vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0)};
     uint32x4_t sum_hi[4] = {vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0)};
@@ -166,8 +166,8 @@ static inline uint32x4_t sadwxhx4d_large_neoverse_v2(const uint8_t *src, int src
 
     do {
         int            j       = w;
-        const uint8_t *ref_ptr = ref;
-        const uint8_t *src_ptr = src;
+        const uint8_t* ref_ptr = ref;
+        const uint8_t* src_ptr = src;
 
         uint8x16_t r0 = vld1q_u8(ref_ptr);
 
@@ -207,14 +207,14 @@ static inline uint32x4_t sadwxhx4d_large_neoverse_v2(const uint8_t *src, int src
     return horizontal_add_4d_u32x4(sum);
 }
 
-static inline uint32x4_t sad32xhx4d_neoverse_v2(const uint8_t *src, int src_stride, const uint8_t *ref, int ref_stride,
+static inline uint32x4_t sad32xhx4d_neoverse_v2(const uint8_t* src, int src_stride, const uint8_t* ref, int ref_stride,
                                                 int h) {
     return sadwxhx4d_large_neoverse_v2(src, src_stride, ref, ref_stride, 32, h);
 }
 
-static inline void svt_sad_loop_kernel32xh_neoverse_v2(uint8_t *src, uint32_t src_stride, uint8_t *ref,
-                                                       uint32_t ref_stride, uint32_t block_height, uint64_t *best_sad,
-                                                       int16_t *x_search_center, int16_t *y_search_center,
+static inline void svt_sad_loop_kernel32xh_neoverse_v2(uint8_t* src, uint32_t src_stride, uint8_t* ref,
+                                                       uint32_t ref_stride, uint32_t block_height, uint64_t* best_sad,
+                                                       int16_t* x_search_center, int16_t* y_search_center,
                                                        uint32_t src_stride_raw, int16_t search_area_width,
                                                        int16_t search_area_height) {
     for (int16_t y_search_index = 0; y_search_index < search_area_height; y_search_index++) {
@@ -231,10 +231,10 @@ static inline void svt_sad_loop_kernel32xh_neoverse_v2(uint8_t *src, uint32_t sr
     }
 }
 
-static inline void svt_sad_loop_kernel32xh_small_neoverse_v2(uint8_t *src, uint32_t src_stride, uint8_t *ref,
+static inline void svt_sad_loop_kernel32xh_small_neoverse_v2(uint8_t* src, uint32_t src_stride, uint8_t* ref,
                                                              uint32_t ref_stride, uint32_t block_height,
-                                                             uint64_t *best_sad, int16_t *x_search_center,
-                                                             int16_t *y_search_center, uint32_t src_stride_raw,
+                                                             uint64_t* best_sad, int16_t* x_search_center,
+                                                             int16_t* y_search_center, uint32_t src_stride_raw,
                                                              int16_t search_area_width, int16_t search_area_height) {
     for (int16_t y_search_index = 0; y_search_index < search_area_height; y_search_index++) {
         int16_t x_search_index;
@@ -253,14 +253,14 @@ static inline void svt_sad_loop_kernel32xh_small_neoverse_v2(uint8_t *src, uint3
     }
 }
 
-static inline uint32x4_t sad64xhx4d_neoverse_v2(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
+static inline uint32x4_t sad64xhx4d_neoverse_v2(const uint8_t* src, uint32_t src_stride, const uint8_t* ref,
                                                 uint32_t ref_stride, uint32_t h) {
     return sadwxhx4d_large_neoverse_v2(src, src_stride, ref, ref_stride, 64, h);
 }
 
-static inline void svt_sad_loop_kernel64xh_neoverse_v2(uint8_t *src, uint32_t src_stride, uint8_t *ref,
-                                                       uint32_t ref_stride, uint32_t block_height, uint64_t *best_sad,
-                                                       int16_t *x_search_center, int16_t *y_search_center,
+static inline void svt_sad_loop_kernel64xh_neoverse_v2(uint8_t* src, uint32_t src_stride, uint8_t* ref,
+                                                       uint32_t ref_stride, uint32_t block_height, uint64_t* best_sad,
+                                                       int16_t* x_search_center, int16_t* y_search_center,
                                                        uint32_t src_stride_raw, int16_t search_area_width,
                                                        int16_t search_area_height) {
     for (int16_t y_search_index = 0; y_search_index < search_area_height; y_search_index++) {
@@ -277,10 +277,10 @@ static inline void svt_sad_loop_kernel64xh_neoverse_v2(uint8_t *src, uint32_t sr
     }
 }
 
-static inline void svt_sad_loop_kernel64xh_small_neoverse_v2(uint8_t *src, uint32_t src_stride, uint8_t *ref,
+static inline void svt_sad_loop_kernel64xh_small_neoverse_v2(uint8_t* src, uint32_t src_stride, uint8_t* ref,
                                                              uint32_t ref_stride, uint32_t block_height,
-                                                             uint64_t *best_sad, int16_t *x_search_center,
-                                                             int16_t *y_search_center, uint32_t src_stride_raw,
+                                                             uint64_t* best_sad, int16_t* x_search_center,
+                                                             int16_t* y_search_center, uint32_t src_stride_raw,
                                                              int16_t search_area_width, int16_t search_area_height) {
     for (int16_t y_search_index = 0; y_search_index < search_area_height; y_search_index++) {
         int16_t x_search_index;
@@ -299,16 +299,16 @@ static inline void svt_sad_loop_kernel64xh_small_neoverse_v2(uint8_t *src, uint3
     }
 }
 
-static inline uint32x4_t sad48xhx4d_neoverse_v2(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
+static inline uint32x4_t sad48xhx4d_neoverse_v2(const uint8_t* src, uint32_t src_stride, const uint8_t* ref,
                                                 uint32_t ref_stride, uint32_t h) {
     uint32x4_t sad4_0 = sad32xhx4d_neoverse_v2(src + 0, src_stride, ref + 0, ref_stride, h);
     uint32x4_t sad4_1 = sad16xhx4d_neoverse_v2(src + 32, src_stride, ref + 32, ref_stride, h);
     return vaddq_u32(sad4_0, sad4_1);
 }
 
-static inline void svt_sad_loop_kernel48xh_neoverse_v2(uint8_t *src, uint32_t src_stride, uint8_t *ref,
-                                                       uint32_t ref_stride, uint32_t block_height, uint64_t *best_sad,
-                                                       int16_t *x_search_center, int16_t *y_search_center,
+static inline void svt_sad_loop_kernel48xh_neoverse_v2(uint8_t* src, uint32_t src_stride, uint8_t* ref,
+                                                       uint32_t ref_stride, uint32_t block_height, uint64_t* best_sad,
+                                                       int16_t* x_search_center, int16_t* y_search_center,
                                                        uint32_t src_stride_raw, int16_t search_area_width,
                                                        int16_t search_area_height) {
     for (int16_t y_search_index = 0; y_search_index < search_area_height; y_search_index++) {
@@ -324,10 +324,10 @@ static inline void svt_sad_loop_kernel48xh_neoverse_v2(uint8_t *src, uint32_t sr
     }
 }
 
-static inline void svt_sad_loop_kernel48xh_small_neoverse_v2(uint8_t *src, uint32_t src_stride, uint8_t *ref,
+static inline void svt_sad_loop_kernel48xh_small_neoverse_v2(uint8_t* src, uint32_t src_stride, uint8_t* ref,
                                                              uint32_t ref_stride, uint32_t block_height,
-                                                             uint64_t *best_sad, int16_t *x_search_center,
-                                                             int16_t *y_search_center, uint32_t src_stride_raw,
+                                                             uint64_t* best_sad, int16_t* x_search_center,
+                                                             int16_t* y_search_center, uint32_t src_stride_raw,
                                                              int16_t search_area_width, int16_t search_area_height) {
     for (int16_t y_search_index = 0; y_search_index < search_area_height; y_search_index++) {
         int16_t x_search_index;
@@ -346,15 +346,15 @@ static inline void svt_sad_loop_kernel48xh_small_neoverse_v2(uint8_t *src, uint3
     }
 }
 
-static inline uint32x4_t sadwxhx4d_neoverse_v2(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
+static inline uint32x4_t sadwxhx4d_neoverse_v2(const uint8_t* src, uint32_t src_stride, const uint8_t* ref,
                                                uint32_t ref_stride, uint32_t width, uint32_t height) {
     uint32x4_t sum_u32[4] = {vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0), vdupq_n_u32(0)};
 
     do {
         int w = width;
 
-        const uint8_t *src_ptr = src;
-        const uint8_t *ref_ptr = ref;
+        const uint8_t* src_ptr = src;
+        const uint8_t* ref_ptr = ref;
 
         uint8x16_t ref0 = vld1q_u8(ref_ptr);
         while (w >= 16) {
@@ -392,10 +392,10 @@ static inline uint32x4_t sadwxhx4d_neoverse_v2(const uint8_t *src, uint32_t src_
     return horizontal_add_4d_u32x4(sum_u32);
 }
 
-static inline void svt_sad_loop_kernelwxh_neoverse_v2(uint8_t *src, uint32_t src_stride, uint8_t *ref,
+static inline void svt_sad_loop_kernelwxh_neoverse_v2(uint8_t* src, uint32_t src_stride, uint8_t* ref,
                                                       uint32_t ref_stride, uint32_t block_width, uint32_t block_height,
-                                                      uint64_t *best_sad, int16_t *x_search_center,
-                                                      int16_t *y_search_center, uint32_t src_stride_raw,
+                                                      uint64_t* best_sad, int16_t* x_search_center,
+                                                      int16_t* y_search_center, uint32_t src_stride_raw,
                                                       int16_t search_area_width, int16_t search_area_height) {
     for (int y_search_index = 0; y_search_index < search_area_height; y_search_index++) {
         for (int x_search_index = 0; x_search_index < search_area_width; x_search_index += 8) {
@@ -412,10 +412,10 @@ static inline void svt_sad_loop_kernelwxh_neoverse_v2(uint8_t *src, uint32_t src
     }
 }
 
-static inline void svt_sad_loop_kernelwxh_small_neoverse_v2(uint8_t *src, uint32_t src_stride, uint8_t *ref,
+static inline void svt_sad_loop_kernelwxh_small_neoverse_v2(uint8_t* src, uint32_t src_stride, uint8_t* ref,
                                                             uint32_t ref_stride, uint32_t block_width,
-                                                            uint32_t block_height, uint64_t *best_sad,
-                                                            int16_t *x_search_center, int16_t *y_search_center,
+                                                            uint32_t block_height, uint64_t* best_sad,
+                                                            int16_t* x_search_center, int16_t* y_search_center,
                                                             uint32_t src_stride_raw, int16_t search_area_width,
                                                             int16_t search_area_height) {
     for (int y_search_index = 0; y_search_index < search_area_height; y_search_index++) {
@@ -437,9 +437,9 @@ static inline void svt_sad_loop_kernelwxh_small_neoverse_v2(uint8_t *src, uint32
     }
 }
 
-void svt_sad_loop_kernel_neoverse_v2(uint8_t *src, uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-                                     uint32_t block_height, uint32_t block_width, uint64_t *best_sad,
-                                     int16_t *x_search_center, int16_t *y_search_center, uint32_t src_stride_raw,
+void svt_sad_loop_kernel_neoverse_v2(uint8_t* src, uint32_t src_stride, uint8_t* ref, uint32_t ref_stride,
+                                     uint32_t block_height, uint32_t block_width, uint64_t* best_sad,
+                                     int16_t* x_search_center, int16_t* y_search_center, uint32_t src_stride_raw,
                                      uint8_t skip_search_line, int16_t search_area_width, int16_t search_area_height) {
     *best_sad = UINT64_MAX;
     // Most of the time search_area_width is a multiple of 8, so specialize for this case so that we run only sad4d.

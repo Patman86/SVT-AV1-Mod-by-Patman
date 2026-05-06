@@ -17,7 +17,7 @@
 #include "aom_dsp_rtcd.h"
 #include "utility.h"
 
-uint8_t svt_av1_compute_cul_level_sve(const int16_t *const scan, const int32_t *const quant_coeff, uint16_t *eob) {
+uint8_t svt_av1_compute_cul_level_sve(const int16_t* const scan, const int32_t* const quant_coeff, uint16_t* eob) {
     if (*eob == 1) {
         if (quant_coeff[0] > 0) {
             return AOMMIN(COEFF_CONTEXT_MASK, quant_coeff[0]) | (2 << COEFF_CONTEXT_BITS);
@@ -36,7 +36,7 @@ uint8_t svt_av1_compute_cul_level_sve(const int16_t *const scan, const int32_t *
 
     uint16_t       sz       = *eob;
     const svbool_t p4       = svptrue_pat_b32(SV_VL4);
-    const int16_t *scan_ptr = scan;
+    const int16_t* scan_ptr = scan;
     while (sz >= 8) {
         svint32_t scan_lo = svld1sh_s32(p4, scan_ptr + 0);
         svint32_t scan_hi = svld1sh_s32(p4, scan_ptr + 4);

@@ -13,15 +13,15 @@
 
 #include "pic_analysis_results.h"
 
-static EbErrorType picture_analysis_result_ctor(PictureAnalysisResults *object_ptr, EbPtr object_init_data_ptr) {
+static EbErrorType picture_analysis_result_ctor(PictureAnalysisResults* object_ptr, EbPtr object_init_data_ptr) {
     (void)object_ptr;
     (void)object_init_data_ptr;
 
     return EB_ErrorNone;
 }
 
-EbErrorType svt_aom_picture_analysis_result_creator(EbPtr *object_dbl_ptr, EbPtr object_init_data_ptr) {
-    PictureAnalysisResults *obj;
+EbErrorType svt_aom_picture_analysis_result_creator(EbPtr* object_dbl_ptr, EbPtr object_init_data_ptr) {
+    PictureAnalysisResults* obj;
 
     *object_dbl_ptr = NULL;
     EB_NEW(obj, picture_analysis_result_ctor, object_init_data_ptr);

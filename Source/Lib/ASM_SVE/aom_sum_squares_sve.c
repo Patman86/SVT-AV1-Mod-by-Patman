@@ -15,7 +15,7 @@
 #include "aom_dsp_rtcd.h"
 #include "neon_sve_bridge.h"
 
-uint64_t svt_aom_sum_squares_i16_sve(const int16_t *src, uint32_t n) {
+uint64_t svt_aom_sum_squares_i16_sve(const int16_t* src, uint32_t n) {
     // This function seems to be called only for values of N >= 64.
     // See Source/Lib/Codec/enc_inter_prediction.c. Additionally,
     // because N = width x height for width and height being the

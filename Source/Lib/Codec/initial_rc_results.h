@@ -21,7 +21,7 @@
  **************************************/
 typedef struct InitialRateControlResults {
     EbDctor          dctor;
-    EbObjectWrapper *pcs_wrapper;
+    EbObjectWrapper* pcs_wrapper;
     bool             superres_recode;
 } InitialRateControlResults;
 
@@ -32,6 +32,6 @@ typedef struct InitialRateControlResultInitData {
 /**************************************
  * Extern Function Declarations
  **************************************/
-extern EbErrorType svt_aom_initial_rate_control_results_creator(EbPtr *object_dbl_ptr, EbPtr object_init_data_ptr);
+EbErrorType svt_aom_initial_rate_control_results_creator(EbPtr* object_dbl_ptr, EbPtr object_init_data_ptr);
 
 #endif //EbInitialRateControlResults_h

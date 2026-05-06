@@ -33,13 +33,14 @@ typedef struct MeCandidate {
     uint8_t ref0_list : 1;
     uint8_t ref1_list : 1;
 } MeCandidate;
+
 // move this to a new file with ctor & dtor
 typedef struct MeSbResults {
     EbDctor  dctor;
-    uint8_t *total_me_candidate_index;
+    uint8_t* total_me_candidate_index;
     // ME MVs are stored in fullpel precision
-    Mv          *me_mv_array;
-    MeCandidate *me_candidate_array;
+    Mv*          me_mv_array;
+    MeCandidate* me_candidate_array;
     // [PU][LAST, LAST2, LAST3, GOLD, BWD, ALT2, ALT] if MRP Mode 0,
     // [PU][LAST, LAST2, BWD, ALT2] if MRP Mode 1,
 } MeSbResults;

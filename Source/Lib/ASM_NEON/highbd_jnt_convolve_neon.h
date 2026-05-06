@@ -23,12 +23,12 @@
 
 #define ROUND_SHIFT 2 * FILTER_BITS - ROUND0_BITS - COMPOUND_ROUND1_BITS
 
-static inline void highbd_comp_avg_neon(const uint16_t *src_ptr, int src_stride, uint16_t *dst_ptr, int dst_stride,
-                                        int w, int h, ConvolveParams *conv_params, const int bd) {
+static inline void highbd_comp_avg_neon(const uint16_t* src_ptr, int src_stride, uint16_t* dst_ptr, int dst_stride,
+                                        int w, int h, ConvolveParams* conv_params, const int bd) {
     const int offset_bits = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int offset = (1 << (offset_bits - COMPOUND_ROUND1_BITS)) + (1 << (offset_bits - COMPOUND_ROUND1_BITS - 1));
 
-    CONV_BUF_TYPE   *ref_ptr    = conv_params->dst;
+    CONV_BUF_TYPE*   ref_ptr    = conv_params->dst;
     const int        ref_stride = conv_params->dst_stride;
     const uint16x4_t offset_vec = vdup_n_u16((uint16_t)offset);
     const uint16x8_t max        = vdupq_n_u16((1 << bd) - 1);
@@ -53,9 +53,9 @@ static inline void highbd_comp_avg_neon(const uint16_t *src_ptr, int src_stride,
     } else {
         do {
             int             width = w;
-            const uint16_t *src   = src_ptr;
-            const uint16_t *ref   = ref_ptr;
-            uint16_t       *dst   = dst_ptr;
+            const uint16_t* src   = src_ptr;
+            const uint16_t* ref   = ref_ptr;
+            uint16_t*       dst   = dst_ptr;
             do {
                 const uint16x8_t s = vld1q_u16(src);
                 const uint16x8_t r = vld1q_u16(ref);
@@ -81,12 +81,12 @@ static inline void highbd_comp_avg_neon(const uint16_t *src_ptr, int src_stride,
     }
 }
 
-static inline void highbd_jnt_comp_avg_neon(const uint16_t *src_ptr, int src_stride, uint16_t *dst_ptr, int dst_stride,
-                                            int w, int h, ConvolveParams *conv_params, const int bd) {
+static inline void highbd_jnt_comp_avg_neon(const uint16_t* src_ptr, int src_stride, uint16_t* dst_ptr, int dst_stride,
+                                            int w, int h, ConvolveParams* conv_params, const int bd) {
     const int offset_bits = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int offset = (1 << (offset_bits - COMPOUND_ROUND1_BITS)) + (1 << (offset_bits - COMPOUND_ROUND1_BITS - 1));
 
-    CONV_BUF_TYPE   *ref_ptr    = conv_params->dst;
+    CONV_BUF_TYPE*   ref_ptr    = conv_params->dst;
     const int        ref_stride = conv_params->dst_stride;
     const uint32x4_t offset_vec = vdupq_n_u32(offset);
     const uint16x8_t max        = vdupq_n_u16((1 << bd) - 1);
@@ -116,9 +116,9 @@ static inline void highbd_jnt_comp_avg_neon(const uint16_t *src_ptr, int src_str
     } else {
         do {
             int             width = w;
-            const uint16_t *src   = src_ptr;
-            const uint16_t *ref   = ref_ptr;
-            uint16_t       *dst   = dst_ptr;
+            const uint16_t* src   = src_ptr;
+            const uint16_t* ref   = ref_ptr;
+            uint16_t*       dst   = dst_ptr;
             do {
                 const uint16x8_t s = vld1q_u16(src);
                 const uint16x8_t r = vld1q_u16(ref);

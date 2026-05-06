@@ -15,8 +15,8 @@
 #include "mem_neon.h"
 #include "neon_sve_bridge.h"
 
-static inline void highbd_variance_4xh_sve(const uint16_t *src_ptr, int src_stride, const uint16_t *ref_ptr,
-                                           int ref_stride, int h, uint64_t *sse, int64_t *sum) {
+static inline void highbd_variance_4xh_sve(const uint16_t* src_ptr, int src_stride, const uint16_t* ref_ptr,
+                                           int ref_stride, int h, uint64_t* sse, int64_t* sum) {
     int16x8_t sum_s16 = vdupq_n_s16(0);
     int64x2_t sse_s64 = vdupq_n_s64(0);
 
@@ -38,7 +38,7 @@ static inline void highbd_variance_4xh_sve(const uint16_t *src_ptr, int src_stri
     *sse = vaddvq_s64(sse_s64);
 }
 
-static inline void variance_8x1_sve(const uint16_t *src, const uint16_t *ref, int32x4_t *sum, int64x2_t *sse) {
+static inline void variance_8x1_sve(const uint16_t* src, const uint16_t* ref, int32x4_t* sum, int64x2_t* sse) {
     const uint16x8_t s = vld1q_u16(src);
     const uint16x8_t r = vld1q_u16(ref);
 
@@ -48,8 +48,8 @@ static inline void variance_8x1_sve(const uint16_t *src, const uint16_t *ref, in
     *sse = svt_sdotq_s16(*sse, diff, diff);
 }
 
-static inline void highbd_variance_8xh_sve(const uint16_t *src_ptr, int src_stride, const uint16_t *ref_ptr,
-                                           int ref_stride, int h, uint64_t *sse, int64_t *sum) {
+static inline void highbd_variance_8xh_sve(const uint16_t* src_ptr, int src_stride, const uint16_t* ref_ptr,
+                                           int ref_stride, int h, uint64_t* sse, int64_t* sum) {
     int32x4_t sum_s32 = vdupq_n_s32(0);
     int64x2_t sse_s64 = vdupq_n_s64(0);
 
@@ -64,8 +64,8 @@ static inline void highbd_variance_8xh_sve(const uint16_t *src_ptr, int src_stri
     *sse = vaddvq_s64(sse_s64);
 }
 
-static inline void highbd_variance_16xh_sve(const uint16_t *src_ptr, int src_stride, const uint16_t *ref_ptr,
-                                            int ref_stride, int h, uint64_t *sse, int64_t *sum) {
+static inline void highbd_variance_16xh_sve(const uint16_t* src_ptr, int src_stride, const uint16_t* ref_ptr,
+                                            int ref_stride, int h, uint64_t* sse, int64_t* sum) {
     int32x4_t sum_s32[] = {vdupq_n_s32(0), vdupq_n_s32(0)};
     int64x2_t sse_s64[] = {vdupq_n_s64(0), vdupq_n_s64(0)};
 
@@ -81,8 +81,8 @@ static inline void highbd_variance_16xh_sve(const uint16_t *src_ptr, int src_str
     *sse = vaddvq_s64(vaddq_s64(sse_s64[0], sse_s64[1]));
 }
 
-static inline void highbd_variance_large_sve(const uint16_t *src_ptr, int src_stride, const uint16_t *ref_ptr,
-                                             int ref_stride, int w, int h, uint64_t *sse, int64_t *sum) {
+static inline void highbd_variance_large_sve(const uint16_t* src_ptr, int src_stride, const uint16_t* ref_ptr,
+                                             int ref_stride, int w, int h, uint64_t* sse, int64_t* sum) {
     int32x4_t sum_s32[] = {vdupq_n_s32(0), vdupq_n_s32(0), vdupq_n_s32(0), vdupq_n_s32(0)};
     int64x2_t sse_s64[] = {vdupq_n_s64(0), vdupq_n_s64(0), vdupq_n_s64(0), vdupq_n_s64(0)};
 
@@ -110,28 +110,28 @@ static inline void highbd_variance_large_sve(const uint16_t *src_ptr, int src_st
     *sse       = vaddvq_s64(vaddq_s64(sse_s64[0], sse_s64[2]));
 }
 
-static inline void highbd_variance_32xh_sve(const uint16_t *src, int src_stride, const uint16_t *ref, int ref_stride,
-                                            int h, uint64_t *sse, int64_t *sum) {
+static inline void highbd_variance_32xh_sve(const uint16_t* src, int src_stride, const uint16_t* ref, int ref_stride,
+                                            int h, uint64_t* sse, int64_t* sum) {
     highbd_variance_large_sve(src, src_stride, ref, ref_stride, 32, h, sse, sum);
 }
 
-static inline void highbd_variance_64xh_sve(const uint16_t *src, int src_stride, const uint16_t *ref, int ref_stride,
-                                            int h, uint64_t *sse, int64_t *sum) {
+static inline void highbd_variance_64xh_sve(const uint16_t* src, int src_stride, const uint16_t* ref, int ref_stride,
+                                            int h, uint64_t* sse, int64_t* sum) {
     highbd_variance_large_sve(src, src_stride, ref, ref_stride, 64, h, sse, sum);
 }
 
-static inline void highbd_variance_128xh_sve(const uint16_t *src, int src_stride, const uint16_t *ref, int ref_stride,
-                                             int h, uint64_t *sse, int64_t *sum) {
+static inline void highbd_variance_128xh_sve(const uint16_t* src, int src_stride, const uint16_t* ref, int ref_stride,
+                                             int h, uint64_t* sse, int64_t* sum) {
     highbd_variance_large_sve(src, src_stride, ref, ref_stride, 128, h, sse, sum);
 }
 
 #define HBD_VARIANCE_WXH_10_SVE(w, h)                                                                    \
     uint32_t svt_aom_highbd_10_variance##w##x##h##_sve(                                                  \
-        const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride, uint32_t *sse) { \
+        const uint8_t* src_ptr, int src_stride, const uint8_t* ref_ptr, int ref_stride, uint32_t* sse) { \
         uint64_t  sse_long = 0;                                                                          \
         int64_t   sum_long = 0;                                                                          \
-        uint16_t *src      = CONVERT_TO_SHORTPTR(src_ptr);                                               \
-        uint16_t *ref      = CONVERT_TO_SHORTPTR(ref_ptr);                                               \
+        uint16_t* src      = CONVERT_TO_SHORTPTR(src_ptr);                                               \
+        uint16_t* ref      = CONVERT_TO_SHORTPTR(ref_ptr);                                               \
         highbd_variance_##w##xh_sve(src, src_stride, ref, ref_stride, h, &sse_long, &sum_long);          \
         *sse        = (uint32_t)ROUND_POWER_OF_TWO(sse_long, 4);                                         \
         int     sum = (int)ROUND_POWER_OF_TWO(sum_long, 2);                                              \

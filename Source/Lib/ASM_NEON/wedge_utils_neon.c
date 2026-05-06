@@ -21,7 +21,7 @@
 #include "definitions.h"
 #include "sum_neon.h"
 
-uint64_t svt_av1_wedge_sse_from_residuals_neon(const int16_t *r1, const int16_t *d, const uint8_t *m, int N) {
+uint64_t svt_av1_wedge_sse_from_residuals_neon(const int16_t* r1, const int16_t* d, const uint8_t* m, int N) {
     assert(N % 64 == 0);
 
     uint64x2_t v_csse[2] = {vdupq_n_u64(0), vdupq_n_u64(0)};
@@ -75,7 +75,7 @@ uint64_t svt_av1_wedge_sse_from_residuals_neon(const int16_t *r1, const int16_t 
     return ROUND_POWER_OF_TWO(csse, 2 * WEDGE_WEIGHT_BITS);
 }
 
-int8_t svt_av1_wedge_sign_from_residuals_neon(const int16_t *ds, const uint8_t *m, int N, int64_t limit) {
+int8_t svt_av1_wedge_sign_from_residuals_neon(const int16_t* ds, const uint8_t* m, int N, int64_t limit) {
     int64x2_t sum;
     int32x4_t acc[4] = {vdupq_n_s32(0), vdupq_n_s32(0), vdupq_n_s32(0), vdupq_n_s32(0)};
 
@@ -105,7 +105,7 @@ int8_t svt_av1_wedge_sign_from_residuals_neon(const int16_t *ds, const uint8_t *
     return (vaddvq_s64(sum) > limit);
 }
 
-void svt_av1_wedge_compute_delta_squares_neon(int16_t *d_ptr, const int16_t *a_ptr, const int16_t *b_ptr, int N) {
+void svt_av1_wedge_compute_delta_squares_neon(int16_t* d_ptr, const int16_t* a_ptr, const int16_t* b_ptr, int N) {
     do {
         int16x8_t a = vld1q_s16(a_ptr);
         int16x8_t b = vld1q_s16(b_ptr);

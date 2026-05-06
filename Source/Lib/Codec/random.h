@@ -26,7 +26,9 @@ static INLINE uint32_t lcg_next(uint32_t* state) {
 }
 
 // Generate a random number in the range [0, 32768).
-static INLINE uint32_t lcg_rand16(uint32_t* state) { return (lcg_next(state) / 65536) % 32768; }
+static INLINE uint32_t lcg_rand16(uint32_t* state) {
+    return (lcg_next(state) / 65536) % 32768;
+}
 
 // Generate a random number in the range [0, n)
 // This is implemented as (rand() * n) / <range of RNG> rather than

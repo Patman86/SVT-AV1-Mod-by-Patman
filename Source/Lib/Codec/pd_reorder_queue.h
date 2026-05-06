@@ -22,10 +22,10 @@
 typedef struct PictureDecisionReorderEntry {
     EbDctor          dctor;
     uint64_t         picture_number;
-    EbObjectWrapper *ppcs_wrapper;
+    EbObjectWrapper* ppcs_wrapper;
 } PictureDecisionReorderEntry;
 
-extern EbErrorType svt_aom_picture_decision_reorder_entry_ctor(PictureDecisionReorderEntry *entry_ptr,
-                                                               uint32_t                     picture_number);
+EbErrorType svt_aom_picture_decision_reorder_entry_ctor(PictureDecisionReorderEntry* entry_ptr,
+                                                        uint32_t                     picture_number);
 
 #endif //EbPictureDecisionReorderQueue_h

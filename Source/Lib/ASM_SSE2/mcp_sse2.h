@@ -17,7 +17,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#define USE_PRE_COMPUTE 0
+
 /**************************************************
     * Assembly Declarations
     **************************************************/

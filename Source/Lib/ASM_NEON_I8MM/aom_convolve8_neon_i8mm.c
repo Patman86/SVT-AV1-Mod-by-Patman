@@ -51,8 +51,8 @@ static inline uint8x8_t convolve6_8_h(const uint8x16_t samples, const int8x16_t 
     return vqrshrun_n_s16(sum, FILTER_BITS - 1);
 }
 
-static inline void convolve8_horiz_6tap_neon_i8mm(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst,
-                                                  ptrdiff_t dst_stride, const int16_t *filter_x, int width,
+static inline void convolve8_horiz_6tap_neon_i8mm(const uint8_t* src, ptrdiff_t src_stride, uint8_t* dst,
+                                                  ptrdiff_t dst_stride, const int16_t* filter_x, int width,
                                                   int height) {
     // Filter values are even, so halve to reduce intermediate precision reqs.
     const int8x8_t x_filter = vshrn_n_s16(vld1q_s16(filter_x), 1);
@@ -86,8 +86,8 @@ static inline void convolve8_horiz_6tap_neon_i8mm(const uint8_t *src, ptrdiff_t 
 
         do {
             int            w = width;
-            const uint8_t *s = src;
-            uint8_t       *d = dst;
+            const uint8_t* s = src;
+            uint8_t*       d = dst;
             do {
                 uint8x16_t s0, s1, s2, s3;
                 load_u8_16x4(s, src_stride, &s0, &s1, &s2, &s3);
@@ -110,8 +110,8 @@ static inline void convolve8_horiz_6tap_neon_i8mm(const uint8_t *src, ptrdiff_t 
     }
 }
 
-void svt_aom_convolve8_horiz_neon_i8mm(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride,
-                                       const int16_t *filter_x, int x_step_q4, const int16_t *filter_y, int y_step_q4,
+void svt_aom_convolve8_horiz_neon_i8mm(const uint8_t* src, ptrdiff_t src_stride, uint8_t* dst, ptrdiff_t dst_stride,
+                                       const int16_t* filter_x, int x_step_q4, const int16_t* filter_y, int y_step_q4,
                                        int w, int h) {
     assert((intptr_t)dst % 4 == 0);
     assert(dst_stride % 4 == 0);
@@ -160,8 +160,8 @@ static inline uint8x8_t convolve8_8_v(const uint8x16_t samples0_lo, const uint8x
     return vqrshrun_n_s16(sum, FILTER_BITS - 1);
 }
 
-static inline void convolve8_vert_8tap_neon_i8mm(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst,
-                                                 ptrdiff_t dst_stride, const int16_t *filter_y, int w, int h) {
+static inline void convolve8_vert_8tap_neon_i8mm(const uint8_t* src, ptrdiff_t src_stride, uint8_t* dst,
+                                                 ptrdiff_t dst_stride, const int16_t* filter_y, int w, int h) {
     // Filter values are even, so halve to reduce intermediate precision reqs.
     const int8x8_t     filter          = vshrn_n_s16(vld1q_s16(filter_y), 1);
     const uint8x16x3_t merge_block_tbl = vld1q_u8_x3(svt_kDotProdMergeBlockTbl);
@@ -219,8 +219,8 @@ static inline void convolve8_vert_8tap_neon_i8mm(const uint8_t *src, ptrdiff_t s
     } else {
         do {
             int            height = h;
-            const uint8_t *s      = src;
-            uint8_t       *d      = dst;
+            const uint8_t* s      = src;
+            uint8_t*       d      = dst;
 
             uint8x8_t s0, s1, s2, s3, s4, s5, s6;
             load_u8_8x7(s, src_stride, &s0, &s1, &s2, &s3, &s4, &s5, &s6);
@@ -283,8 +283,8 @@ static inline void convolve8_vert_8tap_neon_i8mm(const uint8_t *src, ptrdiff_t s
     }
 }
 
-void svt_aom_convolve8_vert_neon_i8mm(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride,
-                                      const int16_t *filter_x, int x_step_q4, const int16_t *filter_y, int y_step_q4,
+void svt_aom_convolve8_vert_neon_i8mm(const uint8_t* src, ptrdiff_t src_stride, uint8_t* dst, ptrdiff_t dst_stride,
+                                      const int16_t* filter_x, int x_step_q4, const int16_t* filter_y, int y_step_q4,
                                       int w, int h) {
     assert((intptr_t)dst % 4 == 0);
     assert(dst_stride % 4 == 0);

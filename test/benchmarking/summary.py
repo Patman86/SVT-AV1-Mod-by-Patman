@@ -40,9 +40,6 @@ COMMON_SETTINGS = None
 OUTPUT_DIR = None
 PER_IMAGE_FILE = None
 
-# Constants
-BYTES_TO_MB = 1024 * 1024  # Conversion factor from bytes to megabytes
-
 
 def setup_argument_parser():
     """Set up and parse command line arguments."""
@@ -119,14 +116,8 @@ def process_per_image_logs(filenames: List[str]) -> pd.DataFrame:
     print(f"Using per-image log files mode with {len(filenames)} files...")
 
     filenames = [fname.strip() for fname in filenames]
-    dfs = [
-        DataReaders.read_preprocessed_per_image_data(fname, BYTES_TO_MB)
-        for fname in filenames
-    ]
+    dfs = [DataReaders.read_preprocessed_per_image_data(fname) for fname in filenames]
     per_image_data = pd.concat(dfs, axis=0)
-
-    if "psnr" in per_image_data.columns and "psnr_y" in per_image_data.columns:
-        per_image_data = per_image_data.drop(columns=["psnr_y"])
 
     # if there are rows with no dataset specified that will be a problem, remove dataset from columns.
     if (
@@ -187,13 +178,6 @@ def process_qm_directory(data_readers: DataReaders) -> pd.DataFrame:
     missing_keys_enc = [
         key for key in merge_keys if key not in encoding_df_for_merge.columns
     ]
-    if "file_size_mb" not in list(encoding_data.columns) and "file_size_mb" not in list(
-        qm_df_for_merge.columns
-    ):
-        print(
-            "Warning: Encoding CSV missing file_size_mb column, will try to get it from disk"
-        )
-        qm_df_for_merge = data_readers.add_file_size_from_disk(qm_df_for_merge)
 
     if missing_keys_qm or missing_keys_enc:
         print(
@@ -203,9 +187,7 @@ def process_qm_directory(data_readers: DataReaders) -> pd.DataFrame:
 
     # Perform the merge
     merge_columns = merge_keys + [
-        i
-        for i in ["encoding_time", "file_size_mb"]
-        if i in encoding_df_for_merge.columns
+        i for i in ["encode_time", "file_size_mb"] if i in encoding_df_for_merge.columns
     ]
     per_image_data = pd.merge(
         qm_df_for_merge,
@@ -215,21 +197,6 @@ def process_qm_directory(data_readers: DataReaders) -> pd.DataFrame:
     )
 
     print(f"Successfully merged {len(per_image_data)} records with encoding data")
-
-    # For any rows that didn't get file_size_mb from the merge, try to get it from disk
-    missing_filesize_mask = per_image_data["file_size_mb"].isna()
-    if missing_filesize_mask.sum() > 0:
-        print(
-            f"Adding file size from disk for {missing_filesize_mask.sum()} records with missing file size"
-        )
-        missing_data = per_image_data[missing_filesize_mask].copy()
-        missing_with_filesize = data_readers.add_file_size_from_disk(
-            missing_data[qm_df.columns]
-        )
-        # Update the missing file sizes
-        per_image_data.loc[missing_filesize_mask, "file_size_mb"] = (
-            missing_with_filesize["file_size_mb"].values
-        )
 
     return per_image_data
 
@@ -261,9 +228,8 @@ def run_analysis(per_image_data: pd.DataFrame, per_image_csv_path: str) -> None:
     quality_metrics = []
     stream_metrics = []
     if "ssimulacra2" in allowed_metrics:
-        quality_metrics.append("SSIMULACRA2")
+        quality_metrics.append("ssimulacra2")
     if "psnr" in allowed_metrics:
-        quality_metrics.append("psnr")
         quality_metrics.append("psnr_y")
         quality_metrics.append("psnr_cb")
         quality_metrics.append("psnr_cr")
@@ -320,7 +286,7 @@ def main() -> None:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     # Initialize centralized data readers
-    data_readers = DataReaders(PATHS, COMMON_SETTINGS, BYTES_TO_MB)
+    data_readers = DataReaders(PATHS, COMMON_SETTINGS)
 
     # Process data based on the selected branch (default is --read_qm)
     per_image_data = pd.DataFrame()

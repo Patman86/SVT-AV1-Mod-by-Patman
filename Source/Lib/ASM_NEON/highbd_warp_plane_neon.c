@@ -137,7 +137,7 @@ static AOM_FORCE_INLINE int16x8_t highbd_horizontal_filter_8x1_f1(int16x8_t rv0,
     return vcombine_s16(vshrn_n_s32(res0, ROUND0_BITS), vshrn_n_s32(res1, ROUND0_BITS));
 }
 
-static AOM_FORCE_INLINE int32x4_t vertical_filter_4x1_f1(const int16x8_t *tmp, int sy) {
+static AOM_FORCE_INLINE int32x4_t vertical_filter_4x1_f1(const int16x8_t* tmp, int sy) {
     const int16x8_t f     = load_filters_1(sy);
     const int16x4_t f0123 = vget_low_s16(f);
     const int16x4_t f4567 = vget_high_s16(f);
@@ -153,7 +153,7 @@ static AOM_FORCE_INLINE int32x4_t vertical_filter_4x1_f1(const int16x8_t *tmp, i
     return m0123;
 }
 
-static AOM_FORCE_INLINE int32x4x2_t vertical_filter_8x1_f1(const int16x8_t *tmp, int sy) {
+static AOM_FORCE_INLINE int32x4x2_t vertical_filter_8x1_f1(const int16x8_t* tmp, int sy) {
     const int16x8_t f     = load_filters_1(sy);
     const int16x4_t f0123 = vget_low_s16(f);
     const int16x4_t f4567 = vget_high_s16(f);
@@ -178,7 +178,7 @@ static AOM_FORCE_INLINE int32x4x2_t vertical_filter_8x1_f1(const int16x8_t *tmp,
     return (int32x4x2_t){{m0123, m4567}};
 }
 
-static AOM_FORCE_INLINE int32x4_t vertical_filter_4x1_f4(const int16x8_t *tmp, int sy, int gamma) {
+static AOM_FORCE_INLINE int32x4_t vertical_filter_4x1_f4(const int16x8_t* tmp, int sy, int gamma) {
     int16x8_t s0, s1, s2, s3;
     transpose_elems_s16_4x8(vget_low_s16(tmp[0]),
                             vget_low_s16(tmp[1]),
@@ -209,7 +209,7 @@ static AOM_FORCE_INLINE int32x4_t vertical_filter_4x1_f4(const int16x8_t *tmp, i
     return horizontal_add_4d_s32x4(m0123);
 }
 
-static AOM_FORCE_INLINE int32x4x2_t vertical_filter_8x1_f8(const int16x8_t *tmp, int sy, int gamma) {
+static AOM_FORCE_INLINE int32x4x2_t vertical_filter_8x1_f8(const int16x8_t* tmp, int sy, int gamma) {
     int16x8_t s0 = tmp[0];
     int16x8_t s1 = tmp[1];
     int16x8_t s2 = tmp[2];
@@ -249,10 +249,10 @@ static AOM_FORCE_INLINE int32x4x2_t vertical_filter_8x1_f8(const int16x8_t *tmp,
     return ret;
 }
 
-void svt_av1_highbd_warp_affine_neon(const int32_t *mat, const uint8_t *ref8b, const uint8_t *ref2b, int width,
-                                     int height, int stride8b, int stride2b, uint16_t *pred, int p_col, int p_row,
+void svt_av1_highbd_warp_affine_neon(const int32_t* mat, const uint8_t* ref8b, const uint8_t* ref2b, int width,
+                                     int height, int stride8b, int stride2b, uint16_t* pred, int p_col, int p_row,
                                      int p_width, int p_height, int p_stride, int subsampling_x, int subsampling_y,
-                                     int bd, ConvolveParams *conv_params, int16_t alpha, int16_t beta, int16_t gamma,
+                                     int bd, ConvolveParams* conv_params, int16_t alpha, int16_t beta, int16_t gamma,
                                      int16_t delta) {
     highbd_warp_affine_common(mat,
                               ref8b,

@@ -36,7 +36,7 @@
 using svt_av1_test_tool::SVTRandom;
 namespace {
 
-using FwdTxfm2dApproxParam = std::tuple<TxSize, TxType, EB_TRANS_COEFF_SHAPE>;
+using FwdTxfm2dApproxParam = std::tuple<TxSize, TxType, TxCoeffShape>;
 class FwdTxfm2dApproxTest
     : public ::testing::TestWithParam<FwdTxfm2dApproxParam> {
   public:
@@ -128,13 +128,13 @@ class FwdTxfm2dApproxTest
   private:
     const TxSize txfm_size_;
     const TxType txfm_type_;
-    const EB_TRANS_COEFF_SHAPE shape_;
+    const TxCoeffShape shape_;
     int16_t *input_test_, *input_ref_;
     int32_t *output_test_, *output_ref_;
 };
 
 static std::vector<FwdTxfm2dApproxParam> gen_approx_txfm_2d_params(
-    EB_TRANS_COEFF_SHAPE shape) {
+    TxCoeffShape shape) {
     std::vector<FwdTxfm2dApproxParam> param_vec;
     for (int s = 0; s < TX_SIZES_ALL; ++s) {
         for (int t = 0; t < TX_TYPES; ++t) {

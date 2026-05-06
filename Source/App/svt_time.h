@@ -17,7 +17,7 @@
 void   app_svt_av1_sleep(const unsigned milliseconds);
 double app_svt_av1_compute_overall_elapsed_time(const uint64_t start_seconds, const uint64_t start_useconds,
                                                 const uint64_t finish_seconds, const uint64_t finish_useconds);
-void   app_svt_av1_get_time(uint64_t *const seconds, uint64_t *const useconds);
+void   app_svt_av1_get_time(uint64_t* const seconds, uint64_t* const useconds);
 
 #endif // EbTime_h
 /* File EOF */

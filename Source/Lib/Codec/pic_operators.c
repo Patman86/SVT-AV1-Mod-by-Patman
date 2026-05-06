@@ -24,8 +24,8 @@
 * Residual Kernel 16bit
 Computes the residual data
 *******************************************/
-void svt_residual_kernel16bit_c(uint16_t *input, uint32_t input_stride, uint16_t *pred, uint32_t pred_stride,
-                                int16_t *residual, uint32_t residual_stride, uint32_t area_width,
+void svt_residual_kernel16bit_c(uint16_t* input, uint32_t input_stride, uint16_t* pred, uint32_t pred_stride,
+                                int16_t* residual, uint32_t residual_stride, uint32_t area_width,
                                 uint32_t area_height) {
     uint32_t row_index = 0;
 
@@ -44,12 +44,13 @@ void svt_residual_kernel16bit_c(uint16_t *input, uint32_t input_stride, uint16_t
 
     return;
 }
+
 /*******************************************
 * Residual Kernel
 Computes the residual data
 *******************************************/
-void svt_residual_kernel8bit_c(uint8_t *input, uint32_t input_stride, uint8_t *pred, uint32_t pred_stride,
-                               int16_t *residual, uint32_t residual_stride, uint32_t area_width, uint32_t area_height) {
+void svt_residual_kernel8bit_c(uint8_t* input, uint32_t input_stride, uint8_t* pred, uint32_t pred_stride,
+                               int16_t* residual, uint32_t residual_stride, uint32_t area_width, uint32_t area_height) {
     uint32_t row_index = 0;
 
     while (row_index < area_height) {
@@ -73,7 +74,7 @@ void svt_residual_kernel8bit_c(uint8_t *input, uint32_t input_stride, uint8_t *p
 *  Used in the Full Mode Decision Loop for the only case of a MVP-SKIP candidate
 *******************************************/
 
-void svt_full_distortion_kernel32_bits_c(int32_t *coeff, uint32_t coeff_stride, int32_t *recon_coeff,
+void svt_full_distortion_kernel32_bits_c(int32_t* coeff, uint32_t coeff_stride, int32_t* recon_coeff,
                                          uint32_t recon_coeff_stride, uint64_t distortion_result[DIST_CALC_TOTAL],
                                          uint32_t area_width, uint32_t area_height) {
     uint32_t row_index             = 0;
@@ -97,14 +98,14 @@ void svt_full_distortion_kernel32_bits_c(int32_t *coeff, uint32_t coeff_stride, 
     distortion_result[DIST_CALC_PREDICTION] = prediction_distortion;
 }
 
-uint64_t svt_full_distortion_kernel16_bits_c(uint8_t *input, uint32_t input_offset, uint32_t input_stride,
-                                             uint8_t *pred, int32_t pred_offset, uint32_t pred_stride,
+uint64_t svt_full_distortion_kernel16_bits_c(uint8_t* input, uint32_t input_offset, uint32_t input_stride,
+                                             uint8_t* pred, int32_t pred_offset, uint32_t pred_stride,
                                              uint32_t area_width, uint32_t area_height) {
     uint32_t row_index      = 0;
     uint64_t sse_distortion = 0;
 
-    uint16_t *input_16bit = (uint16_t *)input;
-    uint16_t *pred_16bit  = (uint16_t *)pred;
+    uint16_t* input_16bit = (uint16_t*)input;
+    uint16_t* pred_16bit  = (uint16_t*)pred;
     input_16bit += input_offset;
     pred_16bit += pred_offset;
 
@@ -125,7 +126,7 @@ uint64_t svt_full_distortion_kernel16_bits_c(uint8_t *input, uint32_t input_offs
 /*******************************************
 * Picture Distortion Full Kernel CbfZero
 *******************************************/
-void svt_full_distortion_kernel_cbf_zero32_bits_c(int32_t *coeff, uint32_t coeff_stride,
+void svt_full_distortion_kernel_cbf_zero32_bits_c(int32_t* coeff, uint32_t coeff_stride,
                                                   uint64_t distortion_result[DIST_CALC_TOTAL], uint32_t area_width,
                                                   uint32_t area_height) {
     uint32_t row_index             = 0;
@@ -146,8 +147,8 @@ void svt_full_distortion_kernel_cbf_zero32_bits_c(int32_t *coeff, uint32_t coeff
     distortion_result[DIST_CALC_PREDICTION] = prediction_distortion;
 }
 
-void svt_aom_picture_full_distortion32_bits_single(int32_t *coeff, int32_t *recon_coeff, uint32_t stride,
-                                                   uint32_t bwidth, uint32_t bheight, uint64_t *distortion,
+void svt_aom_picture_full_distortion32_bits_single(int32_t* coeff, int32_t* recon_coeff, uint32_t stride,
+                                                   uint32_t bwidth, uint32_t bheight, uint64_t* distortion,
                                                    uint32_t cnt_nz_coeff) {
     distortion[0] = 0;
     distortion[1] = 0;
@@ -160,10 +161,10 @@ void svt_aom_picture_full_distortion32_bits_single(int32_t *coeff, int32_t *reco
 }
 
 // Facade that wraps the distortion metric formula with "TX bias" adjustments
-void svt_aom_picture_full_distortion32_bits_single_facade(int32_t *coeff, int32_t *recon_coeff, uint32_t stride,
+void svt_aom_picture_full_distortion32_bits_single_facade(int32_t* coeff, int32_t* recon_coeff, uint32_t stride,
                                                           uint32_t bwidth, uint32_t bheight, uint32_t area_width,
-                                                          uint32_t area_height, uint64_t *distortion,
-                                                          uint32_t cnt_nz_coeff, BlockModeInfo *block_mi,
+                                                          uint32_t area_height, uint64_t* distortion,
+                                                          uint32_t cnt_nz_coeff, BlockModeInfo* block_mi,
                                                           bool is_chroma, uint8_t temporal_layer_index, double ac_bias,
                                                           uint8_t tx_bias) {
     PredictionMode   mode    = block_mi->mode;
@@ -249,10 +250,10 @@ void svt_aom_picture_full_distortion32_bits_single_facade(int32_t *coeff, int32_
 }
 
 // Facade that wraps the distortion metric formula with "TX bias" adjustments
-uint64_t svt_spatial_full_distortion_kernel_facade(uint8_t *input, uint32_t input_offset, uint32_t input_stride,
-                                                   uint8_t *recon, int32_t recon_offset, uint32_t recon_stride,
+uint64_t svt_spatial_full_distortion_kernel_facade(uint8_t* input, uint32_t input_offset, uint32_t input_stride,
+                                                   uint8_t* recon, int32_t recon_offset, uint32_t recon_stride,
                                                    uint32_t area_width, uint32_t area_height, bool hbd_md,
-                                                   BlockModeInfo *block_mi, bool is_chroma,
+                                                   BlockModeInfo* block_mi, bool is_chroma,
                                                    uint8_t temporal_layer_index, double ac_bias, uint8_t tx_bias) {
     EbSpatialFullDistType spatial_full_dist_type_fun = hbd_md ? svt_full_distortion_kernel16_bits
                                                               : svt_spatial_full_distortion_kernel;
@@ -327,8 +328,8 @@ uint64_t svt_spatial_full_distortion_kernel_facade(uint8_t *input, uint32_t inpu
     return spatial_distortion;
 }
 
-void svt_aom_un_pack2d(uint16_t *in16_bit_buffer, uint32_t in_stride, uint8_t *out8_bit_buffer, uint32_t out8_stride,
-                       uint8_t *outn_bit_buffer, uint32_t outn_stride, uint32_t width, uint32_t height) {
+void svt_aom_un_pack2d(uint16_t* in16_bit_buffer, uint32_t in_stride, uint8_t* out8_bit_buffer, uint32_t out8_stride,
+                       uint8_t* outn_bit_buffer, uint32_t outn_stride, uint32_t width, uint32_t height) {
     if (((width & 3) == 0) && ((height & 1) == 0)) {
         svt_aom_un_pack2d_16_bit_src_mul4(
             in16_bit_buffer, in_stride, out8_bit_buffer, outn_bit_buffer, out8_stride, outn_stride, width, height);
@@ -338,8 +339,8 @@ void svt_aom_un_pack2d(uint16_t *in16_bit_buffer, uint32_t in_stride, uint8_t *o
     }
 }
 
-void svt_aom_pack2d_src(uint8_t *in8_bit_buffer, uint32_t in8_stride, uint8_t *inn_bit_buffer, uint32_t inn_stride,
-                        uint16_t *out16_bit_buffer, uint32_t out_stride, uint32_t width, uint32_t height) {
+void svt_aom_pack2d_src(uint8_t* in8_bit_buffer, uint32_t in8_stride, uint8_t* inn_bit_buffer, uint32_t inn_stride,
+                        uint16_t* out16_bit_buffer, uint32_t out_stride, uint32_t width, uint32_t height) {
     if (((width & 3) == 0) && ((height & 1) == 0)) {
         svt_pack2d_16_bit_src_mul4(
             in8_bit_buffer, in8_stride, inn_bit_buffer, out16_bit_buffer, inn_stride, out_stride, width, height);
@@ -349,23 +350,24 @@ void svt_aom_pack2d_src(uint8_t *in8_bit_buffer, uint32_t in8_stride, uint8_t *i
     }
 }
 
-void svt_aom_compressed_pack_sb(uint8_t *in8_bit_buffer, uint32_t in8_stride, uint8_t *inn_bit_buffer,
-                                uint32_t inn_stride, uint16_t *out16_bit_buffer, uint32_t out_stride, uint32_t width,
+void svt_aom_compressed_pack_sb(uint8_t* in8_bit_buffer, uint32_t in8_stride, uint8_t* inn_bit_buffer,
+                                uint32_t inn_stride, uint16_t* out16_bit_buffer, uint32_t out_stride, uint32_t width,
                                 uint32_t height) {
     svt_compressed_packmsb(
         in8_bit_buffer, in8_stride, inn_bit_buffer, inn_stride, out16_bit_buffer, out_stride, width, height);
 }
+
 // Copies the source image into the destination image and updates the
 // destination's UMV borders.
 // Note: The frames are assumed to be identical in size.
-void svt_aom_yv12_copy_y_c(const Yv12BufferConfig *src_ybc, Yv12BufferConfig *dst_ybc) {
+void svt_aom_yv12_copy_y_c(const Yv12BufferConfig* src_ybc, Yv12BufferConfig* dst_ybc) {
     int32_t        row;
-    const uint8_t *src = src_ybc->y_buffer;
-    uint8_t       *dst = dst_ybc->y_buffer;
+    const uint8_t* src = src_ybc->y_buffer;
+    uint8_t*       dst = dst_ybc->y_buffer;
 
     if (src_ybc->flags & YV12_FLAG_HIGHBITDEPTH) {
-        const uint16_t *src16 = CONVERT_TO_SHORTPTR(src);
-        uint16_t       *dst16 = CONVERT_TO_SHORTPTR(dst);
+        const uint16_t* src16 = CONVERT_TO_SHORTPTR(src);
+        uint16_t*       dst16 = CONVERT_TO_SHORTPTR(dst);
         for (row = 0; row < src_ybc->y_height; ++row) {
             svt_memcpy(dst16, src16, src_ybc->y_width * sizeof(uint16_t));
             src16 += src_ybc->y_stride;
@@ -381,14 +383,14 @@ void svt_aom_yv12_copy_y_c(const Yv12BufferConfig *src_ybc, Yv12BufferConfig *ds
     }
 }
 
-void svt_aom_yv12_copy_u_c(const Yv12BufferConfig *src_bc, Yv12BufferConfig *dst_bc) {
+void svt_aom_yv12_copy_u_c(const Yv12BufferConfig* src_bc, Yv12BufferConfig* dst_bc) {
     int32_t        row;
-    const uint8_t *src = src_bc->u_buffer;
-    uint8_t       *dst = dst_bc->u_buffer;
+    const uint8_t* src = src_bc->u_buffer;
+    uint8_t*       dst = dst_bc->u_buffer;
 
     if (src_bc->flags & YV12_FLAG_HIGHBITDEPTH) {
-        const uint16_t *src16 = CONVERT_TO_SHORTPTR(src);
-        uint16_t       *dst16 = CONVERT_TO_SHORTPTR(dst);
+        const uint16_t* src16 = CONVERT_TO_SHORTPTR(src);
+        uint16_t*       dst16 = CONVERT_TO_SHORTPTR(dst);
         for (row = 0; row < src_bc->uv_height; ++row) {
             svt_memcpy(dst16, src16, src_bc->uv_width * sizeof(uint16_t));
             src16 += src_bc->uv_stride;
@@ -404,14 +406,14 @@ void svt_aom_yv12_copy_u_c(const Yv12BufferConfig *src_bc, Yv12BufferConfig *dst
     }
 }
 
-void svt_aom_yv12_copy_v_c(const Yv12BufferConfig *src_bc, Yv12BufferConfig *dst_bc) {
+void svt_aom_yv12_copy_v_c(const Yv12BufferConfig* src_bc, Yv12BufferConfig* dst_bc) {
     int32_t        row;
-    const uint8_t *src = src_bc->v_buffer;
-    uint8_t       *dst = dst_bc->v_buffer;
+    const uint8_t* src = src_bc->v_buffer;
+    uint8_t*       dst = dst_bc->v_buffer;
 
     if (src_bc->flags & YV12_FLAG_HIGHBITDEPTH) {
-        const uint16_t *src16 = CONVERT_TO_SHORTPTR(src);
-        uint16_t       *dst16 = CONVERT_TO_SHORTPTR(dst);
+        const uint16_t* src16 = CONVERT_TO_SHORTPTR(src);
+        uint16_t*       dst16 = CONVERT_TO_SHORTPTR(dst);
         for (row = 0; row < src_bc->uv_height; ++row) {
             svt_memcpy(dst16, src16, src_bc->uv_width * sizeof(uint16_t));
             src16 += src_bc->uv_stride;
@@ -449,7 +451,7 @@ void svt_aom_generate_padding(
         return;
     }
 
-    temp_src_pic0 = src_pic + padding_width + padding_height * src_stride;
+    temp_src_pic0 = src_pic;
     while (vertical_idx) {
         // horizontal padding
         svt_memset(temp_src_pic0 - padding_width, *temp_src_pic0, padding_width);
@@ -461,8 +463,8 @@ void svt_aom_generate_padding(
 
     // vertical padding
     vertical_idx  = padding_height;
-    temp_src_pic0 = src_pic + padding_height * src_stride;
-    temp_src_pic1 = src_pic + (padding_height + original_src_height - 1) * src_stride;
+    temp_src_pic0 = src_pic - padding_width;
+    temp_src_pic1 = src_pic - padding_width + (original_src_height - 1) * src_stride;
     temp_src_pic2 = temp_src_pic0;
     temp_src_pic3 = temp_src_pic1;
     while (vertical_idx) {
@@ -474,9 +476,8 @@ void svt_aom_generate_padding(
         svt_memcpy(temp_src_pic3, temp_src_pic1, sizeof(uint8_t) * src_stride); // uint8_t to be modified
         --vertical_idx;
     }
-
-    return;
 }
+
 void svt_aom_generate_padding_compressed_10bit(
     EbByte   src_pic, //output paramter, pointer to the source picture to be padded.
     uint32_t src_stride, //input paramter, the stride of the source picture to be padded.
@@ -489,7 +490,7 @@ void svt_aom_generate_padding_compressed_10bit(
         SVT_ERROR("padding NULL pointers\n");
         return;
     }
-    EbByte temp_src_pic0 = src_pic + padding_width / 4 + padding_height * src_stride;
+    EbByte temp_src_pic0 = src_pic;
 
     for (uint32_t row = 0; row < original_src_height; row++) {
         const uint8_t left_pixel  = (temp_src_pic0[0] >> 6) & 0x03;
@@ -503,8 +504,8 @@ void svt_aom_generate_padding_compressed_10bit(
 
     // vertical padding
     uint32_t vertical_idx = padding_height;
-    temp_src_pic0         = src_pic + padding_height * src_stride;
-    EbByte temp_src_pic1  = src_pic + (padding_height + original_src_height - 1) * src_stride;
+    temp_src_pic0         = src_pic - (padding_width / 4);
+    EbByte temp_src_pic1  = src_pic - (padding_width / 4) + (original_src_height - 1) * src_stride;
     EbByte temp_src_pic2  = temp_src_pic0;
     EbByte temp_src_pic3  = temp_src_pic1;
     while (vertical_idx) {
@@ -517,12 +518,13 @@ void svt_aom_generate_padding_compressed_10bit(
         --vertical_idx;
     }
 }
+
 /** svt_aom_generate_padding16_bit()
 is used to pad the target picture. The horizontal padding happens first and then the vertical padding.
 */
 // TODO: svt_aom_generate_padding() and generate_padding16() functions are not aligned, inputs according to comments are wrong
 void svt_aom_generate_padding16_bit(
-    uint16_t *src_pic, //output paramter, pointer to the source picture to be padded.
+    uint16_t* src_pic, //output paramter, pointer to the source picture to be padded.
     uint32_t  src_stride, //input paramter, the stride of the source picture to be padded.
     uint32_t  original_src_width, //input paramter, the width of the source picture which excludes the padding.
     uint32_t  original_src_height, //input paramter, the height of the source picture which excludes the padding.
@@ -530,12 +532,12 @@ void svt_aom_generate_padding16_bit(
     uint32_t  padding_height) //input paramter, the padding height.
 {
     uint32_t  vertical_idx = original_src_height;
-    uint16_t *temp_src_pic0;
-    uint16_t *temp_src_pic1;
-    uint16_t *temp_src_pic2;
-    uint16_t *temp_src_pic3;
+    uint16_t* temp_src_pic0;
+    uint16_t* temp_src_pic1;
+    uint16_t* temp_src_pic2;
+    uint16_t* temp_src_pic3;
 
-    temp_src_pic0 = src_pic + padding_width + padding_height * src_stride;
+    temp_src_pic0 = src_pic;
     while (vertical_idx) {
         // horizontal padding
         //EB_MEMSET(temp_src_pic0 - padding_width, temp_src_pic0, padding_width);
@@ -548,8 +550,8 @@ void svt_aom_generate_padding16_bit(
 
     // vertical padding
     vertical_idx  = padding_height;
-    temp_src_pic0 = src_pic + padding_height * src_stride;
-    temp_src_pic1 = src_pic + (padding_height + original_src_height - 1) * src_stride;
+    temp_src_pic0 = src_pic - padding_width;
+    temp_src_pic1 = src_pic - padding_width + (original_src_height - 1) * src_stride;
     temp_src_pic2 = temp_src_pic0;
     temp_src_pic3 = temp_src_pic1;
     while (vertical_idx) {
@@ -561,8 +563,6 @@ void svt_aom_generate_padding16_bit(
         svt_memcpy(temp_src_pic3, temp_src_pic1, sizeof(uint16_t) * src_stride);
         --vertical_idx;
     }
-
-    return;
 }
 
 /** pad_input_picture()
@@ -617,7 +617,7 @@ void pad_input_picture(
 is used to pad the input picture in order to get . The horizontal padding happens first and then the vertical padding.
 */
 void svt_aom_pad_input_picture_16bit(
-    uint16_t *src_pic, //output paramter, pointer to the source picture to be padded.
+    uint16_t* src_pic, //output paramter, pointer to the source picture to be padded.
     uint32_t  src_stride, //input paramter, the stride of the source picture to be padded.
     uint32_t  original_src_width, //input paramter, the width of the source picture which excludes the padding.
     uint32_t  original_src_height, //input paramter, the height of the source picture which excludes the padding.
@@ -625,7 +625,7 @@ void svt_aom_pad_input_picture_16bit(
     uint32_t  pad_bottom) //input paramter, the padding bottom.
 {
     uint32_t  vertical_idx;
-    uint16_t *temp_src_pic0;
+    uint16_t* temp_src_pic0;
 
     if (pad_right) {
         // Add padding @ the right
@@ -640,10 +640,10 @@ void svt_aom_pad_input_picture_16bit(
     }
 
     if (pad_bottom) {
-        uint16_t *temp_src_pic1;
+        uint16_t* temp_src_pic1;
         // Add padding @ the bottom
         vertical_idx  = pad_bottom;
-        temp_src_pic0 = (uint16_t *)(src_pic + (original_src_height - 1) * src_stride);
+        temp_src_pic0 = (uint16_t*)(src_pic + (original_src_height - 1) * src_stride);
         temp_src_pic1 = temp_src_pic0;
 
         while (vertical_idx) {
@@ -656,78 +656,64 @@ void svt_aom_pad_input_picture_16bit(
     return;
 }
 
-void svt_aom_pack_2d_pic(EbPictureBufferDesc *input_picture, uint16_t *packed[3]) {
-    const uint32_t input_luma_offset = ((input_picture->org_y) * input_picture->stride_y) + (input_picture->org_x);
-    const uint32_t input_bit_inc_luma_offset = ((input_picture->org_y) * input_picture->stride_bit_inc_y >> 2) +
-        (input_picture->org_x >> 2);
-    const uint32_t input_cb_offset = (((input_picture->org_y) >> 1) * input_picture->stride_cb) +
-        ((input_picture->org_x) >> 1);
-    const uint32_t input_bit_inc_cb_offset = (((input_picture->org_y) >> 1) * input_picture->stride_bit_inc_cb >> 2) +
-        ((input_picture->org_x >> 2) >> 1);
-    const uint32_t input_cr_offset = (((input_picture->org_y) >> 1) * input_picture->stride_cr) +
-        ((input_picture->org_x) >> 1);
-    const uint32_t input_bit_inc_cr_offset = (((input_picture->org_y) >> 1) * input_picture->stride_bit_inc_cr >> 2) +
-        ((input_picture->org_x >> 2) >> 1);
-
-    svt_aom_compressed_pack_sb(input_picture->buffer_y + input_luma_offset,
-                               input_picture->stride_y,
-                               input_picture->buffer_bit_inc_y + input_bit_inc_luma_offset,
-                               input_picture->stride_bit_inc_y >> 2,
-                               (uint16_t *)packed[0],
-                               input_picture->stride_y,
+void svt_aom_pack_2d_pic(EbPictureBufferDesc* input_picture, uint16_t* packed[3]) {
+    svt_aom_compressed_pack_sb(input_picture->y_buffer,
+                               input_picture->y_stride,
+                               input_picture->y_buffer_bit_inc,
+                               input_picture->y_stride_bit_inc >> 2,
+                               (uint16_t*)packed[0],
+                               input_picture->y_stride,
                                input_picture->width,
                                input_picture->height);
 
-    svt_aom_compressed_pack_sb(input_picture->buffer_cb + input_cb_offset,
-                               input_picture->stride_cr,
-                               input_picture->buffer_bit_inc_cb + input_bit_inc_cb_offset,
-                               input_picture->stride_bit_inc_cr >> 2,
-                               (uint16_t *)packed[1],
-                               input_picture->stride_cr,
+    svt_aom_compressed_pack_sb(input_picture->u_buffer,
+                               input_picture->v_stride,
+                               input_picture->u_buffer_bit_inc,
+                               input_picture->v_stride_bit_inc >> 2,
+                               (uint16_t*)packed[1],
+                               input_picture->v_stride,
                                input_picture->width >> 1,
                                input_picture->height >> 1);
 
-    svt_aom_compressed_pack_sb(input_picture->buffer_cr + input_cr_offset,
-                               input_picture->stride_cr,
-                               input_picture->buffer_bit_inc_cr + input_bit_inc_cr_offset,
-                               input_picture->stride_bit_inc_cr >> 2,
-                               (uint16_t *)packed[2],
-                               input_picture->stride_cr,
+    svt_aom_compressed_pack_sb(input_picture->v_buffer,
+                               input_picture->v_stride,
+                               input_picture->v_buffer_bit_inc,
+                               input_picture->v_stride_bit_inc >> 2,
+                               (uint16_t*)packed[2],
+                               input_picture->v_stride,
                                input_picture->width >> 1,
                                input_picture->height >> 1);
 }
 
-void svt_aom_convert_pic_8bit_to_16bit(EbPictureBufferDesc *src_8bit, EbPictureBufferDesc *dst_16bit, uint16_t ss_x,
+void svt_aom_convert_pic_8bit_to_16bit(EbPictureBufferDesc* src_8bit, EbPictureBufferDesc* dst_16bit, uint16_t ss_x,
                                        uint16_t ss_y) {
     //copy input from 8bit to 16bit
-    uint8_t  *buffer_8bit;
+    uint8_t*  buffer_8bit;
     int32_t   stride_8bit;
-    uint16_t *buffer_16bit;
+    uint16_t* buffer_16bit;
     int32_t   stride_16bit;
     // Y
-    buffer_16bit = (uint16_t *)(dst_16bit->buffer_y) + dst_16bit->org_x + dst_16bit->org_y * dst_16bit->stride_y;
-    stride_16bit = dst_16bit->stride_y;
-    buffer_8bit  = src_8bit->buffer_y + src_8bit->org_x + src_8bit->org_y * src_8bit->stride_y;
-    stride_8bit  = src_8bit->stride_y;
+    buffer_16bit = (uint16_t*)(dst_16bit->y_buffer);
+    stride_16bit = dst_16bit->y_stride;
+    buffer_8bit  = src_8bit->y_buffer;
+    stride_8bit  = src_8bit->y_stride;
 
     svt_convert_8bit_to_16bit(buffer_8bit, stride_8bit, buffer_16bit, stride_16bit, src_8bit->width, src_8bit->height);
 
     // Cb
-    buffer_16bit = (uint16_t *)(dst_16bit->buffer_cb) + (dst_16bit->org_x >> ss_x) +
-        (dst_16bit->org_y >> ss_y) * dst_16bit->stride_cb;
-    stride_16bit = dst_16bit->stride_cb;
-    buffer_8bit  = src_8bit->buffer_cb + (src_8bit->org_x >> ss_x) + (src_8bit->org_y >> ss_y) * src_8bit->stride_cb;
-    stride_8bit  = src_8bit->stride_cb;
+    buffer_16bit = (uint16_t*)(dst_16bit->u_buffer);
+    stride_16bit = dst_16bit->u_stride;
+    buffer_8bit  = src_8bit->u_buffer;
+    stride_8bit  = src_8bit->u_stride;
 
     svt_convert_8bit_to_16bit(
         buffer_8bit, stride_8bit, buffer_16bit, stride_16bit, src_8bit->width >> ss_x, src_8bit->height >> ss_y);
 
     // Cr
-    buffer_16bit = (uint16_t *)(dst_16bit->buffer_cr) + (dst_16bit->org_x >> ss_x) +
-        (dst_16bit->org_y >> ss_y) * dst_16bit->stride_cr;
-    stride_16bit = dst_16bit->stride_cr;
-    buffer_8bit  = src_8bit->buffer_cr + (src_8bit->org_x >> ss_x) + (src_8bit->org_y >> ss_y) * src_8bit->stride_cr;
-    stride_8bit  = src_8bit->stride_cr;
+    buffer_16bit = (uint16_t*)(dst_16bit->v_buffer);
+    stride_16bit = dst_16bit->v_stride;
+    buffer_8bit  = src_8bit->v_buffer;
+    stride_8bit  = src_8bit->v_stride;
 
     svt_convert_8bit_to_16bit(
         buffer_8bit, stride_8bit, buffer_16bit, stride_16bit, src_8bit->width >> ss_x, src_8bit->height >> ss_y);
@@ -735,99 +721,103 @@ void svt_aom_convert_pic_8bit_to_16bit(EbPictureBufferDesc *src_8bit, EbPictureB
     dst_16bit->width  = src_8bit->width;
     dst_16bit->height = src_8bit->height;
 }
-void svt_aom_copy_buffer_info(EbPictureBufferDesc *src_ptr, EbPictureBufferDesc *dst_ptr) {
-    dst_ptr->width             = src_ptr->width;
-    dst_ptr->height            = src_ptr->height;
-    dst_ptr->max_width         = src_ptr->max_width;
-    dst_ptr->max_height        = src_ptr->max_height;
-    dst_ptr->stride_y          = src_ptr->stride_y;
-    dst_ptr->stride_cb         = src_ptr->stride_cb;
-    dst_ptr->stride_cr         = src_ptr->stride_cr;
-    dst_ptr->org_x             = src_ptr->org_x;
-    dst_ptr->origin_bot_y      = src_ptr->origin_bot_y;
-    dst_ptr->org_y             = src_ptr->org_y;
-    dst_ptr->stride_bit_inc_y  = src_ptr->stride_bit_inc_y;
-    dst_ptr->stride_bit_inc_cb = src_ptr->stride_bit_inc_cb;
-    dst_ptr->stride_bit_inc_cr = src_ptr->stride_bit_inc_cr;
-    dst_ptr->luma_size         = src_ptr->luma_size;
-    dst_ptr->chroma_size       = src_ptr->chroma_size;
+
+void svt_aom_copy_buffer_info(EbPictureBufferDesc* src_ptr, EbPictureBufferDesc* dst_ptr) {
+    dst_ptr->width            = src_ptr->width;
+    dst_ptr->height           = src_ptr->height;
+    dst_ptr->max_width        = src_ptr->max_width;
+    dst_ptr->max_height       = src_ptr->max_height;
+    dst_ptr->y_stride         = src_ptr->y_stride;
+    dst_ptr->u_stride         = src_ptr->u_stride;
+    dst_ptr->v_stride         = src_ptr->v_stride;
+    dst_ptr->border           = src_ptr->border;
+    dst_ptr->y_stride_bit_inc = src_ptr->y_stride_bit_inc;
+    dst_ptr->u_stride_bit_inc = src_ptr->u_stride_bit_inc;
+    dst_ptr->v_stride_bit_inc = src_ptr->v_stride_bit_inc;
+    dst_ptr->luma_size        = src_ptr->luma_size;
+    dst_ptr->chroma_size      = src_ptr->chroma_size;
 }
 
-void svt_aom_pack_highbd_pic(const EbPictureBufferDesc *pic_ptr, uint16_t *buffer_16bit[3], uint32_t ss_x,
-                             uint32_t ss_y, bool include_padding) {
-    uint16_t width  = pic_ptr->stride_y;
-    uint16_t height = (uint16_t)(pic_ptr->org_y * 2 + pic_ptr->height);
+void svt_aom_pack_highbd_pic(const EbPictureBufferDesc* pic_ptr, uint16_t* buffer_16bit[3], uint32_t ss_x,
+                             uint32_t ss_y) {
+    uint16_t width  = pic_ptr->y_stride;
+    uint16_t height = (uint16_t)(pic_ptr->border * 2 + pic_ptr->height);
 
-    svt_aom_assert_err(include_padding == 1, "not supporting OFF");
+    uint32_t comp_stride_y = pic_ptr->y_stride / 4;
 
-    uint32_t comp_stride_y = pic_ptr->stride_y / 4;
-
-    svt_aom_compressed_pack_sb(pic_ptr->buffer_y,
-                               pic_ptr->stride_y,
-                               pic_ptr->buffer_bit_inc_y,
+    svt_aom_compressed_pack_sb(pic_ptr->y_buffer - (pic_ptr->border + (pic_ptr->y_stride * pic_ptr->border)),
+                               pic_ptr->y_stride,
+                               pic_ptr->y_buffer_bit_inc - (pic_ptr->border / 4) - (comp_stride_y * pic_ptr->border),
                                comp_stride_y,
                                buffer_16bit[0 /*Y*/],
-                               pic_ptr->stride_y,
+                               pic_ptr->y_stride,
                                width,
                                height);
 
-    uint32_t comp_stride_uv = pic_ptr->stride_cb / 4;
-    if (buffer_16bit[1 /*U*/])
-        svt_aom_compressed_pack_sb(pic_ptr->buffer_cb,
-                                   pic_ptr->stride_cb,
-                                   pic_ptr->buffer_bit_inc_cb,
-                                   comp_stride_uv,
-                                   buffer_16bit[1 /*U*/],
-                                   pic_ptr->stride_cb,
-                                   (width + ss_x) >> ss_x,
-                                   (height + ss_y) >> ss_y);
-    if (buffer_16bit[2 /*V*/])
-        svt_aom_compressed_pack_sb(pic_ptr->buffer_cr,
-                                   pic_ptr->stride_cr,
-                                   pic_ptr->buffer_bit_inc_cr,
-                                   comp_stride_uv,
-                                   buffer_16bit[2 /*V*/],
-                                   pic_ptr->stride_cr,
-                                   (width + ss_x) >> ss_x,
-                                   (height + ss_y) >> ss_y);
+    if (buffer_16bit[1 /*U*/]) {
+        uint32_t comp_stride_cb = pic_ptr->u_stride / 4;
+        svt_aom_compressed_pack_sb(
+            pic_ptr->u_buffer - ((pic_ptr->border >> ss_x) + (pic_ptr->u_stride * (pic_ptr->border >> ss_y))),
+            pic_ptr->u_stride,
+            pic_ptr->u_buffer_bit_inc - ((pic_ptr->border >> ss_x) / 4 + (comp_stride_cb * (pic_ptr->border >> ss_y))),
+            comp_stride_cb,
+            buffer_16bit[1 /*U*/],
+            pic_ptr->u_stride,
+            (width + ss_x) >> ss_x,
+            (height + ss_y) >> ss_y);
+    }
+    if (buffer_16bit[2 /*V*/]) {
+        uint32_t comp_stride_cr = pic_ptr->v_stride / 4;
+        svt_aom_compressed_pack_sb(
+            pic_ptr->v_buffer - ((pic_ptr->border >> ss_x) + (pic_ptr->v_stride * (pic_ptr->border >> ss_y))),
+            pic_ptr->v_stride,
+            pic_ptr->v_buffer_bit_inc - ((pic_ptr->border >> ss_x) / 4 + (comp_stride_cr * (pic_ptr->border >> ss_y))),
+            comp_stride_cr,
+            buffer_16bit[2 /*V*/],
+            pic_ptr->v_stride,
+            (width + ss_x) >> ss_x,
+            (height + ss_y) >> ss_y);
+    }
 }
 
-void svt_aom_unpack_highbd_pic(uint16_t *buffer_highbd[3], EbPictureBufferDesc *pic_ptr, uint32_t ss_x, uint32_t ss_y,
-                               bool include_padding) {
-    uint16_t width  = pic_ptr->stride_y;
-    uint16_t height = (uint16_t)(pic_ptr->org_y * 2 + pic_ptr->height);
+void svt_aom_unpack_highbd_pic(uint16_t* buffer_highbd[3], EbPictureBufferDesc* pic_ptr, uint32_t ss_x, uint32_t ss_y) {
+    uint16_t width  = pic_ptr->y_stride;
+    uint16_t height = (uint16_t)(pic_ptr->border * 2 + pic_ptr->height);
 
-    svt_aom_assert_err(include_padding == 1, "not supporting OFF");
-
-    uint32_t comp_stride_y  = pic_ptr->stride_y / 4;
-    uint32_t comp_stride_uv = pic_ptr->stride_cb / 4;
+    uint32_t comp_stride_y  = pic_ptr->y_stride / 4;
+    uint32_t comp_stride_cb = pic_ptr->u_stride / 4;
+    uint32_t comp_stride_cr = pic_ptr->v_stride / 4;
 
     svt_unpack_and_2bcompress(buffer_highbd[0 /*Y*/],
-                              pic_ptr->stride_y,
-                              pic_ptr->buffer_y,
-                              pic_ptr->stride_y,
-                              pic_ptr->buffer_bit_inc_y,
+                              pic_ptr->y_stride,
+                              pic_ptr->y_buffer - (pic_ptr->border + (pic_ptr->y_stride * pic_ptr->border)),
+                              pic_ptr->y_stride,
+                              pic_ptr->y_buffer_bit_inc - (pic_ptr->border / 4) - (comp_stride_y * pic_ptr->border),
                               comp_stride_y,
                               width,
                               height);
 
-    if (buffer_highbd[1 /*U*/])
-        svt_unpack_and_2bcompress(buffer_highbd[1 /*U*/],
-                                  pic_ptr->stride_cb,
-                                  pic_ptr->buffer_cb,
-                                  pic_ptr->stride_cb,
-                                  pic_ptr->buffer_bit_inc_cb,
-                                  comp_stride_uv,
-                                  (width + ss_x) >> ss_x,
-                                  (height + ss_y) >> ss_y);
+    if (buffer_highbd[1 /*U*/]) {
+        svt_unpack_and_2bcompress(
+            buffer_highbd[1 /*U*/],
+            pic_ptr->u_stride,
+            pic_ptr->u_buffer - ((pic_ptr->border >> ss_x) + (pic_ptr->u_stride * (pic_ptr->border >> ss_y))),
+            pic_ptr->u_stride,
+            pic_ptr->u_buffer_bit_inc - ((pic_ptr->border >> ss_x) / 4 + (comp_stride_cb * (pic_ptr->border >> ss_y))),
+            comp_stride_cb,
+            (width + ss_x) >> ss_x,
+            (height + ss_y) >> ss_y);
+    }
 
-    if (buffer_highbd[2 /*V*/])
-        svt_unpack_and_2bcompress(buffer_highbd[2 /*V*/],
-                                  pic_ptr->stride_cr,
-                                  pic_ptr->buffer_cr,
-                                  pic_ptr->stride_cr,
-                                  pic_ptr->buffer_bit_inc_cr,
-                                  comp_stride_uv,
-                                  (width + ss_x) >> ss_x,
-                                  (height + ss_y) >> ss_y);
+    if (buffer_highbd[2 /*V*/]) {
+        svt_unpack_and_2bcompress(
+            buffer_highbd[2 /*V*/],
+            pic_ptr->v_stride,
+            pic_ptr->v_buffer - ((pic_ptr->border >> ss_x) + (pic_ptr->v_stride * (pic_ptr->border >> ss_y))),
+            pic_ptr->v_stride,
+            pic_ptr->v_buffer_bit_inc - ((pic_ptr->border >> ss_x) / 4 + (comp_stride_cr * (pic_ptr->border >> ss_y))),
+            comp_stride_cr,
+            (width + ss_x) >> ss_x,
+            (height + ss_y) >> ss_y);
+    }
 }

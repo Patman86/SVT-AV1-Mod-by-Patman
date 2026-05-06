@@ -24,8 +24,8 @@
 #include "transpose_neon.h"
 #include "utility.h"
 
-static inline void stats_top_win5_sve(const int16x8_t src[2], const int16x8_t dgd[2], const int16_t *const d,
-                                      const int32_t d_stride, int64x2_t *sum_m, int64x2_t *sum_h) {
+static inline void stats_top_win5_sve(const int16x8_t src[2], const int16x8_t dgd[2], const int16_t* const d,
+                                      const int32_t d_stride, int64x2_t* sum_m, int64x2_t* sum_h) {
     int16x8_t dgds[WIENER_WIN_CHROMA * 2];
 
     load_s16_8x5(d + 0, d_stride, &dgds[0], &dgds[2], &dgds[4], &dgds[6], &dgds[8]);
@@ -54,8 +54,8 @@ static inline void stats_top_win5_sve(const int16x8_t src[2], const int16x8_t dg
     sum_h[4] = svt_sdotq_s16(sum_h[4], dgd[1], dgds[9]);
 }
 
-static inline void stats_left_win5_sve(const int16x8_t src[2], const int16_t *d, const int32_t d_stride,
-                                       int64x2_t *sum) {
+static inline void stats_left_win5_sve(const int16x8_t src[2], const int16_t* d, const int32_t d_stride,
+                                       int64x2_t* sum) {
     int16x8_t dgds[WIN_CHROMA];
 
     load_s16_8x4(d + d_stride + 0, d_stride, &dgds[0], &dgds[2], &dgds[4], &dgds[6]);
@@ -71,7 +71,7 @@ static inline void stats_left_win5_sve(const int16x8_t src[2], const int16_t *d,
     sum[3] = svt_sdotq_s16(sum[3], src[1], dgds[7]);
 }
 
-static inline void sub_deltas_step4_sve(int16x8_t *A, int16x8_t *B, int64x2_t *deltas) {
+static inline void sub_deltas_step4_sve(int16x8_t* A, int16x8_t* B, int64x2_t* deltas) {
     deltas[0] = svt_sdotq_s16(deltas[0], vnegq_s16(A[0]), B[0]);
     deltas[1] = svt_sdotq_s16(deltas[1], vnegq_s16(A[0]), B[1]);
     deltas[2] = svt_sdotq_s16(deltas[2], vnegq_s16(A[0]), B[2]);
@@ -83,7 +83,7 @@ static inline void sub_deltas_step4_sve(int16x8_t *A, int16x8_t *B, int64x2_t *d
     deltas[8] = svt_sdotq_s16(deltas[8], vnegq_s16(A[4]), B[0]);
 }
 
-static inline void add_deltas_step4_sve(int16x8_t *A, int16x8_t *B, int64x2_t *deltas) {
+static inline void add_deltas_step4_sve(int16x8_t* A, int16x8_t* B, int64x2_t* deltas) {
     deltas[0] = svt_sdotq_s16(deltas[0], A[0], B[0]);
     deltas[1] = svt_sdotq_s16(deltas[1], A[0], B[1]);
     deltas[2] = svt_sdotq_s16(deltas[2], A[0], B[2]);
@@ -95,9 +95,9 @@ static inline void add_deltas_step4_sve(int16x8_t *A, int16x8_t *B, int64x2_t *d
     deltas[8] = svt_sdotq_s16(deltas[8], A[4], B[0]);
 }
 
-static inline void load_square_win5_sve(const int16_t *const di, const int16_t *const dj, const int32_t d_stride,
-                                        const int32_t height, int16x8_t *d_is, int16x8_t *d_ie, int16x8_t *d_js,
-                                        int16x8_t *d_je, svbool_t p0, svbool_t p1) {
+static inline void load_square_win5_sve(const int16_t* const di, const int16_t* const dj, const int32_t d_stride,
+                                        const int32_t height, int16x8_t* d_is, int16x8_t* d_ie, int16x8_t* d_js,
+                                        int16x8_t* d_je, svbool_t p0, svbool_t p1) {
     d_is[0] = svget_neonq_s16(svld1_s16(p0, di + 0 * d_stride + 0));
     d_is[1] = svget_neonq_s16(svld1_s16(p1, di + 0 * d_stride + 8));
     d_is[2] = svget_neonq_s16(svld1_s16(p0, di + 1 * d_stride + 0));
@@ -122,7 +122,7 @@ static inline void load_square_win5_sve(const int16_t *const di, const int16_t *
     load_s16_8x4(dj + height * d_stride + 8, d_stride, &d_je[1], &d_je[3], &d_je[5], &d_je[7]);
 }
 
-static inline void update_4_stats_sve(const int64_t *const src, const int64x2_t *delta, int64_t *const dst) {
+static inline void update_4_stats_sve(const int64_t* const src, const int64x2_t* delta, int64_t* const dst) {
     const int64x2_t s1 = vld1q_s64(src);
     const int64x2_t s2 = vld1q_s64(src + 2);
 
@@ -130,8 +130,8 @@ static inline void update_4_stats_sve(const int64_t *const src, const int64x2_t 
     vst1q_s64(dst + 2, vaddq_s64(s2, delta[1]));
 }
 
-static inline void derive_square_win5_sve(int16x8_t *d_is, const int16x8_t *d_ie, const int16x8_t *d_js,
-                                          const int16x8_t *d_je,
+static inline void derive_square_win5_sve(int16x8_t* d_is, const int16x8_t* d_ie, const int16x8_t* d_js,
+                                          const int16x8_t* d_je,
                                           int64x2_t        deltas[WIENER_WIN_CHROMA - 1][WIENER_WIN_CHROMA - 1]) {
     d_is[0] = vnegq_s16(d_is[0]);
     d_is[1] = vnegq_s16(d_is[1]);
@@ -215,7 +215,7 @@ static inline void derive_square_win5_sve(int16x8_t *d_is, const int16x8_t *d_ie
     deltas[3][3] = svt_sdotq_s16(deltas[3][3], d_ie[7], d_je[7]);
 }
 
-static inline void hadd_update_4_stats_sve(const int64_t *const src, const int64x2_t *deltas, int64_t *const dst) {
+static inline void hadd_update_4_stats_sve(const int64_t* const src, const int64x2_t* deltas, int64_t* const dst) {
     int64x2_t src0 = vld1q_s64(src);
     int64x2_t src1 = vld1q_s64(src + 2);
 
@@ -223,8 +223,8 @@ static inline void hadd_update_4_stats_sve(const int64_t *const src, const int64
     vst1q_s64(dst + 2, vaddq_s64(src1, vpaddq_s64(deltas[2], deltas[3])));
 }
 
-static inline void load_triangle_win5_sve(const int16_t *const di, const int32_t d_stride, const int32_t height,
-                                          int16x8_t *d_is, int16x8_t *d_ie, svbool_t p0, svbool_t p1) {
+static inline void load_triangle_win5_sve(const int16_t* const di, const int32_t d_stride, const int32_t height,
+                                          int16x8_t* d_is, int16x8_t* d_ie, svbool_t p0, svbool_t p1) {
     d_is[0] = svget_neonq_s16(svld1_s16(p0, di + 0 * d_stride + 0));
     d_is[1] = svget_neonq_s16(svld1_s16(p1, di + 0 * d_stride + 8));
     d_is[2] = svget_neonq_s16(svld1_s16(p0, di + 1 * d_stride + 0));
@@ -243,7 +243,7 @@ static inline void load_triangle_win5_sve(const int16_t *const di, const int32_t
     d_ie[7] = svget_neonq_s16(svld1_s16(p1, di + (height + 3) * d_stride + 8));
 }
 
-static inline void derive_triangle_win5_sve(const int16x8_t *d_is, const int16x8_t *d_ie, int64x2_t *deltas) {
+static inline void derive_triangle_win5_sve(const int16x8_t* d_is, const int16x8_t* d_ie, int64x2_t* deltas) {
     deltas[0] = svt_sdotq_s16(deltas[0], vnegq_s16(d_is[0]), d_is[0]);
     deltas[0] = svt_sdotq_s16(deltas[0], vnegq_s16(d_is[1]), d_is[1]);
     deltas[1] = svt_sdotq_s16(deltas[1], vnegq_s16(d_is[0]), d_is[2]);
@@ -287,9 +287,9 @@ static inline void derive_triangle_win5_sve(const int16x8_t *d_is, const int16x8
     deltas[9] = svt_sdotq_s16(deltas[9], d_ie[7], d_ie[7]);
 }
 
-void compute_stats_win5_sve(const int16_t *const d, const int32_t d_stride, const int16_t *const s,
-                            const int32_t s_stride, const int32_t width, const int32_t height, int64_t *const M,
-                            int64_t *const H) {
+void compute_stats_win5_sve(const int16_t* const d, const int32_t d_stride, const int16_t* const s,
+                            const int32_t s_stride, const int32_t width, const int32_t height, int64_t* const M,
+                            int64_t* const H) {
     const int32_t wiener_win  = WIENER_WIN_CHROMA;
     const int32_t wiener_win2 = wiener_win * wiener_win;
     const int32_t h8          = height & ~7;
@@ -303,8 +303,8 @@ void compute_stats_win5_sve(const int16_t *const d, const int32_t d_stride, cons
     // edge of each triangle and square on the top row.
     j = 0;
     do {
-        const int16_t *s_t                      = s;
-        const int16_t *d_t                      = d;
+        const int16_t* s_t                      = s;
+        const int16_t* d_t                      = d;
         int64x2_t      sum_m[WIENER_WIN_CHROMA] = {vdupq_n_s64(0)};
         int64x2_t      sum_h[WIENER_WIN_CHROMA] = {vdupq_n_s64(0)};
         int16x8_t      src[2], dgd[2];
@@ -344,7 +344,7 @@ void compute_stats_win5_sve(const int16_t *const d, const int32_t d_stride, cons
     // Step 2: Calculate the left edge of each square on the top row.
     j = 1;
     do {
-        const int16_t *d_t                          = d;
+        const int16_t* d_t                          = d;
         int64x2_t      sum_h[WIENER_WIN_CHROMA - 1] = {vdupq_n_s64(0)};
         int16x8_t      dgd[2];
 
@@ -378,7 +378,7 @@ void compute_stats_win5_sve(const int16_t *const d, const int32_t d_stride, cons
     // Step 3: Derive the top edge of each triangle along the diagonal. No
     // triangle in top row.
     {
-        const int16_t *d_t = d;
+        const int16_t* d_t = d;
 
         int32x4_t deltas[WIENER_WIN_CHROMA] = {vdupq_n_s32(0)};
         int16x8_t ds[WIENER_WIN_CHROMA + 1];
@@ -420,7 +420,7 @@ void compute_stats_win5_sve(const int16_t *const d, const int32_t d_stride, cons
 
         int16x4_t      d_s[12];
         int16x4_t      d_e[12];
-        const int16_t *d_t   = d;
+        const int16_t* d_t   = d;
         int16x4_t      zeros = vdup_n_s16(0);
         load_s16_4x4(d_t, d_stride, &d_s[0], &d_s[1], &d_s[2], &d_s[3]);
         load_s16_4x4(d_t + width, d_stride, &d_e[0], &d_e[1], &d_e[2], &d_e[3]);
@@ -724,11 +724,11 @@ void compute_stats_win5_sve(const int16_t *const d, const int32_t d_stride, cons
     // Step 5: Derive other points of each square. No square in bottom row.
     i = 0;
     do {
-        const int16_t *const di = d + i;
+        const int16_t* const di = d + i;
 
         j = i + 1;
         do {
-            const int16_t *const dj                                        = d + j;
+            const int16_t* const dj                                        = d + j;
             int64x2_t deltas[WIENER_WIN_CHROMA - 1][WIENER_WIN_CHROMA - 1] = {{vdupq_n_s64(0)}, {vdupq_n_s64(0)}};
             int16x8_t d_is[WIN_CHROMA], d_ie[WIN_CHROMA];
             int16x8_t d_js[WIN_CHROMA], d_je[WIN_CHROMA];
@@ -761,7 +761,7 @@ void compute_stats_win5_sve(const int16_t *const d, const int32_t d_stride, cons
     // Step 6: Derive other points of each upper triangle along the diagonal.
     i = 0;
     do {
-        const int16_t *const di                                = d + i;
+        const int16_t* const di                                = d + i;
         int64x2_t            deltas[WIENER_WIN_CHROMA * 2 + 1] = {vdupq_n_s64(0)};
         int16x8_t            d_is[WIN_CHROMA], d_ie[WIN_CHROMA];
 
@@ -801,8 +801,8 @@ void compute_stats_win5_sve(const int16_t *const d, const int32_t d_stride, cons
     } while (++i < wiener_win);
 }
 
-static inline void stats_top_win7_sve(const int16x8_t src[2], const int16x8_t dgd[2], const int16_t *const d,
-                                      const int32_t d_stride, int64x2_t *sum_m, int64x2_t *sum_h) {
+static inline void stats_top_win7_sve(const int16x8_t src[2], const int16x8_t dgd[2], const int16_t* const d,
+                                      const int32_t d_stride, int64x2_t* sum_m, int64x2_t* sum_h) {
     int16x8_t dgds[WIENER_WIN * 2];
 
     load_s16_8x7(d + 0, d_stride, &dgds[0], &dgds[2], &dgds[4], &dgds[6], &dgds[8], &dgds[10], &dgds[12]);
@@ -839,8 +839,8 @@ static inline void stats_top_win7_sve(const int16x8_t src[2], const int16x8_t dg
     sum_h[6] = svt_sdotq_s16(sum_h[6], dgd[1], dgds[13]);
 }
 
-static inline void stats_left_win7_sve(const int16x8_t src[2], const int16_t *d, const int32_t d_stride,
-                                       int64x2_t *sum) {
+static inline void stats_left_win7_sve(const int16x8_t src[2], const int16_t* d, const int32_t d_stride,
+                                       int64x2_t* sum) {
     int16x8_t dgds[WIN_7];
 
     load_s16_8x6(d + d_stride + 0, d_stride, &dgds[0], &dgds[2], &dgds[4], &dgds[6], &dgds[8], &dgds[10]);
@@ -860,9 +860,9 @@ static inline void stats_left_win7_sve(const int16x8_t src[2], const int16_t *d,
     sum[5] = svt_sdotq_s16(sum[5], src[1], dgds[11]);
 }
 
-static inline void load_square_win7_sve(const int16_t *const di, const int16_t *const dj, const int32_t d_stride,
-                                        const int32_t height, int16x8_t *d_is, int16x8_t *d_ie, int16x8_t *d_js,
-                                        int16x8_t *d_je, svbool_t p0, svbool_t p1) {
+static inline void load_square_win7_sve(const int16_t* const di, const int16_t* const dj, const int32_t d_stride,
+                                        const int32_t height, int16x8_t* d_is, int16x8_t* d_ie, int16x8_t* d_js,
+                                        int16x8_t* d_je, svbool_t p0, svbool_t p1) {
     d_is[0]  = svget_neonq_s16(svld1_s16(p0, di + 0 * d_stride + 0));
     d_is[1]  = svget_neonq_s16(svld1_s16(p1, di + 0 * d_stride + 8));
     d_is[2]  = svget_neonq_s16(svld1_s16(p0, di + 1 * d_stride + 0));
@@ -895,8 +895,8 @@ static inline void load_square_win7_sve(const int16_t *const di, const int16_t *
     load_s16_8x6(dj + height * d_stride + 8, d_stride, &d_je[1], &d_je[3], &d_je[5], &d_je[7], &d_je[9], &d_je[11]);
 }
 
-static inline void derive_square_win7_sve(int16x8_t *d_is, const int16x8_t *d_ie, const int16x8_t *d_js,
-                                          const int16x8_t *d_je, int64x2_t deltas[][WIN_7]) {
+static inline void derive_square_win7_sve(int16x8_t* d_is, const int16x8_t* d_ie, const int16x8_t* d_js,
+                                          const int16x8_t* d_je, int64x2_t deltas[][WIN_7]) {
     d_is[0]  = vnegq_s16(d_is[0]);
     d_is[1]  = vnegq_s16(d_is[1]);
     d_is[2]  = vnegq_s16(d_is[2]);
@@ -1067,7 +1067,7 @@ static inline void derive_square_win7_sve(int16x8_t *d_is, const int16x8_t *d_ie
     deltas[5][5] = svt_sdotq_s16(deltas[5][5], d_ie[11], d_je[11]);
 }
 
-static inline void hadd_update_6_stats_sve(const int64_t *const src, const int64x2_t *deltas, int64_t *const dst) {
+static inline void hadd_update_6_stats_sve(const int64_t* const src, const int64x2_t* deltas, int64_t* const dst) {
     int64x2_t src0 = vld1q_s64(src + 0);
     int64x2_t src1 = vld1q_s64(src + 2);
     int64x2_t src2 = vld1q_s64(src + 4);
@@ -1081,8 +1081,8 @@ static inline void hadd_update_6_stats_sve(const int64_t *const src, const int64
     vst1q_s64(dst + 4, vaddq_s64(src2, deltas45));
 }
 
-static inline void load_triangle_win7_sve(const int16_t *const di, const int32_t d_stride, const int32_t height,
-                                          int16x8_t *d_is, int16x8_t *d_ie, svbool_t p0, svbool_t p1) {
+static inline void load_triangle_win7_sve(const int16_t* const di, const int32_t d_stride, const int32_t height,
+                                          int16x8_t* d_is, int16x8_t* d_ie, svbool_t p0, svbool_t p1) {
     d_is[0]  = svget_neonq_s16(svld1_s16(p0, di + 0 * d_stride + 0));
     d_is[1]  = svget_neonq_s16(svld1_s16(p1, di + 0 * d_stride + 8));
     d_is[2]  = svget_neonq_s16(svld1_s16(p0, di + 1 * d_stride + 0));
@@ -1110,7 +1110,7 @@ static inline void load_triangle_win7_sve(const int16_t *const di, const int32_t
     d_ie[11] = svget_neonq_s16(svld1_s16(p1, di + (height + 5) * d_stride + 8));
 }
 
-static inline void derive_triangle_win7_sve(const int16x8_t *d_is, const int16x8_t *d_ie, int64x2_t *deltas) {
+static inline void derive_triangle_win7_sve(const int16x8_t* d_is, const int16x8_t* d_ie, int64x2_t* deltas) {
     deltas[0] = svt_sdotq_s16(deltas[0], vnegq_s16(d_is[0]), d_is[0]);
     deltas[0] = svt_sdotq_s16(deltas[0], vnegq_s16(d_is[1]), d_is[1]);
     deltas[1] = svt_sdotq_s16(deltas[1], vnegq_s16(d_is[0]), d_is[2]);
@@ -1208,9 +1208,9 @@ static inline void derive_triangle_win7_sve(const int16x8_t *d_is, const int16x8
     deltas[20] = svt_sdotq_s16(deltas[20], d_ie[11], d_ie[11]);
 }
 
-void compute_stats_win7_sve(const int16_t *const d, const int32_t d_stride, const int16_t *const s,
-                            const int32_t s_stride, const int32_t width, const int32_t height, int64_t *const M,
-                            int64_t *const H) {
+void compute_stats_win7_sve(const int16_t* const d, const int32_t d_stride, const int16_t* const s,
+                            const int32_t s_stride, const int32_t width, const int32_t height, int64_t* const M,
+                            int64_t* const H) {
     const int32_t wiener_win  = WIENER_WIN;
     const int32_t wiener_win2 = wiener_win * wiener_win;
     const int32_t h8          = height & ~7;
@@ -1224,8 +1224,8 @@ void compute_stats_win7_sve(const int16_t *const d, const int32_t d_stride, cons
     // edge of each triangle and square on the top row.
     j = 0;
     do {
-        const int16_t *s_t               = s;
-        const int16_t *d_t               = d;
+        const int16_t* s_t               = s;
+        const int16_t* d_t               = d;
         int64x2_t      sum_m[WIENER_WIN] = {vdupq_n_s64(0)};
         int64x2_t      sum_h[WIENER_WIN] = {vdupq_n_s64(0)};
         int16x8_t      src[2], dgd[2];
@@ -1266,7 +1266,7 @@ void compute_stats_win7_sve(const int16_t *const d, const int32_t d_stride, cons
     // Step 2: Calculate the left edge of each square on the top row.
     j = 1;
     do {
-        const int16_t *d_t                   = d;
+        const int16_t* d_t                   = d;
         int64x2_t      sum_h[WIENER_WIN - 1] = {vdupq_n_s64(0)};
         int16x8_t      dgd[2];
 
@@ -1301,7 +1301,7 @@ void compute_stats_win7_sve(const int16_t *const d, const int32_t d_stride, cons
     // Step 3: Derive the top edge of each triangle along the diagonal. No
     // triangle in top row.
     {
-        const int16_t *d_t = d;
+        const int16_t* d_t = d;
         // Pad to call transpose function.
         int32x4_t deltas[(WIENER_WIN + 1) * 2] = {vdupq_n_s32(0)};
         int16x8_t ds[WIENER_WIN * 2];
@@ -1342,8 +1342,8 @@ void compute_stats_win7_sve(const int16_t *const d, const int32_t d_stride, cons
     do {
         j = i + 1;
         do {
-            const int16_t *di                               = d + i - 1;
-            const int16_t *dj                               = d + j - 1;
+            const int16_t* di                               = d + i - 1;
+            const int16_t* dj                               = d + j - 1;
             int64x2_t      deltas[(2 * WIENER_WIN - 1) * 2] = {vdupq_n_s64(0)};
             int16x8_t      dd[WIENER_WIN * 2], ds[WIENER_WIN * 2];
 
@@ -1573,11 +1573,11 @@ void compute_stats_win7_sve(const int16_t *const d, const int32_t d_stride, cons
     // Step 5: Derive other points of each square. No square in bottom row.
     i = 0;
     do {
-        const int16_t *const di = d + i;
+        const int16_t* const di = d + i;
 
         j = i + 1;
         do {
-            const int16_t *const dj                            = d + j;
+            const int16_t* const dj                            = d + j;
             int64x2_t            deltas[WIENER_WIN - 1][WIN_7] = {{vdupq_n_s64(0)}, {vdupq_n_s64(0)}};
             int16x8_t            d_is[WIN_7];
             int16x8_t            d_ie[WIN_7];
@@ -1618,7 +1618,7 @@ void compute_stats_win7_sve(const int16_t *const d, const int32_t d_stride, cons
     // Step 6: Derive other points of each upper triangle along the diagonal.
     i = 0;
     do {
-        const int16_t *const di                     = d + i;
+        const int16_t* const di                     = d + i;
         int64x2_t            deltas[3 * WIENER_WIN] = {vdupq_n_s64(0)};
         int16x8_t            d_is[WIN_7], d_ie[WIN_7];
 
@@ -1669,7 +1669,7 @@ void compute_stats_win7_sve(const int16_t *const d, const int32_t d_stride, cons
     } while (++i < wiener_win);
 }
 
-static inline uint8_t find_average_sve(const uint8_t *src, int src_stride, int width, int height) {
+static inline uint8_t find_average_sve(const uint8_t* src, int src_stride, int width, int height) {
     uint32x4_t avg_u32 = vdupq_n_u32(0);
     uint8x16_t ones    = vdupq_n_u8(1);
 
@@ -1679,7 +1679,7 @@ static inline uint8_t find_average_sve(const uint8_t *src, int src_stride, int w
     int h = height;
     do {
         int            j       = width;
-        const uint8_t *src_ptr = src;
+        const uint8_t* src_ptr = src;
         while (j >= 16) {
             uint8x16_t s = vld1q_u8(src_ptr);
             avg_u32      = vdotq_u32(avg_u32, s, ones);
@@ -1695,7 +1695,7 @@ static inline uint8_t find_average_sve(const uint8_t *src, int src_stride, int w
     return (uint8_t)(vaddlvq_u32(avg_u32) / (width * height));
 }
 
-static inline void compute_sub_avg(const uint8_t *buf, int buf_stride, int avg, int16_t *buf_avg, int buf_avg_stride,
+static inline void compute_sub_avg(const uint8_t* buf, int buf_stride, int avg, int16_t* buf_avg, int buf_avg_stride,
                                    int width, int height) {
     uint8x8_t avg_u8 = vdup_n_u8(avg);
 
@@ -1706,8 +1706,8 @@ static inline void compute_sub_avg(const uint8_t *buf, int buf_stride, int avg, 
 
     do {
         int            j           = width;
-        const uint8_t *buf_ptr     = buf;
-        int16_t       *buf_avg_ptr = buf_avg;
+        const uint8_t* buf_ptr     = buf;
+        int16_t*       buf_avg_ptr = buf_avg;
         while (j >= 8) {
             uint8x8_t d = vld1_u8(buf_ptr);
             vst1q_s16(buf_avg_ptr, vreinterpretq_s16_u16(vsubl_u8(d, avg_u8)));
@@ -1724,19 +1724,19 @@ static inline void compute_sub_avg(const uint8_t *buf, int buf_stride, int avg, 
     } while (--height > 0);
 }
 
-void svt_av1_compute_stats_sve(int32_t wiener_win, const uint8_t *dgd, const uint8_t *src, int32_t h_start,
+void svt_av1_compute_stats_sve(int32_t wiener_win, const uint8_t* dgd, const uint8_t* src, int32_t h_start,
                                int32_t h_end, int32_t v_start, int32_t v_end, int32_t dgd_stride, int32_t src_stride,
-                               int64_t *M, int64_t *H) {
+                               int64_t* M, int64_t* H) {
     const int32_t wiener_win2    = wiener_win * wiener_win;
     const int32_t wiener_halfwin = (wiener_win >> 1);
     const int32_t width          = h_end - h_start;
     const int32_t height         = v_end - v_start;
     const int32_t d_stride       = (width + 2 * wiener_halfwin + 15) & ~15;
     const int32_t s_stride       = (width + 15) & ~15;
-    int16_t      *d, *s;
+    int16_t *     d, *s;
 
-    const uint8_t *dgd_start = dgd + h_start + v_start * dgd_stride;
-    const uint8_t *src_start = src + h_start + v_start * src_stride;
+    const uint8_t* dgd_start = dgd + h_start + v_start * dgd_stride;
+    const uint8_t* src_start = src + h_start + v_start * src_stride;
     const uint16_t avg       = find_average_sve(dgd_start, dgd_stride, width, height);
 
     // The maximum input size is width * height, which is
@@ -1769,10 +1769,10 @@ void svt_av1_compute_stats_sve(int32_t wiener_win, const uint8_t *dgd, const uin
     svt_aom_free(d);
 }
 
-int64_t svt_av1_lowbd_pixel_proj_error_sve(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride,
-                                           const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride,
-                                           int32_t *flt1, int32_t flt1_stride, const int32_t xq[2],
-                                           const SgrParamsType *params) {
+int64_t svt_av1_lowbd_pixel_proj_error_sve(const uint8_t* src8, int32_t width, int32_t height, int32_t src_stride,
+                                           const uint8_t* dat8, int32_t dat_stride, int32_t* flt0, int32_t flt0_stride,
+                                           int32_t* flt1, int32_t flt1_stride, const int32_t xq[2],
+                                           const SgrParamsType* params) {
     if (width % 16 != 0) {
         return svt_av1_lowbd_pixel_proj_error_c(
             src8, width, height, src_stride, dat8, dat_stride, flt0, flt0_stride, flt1, flt1_stride, xq, params);
@@ -1823,7 +1823,7 @@ int64_t svt_av1_lowbd_pixel_proj_error_sve(const uint8_t *src8, int32_t width, i
         } while (--height != 0);
     } else if (params->r[0] > 0 || params->r[1] > 0) {
         const int32_t  xq_active  = (params->r[0] > 0) ? xq[0] : xq[1];
-        const int32_t *flt        = (params->r[0] > 0) ? flt0 : flt1;
+        const int32_t* flt        = (params->r[0] > 0) ? flt0 : flt1;
         const int32_t  flt_stride = (params->r[0] > 0) ? flt0_stride : flt1_stride;
         int32x2_t      xq_v       = vdup_n_s32(xq_active);
 
@@ -1884,16 +1884,16 @@ int64_t svt_av1_lowbd_pixel_proj_error_sve(const uint8_t *src8, int32_t width, i
 }
 
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
-int64_t svt_av1_highbd_pixel_proj_error_sve(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride,
-                                            const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride,
-                                            int32_t *flt1, int32_t flt1_stride, const int32_t xq[2],
-                                            const SgrParamsType *params) {
+int64_t svt_av1_highbd_pixel_proj_error_sve(const uint8_t* src8, int32_t width, int32_t height, int32_t src_stride,
+                                            const uint8_t* dat8, int32_t dat_stride, int32_t* flt0, int32_t flt0_stride,
+                                            int32_t* flt1, int32_t flt1_stride, const int32_t xq[2],
+                                            const SgrParamsType* params) {
     if (width % 8 != 0) {
         return svt_av1_highbd_pixel_proj_error_c(
             src8, width, height, src_stride, dat8, dat_stride, flt0, flt0_stride, flt1, flt1_stride, xq, params);
     }
-    const uint16_t *src     = CONVERT_TO_SHORTPTR(src8);
-    const uint16_t *dat     = CONVERT_TO_SHORTPTR(dat8);
+    const uint16_t* src     = CONVERT_TO_SHORTPTR(src8);
+    const uint16_t* dat     = CONVERT_TO_SHORTPTR(dat8);
     int64x2_t       sse_s64 = vdupq_n_s64(0);
 
     if (params->r[0] > 0 && params->r[1] > 0) {
@@ -1938,7 +1938,7 @@ int64_t svt_av1_highbd_pixel_proj_error_sve(const uint8_t *src8, int32_t width, 
         } while (--height != 0);
     } else if (params->r[0] > 0 || params->r[1] > 0) {
         int       xq_active  = (params->r[0] > 0) ? xq[0] : xq[1];
-        int32_t  *flt        = (params->r[0] > 0) ? flt0 : flt1;
+        int32_t*  flt        = (params->r[0] > 0) ? flt0 : flt1;
         int       flt_stride = (params->r[0] > 0) ? flt0_stride : flt1_stride;
         int32x4_t xq_v       = vdupq_n_s32(xq_active);
 

@@ -22,7 +22,7 @@
  **************************************/
 typedef struct PictureDecisionResults {
     EbDctor                     dctor;
-    EbObjectWrapper            *pcs_wrapper;
+    EbObjectWrapper*            pcs_wrapper;
     uint32_t                    segment_index;
     uint8_t                     task_type; // 0:ME   1:Temporal Filtering
     uint8_t                     lst0_cnt;
@@ -42,6 +42,6 @@ typedef struct PictureDecisionResultInitData {
 /**************************************
  * Extern Function Declarations
  **************************************/
-extern EbErrorType svt_aom_picture_decision_result_creator(EbPtr *object_dbl_ptr, EbPtr object_init_data_ptr);
+EbErrorType svt_aom_picture_decision_result_creator(EbPtr* object_dbl_ptr, EbPtr object_init_data_ptr);
 
 #endif //EbPictureDecisionResults_h

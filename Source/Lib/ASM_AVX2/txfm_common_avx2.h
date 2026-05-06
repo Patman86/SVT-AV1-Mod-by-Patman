@@ -33,7 +33,7 @@ static INLINE __m256i pair_set_w16_epi16(int16_t a, int16_t b) {
     return _mm256_set1_epi32((int32_t)(((uint16_t)(a)) | (((uint32_t)(b)) << 16)));
 }
 
-static INLINE void btf_16_w16_avx2(const __m256i w0, const __m256i w1, __m256i *in0, __m256i *in1, const __m256i _r,
+static INLINE void btf_16_w16_avx2(const __m256i w0, const __m256i w1, __m256i* in0, __m256i* in1, const __m256i _r,
                                    const int32_t cos_bit) {
     __m256i t0 = _mm256_unpacklo_epi16(*in0, *in1);
     __m256i t1 = _mm256_unpackhi_epi16(*in0, *in1);
@@ -56,32 +56,34 @@ static INLINE void btf_16_w16_avx2(const __m256i w0, const __m256i w1, __m256i *
     *in1 = _mm256_packs_epi32(d0, d1);
 }
 
-static INLINE void btf_16_adds_subs_avx2(__m256i *in0, __m256i *in1) {
+static INLINE void btf_16_adds_subs_avx2(__m256i* in0, __m256i* in1) {
     const __m256i _in0 = *in0;
     const __m256i _in1 = *in1;
     *in0               = _mm256_adds_epi16(_in0, _in1);
     *in1               = _mm256_subs_epi16(_in0, _in1);
 }
 
-static INLINE void btf_16_adds_subs_out_avx2(__m256i *out0, __m256i *out1, __m256i in0, __m256i in1) {
+static INLINE void btf_16_adds_subs_out_avx2(__m256i* out0, __m256i* out1, __m256i in0, __m256i in1) {
     const __m256i _in0 = in0;
     const __m256i _in1 = in1;
     *out0              = _mm256_adds_epi16(_in0, _in1);
     *out1              = _mm256_subs_epi16(_in0, _in1);
 }
 
-static INLINE __m256i load_32bit_to_16bit_w16_avx2(const int32_t *a) {
-    const __m256i a_low  = _mm256_lddqu_si256((const __m256i *)a);
-    const __m256i a_high = _mm256_lddqu_si256((const __m256i *)(a + 8));
+static INLINE __m256i load_32bit_to_16bit_w16_avx2(const int32_t* a) {
+    const __m256i a_low  = _mm256_lddqu_si256((const __m256i*)a);
+    const __m256i a_high = _mm256_lddqu_si256((const __m256i*)(a + 8));
     const __m256i b      = _mm256_packs_epi32(a_low, a_high);
     return _mm256_permute4x64_epi64(b, 0xD8);
 }
 
-static INLINE void load_buffer_32bit_to_16bit_w16_avx2(const int32_t *in, int stride, __m256i *out, int out_size) {
-    for (int i = 0; i < out_size; ++i) { out[i] = load_32bit_to_16bit_w16_avx2(in + i * stride); }
+static INLINE void load_buffer_32bit_to_16bit_w16_avx2(const int32_t* in, int stride, __m256i* out, int out_size) {
+    for (int i = 0; i < out_size; ++i) {
+        out[i] = load_32bit_to_16bit_w16_avx2(in + i * stride);
+    }
 }
 
-static INLINE void transpose_16bit_16x16_avx2(const __m256i *const in, __m256i *const out) {
+static INLINE void transpose_16bit_16x16_avx2(const __m256i* const in, __m256i* const out) {
     // Unpack 16 bit elements. Goes from:
     // in[0]: 00 01 02 03  08 09 0a 0b  04 05 06 07  0c 0d 0e 0f
     // in[1]: 10 11 12 13  18 19 1a 1b  14 15 16 17  1c 1d 1e 1f
@@ -134,11 +136,13 @@ static INLINE void transpose_16bit_16x16_avx2(const __m256i *const in, __m256i *
     out[7 + 8] = yy_unpackhi_epi128(c[12 + 2], c[13 + 2]);
 }
 
-static INLINE void flip_buf_avx2(__m256i *in, __m256i *out, int size) {
-    for (int i = 0; i < size; ++i) { out[size - i - 1] = in[i]; }
+static INLINE void flip_buf_avx2(__m256i* in, __m256i* out, int size) {
+    for (int i = 0; i < size; ++i) {
+        out[size - i - 1] = in[i];
+    }
 }
 
-static INLINE void round_shift_16bit_w16_avx2(__m256i *in, int size, int bit) {
+static INLINE void round_shift_16bit_w16_avx2(__m256i* in, int size, int bit) {
     if (bit < 0) {
         bit           = -bit;
         __m256i round = _mm256_set1_epi16(1 << (bit - 1));
@@ -147,11 +151,13 @@ static INLINE void round_shift_16bit_w16_avx2(__m256i *in, int size, int bit) {
             in[i] = _mm256_srai_epi16(in[i], bit);
         }
     } else if (bit > 0) {
-        for (int i = 0; i < size; ++i) { in[i] = _mm256_slli_epi16(in[i], bit); }
+        for (int i = 0; i < size; ++i) {
+            in[i] = _mm256_slli_epi16(in[i], bit);
+        }
     }
 }
 
-static INLINE void av1_round_shift_array_32_avx2(__m256i *input, __m256i *output, const int32_t size,
+static INLINE void av1_round_shift_array_32_avx2(__m256i* input, __m256i* output, const int32_t size,
                                                  const int32_t bit) {
     int32_t i;
     if (bit > 0) {
@@ -162,11 +168,13 @@ static INLINE void av1_round_shift_array_32_avx2(__m256i *input, __m256i *output
             output[i] = _mm256_srai_epi32(r0, bit);
         }
     } else {
-        for (i = 0; i < size; i++) output[i] = _mm256_slli_epi32(input[i], -bit);
+        for (i = 0; i < size; i++) {
+            output[i] = _mm256_slli_epi32(input[i], -bit);
+        }
     }
 }
 
-static INLINE void av1_round_shift_rect_array_32_avx2(__m256i *input, __m256i *output, const int32_t size,
+static INLINE void av1_round_shift_rect_array_32_avx2(__m256i* input, __m256i* output, const int32_t size,
                                                       const int32_t bit, const int32_t val) {
     const __m256i sqrt2  = _mm256_set1_epi32(val);
     const __m256i round2 = _mm256_set1_epi32(1 << (new_sqrt2_bits - 1));

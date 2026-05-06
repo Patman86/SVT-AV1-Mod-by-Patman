@@ -558,7 +558,7 @@ class AV1ConvolveTest : public ::testing::TestWithParam<ConvolveParam> {
                               ::testing::Values(has_subx),
                               ::testing::Values(has_suby),
                               ::testing::Values(func),
-                              ::testing::Range(BLOCK_4X4, BlockSizeS_ALL));
+                              ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL));
 }
 
 class AV1LbdConvolveTest
@@ -859,7 +859,7 @@ INSTANTIATE_TEST_SUITE_P(ConvolveTestY_NEON_I8MM, AV1LbdSrConvolveTest,
                               ::testing::Values(has_subx),
                               ::testing::Values(has_suby),
                               ::testing::Values(func),
-                              ::testing::Range(BLOCK_4X4, BlockSizeS_ALL));
+                              ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL));
 }
 
 class AV1HbdConvolveTest

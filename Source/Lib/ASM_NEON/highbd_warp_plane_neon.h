@@ -35,18 +35,18 @@ static AOM_FORCE_INLINE int16x8_t highbd_horizontal_filter_8x1_f1(int16x8_t rv0,
                                                                   int16x8_t rv3, int16x8_t rv4, int16x8_t rv5,
                                                                   int16x8_t rv6, int16x8_t rv7, int bd, int sx);
 
-static AOM_FORCE_INLINE int32x4_t vertical_filter_4x1_f1(const int16x8_t *tmp, int sy);
+static AOM_FORCE_INLINE int32x4_t vertical_filter_4x1_f1(const int16x8_t* tmp, int sy);
 
-static AOM_FORCE_INLINE int32x4x2_t vertical_filter_8x1_f1(const int16x8_t *tmp, int sy);
+static AOM_FORCE_INLINE int32x4x2_t vertical_filter_8x1_f1(const int16x8_t* tmp, int sy);
 
-static AOM_FORCE_INLINE int32x4_t vertical_filter_4x1_f4(const int16x8_t *tmp, int sy, int gamma);
+static AOM_FORCE_INLINE int32x4_t vertical_filter_4x1_f4(const int16x8_t* tmp, int sy, int gamma);
 
-static AOM_FORCE_INLINE int32x4x2_t vertical_filter_8x1_f8(const int16x8_t *tmp, int sy, int gamma);
+static AOM_FORCE_INLINE int32x4x2_t vertical_filter_8x1_f8(const int16x8_t* tmp, int sy, int gamma);
 
 static AOM_FORCE_INLINE int16x8_t load_filters_1(int ofs) {
     const int ofs0 = ROUND_POWER_OF_TWO(ofs, WARPEDDIFF_PREC_BITS);
 
-    const int16_t *base = (int16_t *)svt_aom_warped_filter + WARPEDPIXEL_PREC_SHIFTS * 8;
+    const int16_t* base = (int16_t*)svt_aom_warped_filter + WARPEDPIXEL_PREC_SHIFTS * 8;
     return vld1q_s16(base + ofs0 * 8);
 }
 
@@ -56,7 +56,7 @@ static AOM_FORCE_INLINE void load_filters_4(int16x8_t out[], int ofs, int stride
     const int ofs2 = ROUND_POWER_OF_TWO(ofs + stride * 2, WARPEDDIFF_PREC_BITS);
     const int ofs3 = ROUND_POWER_OF_TWO(ofs + stride * 3, WARPEDDIFF_PREC_BITS);
 
-    const int16_t *base = (int16_t *)svt_aom_warped_filter + WARPEDPIXEL_PREC_SHIFTS * 8;
+    const int16_t* base = (int16_t*)svt_aom_warped_filter + WARPEDPIXEL_PREC_SHIFTS * 8;
     out[0]              = vld1q_s16(base + ofs0 * 8);
     out[1]              = vld1q_s16(base + ofs1 * 8);
     out[2]              = vld1q_s16(base + ofs2 * 8);
@@ -73,7 +73,7 @@ static AOM_FORCE_INLINE void load_filters_8(int16x8_t out[], int ofs, int stride
     const int ofs6 = ROUND_POWER_OF_TWO(ofs + stride * 6, WARPEDDIFF_PREC_BITS);
     const int ofs7 = ROUND_POWER_OF_TWO(ofs + stride * 7, WARPEDDIFF_PREC_BITS);
 
-    const int16_t *base = (int16_t *)svt_aom_warped_filter + WARPEDPIXEL_PREC_SHIFTS * 8;
+    const int16_t* base = (int16_t*)svt_aom_warped_filter + WARPEDPIXEL_PREC_SHIFTS * 8;
     out[0]              = vld1q_s16(base + ofs0 * 8);
     out[1]              = vld1q_s16(base + ofs1 * 8);
     out[2]              = vld1q_s16(base + ofs2 * 8);
@@ -90,8 +90,8 @@ static AOM_FORCE_INLINE uint16x4_t clip_pixel_highbd_vec(int32x4_t val, int bd) 
 }
 
 static AOM_FORCE_INLINE uint16x8x2_t clamp_horizontal(uint16x8x2_t src_1, int out_of_boundary_left,
-                                                      int out_of_boundary_right, const uint8_t *ref2b,
-                                                      const uint8_t *ref8b, int iy, int stride2b, int stride8b,
+                                                      int out_of_boundary_right, const uint8_t* ref2b,
+                                                      const uint8_t* ref8b, int iy, int stride2b, int stride8b,
                                                       int width, const uint16x8_t indx0, const uint16x8_t indx1) {
     if (out_of_boundary_left >= 0) {
         uint16x8_t cmp_vec = vdupq_n_u16(out_of_boundary_left);
@@ -114,7 +114,7 @@ static AOM_FORCE_INLINE uint16x8x2_t clamp_horizontal(uint16x8x2_t src_1, int ou
     return src_1;
 }
 
-static AOM_FORCE_INLINE void warp_affine_horizontal(const uint8_t *ref8b, const uint8_t *ref2b, int width, int height,
+static AOM_FORCE_INLINE void warp_affine_horizontal(const uint8_t* ref8b, const uint8_t* ref2b, int width, int height,
                                                     int stride8b, int stride2b, int p_width, int16_t alpha,
                                                     int16_t beta, int iy4, int sx4, int ix4, int16x8_t tmp[], int bd) {
     if (ix4 <= -7) {
@@ -147,8 +147,8 @@ static AOM_FORCE_INLINE void warp_affine_horizontal(const uint8_t *ref8b, const 
         if (out_of_boundary_left >= 0 || out_of_boundary_right >= 0) {                                 \
             for (int k = 0; k < 15; ++k) {                                                             \
                 const int      iy    = clamp(iy4 + k - 7, 0, height - 1);                              \
-                const uint8_t *idx2b = ref2b + iy * stride2b + ix4 - 7;                                \
-                const uint8_t *idx8b = ref8b + iy * stride8b + ix4 - 7;                                \
+                const uint8_t* idx2b = ref2b + iy * stride2b + ix4 - 7;                                \
+                const uint8_t* idx8b = ref8b + iy * stride8b + ix4 - 7;                                \
                                                                                                        \
                 uint8x16_t   src_1_2b = vld1q_u8(idx2b);                                               \
                 uint8x16_t   src_1_8b = vld1q_u8(idx8b);                                               \
@@ -181,8 +181,8 @@ static AOM_FORCE_INLINE void warp_affine_horizontal(const uint8_t *ref8b, const 
             for (int k = 0; k < 15; ++k) {                                                             \
                 const int iy = clamp(iy4 + k - 7, 0, height - 1);                                      \
                                                                                                        \
-                const uint8_t *idx2b  = ref2b + iy * stride2b + ix4 - 7;                               \
-                const uint8_t *idx8b  = ref8b + iy * stride8b + ix4 - 7;                               \
+                const uint8_t* idx2b  = ref2b + iy * stride2b + ix4 - 7;                               \
+                const uint8_t* idx8b  = ref8b + iy * stride8b + ix4 - 7;                               \
                 uint8x16_t     src2b  = vld1q_u8(idx2b);                                               \
                 uint8x16_t     src8b  = vld1q_u8(idx8b);                                               \
                 uint16x8_t     src_lo = vshrq_n_u16(vreinterpretq_u16_u8(vzip1q_u8(src2b, src8b)), 6); \
@@ -203,8 +203,8 @@ static AOM_FORCE_INLINE void warp_affine_horizontal(const uint8_t *ref8b, const 
             for (int k = 0; k < 15; ++k) {                                                             \
                 const int iy = clamp(iy4 + k - 7, 0, height - 1);                                      \
                                                                                                        \
-                const uint8_t *idx2b = ref2b + iy * stride2b + ix4 - 7;                                \
-                const uint8_t *idx8b = ref8b + iy * stride8b + ix4 - 7;                                \
+                const uint8_t* idx2b = ref2b + iy * stride2b + ix4 - 7;                                \
+                const uint8_t* idx8b = ref8b + iy * stride8b + ix4 - 7;                                \
                 uint8x16_t     src2b = vld1q_u8(idx2b);                                                \
                 uint8x16_t     src8b = vld1q_u8(idx8b);                                                \
                 uint16x8x2_t   src_1;                                                                  \
@@ -244,8 +244,8 @@ static AOM_FORCE_INLINE void warp_affine_horizontal(const uint8_t *ref8b, const 
             for (int k = 0; k < 15; ++k) {                                                             \
                 const int iy = clamp(iy4 + k - 7, 0, height - 1);                                      \
                                                                                                        \
-                const uint8_t *idx2b  = ref2b + iy * stride2b + ix4 - 7;                               \
-                const uint8_t *idx8b  = ref8b + iy * stride8b + ix4 - 7;                               \
+                const uint8_t* idx2b  = ref2b + iy * stride2b + ix4 - 7;                               \
+                const uint8_t* idx8b  = ref8b + iy * stride8b + ix4 - 7;                               \
                 uint8x16_t     src2b  = vld1q_u8(idx2b);                                               \
                 uint8x16_t     src8b  = vld1q_u8(idx8b);                                               \
                 uint16x8_t     src_lo = vshrq_n_u16(vreinterpretq_u16_u8(vzip1q_u8(src2b, src8b)), 6); \
@@ -298,17 +298,17 @@ static AOM_FORCE_INLINE void warp_affine_horizontal(const uint8_t *ref8b, const 
 #undef APPLY_HORIZONTAL_SHIFT_8X1
 }
 
-static AOM_FORCE_INLINE void highbd_vertical_filter_4x1_f4(uint16_t *pred, int p_stride, int bd, uint16_t *dst,
+static AOM_FORCE_INLINE void highbd_vertical_filter_4x1_f4(uint16_t* pred, int p_stride, int bd, uint16_t* dst,
                                                            int dst_stride, bool is_compound, bool do_average,
                                                            bool use_dist_wtd_comp_avg, int fwd, int bwd, int16_t gamma,
-                                                           const int16x8_t *tmp, int i, int sy, int j) {
+                                                           const int16x8_t* tmp, int i, int sy, int j) {
     int32x4_t sum0 = gamma == 0 ? vertical_filter_4x1_f1(tmp, sy) : vertical_filter_4x1_f4(tmp, sy, gamma);
 
     const int offset_bits_vert = bd + 2 * FILTER_BITS - ROUND0_BITS;
 
     sum0 = vaddq_s32(sum0, vdupq_n_s32(1 << offset_bits_vert));
 
-    uint16_t *dst16 = &pred[i * p_stride + j];
+    uint16_t* dst16 = &pred[i * p_stride + j];
 
     if (!is_compound) {
         sum0 = vrshrq_n_s32(sum0, 2 * FILTER_BITS - ROUND0_BITS);
@@ -322,7 +322,7 @@ static AOM_FORCE_INLINE void highbd_vertical_filter_4x1_f4(uint16_t *pred, int p
 
     sum0 = vrshrq_n_s32(sum0, COMPOUND_ROUND1_BITS);
 
-    uint16_t *p = &dst[i * dst_stride + j];
+    uint16_t* p = &dst[i * dst_stride + j];
 
     if (!do_average) {
         vst1_u16(p, vqmovun_s32(sum0));
@@ -349,10 +349,10 @@ static AOM_FORCE_INLINE void highbd_vertical_filter_4x1_f4(uint16_t *pred, int p
     vst1_u16(dst16, res0);
 }
 
-static AOM_FORCE_INLINE void highbd_vertical_filter_8x1_f8(uint16_t *pred, int p_stride, int bd, uint16_t *dst,
+static AOM_FORCE_INLINE void highbd_vertical_filter_8x1_f8(uint16_t* pred, int p_stride, int bd, uint16_t* dst,
                                                            int dst_stride, bool is_compound, bool do_average,
                                                            bool use_dist_wtd_comp_avg, int fwd, int bwd, int16_t gamma,
-                                                           const int16x8_t *tmp, int i, int sy, int j) {
+                                                           const int16x8_t* tmp, int i, int sy, int j) {
     int32x4x2_t sums = gamma == 0 ? vertical_filter_8x1_f1(tmp, sy) : vertical_filter_8x1_f8(tmp, sy, gamma);
     int32x4_t   sum0 = sums.val[0];
     int32x4_t   sum1 = sums.val[1];
@@ -362,7 +362,7 @@ static AOM_FORCE_INLINE void highbd_vertical_filter_8x1_f8(uint16_t *pred, int p
     sum0 = vaddq_s32(sum0, vdupq_n_s32(1 << offset_bits_vert));
     sum1 = vaddq_s32(sum1, vdupq_n_s32(1 << offset_bits_vert));
 
-    uint16_t *dst16 = &pred[i * p_stride + j];
+    uint16_t* dst16 = &pred[i * p_stride + j];
 
     if (!is_compound) {
         sum0 = vrshrq_n_s32(sum0, 2 * FILTER_BITS - ROUND0_BITS);
@@ -381,7 +381,7 @@ static AOM_FORCE_INLINE void highbd_vertical_filter_8x1_f8(uint16_t *pred, int p
     sum0 = vrshrq_n_s32(sum0, COMPOUND_ROUND1_BITS);
     sum1 = vrshrq_n_s32(sum1, COMPOUND_ROUND1_BITS);
 
-    uint16_t *p = &dst[i * dst_stride + j];
+    uint16_t* p = &dst[i * dst_stride + j];
 
     if (!do_average) {
         vst1_u16(p, vqmovun_s32(sum0));
@@ -419,10 +419,10 @@ static AOM_FORCE_INLINE void highbd_vertical_filter_8x1_f8(uint16_t *pred, int p
     vst1_u16(dst16 + 4, res1);
 }
 
-static AOM_FORCE_INLINE void warp_affine_vertical(uint16_t *pred, int p_width, int p_height, int p_stride, int bd,
-                                                  uint16_t *dst, int dst_stride, bool is_compound, bool do_average,
+static AOM_FORCE_INLINE void warp_affine_vertical(uint16_t* pred, int p_width, int p_height, int p_stride, int bd,
+                                                  uint16_t* dst, int dst_stride, bool is_compound, bool do_average,
                                                   bool use_dist_wtd_comp_avg, int fwd, int bwd, int16_t gamma,
-                                                  int16_t delta, const int16x8_t *tmp, int i, int sy4, int j) {
+                                                  int16_t delta, const int16x8_t* tmp, int i, int sy4, int j) {
     int limit_height = p_height > 4 ? 8 : 4;
 
     if (p_width > 4) {
@@ -468,13 +468,13 @@ static AOM_FORCE_INLINE void warp_affine_vertical(uint16_t *pred, int p_width, i
     }
 }
 
-static AOM_FORCE_INLINE void highbd_warp_affine_common(const int32_t *mat, const uint8_t *ref8b, const uint8_t *ref2b,
+static AOM_FORCE_INLINE void highbd_warp_affine_common(const int32_t* mat, const uint8_t* ref8b, const uint8_t* ref2b,
                                                        int width, int height, int stride8b, int stride2b,
-                                                       uint16_t *pred, int p_col, int p_row, int p_width, int p_height,
+                                                       uint16_t* pred, int p_col, int p_row, int p_width, int p_height,
                                                        int p_stride, int subsampling_x, int subsampling_y, int bd,
-                                                       ConvolveParams *conv_params, int16_t alpha, int16_t beta,
+                                                       ConvolveParams* conv_params, int16_t alpha, int16_t beta,
                                                        int16_t gamma, int16_t delta) {
-    uint16_t *const dst                   = conv_params->dst;
+    uint16_t* const dst                   = conv_params->dst;
     const int       dst_stride            = conv_params->dst_stride;
     const bool      is_compound           = conv_params->is_compound;
     const bool      do_average            = conv_params->do_average;

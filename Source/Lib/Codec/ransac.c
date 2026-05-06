@@ -36,26 +36,30 @@
 // ransac
 
 // Return -1 if 'a' is a better motion, 1 if 'b' is better, 0 otherwise.
-static int compare_motions(const void *arg_a, const void *arg_b) {
-    const RANSAC_MOTION *motion_a = (RANSAC_MOTION *)arg_a;
-    const RANSAC_MOTION *motion_b = (RANSAC_MOTION *)arg_b;
+static int compare_motions(const void* arg_a, const void* arg_b) {
+    const RANSAC_MOTION* motion_a = (RANSAC_MOTION*)arg_a;
+    const RANSAC_MOTION* motion_b = (RANSAC_MOTION*)arg_b;
 
-    if (motion_a->num_inliers > motion_b->num_inliers)
+    if (motion_a->num_inliers > motion_b->num_inliers) {
         return -1;
-    if (motion_a->num_inliers < motion_b->num_inliers)
+    }
+    if (motion_a->num_inliers < motion_b->num_inliers) {
         return 1;
-    if (motion_a->sse < motion_b->sse)
+    }
+    if (motion_a->sse < motion_b->sse) {
         return -1;
-    if (motion_a->sse > motion_b->sse)
+    }
+    if (motion_a->sse > motion_b->sse) {
         return 1;
+    }
     return 0;
 }
 
-static int is_better_motion(const RANSAC_MOTION *motion_a, const RANSAC_MOTION *motion_b) {
+static int is_better_motion(const RANSAC_MOTION* motion_a, const RANSAC_MOTION* motion_b) {
     return compare_motions(motion_a, motion_b) < 0;
 }
 
-static void score_translation(const double *mat, const Correspondence *points, int num_points, RANSAC_MOTION *model) {
+static void score_translation(const double* mat, const Correspondence* points, int num_points, RANSAC_MOTION* model) {
     model->num_inliers = 0;
     model->sse         = 0.0;
 
@@ -79,7 +83,7 @@ static void score_translation(const double *mat, const Correspondence *points, i
     }
 }
 
-static void score_affine(const double *mat, const Correspondence *points, int num_points, RANSAC_MOTION *model) {
+static void score_affine(const double* mat, const Correspondence* points, int num_points, RANSAC_MOTION* model) {
     model->num_inliers = 0;
     model->sse         = 0.0;
 
@@ -103,7 +107,7 @@ static void score_affine(const double *mat, const Correspondence *points, int nu
     }
 }
 
-static bool find_translation(const Correspondence *points, const int *indices, int num_indices, double *params) {
+static bool find_translation(const Correspondence* points, const int* indices, int num_indices, double* params) {
     double sumx = 0;
     double sumy = 0;
 
@@ -127,7 +131,7 @@ static bool find_translation(const Correspondence *points, const int *indices, i
     return true;
 }
 
-static bool find_rotzoom(const Correspondence *points, const int *indices, int num_indices, double *params) {
+static bool find_rotzoom(const Correspondence* points, const int* indices, int num_indices, double* params) {
     const int n = 4; // Size of least-squares problem
     double    mat[4 * 4]; // Accumulator for A'A
     double    y[4]; // Accumulator for A'b
@@ -168,7 +172,7 @@ static bool find_rotzoom(const Correspondence *points, const int *indices, int n
     return true;
 }
 
-static bool find_affine(const Correspondence *points, const int *indices, int num_indices, double *params) {
+static bool find_affine(const Correspondence* points, const int* indices, int num_indices, double* params) {
     // Note: The least squares problem for affine models is 6-dimensional,
     // but it splits into two independent 3-dimensional subproblems.
     // Solving these two subproblems separately and recombining at the end
@@ -227,8 +231,8 @@ static bool find_affine(const Correspondence *points, const int *indices, int nu
 }
 
 // Returns true on success, false on error
-static bool ransac_internal(const Correspondence *matched_points, int npoints, MotionModel *motion_models,
-                            int num_desired_motions, const RansacModelInfo *model_info, bool *mem_alloc_failed) {
+static bool ransac_internal(const Correspondence* matched_points, int npoints, MotionModel* motion_models,
+                            int num_desired_motions, const RansacModelInfo* model_info, bool* mem_alloc_failed) {
     assert(npoints >= 0);
     int  i       = 0;
     int  minpts  = model_info->minpts;
@@ -268,7 +272,7 @@ static bool ransac_internal(const Correspondence *matched_points, int npoints, M
     // This allows us to keep the allocation/deallocation logic simple, without
     // having to (for example) check that `motions` is non-null before allocating
     // the inlier arrays
-    int *inlier_buffer;
+    int* inlier_buffer;
     EB_MALLOC_ARRAY_NO_CHECK(inlier_buffer, npoints * (num_desired_motions + 1));
 
     if (!(motions && inlier_buffer)) {
@@ -280,7 +284,9 @@ static bool ransac_internal(const Correspondence *matched_points, int npoints, M
     // Once all our allocations are known-good, we can fill in our structures
     worst_kept_motion = motions;
 
-    for (i = 0; i < num_desired_motions; ++i) { motions[i].inlier_indices = inlier_buffer + i * npoints; }
+    for (i = 0; i < num_desired_motions; ++i) {
+        motions[i].inlier_indices = inlier_buffer + i * npoints;
+    }
     memset(&current_motion, 0, sizeof(current_motion));
     current_motion.inlier_indices = inlier_buffer + num_desired_motions * npoints;
 
@@ -313,7 +319,7 @@ static bool ransac_internal(const Correspondence *matched_points, int npoints, M
             // is used will be in the next trial, where we ignore its previous
             // contents anyway. And both arrays will be deallocated together at the
             // end of this function, so there are no lifetime issues.
-            int *tmp                          = worst_kept_motion->inlier_indices;
+            int* tmp                          = worst_kept_motion->inlier_indices;
             worst_kept_motion->inlier_indices = current_motion.inlier_indices;
             current_motion.inlier_indices     = tmp;
 
@@ -373,7 +379,7 @@ static bool ransac_internal(const Correspondence *matched_points, int npoints, M
             if (current_motion.num_inliers > motions[i].num_inliers) {
                 motions[i].num_inliers        = current_motion.num_inliers;
                 motions[i].sse                = current_motion.sse;
-                int *tmp                      = motions[i].inlier_indices;
+                int* tmp                      = motions[i].inlier_indices;
                 motions[i].inlier_indices     = current_motion.inlier_indices;
                 current_motion.inlier_indices = tmp;
             } else {
@@ -385,14 +391,15 @@ static bool ransac_internal(const Correspondence *matched_points, int npoints, M
             }
         }
 
-        if (bad_model)
+        if (bad_model) {
             continue;
+        }
 
         // Fill in output struct
         memcpy(motion_models[i].params, params_this_motion, MAX_PARAMDIM * sizeof(*motion_models[i].params));
         for (int j = 0; j < motions[i].num_inliers; j++) {
             int                   index         = motions[i].inlier_indices[j];
-            const Correspondence *corr          = &matched_points[index];
+            const Correspondence* corr          = &matched_points[index];
             motion_models[i].inliers[2 * j + 0] = (int)rint(corr->x);
             motion_models[i].inliers[2 * j + 1] = (int)rint(corr->y);
         }
@@ -418,8 +425,8 @@ static const RansacModelInfo ransac_model_info[TRANS_TYPES] = {
 };
 
 // Returns true on success, false on error
-bool svt_aom_ransac(const Correspondence *matched_points, int npoints, TransformationType type,
-                    MotionModel *motion_models, int num_desired_motions, bool *mem_alloc_failed) {
+bool svt_aom_ransac(const Correspondence* matched_points, int npoints, TransformationType type,
+                    MotionModel* motion_models, int num_desired_motions, bool* mem_alloc_failed) {
     assert(type > IDENTITY && type < TRANS_TYPES);
 
     return ransac_internal(

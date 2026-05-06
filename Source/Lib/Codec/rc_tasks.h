@@ -32,7 +32,7 @@ typedef enum RateControlTaskTypes {
 typedef struct RateControlTasks {
     EbDctor              dctor;
     RateControlTaskTypes task_type;
-    EbObjectWrapper     *pcs_wrapper;
+    EbObjectWrapper*     pcs_wrapper;
 } RateControlTasks;
 
 typedef struct RateControlTasksInitData {
@@ -42,6 +42,6 @@ typedef struct RateControlTasksInitData {
 /**************************************
  * Extern Function Declarations
  **************************************/
-extern EbErrorType svt_aom_rate_control_tasks_creator(EbPtr *object_dbl_ptr, EbPtr object_init_data_ptr);
+EbErrorType svt_aom_rate_control_tasks_creator(EbPtr* object_dbl_ptr, EbPtr object_init_data_ptr);
 
 #endif // EbRateControlTasks_h

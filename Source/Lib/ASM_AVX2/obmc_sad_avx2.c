@@ -23,12 +23,13 @@ static INLINE int32_t xx_hsum_epi32_si32(__m128i v_d) {
     v_d = _mm_hadd_epi32(v_d, v_d);
     return _mm_cvtsi128_si32(v_d);
 }
+
 ////////////////////////////////////////////////////////////////////////////////
 // 8 bit
 ////////////////////////////////////////////////////////////////////////////////
 
-static INLINE unsigned int obmc_sad_w4_avx2(const uint8_t *pre, const int pre_stride, const int32_t *wsrc,
-                                            const int32_t *mask, const int height) {
+static INLINE unsigned int obmc_sad_w4_avx2(const uint8_t* pre, const int pre_stride, const int32_t* wsrc,
+                                            const int32_t* mask, const int height) {
     int           n        = 0;
     __m256i       v_sad_d  = _mm256_setzero_si256();
     const __m256i v_bias_d = _mm256_set1_epi32((1 << 12) >> 1);
@@ -37,8 +38,8 @@ static INLINE unsigned int obmc_sad_w4_avx2(const uint8_t *pre, const int pre_st
         const __m128i v_p_b_0 = xx_loadl_32(pre);
         const __m128i v_p_b_1 = xx_loadl_32(pre + pre_stride);
         const __m128i v_p_b   = _mm_unpacklo_epi32(v_p_b_0, v_p_b_1);
-        const __m256i v_m_d   = _mm256_lddqu_si256((__m256i *)(mask + n));
-        const __m256i v_w_d   = _mm256_lddqu_si256((__m256i *)(wsrc + n));
+        const __m256i v_m_d   = _mm256_lddqu_si256((__m256i*)(mask + n));
+        const __m256i v_w_d   = _mm256_lddqu_si256((__m256i*)(wsrc + n));
 
         const __m256i v_p_d = _mm256_cvtepu8_epi32(v_p_b);
 
@@ -66,8 +67,8 @@ static INLINE unsigned int obmc_sad_w4_avx2(const uint8_t *pre, const int pre_st
     return xx_hsum_epi32_si32(v_sad_d_0);
 }
 
-static INLINE unsigned int obmc_sad_w8n_avx2(const uint8_t *pre, const int pre_stride, const int32_t *wsrc,
-                                             const int32_t *mask, const int width, const int height) {
+static INLINE unsigned int obmc_sad_w8n_avx2(const uint8_t* pre, const int pre_stride, const int32_t* wsrc,
+                                             const int32_t* mask, const int width, const int height) {
     const int     pre_step = pre_stride - width;
     int           n        = 0;
     __m256i       v_sad_d  = _mm256_setzero_si256();
@@ -77,8 +78,8 @@ static INLINE unsigned int obmc_sad_w8n_avx2(const uint8_t *pre, const int pre_s
 
     do {
         const __m128i v_p0_b = xx_loadl_64(pre + n);
-        const __m256i v_m0_d = _mm256_lddqu_si256((__m256i *)(mask + n));
-        const __m256i v_w0_d = _mm256_lddqu_si256((__m256i *)(wsrc + n));
+        const __m256i v_m0_d = _mm256_lddqu_si256((__m256i*)(mask + n));
+        const __m256i v_w0_d = _mm256_lddqu_si256((__m256i*)(wsrc + n));
 
         const __m256i v_p0_d = _mm256_cvtepu8_epi32(v_p0_b);
 
@@ -98,8 +99,9 @@ static INLINE unsigned int obmc_sad_w8n_avx2(const uint8_t *pre, const int pre_s
 
         n += 8;
 
-        if ((n & (width - 1)) == 0)
+        if ((n & (width - 1)) == 0) {
             pre += pre_step;
+        }
     } while (n < width * height);
 
     __m128i v_sad_d_0 = _mm256_castsi256_si128(v_sad_d);
@@ -110,7 +112,7 @@ static INLINE unsigned int obmc_sad_w8n_avx2(const uint8_t *pre, const int pre_s
 
 #define OBMCSADWXH(w, h)                                                               \
     unsigned int svt_aom_obmc_sad##w##x##h##_avx2(                                     \
-        const uint8_t *pre, int pre_stride, const int32_t *wsrc, const int32_t *msk) { \
+        const uint8_t* pre, int pre_stride, const int32_t* wsrc, const int32_t* msk) { \
         if (w == 4) {                                                                  \
             return obmc_sad_w4_avx2(pre, pre_stride, wsrc, msk, h);                    \
         } else {                                                                       \

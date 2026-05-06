@@ -25,14 +25,12 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <assert.h>
+#include "definitions.h"
 
 #define INVALID_QP (0xFF)
 
 #ifndef PLANE_NUM
 #define PLANE_NUM (4)
-#define PLANE_Y (0)
-#define PLANE_U (1)
-#define PLANE_V (2)
 #define PLANE_A (3)
 #endif  // !PLANE_NUM
 

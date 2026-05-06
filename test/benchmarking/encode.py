@@ -56,17 +56,16 @@ class EncodeTask:
     encoder_name: str
     speed: int
     quality: int
-    nthreads: int
+    threads: int
     input_file: str
 
 
 @dataclass
 class EncodeResult:
-    output_file: str
-    runtime: float
+    encoded_path: str
+    encode_time: float
     input_size: int
     output_size: int
-    compression_ratio: float
 
 
 def encode_file(task: EncodeTask, output_dir: str) -> EncodeResult:
@@ -100,7 +99,7 @@ def encode_file(task: EncodeTask, output_dir: str) -> EncodeResult:
         q=task.quality,
         kbps=kbps,
         speed=task.speed,
-        nthreads=task.nthreads,
+        nthreads=task.threads,
         input_path=input_path,
         width=width,
         height=height,
@@ -115,26 +114,23 @@ def encode_file(task: EncodeTask, output_dir: str) -> EncodeResult:
 
     if DRY_RUN_MODE:
         return EncodeResult(
-            output_file=encoded_path,
-            runtime=0.0,
+            encoded_path=encoded_path,
+            encode_time=0.0,
             output_size=0,
             input_size=input_size,
-            compression_ratio=0.0,
         )
 
     try:
-        runtime = utils.get_cmd_times(command, passes)
+        encode_time = utils.get_cmd_times(command, passes)
 
-        # Get output file size and calculate compression ratio
+        # Get output file size
         output_size = os.path.getsize(encoded_path)
-        compression_ratio = input_size / output_size if output_size > 0 else 0.0
 
         return EncodeResult(
-            output_file=encoded_path,
-            runtime=runtime,
+            encoded_path=encoded_path,
+            encode_time=encode_time,
             output_size=output_size,
             input_size=input_size,
-            compression_ratio=compression_ratio,
         )
     except subprocess.CalledProcessError as e:
         if "Signals.SIGINT" in str(e):
@@ -181,7 +177,7 @@ def get_output_dir(task: EncodeTask) -> str:
     quality_str = f"{quality_param}{task.quality}"
 
     base_output_dir: str = os.path.join(base_dir, f"{task.encoder_name}{name_suffix}")
-    output_dir: str = os.path.join(base_output_dir, f"{quality_str}_t{task.nthreads}")
+    output_dir: str = os.path.join(base_output_dir, f"{quality_str}_t{task.threads}")
     return output_dir
 
 
@@ -221,7 +217,7 @@ def create_encode_jobs() -> List[EncodeTask]:
                                     speed=speed,
                                     quality=quality,
                                     input_file=input_file,
-                                    nthreads=nthread,
+                                    threads=nthread,
                                 )
                             )
 
@@ -282,13 +278,17 @@ def main() -> None:
                     mode="w" if need_csv_header else "a",
                 )
                 need_csv_header = False
+                if result.output_size > 0:
+                    compression_ratio = result.input_size / result.output_size
+                else:
+                    compression_ratio = 0.0
                 log_msg = (
                     f"Completed: {job.encoder_name} speed={job.speed} "
-                    f"quality={job.quality} threads={job.nthreads} "
+                    f"quality={job.quality} threads={job.threads} "
                     f"file={job.input_file} "
                     f"input_size={result.input_size} bytes "
                     f"output_size={result.output_size} bytes "
-                    f"compression_ratio={result.compression_ratio:.3f} -> ok"
+                    f"compression_ratio={compression_ratio:.3f} -> ok"
                 )
             except Exception as e:
                 log_msg = f"Failed job -> {e}"

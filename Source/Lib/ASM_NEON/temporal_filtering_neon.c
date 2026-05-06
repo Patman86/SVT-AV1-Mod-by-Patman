@@ -47,9 +47,9 @@ static uint32_t sqrt_fast(uint32_t x) {
     return sqrt_array_fp16[x] >> 16;
 }
 
-#define SSE_STRIDE (BW + 2)
+#define SSE_STRIDE (TF_BW + 2)
 
-static uint32_t calculate_squared_errors_sum_no_div_16x16_neon(const uint8_t *s, int s_stride, const uint8_t *p,
+static uint32_t calculate_squared_errors_sum_no_div_16x16_neon(const uint8_t* s, int s_stride, const uint8_t* p,
                                                                int p_stride) {
     int32x4_t sum_hi = vdupq_n_s32(0);
     int32x4_t sum_lo = vdupq_n_s32(0);
@@ -99,8 +99,8 @@ static const int32_t expf_tab_fp16[] = {
     92,    86,    81,    76,    72,    67,    63,    59,    56,    52,    49,    46,    43,    41,    38,
     36,    34,    31,    30,    28,    26,    24,    23,    21};
 
-static void calculate_squared_errors_sum_2x8x8_no_div_neon(const uint8_t *s, int s_stride, const uint8_t *p,
-                                                           int p_stride, uint32_t *output) {
+static void calculate_squared_errors_sum_2x8x8_no_div_neon(const uint8_t* s, int s_stride, const uint8_t* p,
+                                                           int p_stride, uint32_t* output) {
     int32x4_t sum_lo = vdupq_n_s32(0);
     int32x4_t sum_hi = vdupq_n_s32(0);
 
@@ -140,8 +140,8 @@ static void calculate_squared_errors_sum_2x8x8_no_div_neon(const uint8_t *s, int
 }
 
 static void svt_av1_apply_temporal_filter_planewise_medium_partial_neon(
-    struct MeContext *me_ctx, const uint8_t *y_src, int y_src_stride, const uint8_t *y_pre, int y_pre_stride,
-    unsigned int block_width, unsigned int block_height, uint32_t *y_accum, uint16_t *y_count, uint32_t tf_decay_factor,
+    MeContext* me_ctx, const uint8_t* y_src, int y_src_stride, const uint8_t* y_pre, int y_pre_stride,
+    unsigned int block_width, unsigned int block_height, uint32_t* y_accum, uint16_t* y_count, uint32_t tf_decay_factor,
     uint32_t luma_window_error_quad_fp8[4], int is_chroma) {
     unsigned int i, j, k, subblock_idx;
 
@@ -151,11 +151,11 @@ static void svt_av1_apply_temporal_filter_planewise_medium_partial_neon(
     uint32_t  d_factor_fp8[4];
     uint32_t  block_error_fp8[4];
     uint32_t  chroma_window_error_quad_fp8[4];
-    uint32_t *window_error_quad_fp8 = is_chroma ? chroma_window_error_quad_fp8 : luma_window_error_quad_fp8;
+    uint32_t* window_error_quad_fp8 = is_chroma ? chroma_window_error_quad_fp8 : luma_window_error_quad_fp8;
 
     if (me_ctx->tf_32x32_block_split_flag[idx_32x32]) {
-        const int32x4_t col = vmovl_s16(vld1_s16((int16_t *)&me_ctx->tf_16x16_mv_x[idx_32x32 * 4]));
-        const int32x4_t row = vmovl_s16(vld1_s16((int16_t *)&me_ctx->tf_16x16_mv_y[idx_32x32 * 4]));
+        const int32x4_t col = vmovl_s16(vld1_s16((int16_t*)&me_ctx->tf_16x16_mv_x[idx_32x32 * 4]));
+        const int32x4_t row = vmovl_s16(vld1_s16((int16_t*)&me_ctx->tf_16x16_mv_y[idx_32x32 * 4]));
 
         const uint32x4_t hyp     = vreinterpretq_u32_s32(vaddq_s32(vmulq_s32(col, col), vmulq_s32(row, row)));
         const uint32x4_t hyp_256 = vshlq_n_u32(hyp, 8);
@@ -172,7 +172,7 @@ static void svt_av1_apply_temporal_filter_planewise_medium_partial_neon(
         vst1q_u32(d_factor_fp8, d_factor_fp8_v);
 
         // ignore odd elements, since those are the higher 32 bits of every 64 bit entry
-        uint32x4x2_t aux = vld2q_u32((uint32_t *)&me_ctx->tf_16x16_block_error[idx_32x32 * 4 + 0]);
+        uint32x4x2_t aux = vld2q_u32((uint32_t*)&me_ctx->tf_16x16_block_error[idx_32x32 * 4 + 0]);
         vst1q_u32(block_error_fp8, aux.val[0]);
 
     } else {
@@ -273,10 +273,10 @@ static void svt_av1_apply_temporal_filter_planewise_medium_partial_neon(
 }
 
 void svt_av1_apply_temporal_filter_planewise_medium_neon(
-    struct MeContext *me_ctx, const uint8_t *y_src, int y_src_stride, const uint8_t *y_pre, int y_pre_stride,
-    const uint8_t *u_src, const uint8_t *v_src, int uv_src_stride, const uint8_t *u_pre, const uint8_t *v_pre,
-    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t *y_accum,
-    uint16_t *y_count, uint32_t *u_accum, uint16_t *u_count, uint32_t *v_accum, uint16_t *v_count) {
+    MeContext* me_ctx, const uint8_t* y_src, int y_src_stride, const uint8_t* y_pre, int y_pre_stride,
+    const uint8_t* u_src, const uint8_t* v_src, int uv_src_stride, const uint8_t* u_pre, const uint8_t* v_pre,
+    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t* y_accum,
+    uint16_t* y_count, uint32_t* u_accum, uint16_t* u_count, uint32_t* v_accum, uint16_t* v_count) {
     uint32_t luma_window_error_quad_fp8[4];
 
     svt_av1_apply_temporal_filter_planewise_medium_partial_neon(me_ctx,
@@ -288,7 +288,7 @@ void svt_av1_apply_temporal_filter_planewise_medium_neon(
                                                                 (unsigned int)block_height,
                                                                 y_accum,
                                                                 y_count,
-                                                                me_ctx->tf_decay_factor_fp16[C_Y],
+                                                                me_ctx->tf_decay_factor_fp16[PLANE_Y],
                                                                 luma_window_error_quad_fp8,
                                                                 0);
 
@@ -302,7 +302,7 @@ void svt_av1_apply_temporal_filter_planewise_medium_neon(
                                                                     (unsigned int)block_height >> ss_y,
                                                                     u_accum,
                                                                     u_count,
-                                                                    me_ctx->tf_decay_factor_fp16[C_U],
+                                                                    me_ctx->tf_decay_factor_fp16[PLANE_U],
                                                                     luma_window_error_quad_fp8,
                                                                     1);
 
@@ -315,14 +315,14 @@ void svt_av1_apply_temporal_filter_planewise_medium_neon(
                                                                     (unsigned int)block_height >> ss_y,
                                                                     v_accum,
                                                                     v_count,
-                                                                    me_ctx->tf_decay_factor_fp16[C_V],
+                                                                    me_ctx->tf_decay_factor_fp16[PLANE_V],
                                                                     luma_window_error_quad_fp8,
                                                                     1);
     }
 }
 
 // Divide two int32x4 vectors
-static uint32x4_t div_u32(const uint32x4_t *a, const uint32x4_t *b) {
+static uint32x4_t div_u32(const uint32x4_t* a, const uint32x4_t* b) {
     uint32x4_t result = vdupq_n_u32(0);
     result            = vsetq_lane_u32(vdups_laneq_u32(*a, 0) / vdups_laneq_u32(*b, 0), result, 0);
     result            = vsetq_lane_u32(vdups_laneq_u32(*a, 1) / vdups_laneq_u32(*b, 1), result, 1);
@@ -331,7 +331,7 @@ static uint32x4_t div_u32(const uint32x4_t *a, const uint32x4_t *b) {
     return result;
 }
 
-static void process_block_hbd_neon(int h, int w, uint16_t *buff_hbd_start, uint32_t *accum, uint16_t *count,
+static void process_block_hbd_neon(int h, int w, uint16_t* buff_hbd_start, uint32_t* accum, uint16_t* count,
                                    uint32_t stride) {
     int i, j;
     int pos = 0;
@@ -364,7 +364,7 @@ static void process_block_hbd_neon(int h, int w, uint16_t *buff_hbd_start, uint3
     }
 }
 
-static void process_block_lbd_neon(int h, int w, uint8_t *buff_lbd_start, uint32_t *accum, uint16_t *count,
+static void process_block_lbd_neon(int h, int w, uint8_t* buff_lbd_start, uint32_t* accum, uint16_t* count,
                                    uint32_t stride) {
     int i, j;
     int pos = 0;
@@ -397,55 +397,63 @@ static void process_block_lbd_neon(int h, int w, uint8_t *buff_lbd_start, uint32
     }
 }
 
-void svt_aom_get_final_filtered_pixels_neon(MeContext *me_ctx, EbByte *src_center_ptr_start,
-                                            uint16_t **altref_buffer_highbd_start, uint32_t **accum, uint16_t **count,
-                                            const uint32_t *stride, int blk_y_src_offset, int blk_ch_src_offset,
+void svt_aom_get_final_filtered_pixels_neon(MeContext* me_ctx, EbByte* src_center_ptr_start,
+                                            uint16_t** altref_buffer_highbd_start, uint32_t** accum, uint16_t** count,
+                                            const uint32_t* stride, int blk_y_src_offset, int blk_ch_src_offset,
                                             uint16_t blk_width_ch, uint16_t blk_height_ch, bool is_highbd) {
     assert(blk_width_ch % 16 == 0);
-    assert(BW % 16 == 0);
+    assert(TF_BW % 16 == 0);
 
     if (!is_highbd) {
         //Process luma
-        process_block_lbd_neon(
-            BH, BW, &src_center_ptr_start[C_Y][blk_y_src_offset], accum[C_Y], count[C_Y], stride[C_Y] - BW);
+        process_block_lbd_neon(TF_BH,
+                               TF_BW,
+                               &src_center_ptr_start[PLANE_Y][blk_y_src_offset],
+                               accum[PLANE_Y],
+                               count[PLANE_Y],
+                               stride[PLANE_Y] - TF_BW);
         // Process chroma
         if (me_ctx->tf_chroma) {
             process_block_lbd_neon(blk_height_ch,
                                    blk_width_ch,
-                                   &src_center_ptr_start[C_U][blk_ch_src_offset],
-                                   accum[C_U],
-                                   count[C_U],
-                                   stride[C_U] - blk_width_ch);
+                                   &src_center_ptr_start[PLANE_U][blk_ch_src_offset],
+                                   accum[PLANE_U],
+                                   count[PLANE_U],
+                                   stride[PLANE_U] - blk_width_ch);
             process_block_lbd_neon(blk_height_ch,
                                    blk_width_ch,
-                                   &src_center_ptr_start[C_V][blk_ch_src_offset],
-                                   accum[C_V],
-                                   count[C_V],
-                                   stride[C_V] - blk_width_ch);
+                                   &src_center_ptr_start[PLANE_V][blk_ch_src_offset],
+                                   accum[PLANE_V],
+                                   count[PLANE_V],
+                                   stride[PLANE_V] - blk_width_ch);
         }
     } else {
         // Process luma
-        process_block_hbd_neon(
-            BH, BW, &altref_buffer_highbd_start[C_Y][blk_y_src_offset], accum[C_Y], count[C_Y], stride[C_Y] - BW);
+        process_block_hbd_neon(TF_BH,
+                               TF_BW,
+                               &altref_buffer_highbd_start[PLANE_Y][blk_y_src_offset],
+                               accum[PLANE_Y],
+                               count[PLANE_Y],
+                               stride[PLANE_Y] - TF_BW);
         // Process chroma
         if (me_ctx->tf_chroma) {
             process_block_hbd_neon(blk_height_ch,
                                    blk_width_ch,
-                                   &altref_buffer_highbd_start[C_U][blk_ch_src_offset],
-                                   accum[C_U],
-                                   count[C_U],
-                                   stride[C_U] - blk_width_ch);
+                                   &altref_buffer_highbd_start[PLANE_U][blk_ch_src_offset],
+                                   accum[PLANE_U],
+                                   count[PLANE_U],
+                                   stride[PLANE_U] - blk_width_ch);
             process_block_hbd_neon(blk_height_ch,
                                    blk_width_ch,
-                                   &altref_buffer_highbd_start[C_V][blk_ch_src_offset],
-                                   accum[C_V],
-                                   count[C_V],
-                                   stride[C_V] - blk_width_ch);
+                                   &altref_buffer_highbd_start[PLANE_V][blk_ch_src_offset],
+                                   accum[PLANE_V],
+                                   count[PLANE_V],
+                                   stride[PLANE_V] - blk_width_ch);
         }
     }
 }
 
-int32_t svt_estimate_noise_fp16_neon(const uint8_t *src, uint16_t width, uint16_t height, uint16_t stride_y) {
+int32_t svt_estimate_noise_fp16_neon(const uint8_t* src, uint16_t width, uint16_t height, uint16_t stride_y) {
     uint16x8_t thresh = vdupq_n_u16(EDGE_THRESHOLD);
     uint32x4_t acc    = vdupq_n_u32(0);
     // Count is in theory positive as it counts the number of times we're under
@@ -455,12 +463,12 @@ int32_t svt_estimate_noise_fp16_neon(const uint8_t *src, uint16_t width, uint16_
     int32x4_t      count       = vdupq_n_s32(0);
     int            final_count = 0;
     int64_t        final_acc   = 0;
-    const uint8_t *src_start   = src + stride_y + 1;
+    const uint8_t* src_start   = src + stride_y + 1;
     int            h           = 1;
 
     do {
         int            w       = 1;
-        const uint8_t *src_ptr = src_start;
+        const uint8_t* src_ptr = src_start;
 
         while (w <= (width - 1) - 16) {
             uint8x16_t mat[3][3];
@@ -678,8 +686,8 @@ int32_t svt_estimate_noise_fp16_neon(const uint8_t *src, uint16_t width, uint16_
     return (final_count < SMOOTH_THRESHOLD) ? -1.0 : (double)(final_acc * SQRT_PI_BY_2_FP16) / (6 * final_count);
 }
 
-static void apply_filtering_central_loop_lbd(uint16_t w, uint16_t h, uint8_t *src, uint16_t src_stride, uint32_t *accum,
-                                             uint16_t *count) {
+static void apply_filtering_central_loop_lbd(uint16_t w, uint16_t h, uint8_t* src, uint16_t src_stride, uint32_t* accum,
+                                             uint16_t* count) {
     assert(w % 8 == 0);
 
     uint32x4_t modifier       = vdupq_n_u32(TF_PLANEWISE_FILTER_WEIGHT_SCALE);
@@ -698,7 +706,7 @@ static void apply_filtering_central_loop_lbd(uint16_t w, uint16_t h, uint8_t *sr
     }
 }
 
-static uint32_t calculate_squared_errors_sum_no_div_highbd_neon(const uint16_t *s, int s_stride, const uint16_t *p,
+static uint32_t calculate_squared_errors_sum_no_div_highbd_neon(const uint16_t* s, int s_stride, const uint16_t* p,
                                                                 int p_stride, unsigned int w, unsigned int h,
                                                                 int const shift_factor) {
     assert(w % 16 == 0 && "block width must be multiple of 16");
@@ -722,9 +730,9 @@ static uint32_t calculate_squared_errors_sum_no_div_highbd_neon(const uint16_t *
     return vgetq_lane_s32(sum, 0) >> shift_factor;
 }
 
-static void calculate_squared_errors_sum_2x8xh_no_div_highbd_neon(const uint16_t *s, int s_stride, const uint16_t *p,
+static void calculate_squared_errors_sum_2x8xh_no_div_highbd_neon(const uint16_t* s, int s_stride, const uint16_t* p,
                                                                   int p_stride, unsigned int h, int shift_factor,
-                                                                  uint32_t *output) {
+                                                                  uint32_t* output) {
     const int32x4_t zero  = vdupq_n_s32(0);
     int32x4_t       sum_0 = zero;
     int32x4_t       sum_1 = zero;
@@ -753,8 +761,8 @@ static void calculate_squared_errors_sum_2x8xh_no_div_highbd_neon(const uint16_t
 }
 
 static void svt_av1_apply_temporal_filter_planewise_medium_hbd_partial_neon(
-    struct MeContext *me_ctx, const uint16_t *y_src, int y_src_stride, const uint16_t *y_pre, int y_pre_stride,
-    unsigned int block_width, unsigned int block_height, uint32_t *y_accum, uint16_t *y_count, uint32_t tf_decay_factor,
+    MeContext* me_ctx, const uint16_t* y_src, int y_src_stride, const uint16_t* y_pre, int y_pre_stride,
+    unsigned int block_width, unsigned int block_height, uint32_t* y_accum, uint16_t* y_count, uint32_t tf_decay_factor,
     uint32_t luma_window_error_quad_fp8[4], int is_chroma, uint32_t encoder_bit_depth) {
     unsigned int i, j, k, subblock_idx;
 
@@ -767,7 +775,7 @@ static void svt_av1_apply_temporal_filter_planewise_medium_hbd_partial_neon(
     uint32_t  d_factor_fp8[4];
     uint32_t  block_error_fp8[4];
     uint32_t  chroma_window_error_quad_fp8[4];
-    uint32_t *window_error_quad_fp8 = is_chroma ? chroma_window_error_quad_fp8 : luma_window_error_quad_fp8;
+    uint32_t* window_error_quad_fp8 = is_chroma ? chroma_window_error_quad_fp8 : luma_window_error_quad_fp8;
 
     if (me_ctx->tf_32x32_block_split_flag[idx_32x32]) {
         for (i = 0; i < 4; ++i) {
@@ -876,8 +884,8 @@ static void svt_av1_apply_temporal_filter_planewise_medium_hbd_partial_neon(
     }
 }
 
-static void apply_filtering_central_loop_hbd(uint16_t w, uint16_t h, uint16_t *src, uint16_t src_stride,
-                                             uint32_t *accum, uint16_t *count) {
+static void apply_filtering_central_loop_hbd(uint16_t w, uint16_t h, uint16_t* src, uint16_t src_stride,
+                                             uint32_t* accum, uint16_t* count) {
     assert(w % 8 == 0);
 
     uint32x4_t modifier       = vdupq_n_u32(TF_PLANEWISE_FILTER_WEIGHT_SCALE);
@@ -897,32 +905,35 @@ static void apply_filtering_central_loop_hbd(uint16_t w, uint16_t h, uint16_t *s
     }
 }
 
-void svt_aom_apply_filtering_central_neon(struct MeContext *me_ctx, EbPictureBufferDesc *input_picture_ptr_central,
-                                          EbByte *src, uint32_t **accum, uint16_t **count, uint16_t blk_width,
+void svt_aom_apply_filtering_central_neon(MeContext* me_ctx, EbPictureBufferDesc* input_picture_ptr_central,
+                                          EbByte* src, uint32_t** accum, uint16_t** count, uint16_t blk_width,
                                           uint16_t blk_height, uint32_t ss_x, uint32_t ss_y) {
-    uint16_t src_stride_y = input_picture_ptr_central->stride_y;
+    uint16_t src_stride_y = input_picture_ptr_central->y_stride;
 
     // Luma
-    apply_filtering_central_loop_lbd(blk_width, blk_height, src[C_Y], src_stride_y, accum[C_Y], count[C_Y]);
+    apply_filtering_central_loop_lbd(blk_width, blk_height, src[PLANE_Y], src_stride_y, accum[PLANE_Y], count[PLANE_Y]);
 
     // Chroma
     if (me_ctx->tf_chroma) {
         uint16_t blk_height_ch = blk_height >> ss_y;
         uint16_t blk_width_ch  = blk_width >> ss_x;
         uint16_t src_stride_ch = src_stride_y >> ss_x;
-        apply_filtering_central_loop_lbd(blk_width_ch, blk_height_ch, src[C_U], src_stride_ch, accum[C_U], count[C_U]);
-        apply_filtering_central_loop_lbd(blk_width_ch, blk_height_ch, src[C_V], src_stride_ch, accum[C_V], count[C_V]);
+        apply_filtering_central_loop_lbd(
+            blk_width_ch, blk_height_ch, src[PLANE_U], src_stride_ch, accum[PLANE_U], count[PLANE_U]);
+        apply_filtering_central_loop_lbd(
+            blk_width_ch, blk_height_ch, src[PLANE_V], src_stride_ch, accum[PLANE_V], count[PLANE_V]);
     }
 }
 
-void svt_aom_apply_filtering_central_highbd_neon(struct MeContext    *me_ctx,
-                                                 EbPictureBufferDesc *input_picture_ptr_central, uint16_t **src_16bit,
-                                                 uint32_t **accum, uint16_t **count, uint16_t blk_width,
-                                                 uint16_t blk_height, uint32_t ss_x, uint32_t ss_y) {
-    uint16_t src_stride_y = input_picture_ptr_central->stride_y;
+void svt_aom_apply_filtering_central_highbd_neon(MeContext* me_ctx, EbPictureBufferDesc* input_picture_ptr_central,
+                                                 uint16_t** src_16bit, uint32_t** accum, uint16_t** count,
+                                                 uint16_t blk_width, uint16_t blk_height, uint32_t ss_x,
+                                                 uint32_t ss_y) {
+    uint16_t src_stride_y = input_picture_ptr_central->y_stride;
 
     // Luma
-    apply_filtering_central_loop_hbd(blk_width, blk_height, src_16bit[C_Y], src_stride_y, accum[C_Y], count[C_Y]);
+    apply_filtering_central_loop_hbd(
+        blk_width, blk_height, src_16bit[PLANE_Y], src_stride_y, accum[PLANE_Y], count[PLANE_Y]);
 
     // Chroma
     if (me_ctx->tf_chroma) {
@@ -930,17 +941,17 @@ void svt_aom_apply_filtering_central_highbd_neon(struct MeContext    *me_ctx,
         uint16_t blk_width_ch  = blk_width >> ss_x;
         uint16_t src_stride_ch = src_stride_y >> ss_x;
         apply_filtering_central_loop_hbd(
-            blk_width_ch, blk_height_ch, src_16bit[C_U], src_stride_ch, accum[C_U], count[C_U]);
+            blk_width_ch, blk_height_ch, src_16bit[PLANE_U], src_stride_ch, accum[PLANE_U], count[PLANE_U]);
         apply_filtering_central_loop_hbd(
-            blk_width_ch, blk_height_ch, src_16bit[C_V], src_stride_ch, accum[C_V], count[C_V]);
+            blk_width_ch, blk_height_ch, src_16bit[PLANE_V], src_stride_ch, accum[PLANE_V], count[PLANE_V]);
     }
 }
 
 void svt_av1_apply_temporal_filter_planewise_medium_hbd_neon(
-    struct MeContext *me_ctx, const uint16_t *y_src, int y_src_stride, const uint16_t *y_pre, int y_pre_stride,
-    const uint16_t *u_src, const uint16_t *v_src, int uv_src_stride, const uint16_t *u_pre, const uint16_t *v_pre,
-    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t *y_accum,
-    uint16_t *y_count, uint32_t *u_accum, uint16_t *u_count, uint32_t *v_accum, uint16_t *v_count,
+    MeContext* me_ctx, const uint16_t* y_src, int y_src_stride, const uint16_t* y_pre, int y_pre_stride,
+    const uint16_t* u_src, const uint16_t* v_src, int uv_src_stride, const uint16_t* u_pre, const uint16_t* v_pre,
+    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t* y_accum,
+    uint16_t* y_count, uint32_t* u_accum, uint16_t* u_count, uint32_t* v_accum, uint16_t* v_count,
     uint32_t encoder_bit_depth) {
     uint32_t luma_window_error_quad_fp8[4];
 
@@ -953,7 +964,7 @@ void svt_av1_apply_temporal_filter_planewise_medium_hbd_neon(
                                                                     (unsigned int)block_height,
                                                                     y_accum,
                                                                     y_count,
-                                                                    me_ctx->tf_decay_factor_fp16[C_Y],
+                                                                    me_ctx->tf_decay_factor_fp16[PLANE_Y],
                                                                     luma_window_error_quad_fp8,
                                                                     0,
                                                                     encoder_bit_depth);
@@ -967,7 +978,7 @@ void svt_av1_apply_temporal_filter_planewise_medium_hbd_neon(
                                                                         (unsigned int)block_height >> ss_y,
                                                                         u_accum,
                                                                         u_count,
-                                                                        me_ctx->tf_decay_factor_fp16[C_U],
+                                                                        me_ctx->tf_decay_factor_fp16[PLANE_U],
                                                                         luma_window_error_quad_fp8,
                                                                         1,
                                                                         encoder_bit_depth);
@@ -981,7 +992,7 @@ void svt_av1_apply_temporal_filter_planewise_medium_hbd_neon(
                                                                         (unsigned int)block_height >> ss_y,
                                                                         v_accum,
                                                                         v_count,
-                                                                        me_ctx->tf_decay_factor_fp16[C_V],
+                                                                        me_ctx->tf_decay_factor_fp16[PLANE_V],
                                                                         luma_window_error_quad_fp8,
                                                                         1,
                                                                         encoder_bit_depth);
@@ -989,7 +1000,7 @@ void svt_av1_apply_temporal_filter_planewise_medium_hbd_neon(
 }
 
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
-int32_t svt_estimate_noise_highbd_fp16_neon(const uint16_t *src, int width, int height, int stride, int bd) {
+int32_t svt_estimate_noise_highbd_fp16_neon(const uint16_t* src, int width, int height, int stride, int bd) {
     //  A | B | C
     //  D | E | F
     //  G | H | I
@@ -1006,12 +1017,12 @@ int32_t svt_estimate_noise_highbd_fp16_neon(const uint16_t *src, int width, int 
     int32x4_t       count       = vdupq_n_s32(0);
     int             final_count = 0;
     uint64_t        final_acc   = 0;
-    const uint16_t *src_start   = src + stride + 1;
+    const uint16_t* src_start   = src + stride + 1;
     int             h           = 1;
 
     do {
         int             w       = 1;
-        const uint16_t *src_ptr = src_start;
+        const uint16_t* src_ptr = src_start;
 
         while (w <= (width - 1) - 8) {
             uint16x8_t mat[3][3];
@@ -1166,8 +1177,8 @@ int32_t svt_estimate_noise_highbd_fp16_neon(const uint16_t *src, int width, int 
 #endif
 
 static void svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_neon(
-    struct MeContext *me_ctx, const uint8_t *y_pre, int y_pre_stride, unsigned int block_width,
-    unsigned int block_height, uint32_t *y_accum, uint16_t *y_count, const uint32_t tf_decay_factor_fp16) {
+    MeContext* me_ctx, const uint8_t* y_pre, int y_pre_stride, unsigned int block_width, unsigned int block_height,
+    uint32_t* y_accum, uint16_t* y_count, const uint32_t tf_decay_factor_fp16) {
     // Decay factors for non-local mean approach.
     // Larger noise -> larger filtering weight.
     int32_t idx_32x32 = me_ctx->tf_block_col + me_ctx->tf_block_row * 2;
@@ -1219,11 +1230,17 @@ static void svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_neon
 }
 
 void svt_av1_apply_zz_based_temporal_filter_planewise_medium_neon(
-    struct MeContext *me_ctx, const uint8_t *y_pre, int y_pre_stride, const uint8_t *u_pre, const uint8_t *v_pre,
-    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t *y_accum,
-    uint16_t *y_count, uint32_t *u_accum, uint16_t *u_count, uint32_t *v_accum, uint16_t *v_count) {
-    svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_neon(
-        me_ctx, y_pre, y_pre_stride, block_width, block_height, y_accum, y_count, me_ctx->tf_decay_factor_fp16[C_Y]);
+    MeContext* me_ctx, const uint8_t* y_pre, int y_pre_stride, const uint8_t* u_pre, const uint8_t* v_pre,
+    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t* y_accum,
+    uint16_t* y_count, uint32_t* u_accum, uint16_t* u_count, uint32_t* v_accum, uint16_t* v_count) {
+    svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_neon(me_ctx,
+                                                                         y_pre,
+                                                                         y_pre_stride,
+                                                                         block_width,
+                                                                         block_height,
+                                                                         y_accum,
+                                                                         y_count,
+                                                                         me_ctx->tf_decay_factor_fp16[PLANE_Y]);
 
     if (me_ctx->tf_chroma) {
         svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_neon(me_ctx,
@@ -1233,7 +1250,7 @@ void svt_av1_apply_zz_based_temporal_filter_planewise_medium_neon(
                                                                              block_height >> ss_y,
                                                                              u_accum,
                                                                              u_count,
-                                                                             me_ctx->tf_decay_factor_fp16[C_U]);
+                                                                             me_ctx->tf_decay_factor_fp16[PLANE_U]);
 
         svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_neon(me_ctx,
                                                                              v_pre,
@@ -1242,13 +1259,13 @@ void svt_av1_apply_zz_based_temporal_filter_planewise_medium_neon(
                                                                              block_height >> ss_y,
                                                                              v_accum,
                                                                              v_count,
-                                                                             me_ctx->tf_decay_factor_fp16[C_V]);
+                                                                             me_ctx->tf_decay_factor_fp16[PLANE_V]);
     }
 }
 
 static void svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_hbd_neon(
-    struct MeContext *me_ctx, const uint16_t *y_pre, int y_pre_stride, unsigned int block_width,
-    unsigned int block_height, uint32_t *y_accum, uint16_t *y_count, const uint32_t tf_decay_factor_fp16) {
+    MeContext* me_ctx, const uint16_t* y_pre, int y_pre_stride, unsigned int block_width, unsigned int block_height,
+    uint32_t* y_accum, uint16_t* y_count, const uint32_t tf_decay_factor_fp16) {
     // Decay factors for non-local mean approach.
     // Larger noise -> larger filtering weight.
     int32_t idx_32x32 = me_ctx->tf_block_col + me_ctx->tf_block_row * 2;
@@ -1301,14 +1318,20 @@ static void svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_hbd_
 }
 
 void svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_neon(
-    struct MeContext *me_ctx, const uint16_t *y_pre, int y_pre_stride, const uint16_t *u_pre, const uint16_t *v_pre,
-    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t *y_accum,
-    uint16_t *y_count, uint32_t *u_accum, uint16_t *u_count, uint32_t *v_accum, uint16_t *v_count,
+    MeContext* me_ctx, const uint16_t* y_pre, int y_pre_stride, const uint16_t* u_pre, const uint16_t* v_pre,
+    int uv_pre_stride, unsigned int block_width, unsigned int block_height, int ss_x, int ss_y, uint32_t* y_accum,
+    uint16_t* y_count, uint32_t* u_accum, uint16_t* u_count, uint32_t* v_accum, uint16_t* v_count,
     uint32_t encoder_bit_depth) {
     (void)encoder_bit_depth;
 
-    svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_hbd_neon(
-        me_ctx, y_pre, y_pre_stride, block_width, block_height, y_accum, y_count, me_ctx->tf_decay_factor_fp16[C_Y]);
+    svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_hbd_neon(me_ctx,
+                                                                             y_pre,
+                                                                             y_pre_stride,
+                                                                             block_width,
+                                                                             block_height,
+                                                                             y_accum,
+                                                                             y_count,
+                                                                             me_ctx->tf_decay_factor_fp16[PLANE_Y]);
 
     if (me_ctx->tf_chroma) {
         svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_hbd_neon(me_ctx,
@@ -1318,7 +1341,7 @@ void svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_neon(
                                                                                  block_height >> ss_y,
                                                                                  u_accum,
                                                                                  u_count,
-                                                                                 me_ctx->tf_decay_factor_fp16[C_U]);
+                                                                                 me_ctx->tf_decay_factor_fp16[PLANE_U]);
 
         svt_av1_apply_zz_based_temporal_filter_planewise_medium_partial_hbd_neon(me_ctx,
                                                                                  v_pre,
@@ -1327,6 +1350,6 @@ void svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_neon(
                                                                                  block_height >> ss_y,
                                                                                  v_accum,
                                                                                  v_count,
-                                                                                 me_ctx->tf_decay_factor_fp16[C_V]);
+                                                                                 me_ctx->tf_decay_factor_fp16[PLANE_V]);
     }
 }

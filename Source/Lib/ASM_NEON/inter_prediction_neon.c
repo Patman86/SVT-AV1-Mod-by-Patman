@@ -19,8 +19,8 @@
 #include "mem_neon.h"
 #include "utility.h"
 
-static inline void diffwtd_mask_d16_neon(uint8_t *mask, const bool inverse, const CONV_BUF_TYPE *src0, int src0_stride,
-                                         const CONV_BUF_TYPE *src1, int src1_stride, int h, int w, int bd) {
+static inline void diffwtd_mask_d16_neon(uint8_t* mask, const bool inverse, const CONV_BUF_TYPE* src0, int src0_stride,
+                                         const CONV_BUF_TYPE* src1, int src1_stride, int h, int w, int bd) {
     const int       round     = 2 * FILTER_BITS - ROUND0_BITS - COMPOUND_ROUND1_BITS + (bd - 8);
     const int16x8_t round_vec = vdupq_n_s16((int16_t)(-round));
 
@@ -101,9 +101,9 @@ static inline void diffwtd_mask_d16_neon(uint8_t *mask, const bool inverse, cons
     }
 }
 
-void svt_av1_build_compound_diffwtd_mask_d16_neon(uint8_t *mask, DIFFWTD_MASK_TYPE mask_type, const CONV_BUF_TYPE *src0,
-                                                  int src0_stride, const CONV_BUF_TYPE *src1, int src1_stride, int h,
-                                                  int w, ConvolveParams *conv_params, int bd) {
+void svt_av1_build_compound_diffwtd_mask_d16_neon(uint8_t* mask, DIFFWTD_MASK_TYPE mask_type, const CONV_BUF_TYPE* src0,
+                                                  int src0_stride, const CONV_BUF_TYPE* src1, int src1_stride, int h,
+                                                  int w, ConvolveParams* conv_params, int bd) {
     (void)conv_params;
     assert(h >= 4);
     assert(w >= 4);
@@ -116,8 +116,8 @@ void svt_av1_build_compound_diffwtd_mask_d16_neon(uint8_t *mask, DIFFWTD_MASK_TY
     }
 }
 
-static inline void diffwtd_mask_neon(uint8_t *mask, const bool inverse, const uint8_t *src0, int src0_stride,
-                                     const uint8_t *src1, int src1_stride, int h, int w) {
+static inline void diffwtd_mask_neon(uint8_t* mask, const bool inverse, const uint8_t* src0, int src0_stride,
+                                     const uint8_t* src1, int src1_stride, int h, int w) {
     if (w >= 16) {
         int i = 0;
         do {
@@ -187,8 +187,8 @@ static inline void diffwtd_mask_neon(uint8_t *mask, const bool inverse, const ui
     }
 }
 
-void svt_av1_build_compound_diffwtd_mask_neon(uint8_t *mask, DIFFWTD_MASK_TYPE mask_type, const uint8_t *src0,
-                                              int src0_stride, const uint8_t *src1, int src1_stride, int h, int w) {
+void svt_av1_build_compound_diffwtd_mask_neon(uint8_t* mask, DIFFWTD_MASK_TYPE mask_type, const uint8_t* src0,
+                                              int src0_stride, const uint8_t* src1, int src1_stride, int h, int w) {
     assert(h % 4 == 0);
     assert(w % 4 == 0);
     assert(mask_type == DIFFWTD_38_INV || mask_type == DIFFWTD_38);
@@ -212,7 +212,7 @@ DECLARE_ALIGNED(16, static const uint8_t, obmc_variance_permute_idx[]) = {
 };
 // clang-format on
 
-static inline void weighted_pred_left_neon(int32_t *wsrc_ptr, int32_t *mask_ptr, int32x4_t tmp_lo, int32x4_t tmp_hi,
+static inline void weighted_pred_left_neon(int32_t* wsrc_ptr, int32_t* mask_ptr, int32x4_t tmp_lo, int32x4_t tmp_hi,
                                            int32x4_t m0_lo, int32x4_t m0_hi, int32x4_t m1_lo, int32x4_t m1_hi,
                                            int stride) {
     int32x4_t wsrc_lo_s32 = vld1q_s32(wsrc_ptr);
@@ -240,8 +240,8 @@ static inline void weighted_pred_left_neon(int32_t *wsrc_ptr, int32_t *mask_ptr,
     vst1q_s32(mask_ptr + stride, mask_hi_s32);
 }
 
-void svt_av1_calc_target_weighted_pred_left_neon(uint8_t is16bit, MacroBlockD *xd, int rel_mi_row, uint8_t nb_mi_height,
-                                                 MbModeInfo *nb_mi, void *fun_ctxt) {
+void svt_av1_calc_target_weighted_pred_left_neon(uint8_t is16bit, MacroBlockD* xd, int rel_mi_row, uint8_t nb_mi_height,
+                                                 MbModeInfo* nb_mi, void* fun_ctxt) {
     (void)nb_mi;
     (void)is16bit;
 
@@ -252,15 +252,15 @@ void svt_av1_calc_target_weighted_pred_left_neon(uint8_t is16bit, MacroBlockD *x
     uint8x16_t pre_idx2 = vld1q_u8(&obmc_variance_permute_idx[32]);
     uint8x16_t pre_idx3 = vld1q_u8(&obmc_variance_permute_idx[48]);
 
-    struct calc_target_weighted_pred_ctxt *ctxt = (struct calc_target_weighted_pred_ctxt *)fun_ctxt;
+    struct calc_target_weighted_pred_ctxt* ctxt = (struct calc_target_weighted_pred_ctxt*)fun_ctxt;
     assert(ctxt->overlap >= 2);
     assert(svt_av1_get_obmc_mask(ctxt->overlap) != NULL);
 
     const int bw = xd->n4_w << MI_SIZE_LOG2;
 
-    int32_t       *wsrc = ctxt->wsrc_buf + (rel_mi_row * MI_SIZE * bw);
-    int32_t       *mask = ctxt->mask_buf + (rel_mi_row * MI_SIZE * bw);
-    const uint8_t *tmp  = ctxt->tmp + (rel_mi_row * MI_SIZE * ctxt->tmp_stride);
+    int32_t*       wsrc = ctxt->wsrc_buf + (rel_mi_row * MI_SIZE * bw);
+    int32_t*       mask = ctxt->mask_buf + (rel_mi_row * MI_SIZE * bw);
+    const uint8_t* tmp  = ctxt->tmp + (rel_mi_row * MI_SIZE * ctxt->tmp_stride);
 
     if (ctxt->overlap == 2) {
         const int32_t mask1d0[2] = {45, 64};
@@ -268,8 +268,8 @@ void svt_av1_calc_target_weighted_pred_left_neon(uint8_t is16bit, MacroBlockD *x
         // We will then have m1[i] = 64 * (64 - m0[i]).
         const int32_t mask1d1[2] = {1216, 0};
 
-        int32x4_t m0 = vreinterpretq_s32_s64(vld1q_dup_s64((int64_t *)mask1d0));
-        int32x4_t m1 = vreinterpretq_s32_s64(vld1q_dup_s64((int64_t *)mask1d1));
+        int32x4_t m0 = vreinterpretq_s32_s64(vld1q_dup_s64((int64_t*)mask1d0));
+        int32x4_t m1 = vreinterpretq_s32_s64(vld1q_dup_s64((int64_t*)mask1d1));
         // MI_SIZE = 4 so it's fine to do 4 rows at a time.
         int row = nb_mi_height * MI_SIZE;
         do {
@@ -341,8 +341,8 @@ void svt_av1_calc_target_weighted_pred_left_neon(uint8_t is16bit, MacroBlockD *x
         const int32_t mask1d1[8] = {1792, 1408, 1024, 704, 448, 192, 0, 0};
         int32x4_t     m0[2], m1[2];
 
-        load_s32_4x2((int32_t *)mask1d0, 4, &m0[0], &m0[1]);
-        load_s32_4x2((int32_t *)mask1d1, 4, &m1[0], &m1[1]);
+        load_s32_4x2((int32_t*)mask1d0, 4, &m0[0], &m0[1]);
+        load_s32_4x2((int32_t*)mask1d1, 4, &m1[0], &m1[1]);
 
         int row = nb_mi_height * MI_SIZE;
         do {
@@ -365,8 +365,8 @@ void svt_av1_calc_target_weighted_pred_left_neon(uint8_t is16bit, MacroBlockD *x
         const int32_t mask1d1[16] = {1920, 1728, 1536, 1344, 1152, 960, 768, 640, 512, 384, 256, 192, 0, 0, 0, 0};
 
         int32x4_t m0[4], m1[4];
-        load_s32_4x4((int32_t *)mask1d0, 4, &m0[0], &m0[1], &m0[2], &m0[3]);
-        load_s32_4x4((int32_t *)mask1d1, 4, &m1[0], &m1[1], &m1[2], &m1[3]);
+        load_s32_4x4((int32_t*)mask1d0, 4, &m0[0], &m0[1], &m0[2], &m0[3]);
+        load_s32_4x4((int32_t*)mask1d1, 4, &m1[0], &m1[1], &m1[2], &m1[3]);
 
         int row = nb_mi_height * MI_SIZE;
         do {
@@ -393,8 +393,8 @@ void svt_av1_calc_target_weighted_pred_left_neon(uint8_t is16bit, MacroBlockD *x
                                      896,  832,  768,  704,  576,  512,  448,  384,  320,  256,  256,
                                      192,  128,  0,    0,    0,    0,    0,    0,    0,    0};
         int32x4_t     m0[8], m1[8];
-        load_s32_4x8((int32_t *)mask1d0, 4, &m0[0], &m0[1], &m0[2], &m0[3], &m0[4], &m0[5], &m0[6], &m0[7]);
-        load_s32_4x8((int32_t *)mask1d1, 4, &m1[0], &m1[1], &m1[2], &m1[3], &m1[4], &m1[5], &m1[6], &m1[7]);
+        load_s32_4x8((int32_t*)mask1d0, 4, &m0[0], &m0[1], &m0[2], &m0[3], &m0[4], &m0[5], &m0[6], &m0[7]);
+        load_s32_4x8((int32_t*)mask1d1, 4, &m1[0], &m1[1], &m1[2], &m1[3], &m1[4], &m1[5], &m1[6], &m1[7]);
 
         int row = nb_mi_height * MI_SIZE;
         do {

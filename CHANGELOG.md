@@ -1,5 +1,37 @@
 # Changelog
 
+## [4.1] - 2026-03-16
+
+Encoder
+
+- Refactor MD, EncDec, and Entropy Coding kernels (!2604)
+- Improve Still Image coding efficiency (!2612, !2614)
+- Change Wiener Filter level for chroma for presets M3 and below (!2620)
+- Optimize Screen Content coding for Still Image (!2630)
+
+Arm
+
+- Refactor Subpixel Variance kernels (!2608)
+- Optimize 16b SAD kernel (!2610)
+- Fixed Neoverse V2 unit test detection (!2622)
+- Update Arm build guide (!2625)
+
+Bug fixes and documentation
+
+- Fixed a hang caused by improper variable looping (#2338, !2600)
+- Add missing option 2 for `--enable-dlf`'s help output (!2601)
+- Depth Refinement algorithmic bug fix (!2602)
+- Add mutexes to fix hangs when running multiple instances of the encoder in one process (!2603, !2605, !2619)
+- Fix motion calculation for cyclic QP refresh (!2613)
+- Fixed a Debug vs Release mismatch (!2618)
+- Fixed some new warnings with newer GCC versions (!2621)
+- Changed Temporal Filtering distortion calculation to not include padding (!2623)
+- Cleanup some dead unit tests (!2626)
+- Benchmark framework improvements (!2627)
+- CI/CD improvements (!2628)
+- Fixed some niche crashes (!2629)
+- General code and doc cleanup (!2606, !2607, !2609, !2611, !2616, !2617, !2624, !2631)
+
 ## [4.0.1] - 2026-01-27
 
 Bug fixes and documentation

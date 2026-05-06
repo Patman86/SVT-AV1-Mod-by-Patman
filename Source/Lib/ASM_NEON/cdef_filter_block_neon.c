@@ -23,7 +23,7 @@ static inline int16x8_t constrain_neon(uint16x8_t a, uint16x8_t b, unsigned int 
     return vbslq_s16(a_gt_b, clip, vnegq_s16(clip));
 }
 
-void svt_av1_cdef_filter_block_8xn_8_neon(uint8_t *dst, int32_t dstride, const uint16_t *in, int32_t pri_strength,
+void svt_av1_cdef_filter_block_8xn_8_neon(uint8_t* dst, int32_t dstride, const uint16_t* in, int32_t pri_strength,
                                           int32_t sec_strength, int32_t dir, int32_t pri_damping, int32_t sec_damping,
                                           int32_t coeff_shift, uint8_t height, uint8_t subsampling_factor) {
     int16x8_t  sum, res;
@@ -33,8 +33,8 @@ void svt_av1_cdef_filter_block_8xn_8_neon(uint8_t *dst, int32_t dstride, const u
     uint8x8_t  ans;
     uint8_t    i;
 
-    const int *pri_taps = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
-    const int *sec_taps = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
+    const int* pri_taps = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
+    const int* sec_taps = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
 
     if (pri_strength) {
         pri_damping = AOMMAX(0, pri_damping - get_msb(pri_strength));
@@ -143,7 +143,7 @@ void svt_av1_cdef_filter_block_8xn_8_neon(uint8_t *dst, int32_t dstride, const u
     }
 }
 
-void svt_av1_cdef_filter_block_4xn_8_neon(uint8_t *dst, int32_t dstride, const uint16_t *in, int32_t pri_strength,
+void svt_av1_cdef_filter_block_4xn_8_neon(uint8_t* dst, int32_t dstride, const uint16_t* in, int32_t pri_strength,
                                           int32_t sec_strength, int32_t dir, int32_t pri_damping, int32_t sec_damping,
                                           int32_t coeff_shift, uint8_t height, uint8_t subsampling_factor) {
     int16x8_t  sum, res;
@@ -151,11 +151,11 @@ void svt_av1_cdef_filter_block_4xn_8_neon(uint8_t *dst, int32_t dstride, const u
     int16x8_t  p0, p1, p2, p3;
     uint8x8_t  ans;
     uint8_t    i;
-    uint32_t  *dst_r1_u32;
-    uint32_t  *dst_r2_u32;
+    uint32_t*  dst_r1_u32;
+    uint32_t*  dst_r2_u32;
 
-    const int *pri_taps = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
-    const int *sec_taps = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
+    const int* pri_taps = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
+    const int* sec_taps = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
 
     if (pri_strength) {
         pri_damping = AOMMAX(0, pri_damping - get_msb(pri_strength));
@@ -287,8 +287,8 @@ void svt_av1_cdef_filter_block_4xn_8_neon(uint8_t *dst, int32_t dstride, const u
 
         ans = vqmovun_s16(res);
         /*storing 32 bits in the destination buffer of type uint8_t*/
-        dst_r1_u32  = (uint32_t *)(dst + (i * dstride));
-        dst_r2_u32  = (uint32_t *)(dst + ((i + subsampling_factor) * dstride));
+        dst_r1_u32  = (uint32_t*)(dst + (i * dstride));
+        dst_r2_u32  = (uint32_t*)(dst + ((i + subsampling_factor) * dstride));
         *dst_r1_u32 = vget_lane_u32(vreinterpret_u32_u8(ans), 0);
         *dst_r2_u32 = vget_lane_u32(vreinterpret_u32_u8(ans), 1);
     }
@@ -305,7 +305,7 @@ AOM_FORCE_INLINE int16x8_t constrain16(int16x8_t a, int16x8_t b, int16x8_t thres
     return veorq_s16(vaddq_s16(vminq_s16(abs_diff, s), sign), sign);
 }
 
-void svt_av1_cdef_filter_block_8xn_16_neon(uint16_t *dst, int dstride, const uint16_t *in, int pri_strength,
+void svt_av1_cdef_filter_block_8xn_16_neon(uint16_t* dst, int dstride, const uint16_t* in, int pri_strength,
                                            int sec_strength, int dir, int pri_damping, int sec_damping, int coeff_shift,
                                            uint8_t height, uint8_t subsampling_factor) {
     int             i;
@@ -317,8 +317,8 @@ void svt_av1_cdef_filter_block_8xn_16_neon(uint16_t *dst, int dstride, const uin
     const int32_t   s2o1  = svt_aom_eb_cdef_directions[(dir - 2)][0];
     const int32_t   s2o2  = svt_aom_eb_cdef_directions[(dir - 2)][1];
 
-    const int *pri_taps = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
-    const int *sec_taps = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
+    const int* pri_taps = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
+    const int* sec_taps = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
 
     if (pri_strength) {
         pri_damping = AOMMAX(0, pri_damping - get_msb(pri_strength));
@@ -333,7 +333,7 @@ void svt_av1_cdef_filter_block_8xn_16_neon(uint16_t *dst, int dstride, const uin
     const int16x8_t v_sec_damping  = vdupq_n_s16(-sec_damping);
 
     for (i = 0; i < height; i += subsampling_factor) {
-        const int16_t *ina = (const int16_t *)(in + i * CDEF_BSTRIDE);
+        const int16_t* ina = (const int16_t*)(in + i * CDEF_BSTRIDE);
 
         const int16x8_t row = vld1q_s16(ina);
 
@@ -433,11 +433,11 @@ void svt_av1_cdef_filter_block_8xn_16_neon(uint16_t *dst, int dstride, const uin
         res           = vaddq_s16(row, res);
         res           = vminq_s16(vmaxq_s16(res, min), max);
 
-        vst1q_s16((int16_t *)(dst + i * dstride), res);
+        vst1q_s16((int16_t*)(dst + i * dstride), res);
     }
 }
 
-void svt_av1_cdef_filter_block_4xn_16_neon(uint16_t *dst, int dstride, const uint16_t *in, int pri_strength,
+void svt_av1_cdef_filter_block_4xn_16_neon(uint16_t* dst, int dstride, const uint16_t* in, int pri_strength,
                                            int sec_strength, int dir, int pri_damping, int sec_damping, int coeff_shift,
                                            uint8_t height, uint8_t subsampling_factor) {
     int             i;
@@ -449,8 +449,8 @@ void svt_av1_cdef_filter_block_4xn_16_neon(uint16_t *dst, int dstride, const uin
     const int32_t   s2o1  = svt_aom_eb_cdef_directions[(dir - 2)][0];
     const int32_t   s2o2  = svt_aom_eb_cdef_directions[(dir - 2)][1];
 
-    const int *pri_taps = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
-    const int *sec_taps = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
+    const int* pri_taps = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
+    const int* sec_taps = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
 
     if (pri_strength) {
         pri_damping = AOMMAX(0, pri_damping - get_msb(pri_strength));
@@ -465,8 +465,8 @@ void svt_av1_cdef_filter_block_4xn_16_neon(uint16_t *dst, int dstride, const uin
     const int16x8_t v_sec_damping  = vdupq_n_s16(-sec_damping);
 
     for (i = 0; i < height; i += (2 * subsampling_factor)) {
-        const int16_t *ina = (const int16_t *)(in + i * CDEF_BSTRIDE);
-        const int16_t *inb = (const int16_t *)(in + (i + 1 * subsampling_factor) * CDEF_BSTRIDE);
+        const int16_t* ina = (const int16_t*)(in + i * CDEF_BSTRIDE);
+        const int16_t* inb = (const int16_t*)(in + (i + 1 * subsampling_factor) * CDEF_BSTRIDE);
 
         const int16x8_t row = vcombine_s16(vld1_s16(ina), vld1_s16(inb));
 
@@ -566,12 +566,12 @@ void svt_av1_cdef_filter_block_4xn_16_neon(uint16_t *dst, int dstride, const uin
         res           = vaddq_s16(row, res);
         res           = vminq_s16(vmaxq_s16(res, min), max);
 
-        vst1_s16((int16_t *)(dst + i * dstride), vget_low_s16(res));
-        vst1_s16((int16_t *)(dst + (i + 1 * subsampling_factor) * dstride), vget_high_s16(res));
+        vst1_s16((int16_t*)(dst + i * dstride), vget_low_s16(res));
+        vst1_s16((int16_t*)(dst + (i + 1 * subsampling_factor) * dstride), vget_high_s16(res));
     }
 }
 
-void svt_cdef_filter_block_neon(uint8_t *dst8, uint16_t *dst16, int32_t dstride, const uint16_t *in,
+void svt_cdef_filter_block_neon(uint8_t* dst8, uint16_t* dst16, int32_t dstride, const uint16_t* in,
                                 int32_t pri_strength, int32_t sec_strength, int32_t dir, int32_t pri_damping,
                                 int32_t sec_damping, int32_t bsize, int32_t coeff_shift, uint8_t subsampling_factor) {
     if (dst8) {

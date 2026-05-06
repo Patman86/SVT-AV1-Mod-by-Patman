@@ -19,7 +19,7 @@
 extern "C" {
 #endif
 
-static INLINE void transpose_32_4x4(int32_t stride, const __m128i *input, __m128i *output) {
+static INLINE void transpose_32_4x4(int32_t stride, const __m128i* input, __m128i* output) {
     __m128i temp0 = _mm_unpacklo_epi32(input[0 * stride], input[2 * stride]);
     __m128i temp1 = _mm_unpackhi_epi32(input[0 * stride], input[2 * stride]);
     __m128i temp2 = _mm_unpacklo_epi32(input[1 * stride], input[3 * stride]);
@@ -35,7 +35,7 @@ static INLINE void transpose_32_4x4(int32_t stride, const __m128i *input, __m128
 // each 4x4 blocks can be represent by 4 vertical __m128i
 // we first transpose each 4x4 block internally
 // then transpose the grid
-static INLINE void transpose_32(int32_t txfm_size, const __m128i *input, __m128i *output) {
+static INLINE void transpose_32(int32_t txfm_size, const __m128i* input, __m128i* output) {
     const int32_t num_per_128 = 4;
     const int32_t row_size    = txfm_size;
     const int32_t col_size    = txfm_size / num_per_128;
@@ -67,8 +67,10 @@ static INLINE void transpose_32(int32_t txfm_size, const __m128i *input, __m128i
 
 // out0 = in0*w0 + in1*w1
 // out1 = in1*w0 - in0*w1
-#define btf_32_sse4_1_type1(w0, w1, in0, in1, out0, out1, bit) \
-    do { btf_32_sse4_1_type0(w1, w0, in1, in0, out0, out1, bit); } while (0)
+#define btf_32_sse4_1_type1(w0, w1, in0, in1, out0, out1, bit)  \
+    do {                                                        \
+        btf_32_sse4_1_type0(w1, w0, in1, in0, out0, out1, bit); \
+    } while (0)
 
 // out0 = in0*w0 + in1*w1
 // out1 = -in1*w0 + in0*w1
@@ -88,8 +90,10 @@ static INLINE void transpose_32(int32_t txfm_size, const __m128i *input, __m128i
 
 // out0 = in0*w0 + in1*w1
 // out1 = in1*w0 - in0*w1
-#define btf_32_type1_sse4_1_new(ww0, ww1, in0, in1, out0, out1, r, bit) \
-    do { btf_32_type0_sse4_1_new(ww1, ww0, in1, in0, out0, out1, r, bit); } while (0)
+#define btf_32_type1_sse4_1_new(ww0, ww1, in0, in1, out0, out1, r, bit)  \
+    do {                                                                 \
+        btf_32_type0_sse4_1_new(ww1, ww0, in1, in0, out0, out1, r, bit); \
+    } while (0)
 
 static INLINE __m128i mm_reverse_epi16(const __m128i x) {
     const __m128i a = _mm_shufflelo_epi16(x, 0x1b);
@@ -97,8 +101,8 @@ static INLINE __m128i mm_reverse_epi16(const __m128i x) {
     return _mm_shuffle_epi32(b, 0x4e);
 }
 
-static INLINE __m128i half_btf_sse4_1(const __m128i *w0, const __m128i *n0, const __m128i *w1, const __m128i *n1,
-                                      const __m128i *rounding, int bit) {
+static INLINE __m128i half_btf_sse4_1(const __m128i* w0, const __m128i* n0, const __m128i* w1, const __m128i* n1,
+                                      const __m128i* rounding, int bit) {
     __m128i x, y;
 
     x = _mm_mullo_epi32(*w0, *n0);

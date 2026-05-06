@@ -134,7 +134,7 @@ INSTANTIATE_TEST_SUITE_P(NEON, UpsampleTest,
 
 // -----------------------------------------------------------------------------
 // Filter edge Tests
-// Declare macros and functions requried
+// Declare macros and functions required
 #define INTRA_EDGE_FILT 3
 #define INTRA_EDGE_TAPS 5
 #define MAX_UPSAMPLE_SZ 16

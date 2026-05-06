@@ -12,7 +12,9 @@
 #include <stdlib.h>
 #include "pd_queue.h"
 
-static void pa_reference_queue_entry_dctor(EbPtr p) { UNUSED(p); }
+static void pa_reference_queue_entry_dctor(EbPtr p) {
+    UNUSED(p);
+}
 
 EbErrorType svt_aom_pa_reference_queue_entry_ctor(PaReferenceEntry* entry_ptr) {
     entry_ptr->dctor    = pa_reference_queue_entry_dctor;

@@ -138,6 +138,10 @@ typedef enum {
     RESIZE_MODES
 } RESIZE_MODE;
 
+/* Indicates what prediction structure to use
+ */
+typedef enum PredStructure { ALL_INTRA, LOW_DELAY, RANDOM_ACCESS, PRED_TOTAL_COUNT, PRED_INVALID = 0xFF } PredStructure;
+
 /** The SvtAv1IntraRefreshType is used to describe the intra refresh type.
 */
 typedef enum SvtAv1IntraRefreshType {
@@ -157,7 +161,7 @@ typedef enum {
  * This structure is able to hold a reference to any fixed size buffer.
  */
 typedef struct SvtAv1FixedBuf {
-    void    *buf; /**< Pointer to the data. Does NOT own the data! */
+    void*    buf; /**< Pointer to the data. Does NOT own the data! */
     uint64_t sz; /**< Length of the buffer, in chars */
 } SvtAv1FixedBuf; /**< alias for struct aom_fixed_buf */
 
@@ -265,7 +269,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * Refer to PredStructure enum for valid values.
      *
      * Default is RANDOM_ACCESS. */
-    uint8_t pred_structure;
+    PredStructure pred_structure;
 
     // Input Info
 
@@ -838,7 +842,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     uint8_t tf_strength;
 
     /* Stores the optional film grain synthesis info */
-    AomFilmGrain *fgs_table;
+    AomFilmGrain* fgs_table;
 
     /* New parameters can go in under this line. Also deduct the size of the parameter */
     /* from the padding array */
@@ -964,7 +968,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * 1.00: enable AC bias with a strength of 1.00
      * Default is 1.00 in SVT-AV1-HDR, mainline default is 0.00
      */
-     double ac_bias;
+    double ac_bias;
 
     /**
      * @brief Noise normalization strength; modifies the encoder's willingness
@@ -981,14 +985,14 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * 2: 10 + (4 - 2) = 12 (2x weaker)
      * 3: 10 + (4 - 3) = 11 (mainline default)
      * 4: 10 + (4 - 4) = 10 (2x stronger) */
-     uint8_t kf_tf_strength;
+    uint8_t kf_tf_strength;
 
-     /**
+    /**
      * @brief Use alternative lambda factors
      * false = use regular lambda factors
      * true = use alternative lambda factors (from SVT-AV1 3.0.2)
      * Default is true in SVT-AV1-HDR. */
-     bool alt_lambda_factors;
+    bool alt_lambda_factors;
 
     /* @brief compresses the QP hierarchical layer scale to improve temporal video consistency
      * 0.0: no compression, original SVT-AV1 scaling
@@ -996,7 +1000,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      *         (different frame quality fluctuation/mean quality tradeoffs)
      * Default is 1.0 in SVT-AV1-HDR, mainline default is 0.0
      */
-     double qp_scale_compress_strength;
+    double qp_scale_compress_strength;
 
     /* @brief Alternative SSIM tuning, enables VQ enhancements and different rdmult calculations
      * 0: disabled, use stock SSIM tuning
@@ -1012,16 +1016,16 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * 1: enabled
      * Default is 1
      */
-     uint8_t sharp_tx;
+    uint8_t sharp_tx;
 
-     /**
+    /**
      * @brief High Bit-Depth Mode Decision, used to control the bit-depth of the mode decision path.
      * 0: preset-determined
      * 1: full 10-bit MD
      * 2: hybrid 8/10-bit MD
      * Default is 0
      */
-     uint8_t hbd_mds;
+    uint8_t hbd_mds;
 
     /**
      * @brief Transform size/type bias type
@@ -1033,16 +1037,16 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      */
     uint8_t tx_bias;
 
-     /**
+    /**
      * @brief Enable complex-hvs, a feature that enables the highest complexity and highest fidelity
      HVS model at the cost of higher CPU time
      * 0: default preset behavior
      * 1: highest complexity HVS model (SSD-Psy)
      * Default is 0
      */
-     uint8_t complex_hvs;
+    uint8_t complex_hvs;
 
-     /**
+    /**
      * @brief Controls noise detection for CDEF/restoration filtering
      * 0: off
      * 1: always-on noise-adaptive filters
@@ -1051,14 +1055,14 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * 4: noise-adaptive restoration filtering only
      * Default is 2
      */
-     uint8_t noise_adaptive_filtering;
+    uint8_t noise_adaptive_filtering;
 
-     /* @brief Controls scaling of the CDEF strength computation
+    /* @brief Controls scaling of the CDEF strength computation
       *  1: minimum CDEF scaling
       *  8: ~0.5x CDEF scaling
       *  30: 2x CDEF scaling
       *  Default is 15 (1x scaling). */
-     uint8_t cdef_scaling;
+    uint8_t cdef_scaling;
 
     /**
      * @brief Enables static noise table generation
@@ -1101,19 +1105,20 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * @brief Check if color range is provided by the user
      */
     bool color_range_provided;
+
 } EbSvtAv1EncConfiguration;
 
 /**
  * Returns a string containing "v$tag-$commit_count-g$hash${dirty:+-dirty}"
  * @param[out] SVT_AV1_CVS_VERSION
  */
-EB_API const char *svt_av1_get_version(void);
+EB_API const char* svt_av1_get_version(void);
 
 /**
  * Returns a string containing only the SVT-AV1-HDR micro-release letter
  * @param[out] SVT_AV1_HDR_RELEASE
  */
-EB_API const char *svt_hdr_get_version(void);
+EB_API const char* svt_hdr_get_version(void);
 
 /**
  * Prints the version header and build information to the file
@@ -1146,7 +1151,7 @@ typedef enum {
  * @param[in] fmt     printf-style format string
  * @param[in] args    Variable argument list corresponding to the format string
  */
-typedef void (*SvtAv1LogCallback)(void *context, SvtAv1LogLevel level, const char *tag, const char *fmt, va_list args);
+typedef void (*SvtAv1LogCallback)(void* context, SvtAv1LogLevel level, const char* tag, const char* fmt, va_list args);
 
 /**
  * Register a callback for intercepting log messages.
@@ -1160,7 +1165,7 @@ typedef void (*SvtAv1LogCallback)(void *context, SvtAv1LogLevel level, const cha
  * @param[in] context   Opaque context pointer passed back to the callback. Typically application state or logging context.
  *                      Ignored if callback is NULL.
  */
-EB_API void svt_av1_set_log_callback(SvtAv1LogCallback callback, void *context);
+EB_API void svt_av1_set_log_callback(SvtAv1LogCallback callback, void* context);
 
 /* STEP 1: Call the library to construct a Component Handle.
      *
@@ -1171,8 +1176,8 @@ EB_API void svt_av1_set_log_callback(SvtAv1LogCallback callback, void *context);
      * @ *config_ptr     Pointer passed back to the client during callbacks, it will be
      *                  loaded with default params from the library. */
 EB_API EbErrorType svt_av1_enc_init_handle(
-    EbComponentType         **p_handle,
-    EbSvtAv1EncConfiguration *config_ptr); // config_ptr will be loaded with default params from the library
+    EbComponentType**         p_handle,
+    EbSvtAv1EncConfiguration* config_ptr); // config_ptr will be loaded with default params from the library
 
 /* STEP 2: Set all configuration parameters.
      *
@@ -1180,9 +1185,9 @@ EB_API EbErrorType svt_av1_enc_init_handle(
      * @ *svt_enc_component              Encoder handler.
      * @ *pComponentParameterStructure  Encoder and buffer configurations will be copied to the library. */
 EB_API EbErrorType svt_av1_enc_set_parameter(
-    EbComponentType *svt_enc_component,
-    EbSvtAv1EncConfiguration
-        *pComponentParameterStructure); // pComponentParameterStructure contents will be copied to the library
+    EbComponentType* svt_enc_component,
+    EbSvtAv1EncConfiguration*
+        pComponentParameterStructure); // pComponentParameterStructure contents will be copied to the library
 
 /* OPTIONAL: Set a single configuration parameter.
      *
@@ -1190,35 +1195,35 @@ EB_API EbErrorType svt_av1_enc_set_parameter(
      * @ *pComponentParameterStructure  Encoder parameters structure.
      * @ *name                          Null terminated string containing the parameter name
      * @ *value                         Null terminated string containing the parameter value */
-EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *pComponentParameterStructure, const char *name,
-                                               const char *value);
+EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* pComponentParameterStructure, const char* name,
+                                               const char* value);
 
 /* STEP 3: Initialize encoder and allocates memory to necessary buffers.
      *
      * Parameter:
      * @ *svt_enc_component  Encoder handler. */
-EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component);
+EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component);
 
 /* OPTIONAL: Get stream headers at init time.
      *
      * Parameter:
      * @ *svt_enc_component   Encoder handler.
      * @ **output_stream_ptr  Output buffer. */
-EB_API EbErrorType svt_av1_enc_stream_header(EbComponentType     *svt_enc_component,
-                                             EbBufferHeaderType **output_stream_ptr);
+EB_API EbErrorType svt_av1_enc_stream_header(EbComponentType*     svt_enc_component,
+                                             EbBufferHeaderType** output_stream_ptr);
 
 /* OPTIONAL: Release stream headers at init time.
      *
      * Parameter:
      * @ *stream_header_ptr  stream header buffer. */
-EB_API EbErrorType svt_av1_enc_stream_header_release(EbBufferHeaderType *stream_header_ptr);
+EB_API EbErrorType svt_av1_enc_stream_header_release(EbBufferHeaderType* stream_header_ptr);
 
 /* STEP 4: Send the picture.
      *
      * Parameter:
      * @ *svt_enc_component  Encoder handler.
      * @ *p_buffer           Header pointer, picture buffer. */
-EB_API EbErrorType svt_av1_enc_send_picture(EbComponentType *svt_enc_component, EbBufferHeaderType *p_buffer);
+EB_API EbErrorType svt_av1_enc_send_picture(EbComponentType* svt_enc_component, EbBufferHeaderType* p_buffer);
 
 /**
  * @brief Step 5: Receive packet.
@@ -1230,21 +1235,21 @@ EB_API EbErrorType svt_av1_enc_send_picture(EbComponentType *svt_enc_component, 
  * @param pic_send_done Flag to signal that all input pictures have been sent. Should be either 0 or 1.
  * @return EB_API Either EB_ErrorMax for an encode error or EB_NoErrorEmptyQueue if there are no available packets.
  */
-EB_API EbErrorType svt_av1_enc_get_packet(EbComponentType *svt_enc_component, EbBufferHeaderType **p_buffer,
+EB_API EbErrorType svt_av1_enc_get_packet(EbComponentType* svt_enc_component, EbBufferHeaderType** p_buffer,
                                           uint8_t pic_send_done);
 
 /* STEP 5-1: Release output buffer back into the pool.
      *
      * Parameter:
      * @ **p_buffer          Header pointer that contains the output packet to be released. */
-EB_API void svt_av1_enc_release_out_buffer(EbBufferHeaderType **p_buffer);
+EB_API void svt_av1_enc_release_out_buffer(EbBufferHeaderType** p_buffer);
 
 /* OPTIONAL: Fill buffer with reconstructed picture.
      *
      * Parameter:
      * @ *svt_enc_component  Encoder handler.
      * @ *p_buffer           Output buffer. */
-EB_API EbErrorType svt_av1_get_recon(EbComponentType *svt_enc_component, EbBufferHeaderType *p_buffer);
+EB_API EbErrorType svt_av1_get_recon(EbComponentType* svt_enc_component, EbBufferHeaderType* p_buffer);
 
 /* OPTIONAL: get stream information
      *
@@ -1252,19 +1257,19 @@ EB_API EbErrorType svt_av1_get_recon(EbComponentType *svt_enc_component, EbBuffe
      * @ *svt_enc_component  Encoder handler.
      * @ *stream_info_id SVT_AV1_STREAM_INFO_ID.
      * @ *info         output, the type depends on id */
-EB_API EbErrorType svt_av1_enc_get_stream_info(EbComponentType *svt_enc_component, uint32_t stream_info_id, void *info);
+EB_API EbErrorType svt_av1_enc_get_stream_info(EbComponentType* svt_enc_component, uint32_t stream_info_id, void* info);
 
 /* STEP 6: Deinitialize encoder library.
      *
      * Parameter:
      * @ *svt_enc_component  Encoder handler. */
-EB_API EbErrorType svt_av1_enc_deinit(EbComponentType *svt_enc_component);
+EB_API EbErrorType svt_av1_enc_deinit(EbComponentType* svt_enc_component);
 
 /* STEP 7: Deconstruct encoder handler.
      *
      * Parameter:
      * @ *svt_enc_component  Encoder handler. */
-EB_API EbErrorType svt_av1_enc_deinit_handle(EbComponentType *svt_enc_component);
+EB_API EbErrorType svt_av1_enc_deinit_handle(EbComponentType* svt_enc_component);
 
 #ifdef __cplusplus
 }

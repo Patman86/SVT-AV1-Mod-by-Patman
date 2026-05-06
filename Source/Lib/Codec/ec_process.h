@@ -18,7 +18,6 @@
 #include "sys_resource_manager.h"
 #include "pic_buffer_desc.h"
 #include "enc_inter_prediction.h"
-#include "entropy_coding.h"
 #include "coding_unit.h"
 #include "object.h"
 
@@ -26,40 +25,16 @@
  * Enc Dec Context
  **************************************/
 typedef struct EntropyCodingContext {
-    EbDctor  dctor;
-    EbFifo  *enc_dec_input_fifo_ptr;
-    EbFifo  *entropy_coding_output_fifo_ptr; // to packetization
-    uint32_t sb_total_count;
-    // Coding Unit Workspace---------------------------
-    EbPictureBufferDesc *coeff_buffer_sb; //Used to hold quantized coeff for one TB in EncPass.
-
-    //  Context Variables---------------------------------
-    BlkStruct *blk_ptr;
-    //const CodedBlockStats           *cu_stats;
-    uint32_t blk_index;
-    uint8_t  cu_depth;
-    uint32_t cu_size;
-    uint32_t cu_size_log2;
-    uint32_t blk_org_x;
-    uint32_t blk_org_y;
-    uint32_t sb_origin_x;
-    uint32_t sb_origin_y;
-    uint32_t pu_origin_x;
-    uint32_t pu_origin_y;
-    uint32_t pu_width;
-    uint32_t pu_height;
-
-    uint32_t txb_itr;
-    uint32_t txb_origin_x;
-    uint32_t txb_origin_y;
-    uint32_t txb_size;
+    EbDctor dctor;
+    EbFifo* enc_dec_input_fifo_ptr;
+    EbFifo* entropy_coding_output_fifo_ptr; // to packetization
 
     // MCP Context
     bool        is_16bit; //enable 10 bit encode in CL
     int32_t     coded_area_sb;
     int32_t     coded_area_sb_uv;
-    TOKENEXTRA *tok;
-    MbModeInfo *mbmi;
+    TOKENEXTRA* tok;
+    MbModeInfo* mbmi;
     /*!
      * cdef_transmitted[i] is true if CDEF strength for ith CDEF unit in the
      * current superblock has already been read from (decoder) / written to
@@ -84,16 +59,16 @@ typedef struct EntropyCodingContext {
    * is, we transmit the delta between the actual values in
    * pcs->rst_info[plane].unit_info[runit_idx] and these reference values.
    */
-    WienerInfo  wiener_info[MAX_MB_PLANE];
-    SgrprojInfo sgrproj_info[MAX_MB_PLANE];
+    WienerInfo  wiener_info[MAX_PLANES];
+    SgrprojInfo sgrproj_info[MAX_PLANES];
 } EntropyCodingContext;
 
 /**************************************
  * Extern Function Declarations
  **************************************/
-EbErrorType svt_aom_entropy_coding_context_ctor(EbThreadContext *thread_ctx, const EbEncHandle *enc_handle_ptr,
+EbErrorType svt_aom_entropy_coding_context_ctor(EbThreadContext* thread_ctx, const EbEncHandle* enc_handle_ptr,
                                                 int index);
 
-extern void *svt_aom_entropy_coding_kernel(void *input_ptr);
+void* svt_aom_entropy_coding_kernel(void* input_ptr);
 
 #endif // EbEntropyCodingProcess_h

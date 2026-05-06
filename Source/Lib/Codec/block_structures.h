@@ -23,6 +23,7 @@ extern "C" {
 
 #define MAX_TILE_WIDTH (4096) // Max Tile width in pixels
 #define MAX_TILE_AREA (4096 * 2304) // Maximum tile area in pixels
+
 typedef struct TileInfo {
     int32_t mi_row_start, mi_row_end;
     int32_t mi_col_start, mi_col_end;
@@ -32,29 +33,6 @@ typedef struct TileInfo {
     int32_t tile_rs_index; //tile index in raster order
 } TileInfo;
 
-typedef struct FilterIntraModeInfo {
-    /*!< Specifies the type of intra filtering, and can represent any of the following:
-         * FILTER_DC_PRED, FILTER_V_PRED, FILTER_H_PRED, FILTER_D157_PRED, FILTER_PAETH_PRED */
-    FilterIntraMode filter_intra_mode;
-
-    /*!< This bit specifies whether or not intra filtering can be used. */
-    uint8_t use_filter_intra;
-} FilterIntraModeInfo_t;
-
-typedef struct InterIntraModeParams {
-    /*!< Specifies the type of intra prediction to be used */
-    InterIntraMode interintra_mode;
-
-    /*!< equal to 1 specifies that wedge blending should be used.
-            * wedge_interintra equal to 0 specifies that intra blending should be used. */
-    uint8_t wedge_interintra;
-
-    /*!< Used to derive the direction and offset of the wedge mask used during blending. */
-    uint8_t interintra_wedge_index;
-
-    /*!< Specifies the sign of the wedge blend. */
-    // int interintra_wedge_sign; Always 0
-} InterIntraModeParams;
 typedef struct BlockModeInfo {
     /*! \brief The prediction mode used */
     PredictionMode mode;
@@ -115,6 +93,7 @@ typedef struct BlockModeInfo {
     /*! \brief Whether intrabc is used. */
     uint8_t use_intrabc : 1;
 } BlockModeInfo;
+
 typedef struct MbModeInfo {
     BlockModeInfo       block_mi;
     BlockSize           bsize;
@@ -124,20 +103,25 @@ typedef struct MbModeInfo {
     int8_t              cdef_strength;
 } MbModeInfo;
 
-static AOM_INLINE int has_second_ref(const BlockModeInfo *block_mi) { return block_mi->ref_frame[1] > INTRA_FRAME; }
+static AOM_INLINE int has_second_ref(const BlockModeInfo* block_mi) {
+    return block_mi->ref_frame[1] > INTRA_FRAME;
+}
 
-static AOM_INLINE int has_uni_comp_refs(const BlockModeInfo *block_mi) {
+static AOM_INLINE int has_uni_comp_refs(const BlockModeInfo* block_mi) {
     return has_second_ref(block_mi) &&
         (!((block_mi->ref_frame[0] >= BWDREF_FRAME) ^ (block_mi->ref_frame[1] >= BWDREF_FRAME)));
 }
 
-static AOM_INLINE int is_intrabc_block(const BlockModeInfo *block_mi) { return block_mi->use_intrabc; }
+static AOM_INLINE int is_intrabc_block(const BlockModeInfo* block_mi) {
+    return block_mi->use_intrabc;
+}
 
-static AOM_INLINE int is_inter_block(const BlockModeInfo *block_mi) {
+static AOM_INLINE int is_inter_block(const BlockModeInfo* block_mi) {
     return is_intrabc_block(block_mi) || block_mi->ref_frame[0] > INTRA_FRAME;
 }
-void svt_av1_tile_set_col(TileInfo *tile, const TilesInfo *tiles_info, int32_t mi_cols, int col);
-void svt_av1_tile_set_row(TileInfo *tile, TilesInfo *tiles_info, int32_t mi_rows, int row);
+
+void svt_av1_tile_set_col(TileInfo* tile, const TilesInfo* tiles_info, int32_t mi_cols, int col);
+void svt_av1_tile_set_row(TileInfo* tile, TilesInfo* tiles_info, int32_t mi_rows, int row);
 
 static INLINE int32_t tile_log2(int32_t blk_size, int32_t target) {
     int32_t k;

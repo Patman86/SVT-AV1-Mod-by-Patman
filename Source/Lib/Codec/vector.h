@@ -30,7 +30,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #define VECTOR_MINIMUM_CAPACITY 2
 #define VECTOR_GROWTH_FACTOR 2
-#define VECTOR_SHRINK_THRESHOLD (1 / 4)
 
 #define VECTOR_ERROR -1
 #define VECTOR_SUCCESS 0
@@ -44,46 +43,44 @@ typedef struct Vector {
     uint32_t size;
     uint32_t capacity;
     uint32_t element_size;
-    void    *data;
+    void*    data;
 } Vector;
 
 typedef struct Iterator {
-    void  *pointer;
+    void*  pointer;
     size_t element_size;
 } Iterator;
 
 /***** METHODS *****/
 
 /* Constructor */
-int svt_aom_vector_setup(Vector *vector, uint32_t capacity, uint32_t element_size);
+int svt_aom_vector_setup(Vector* vector, uint32_t capacity, uint32_t element_size);
 
 /* Destructor */
-int svt_aom_vector_destroy(Vector *vector);
+int svt_aom_vector_destroy(Vector* vector);
 
 /* Insertion */
-int svt_aom_vector_push_back(Vector *vector, void *element);
+int svt_aom_vector_push_back(Vector* vector, void* element);
 
 /* Information */
-size_t svt_aom_vector_byte_size(const Vector *vector);
+size_t svt_aom_vector_byte_size(const Vector* vector);
 
 /* Iterators */
-Iterator svt_aom_vector_begin(Vector *vector);
-Iterator svt_aom_vector_iterator(Vector *vector, size_t index);
+Iterator svt_aom_vector_begin(Vector* vector);
+Iterator svt_aom_vector_iterator(Vector* vector, size_t index);
 
-void *svt_aom_iterator_get(Iterator *iterator);
-#define ITERATOR_GET_AS(type, iterator) *((type *)svt_aom_iterator_get((iterator)))
+void* svt_aom_iterator_get(Iterator* iterator);
+#define ITERATOR_GET_AS(type, iterator) *((type*)svt_aom_iterator_get((iterator)))
 
-void svt_aom_iterator_increment(Iterator *iterator);
+void svt_aom_iterator_increment(Iterator* iterator);
 
 /***** PRIVATE *****/
 
-//#define MAX(a, b) ((a) > (b) ? (a) : (b))
+bool _vector_should_grow(Vector* vector);
 
-bool _vector_should_grow(Vector *vector);
-
-void *_vector_offset(Vector *vector, size_t index);
-void  _vector_assign(Vector *vector, size_t index, void *element);
-int   _vector_adjust_capacity(Vector *vector);
-int   _vector_reallocate(Vector *vector, uint32_t new_capacity);
+void* _vector_offset(Vector* vector, size_t index);
+void  _vector_assign(Vector* vector, size_t index, void* element);
+int   _vector_adjust_capacity(Vector* vector);
+int   _vector_reallocate(Vector* vector, uint32_t new_capacity);
 
 #endif /* VECTOR_H */

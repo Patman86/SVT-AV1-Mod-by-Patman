@@ -20,7 +20,7 @@
 #include "transpose_neon.h"
 #include "utility.h"
 
-static inline uint8_t find_average_neon(const uint8_t *src, int src_stride, int width, int height) {
+static inline uint8_t find_average_neon(const uint8_t* src, int src_stride, int width, int height) {
     uint64_t sum = 0;
 
     if (width >= 16) {
@@ -36,7 +36,7 @@ static inline uint8_t find_average_neon(const uint8_t *src, int src_stride, int 
             uint16x8_t avg_u16 = vdupq_n_u16(0);
             do {
                 int            j       = width;
-                const uint8_t *src_ptr = src;
+                const uint8_t* src_ptr = src;
                 do {
                     uint8x16_t s = vld1q_u8(src_ptr);
                     avg_u16      = vpadalq_u8(avg_u16, s);
@@ -76,7 +76,7 @@ static inline uint8_t find_average_neon(const uint8_t *src, int src_stride, int 
             uint16x4_t avg_u16 = vdup_n_u16(0);
             do {
                 int            j       = width;
-                const uint8_t *src_ptr = src;
+                const uint8_t* src_ptr = src;
                 uint8x8_t      s       = vld1_u8(src_ptr);
                 avg_u16                = vpadal_u8(avg_u16, s);
                 j -= 8;
@@ -98,13 +98,15 @@ static inline uint8_t find_average_neon(const uint8_t *src, int src_stride, int 
     int i = height;
     do {
         int j = 0;
-        do { sum += src[j]; } while (++j < width);
+        do {
+            sum += src[j];
+        } while (++j < width);
         src += src_stride;
     } while (--i != 0);
     return (uint8_t)(sum / (width * height));
 }
 
-static inline void compute_sub_avg(const uint8_t *buf, int buf_stride, int avg, int16_t *buf_avg, int buf_avg_stride,
+static inline void compute_sub_avg(const uint8_t* buf, int buf_stride, int avg, int16_t* buf_avg, int buf_avg_stride,
                                    int width, int height) {
     uint8x8_t avg_u8 = vdup_n_u8(avg);
 
@@ -112,8 +114,8 @@ static inline void compute_sub_avg(const uint8_t *buf, int buf_stride, int avg, 
         int i = 0;
         do {
             int            j           = width;
-            const uint8_t *buf_ptr     = buf;
-            int16_t       *buf_avg_ptr = buf_avg;
+            const uint8_t* buf_ptr     = buf;
+            int16_t*       buf_avg_ptr = buf_avg;
             do {
                 uint8x8_t d = vld1_u8(buf_ptr);
                 vst1q_s16(buf_avg_ptr, vreinterpretq_s16_u16(vsubl_u8(d, avg_u8)));
@@ -133,16 +135,18 @@ static inline void compute_sub_avg(const uint8_t *buf, int buf_stride, int avg, 
     } else {
         // For width < 8, don't use Neon.
         for (int i = 0; i < height; i++) {
-            for (int j = 0; j < width; j++) { buf_avg[j] = (int16_t)buf[j] - (int16_t)avg; }
+            for (int j = 0; j < width; j++) {
+                buf_avg[j] = (int16_t)buf[j] - (int16_t)avg;
+            }
             buf += buf_stride;
             buf_avg += buf_avg_stride;
         }
     }
 }
 
-static inline void compute_stats_win5_neon(const int16_t *const d, const int32_t d_stride, const int16_t *const s,
+static inline void compute_stats_win5_neon(const int16_t* const d, const int32_t d_stride, const int16_t* const s,
                                            const int32_t s_stride, const int32_t width, const int32_t height,
-                                           int64_t *const M, int64_t *const H) {
+                                           int64_t* const M, int64_t* const H) {
     const int32_t     wiener_win  = WIENER_WIN_CHROMA;
     const int32_t     wiener_win2 = wiener_win * wiener_win;
     const int32_t     w16         = width & ~15;
@@ -154,8 +158,8 @@ static inline void compute_stats_win5_neon(const int16_t *const d, const int32_t
     // edge of each triangle and square on the top row.
     j = 0;
     do {
-        const int16_t *s_t                      = s;
-        const int16_t *d_t                      = d;
+        const int16_t* s_t                      = s;
+        const int16_t* d_t                      = d;
         int32x4_t      sum_m[WIENER_WIN_CHROMA] = {vdupq_n_s32(0)};
         int32x4_t      sum_h[WIENER_WIN_CHROMA] = {vdupq_n_s32(0)};
         int16x8_t      src[2], dgd[2];
@@ -202,7 +206,7 @@ static inline void compute_stats_win5_neon(const int16_t *const d, const int32_t
     // Step 2: Calculate the left edge of each square on the top row.
     j = 1;
     do {
-        const int16_t *d_t                          = d;
+        const int16_t* d_t                          = d;
         int32x4_t      sum_h[WIENER_WIN_CHROMA - 1] = {vdupq_n_s32(0)};
         int16x8_t      dgd[2];
 
@@ -241,7 +245,7 @@ static inline void compute_stats_win5_neon(const int16_t *const d, const int32_t
     // Step 3: Derive the top edge of each triangle along the diagonal. No
     // triangle in top row.
     {
-        const int16_t *d_t = d;
+        const int16_t* d_t = d;
 
         int32x4_t deltas[WIENER_WIN_CHROMA] = {vdupq_n_s32(0)};
         int16x8_t ds[WIENER_WIN_CHROMA + 1];
@@ -283,7 +287,7 @@ static inline void compute_stats_win5_neon(const int16_t *const d, const int32_t
 
         int16x4_t      d_s[12];
         int16x4_t      d_e[12];
-        const int16_t *d_t   = d;
+        const int16_t* d_t   = d;
         int16x4_t      zeros = vdup_n_s16(0);
         load_s16_4x4(d_t, d_stride, &d_s[0], &d_s[1], &d_s[2], &d_s[3]);
         load_s16_4x4(d_t + width, d_stride, &d_e[0], &d_e[1], &d_e[2], &d_e[3]);
@@ -579,11 +583,11 @@ static inline void compute_stats_win5_neon(const int16_t *const d, const int32_t
     // Step 5: Derive other points of each square. No square in bottom row.
     i = 0;
     do {
-        const int16_t *const di = d + i;
+        const int16_t* const di = d + i;
 
         j = i + 1;
         do {
-            const int16_t *const dj                                        = d + j;
+            const int16_t* const dj                                        = d + j;
             int32x4_t deltas[WIENER_WIN_CHROMA - 1][WIENER_WIN_CHROMA - 1] = {{vdupq_n_s32(0)}, {vdupq_n_s32(0)}};
             int16x8_t d_is[WIN_CHROMA], d_ie[WIN_CHROMA];
             int16x8_t d_js[WIN_CHROMA], d_je[WIN_CHROMA];
@@ -634,7 +638,7 @@ static inline void compute_stats_win5_neon(const int16_t *const d, const int32_t
     // Step 6: Derive other points of each upper triangle along the diagonal.
     i = 0;
     do {
-        const int16_t *const di                                = d + i;
+        const int16_t* const di                                = d + i;
         int32x4_t            deltas[WIENER_WIN_CHROMA * 2 + 1] = {vdupq_n_s32(0)};
         int16x8_t            d_is[WIN_CHROMA], d_ie[WIN_CHROMA];
 
@@ -691,9 +695,9 @@ static inline void compute_stats_win5_neon(const int16_t *const d, const int32_t
     } while (++i < wiener_win);
 }
 
-static inline void compute_stats_win7_neon(const int16_t *const d, const int32_t d_stride, const int16_t *const s,
+static inline void compute_stats_win7_neon(const int16_t* const d, const int32_t d_stride, const int16_t* const s,
                                            const int32_t s_stride, const int32_t width, const int32_t height,
-                                           int64_t *const M, int64_t *const H) {
+                                           int64_t* const M, int64_t* const H) {
     const int32_t     wiener_win  = WIENER_WIN;
     const int32_t     wiener_win2 = wiener_win * wiener_win;
     const int32_t     w16         = width & ~15;
@@ -705,8 +709,8 @@ static inline void compute_stats_win7_neon(const int16_t *const d, const int32_t
     // edge of each triangle and square on the top row.
     j = 0;
     do {
-        const int16_t *s_t = s;
-        const int16_t *d_t = d;
+        const int16_t* s_t = s;
+        const int16_t* d_t = d;
         // Allocate an extra 0 register to allow reduction as 2x4 rather than 4 + 3.
         int32x4_t sum_m[WIENER_WIN + 1] = {vdupq_n_s32(0)};
         int32x4_t sum_h[WIENER_WIN + 1] = {vdupq_n_s32(0)};
@@ -758,7 +762,7 @@ static inline void compute_stats_win7_neon(const int16_t *const d, const int32_t
     // Step 2: Calculate the left edge of each square on the top row.
     j = 1;
     do {
-        const int16_t *d_t                   = d;
+        const int16_t* d_t                   = d;
         int32x4_t      sum_h[WIENER_WIN - 1] = {vdupq_n_s32(0)};
         int16x8_t      dgd[2];
 
@@ -797,7 +801,7 @@ static inline void compute_stats_win7_neon(const int16_t *const d, const int32_t
     // Step 3: Derive the top edge of each triangle along the diagonal. No
     // triangle in top row.
     {
-        const int16_t *d_t = d;
+        const int16_t* d_t = d;
         // Pad to call transpose function.
         int32x4_t deltas[(WIENER_WIN + 1) * 2] = {vdupq_n_s32(0)};
         int16x8_t ds[WIENER_WIN * 2];
@@ -838,8 +842,8 @@ static inline void compute_stats_win7_neon(const int16_t *const d, const int32_t
     do {
         j = i + 1;
         do {
-            const int16_t *di                               = d + i - 1;
-            const int16_t *dj                               = d + j - 1;
+            const int16_t* di                               = d + i - 1;
+            const int16_t* dj                               = d + j - 1;
             int32x4_t      deltas[(2 * WIENER_WIN - 1) * 2] = {vdupq_n_s32(0)};
             int16x8_t      dd[WIENER_WIN * 2], ds[WIENER_WIN * 2];
 
@@ -1043,11 +1047,11 @@ static inline void compute_stats_win7_neon(const int16_t *const d, const int32_t
     // Step 5: Derive other points of each square. No square in bottom row.
     i = 0;
     do {
-        const int16_t *const di = d + i;
+        const int16_t* const di = d + i;
 
         j = i + 1;
         do {
-            const int16_t *const dj                            = d + j;
+            const int16_t* const dj                            = d + j;
             int32x4_t            deltas[WIENER_WIN - 1][WIN_7] = {{vdupq_n_s32(0)}, {vdupq_n_s32(0)}};
             int16x8_t            d_is[WIN_7];
             int16x8_t            d_ie[WIN_7];
@@ -1114,7 +1118,7 @@ static inline void compute_stats_win7_neon(const int16_t *const d, const int32_t
     // Step 6: Derive other points of each upper triangle along the diagonal.
     i = 0;
     do {
-        const int16_t *const di                     = d + i;
+        const int16_t* const di                     = d + i;
         int32x4_t            deltas[3 * WIENER_WIN] = {vdupq_n_s32(0)};
         int16x8_t            d_is[WIN_7], d_ie[WIN_7];
 
@@ -1193,19 +1197,19 @@ static inline void compute_stats_win7_neon(const int16_t *const d, const int32_t
     } while (++i < wiener_win);
 }
 
-void svt_av1_compute_stats_neon(int32_t wiener_win, const uint8_t *dgd, const uint8_t *src, int32_t h_start,
+void svt_av1_compute_stats_neon(int32_t wiener_win, const uint8_t* dgd, const uint8_t* src, int32_t h_start,
                                 int32_t h_end, int32_t v_start, int32_t v_end, int32_t dgd_stride, int32_t src_stride,
-                                int64_t *M, int64_t *H) {
+                                int64_t* M, int64_t* H) {
     const int32_t wiener_win2    = wiener_win * wiener_win;
     const int32_t wiener_halfwin = (wiener_win >> 1);
     const int32_t width          = h_end - h_start;
     const int32_t height         = v_end - v_start;
     const int32_t d_stride       = (width + 2 * wiener_halfwin + 15) & ~15;
     const int32_t s_stride       = (width + 15) & ~15;
-    int16_t      *d, *s;
+    int16_t *     d, *s;
 
-    const uint8_t *dgd_start = dgd + h_start + v_start * dgd_stride;
-    const uint8_t *src_start = src + h_start + v_start * src_stride;
+    const uint8_t* dgd_start = dgd + h_start + v_start * dgd_stride;
+    const uint8_t* src_start = src + h_start + v_start * src_stride;
     const uint16_t avg       = find_average_neon(dgd_start, dgd_stride, width, height);
 
     // The maximum input size is width * height, which is
@@ -1238,10 +1242,10 @@ void svt_av1_compute_stats_neon(int32_t wiener_win, const uint8_t *dgd, const ui
     svt_aom_free(d);
 }
 
-int64_t svt_av1_lowbd_pixel_proj_error_neon(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride,
-                                            const uint8_t *dat8, int32_t dat_stride, int32_t *flt0, int32_t flt0_stride,
-                                            int32_t *flt1, int32_t flt1_stride, const int32_t xq[2],
-                                            const SgrParamsType *params) {
+int64_t svt_av1_lowbd_pixel_proj_error_neon(const uint8_t* src8, int32_t width, int32_t height, int32_t src_stride,
+                                            const uint8_t* dat8, int32_t dat_stride, int32_t* flt0, int32_t flt0_stride,
+                                            int32_t* flt1, int32_t flt1_stride, const int32_t xq[2],
+                                            const SgrParamsType* params) {
     if (width % 16 != 0) {
         return svt_av1_lowbd_pixel_proj_error_c(
             src8, width, height, src_stride, dat8, dat_stride, flt0, flt0_stride, flt1, flt1_stride, xq, params);
@@ -1297,7 +1301,7 @@ int64_t svt_av1_lowbd_pixel_proj_error_neon(const uint8_t *src8, int32_t width, 
         } while (--height != 0);
     } else if (params->r[0] > 0 || params->r[1] > 0) {
         const int32_t  xq_active  = (params->r[0] > 0) ? xq[0] : xq[1];
-        const int32_t *flt        = (params->r[0] > 0) ? flt0 : flt1;
+        const int32_t* flt        = (params->r[0] > 0) ? flt0 : flt1;
         const int32_t  flt_stride = (params->r[0] > 0) ? flt0_stride : flt1_stride;
         int32x2_t      xq_v       = vdup_n_s32(xq_active);
 
@@ -1368,16 +1372,16 @@ int64_t svt_av1_lowbd_pixel_proj_error_neon(const uint8_t *src8, int32_t width, 
 }
 
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
-int64_t svt_av1_highbd_pixel_proj_error_neon(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride,
-                                             const uint8_t *dat8, int32_t dat_stride, int32_t *flt0,
-                                             int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride,
-                                             const int32_t xq[2], const SgrParamsType *params) {
+int64_t svt_av1_highbd_pixel_proj_error_neon(const uint8_t* src8, int32_t width, int32_t height, int32_t src_stride,
+                                             const uint8_t* dat8, int32_t dat_stride, int32_t* flt0,
+                                             int32_t flt0_stride, int32_t* flt1, int32_t flt1_stride,
+                                             const int32_t xq[2], const SgrParamsType* params) {
     if (width % 8 != 0) {
         return svt_av1_highbd_pixel_proj_error_c(
             src8, width, height, src_stride, dat8, dat_stride, flt0, flt0_stride, flt1, flt1_stride, xq, params);
     }
-    const uint16_t *src     = CONVERT_TO_SHORTPTR(src8);
-    const uint16_t *dat     = CONVERT_TO_SHORTPTR(dat8);
+    const uint16_t* src     = CONVERT_TO_SHORTPTR(src8);
+    const uint16_t* dat     = CONVERT_TO_SHORTPTR(dat8);
     int64x2_t       sse_s64 = vdupq_n_s64(0);
 
     if (params->r[0] > 0 && params->r[1] > 0) {
@@ -1427,7 +1431,7 @@ int64_t svt_av1_highbd_pixel_proj_error_neon(const uint8_t *src8, int32_t width,
         } while (--height != 0);
     } else if (params->r[0] > 0 || params->r[1] > 0) {
         int       xq_active  = (params->r[0] > 0) ? xq[0] : xq[1];
-        int32_t  *flt        = (params->r[0] > 0) ? flt0 : flt1;
+        int32_t*  flt        = (params->r[0] > 0) ? flt0 : flt1;
         int       flt_stride = (params->r[0] > 0) ? flt0_stride : flt1_stride;
         int32x4_t xq_v       = vdupq_n_s32(xq_active);
 

@@ -19,8 +19,8 @@
 #define IVF_STREAM_HEADER_SIZE 32
 #define IVF_FRAME_HEADER_SIZE 12
 
-static __inline void mem_put_le32(void *vmem, int32_t val) {
-    uint8_t *mem = (uint8_t *)vmem;
+static __inline void mem_put_le32(void* vmem, int32_t val) {
+    uint8_t* mem = (uint8_t*)vmem;
 
     mem[0] = (uint8_t)((val >> 0) & 0xff);
     mem[1] = (uint8_t)((val >> 8) & 0xff);
@@ -28,14 +28,14 @@ static __inline void mem_put_le32(void *vmem, int32_t val) {
     mem[3] = (uint8_t)((val >> 24) & 0xff);
 }
 
-static __inline void mem_put_le16(void *vmem, int32_t val) {
-    uint8_t *mem = (uint8_t *)vmem;
+static __inline void mem_put_le16(void* vmem, int32_t val) {
+    uint8_t* mem = (uint8_t*)vmem;
 
     mem[0] = (uint8_t)((val >> 0) & 0xff);
     mem[1] = (uint8_t)((val >> 8) & 0xff);
 }
 
-void write_ivf_stream_header(EbConfig *app_cfg, int32_t length) {
+void write_ivf_stream_header(EbConfig* app_cfg, int32_t length) {
     char header[IVF_STREAM_HEADER_SIZE] = {'D', 'K', 'I', 'F'};
     mem_put_le16(header + 4, 0); // version
     mem_put_le16(header + 6, 32); // header size
@@ -49,7 +49,7 @@ void write_ivf_stream_header(EbConfig *app_cfg, int32_t length) {
     fwrite(header, 1, IVF_STREAM_HEADER_SIZE, app_cfg->bitstream_file);
 }
 
-void write_ivf_frame_header(EbConfig *app_cfg, uint32_t byte_count) {
+void write_ivf_frame_header(EbConfig* app_cfg, uint32_t byte_count) {
     char header[IVF_FRAME_HEADER_SIZE];
 
     mem_put_le32(&header[0], (int32_t)byte_count);

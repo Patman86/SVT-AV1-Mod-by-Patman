@@ -51,7 +51,7 @@ static inline uint16x4_t highbd_convolve8_4_srsub_s32_s16(const int16x4_t s0, co
 static inline void highbd_convolve8_8_s32(const int16x8_t s0, const int16x8_t s1, const int16x8_t s2,
                                           const int16x8_t s3, const int16x8_t s4, const int16x8_t s5,
                                           const int16x8_t s6, const int16x8_t s7, const int16x8_t y_filter,
-                                          const int32x4_t offset, int32x4_t *sum0, int32x4_t *sum1) {
+                                          const int32x4_t offset, int32x4_t* sum0, int32x4_t* sum1) {
     const int16x4_t y_filter_lo = vget_low_s16(y_filter);
     const int16x4_t y_filter_hi = vget_high_s16(y_filter);
 
@@ -91,13 +91,13 @@ static inline uint16x8_t highbd_convolve8_8_srsub_s32_s16(const int16x8_t s0, co
 
 static inline int32x4_t highbd_convolve8_2d_scale_horiz4x8_s32(const int16x8_t s0, const int16x8_t s1,
                                                                const int16x8_t s2, const int16x8_t s3,
-                                                               const int16x4_t *filters_lo, const int16x4_t *filters_hi,
+                                                               const int16x4_t* filters_lo, const int16x4_t* filters_hi,
                                                                const int32x4_t offset) {
     int16x4_t s_lo[] = {vget_low_s16(s0), vget_low_s16(s1), vget_low_s16(s2), vget_low_s16(s3)};
     int16x4_t s_hi[] = {vget_high_s16(s0), vget_high_s16(s1), vget_high_s16(s2), vget_high_s16(s3)};
 
-    transpose_array_inplace_u16_4x4((uint16x4_t *)s_lo);
-    transpose_array_inplace_u16_4x4((uint16x4_t *)s_hi);
+    transpose_array_inplace_u16_4x4((uint16x4_t*)s_lo);
+    transpose_array_inplace_u16_4x4((uint16x4_t*)s_hi);
 
     int32x4_t sum = vmlal_s16(offset, s_lo[0], filters_lo[0]);
     sum           = vmlal_s16(sum, s_lo[1], filters_lo[1]);
@@ -113,8 +113,8 @@ static inline int32x4_t highbd_convolve8_2d_scale_horiz4x8_s32(const int16x8_t s
 
 static inline uint16x4_t highbd_convolve8_2d_scale_horiz4x8_s32_s16(const int16x8_t s0, const int16x8_t s1,
                                                                     const int16x8_t s2, const int16x8_t s3,
-                                                                    const int16x4_t *filters_lo,
-                                                                    const int16x4_t *filters_hi,
+                                                                    const int16x4_t* filters_lo,
+                                                                    const int16x4_t* filters_hi,
                                                                     const int32x4_t shift_s32, const int32x4_t offset) {
     int32x4_t sum = highbd_convolve8_2d_scale_horiz4x8_s32(s0, s1, s2, s3, filters_lo, filters_hi, offset);
 

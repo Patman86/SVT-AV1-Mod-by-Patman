@@ -14,7 +14,7 @@
 #include "definitions.h"
 #include "fft_common.h"
 
-static INLINE void transpose4x4(const float *A, float *b, const int32_t lda, const int32_t ldb) {
+static INLINE void transpose4x4(const float* A, float* b, const int32_t lda, const int32_t ldb) {
     __m128 row1 = _mm_loadu_ps(&A[0 * lda]);
     __m128 row2 = _mm_loadu_ps(&A[1 * lda]);
     __m128 row3 = _mm_loadu_ps(&A[2 * lda]);
@@ -26,13 +26,15 @@ static INLINE void transpose4x4(const float *A, float *b, const int32_t lda, con
     _mm_storeu_ps(&b[3 * ldb], row4);
 }
 
-void svt_aom_transpose_float_sse2(const float *A, float *b, int32_t n) {
+void svt_aom_transpose_float_sse2(const float* A, float* b, int32_t n) {
     for (int32_t y = 0; y < n; y += 4) {
-        for (int32_t x = 0; x < n; x += 4) transpose4x4(A + y * n + x, b + x * n + y, n, n);
+        for (int32_t x = 0; x < n; x += 4) {
+            transpose4x4(A + y * n + x, b + x * n + y, n, n);
+        }
     }
 }
 
-void svt_aom_fft_unpack_2d_output_sse2(const float *packed, float *output, int32_t n) {
+void svt_aom_fft_unpack_2d_output_sse2(const float* packed, float* output, int32_t n) {
     const int32_t n2         = n / 2;
     output[0]                = packed[0];
     output[1]                = 0;
@@ -98,7 +100,7 @@ void svt_aom_fft_unpack_2d_output_sse2(const float *packed, float *output, int32
 // Generate definitions for 1d transforms using float and __mm128
 GEN_FFT_4(static INLINE void, sse2, float, __m128, _mm_loadu_ps, _mm_storeu_ps, _mm_set1_ps, _mm_add_ps, _mm_sub_ps);
 
-void svt_aom_fft4x4_float_sse2(const float *input, float *temp, float *output) {
+void svt_aom_fft4x4_float_sse2(const float* input, float* temp, float* output) {
     svt_aom_fft_2d_gen(input,
                        temp,
                        output,
@@ -112,7 +114,7 @@ void svt_aom_fft4x4_float_sse2(const float *input, float *temp, float *output) {
 // Generate definitions for 1d inverse transforms using float and mm128
 GEN_IFFT_4(static INLINE void, sse2, float, __m128, _mm_loadu_ps, _mm_storeu_ps, _mm_set1_ps, _mm_add_ps, _mm_sub_ps);
 
-void svt_aom_ifft4x4_float_sse2(const float *input, float *temp, float *output) {
+void svt_aom_ifft4x4_float_sse2(const float* input, float* temp, float* output) {
     svt_aom_ifft_2d_gen(input,
                         temp,
                         output,

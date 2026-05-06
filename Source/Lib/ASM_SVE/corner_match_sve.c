@@ -17,7 +17,7 @@
 #include "definitions.h"
 #include "mem_neon.h"
 
-double svt_av1_compute_cross_correlation_sve(unsigned char *im1, int stride1, int x1, int y1, unsigned char *im2,
+double svt_av1_compute_cross_correlation_sve(unsigned char* im1, int stride1, int x1, int y1, unsigned char* im2,
                                              int stride2, int x2, int y2, uint8_t match_sz) {
     // match_sz must be an odd number between 3 and 15.
     assert(match_sz % 2 == 1);
@@ -27,8 +27,8 @@ double svt_av1_compute_cross_correlation_sve(unsigned char *im1, int stride1, in
     const uint8_t match_sz_by2 = (match_sz - 1) / 2;
     const uint8_t match_sz_sq  = match_sz * match_sz;
 
-    uint8_t *im1_start = im1 + (y1 - match_sz_by2) * stride1 + x1 - match_sz_by2;
-    uint8_t *im2_start = im2 + (y2 - match_sz_by2) * stride2 + x2 - match_sz_by2;
+    uint8_t* im1_start = im1 + (y1 - match_sz_by2) * stride1 + x1 - match_sz_by2;
+    uint8_t* im2_start = im2 + (y2 - match_sz_by2) * stride2 + x2 - match_sz_by2;
 
     svbool_t p0 = svwhilelt_b8_u32(0, match_sz);
 

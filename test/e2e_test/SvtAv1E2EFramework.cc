@@ -91,7 +91,8 @@ void SvtAv1E2ETestFramework::setup_src_param(const VideoSource *source,
     config.encoder_bit_depth = source->get_bit_depth();
 }
 
-SvtAv1E2ETestFramework::SvtAv1E2ETestFramework() : enc_setting(GetParam()) {
+SvtAv1E2ETestFramework::SvtAv1E2ETestFramework()
+    : enc_setting(GetParam()), enc_config_(create_enc_config()) {
     memset(&av1enc_ctx_, 0, sizeof(av1enc_ctx_));
     video_src_ = nullptr;
     psnr_src_ = nullptr;
@@ -109,7 +110,6 @@ SvtAv1E2ETestFramework::SvtAv1E2ETestFramework() : enc_setting(GetParam()) {
     enable_save_bitstream = false;
     enable_analyzer = false;
     enable_config = false;
-    enc_config_ = create_enc_config();
     insert_blank_interval = 0;
 }
 
@@ -118,22 +118,25 @@ SvtAv1E2ETestFramework::~SvtAv1E2ETestFramework() {
         delete collect_;
         collect_ = nullptr;
     }
-    if (enc_config_) {
-        release_enc_config(enc_config_);
-        enc_config_ = nullptr;
-    }
 }
 
 void SvtAv1E2ETestFramework::config_test() {
     enable_stat = true;
     if (enable_config) {
         // iterate the mappings and update config
-        for (auto &x : enc_setting.setting) {
-            if (x.first == "BlankFrame")
+        for (const auto &x : enc_setting.setting) {
+            if (x.first == "BlankFrame") {
                 insert_blank_interval = std::stoi(x.second);
-            else
-                set_enc_config(enc_config_, x.first.c_str(), x.second.c_str());
-            printf("EncSetting: %s = %s\n", x.first.c_str(), x.second.c_str());
+            } else {
+                ASSERT_EQ(
+                    set_enc_config(
+                        enc_config_.get(), x.first.c_str(), x.second.c_str()),
+                    EB_ErrorNone)
+                    << "Failed to set encoder config " << x.first
+                    << " with value " << x.second;
+            }
+            std::cout << "EncSetting: " << x.first << " = " << x.second
+                      << std::endl;
         }
     }
     // sort frame event vector
@@ -148,7 +151,7 @@ void SvtAv1E2ETestFramework::config_test() {
 
 void SvtAv1E2ETestFramework::update_enc_setting() {
     if (enable_config) {
-        copy_enc_param(&av1enc_ctx_.enc_params, enc_config_);
+        av1enc_ctx_.enc_params = enc_config_->config;
         setup_src_param(video_src_, av1enc_ctx_.enc_params);
         if (recon_queue_)
             av1enc_ctx_.enc_params.recon_enabled = 1;

@@ -28,19 +28,12 @@ typedef enum EncPass {
     ENC_SECOND_PASS, // Second pass of two pass mode
     MAX_ENCODE_PASS = 2,
 } EncPass;
-typedef struct FirstPassControls {
-    uint8_t ds; // use downsampled input (0: no downsample, 1: downsample by 1 in each direction)
-} FirstPassControls;
 
 typedef struct BitstreamLevel {
     uint8_t major;
     uint8_t minor;
 } BitstreamLevel;
 
-typedef struct List0OnlyBase {
-    // Specifies whether to use List1 for BASE frame(s) or not (0: OFF, 1: ON)
-    uint8_t enabled;
-} List0OnlyBase;
 typedef struct QpBasedThScaling {
     bool tf_me_qp_based_th_scaling;
     bool tf_ref_qp_based_th_scaling;
@@ -52,9 +45,9 @@ typedef struct QpBasedThScaling {
     bool nic_pruning_qp_based_th_scaling;
     bool pme_qp_based_th_scaling;
     bool txt_qp_based_th_scaling;
-    bool i_depth_removal_qp_based_th_scaling;
     bool cap_max_size_qp_based_th_scaling;
-    bool var_skip_sub_depth_qp_based_th_scaling;
+    bool lpd0_qp_based_th_scaling;
+    bool intra_bc_mesh_qp_scaling;
 } QpBasedThScaling;
 
 // Forward declaration for block geometry
@@ -67,14 +60,14 @@ typedef struct SequenceControlSet {
     /*!< Pointer to the dtor of the struct*/
     EbDctor dctor;
     /*!< Encoding context pointer containing the handle pointer */
-    EncodeContext *enc_ctx;
+    EncodeContext* enc_ctx;
     /*!< 2ndpass enc mode, available at firstpass encoder */
     /*!< API structure */
     EbSvtAv1EncConfiguration static_config;
     /*!< Super block geomerty pointer */
-    SbGeom *sb_geom;
+    SbGeom* sb_geom;
     /*!< Array of superblock parameters computed at the resource coordination stage */
-    B64Geom *b64_geom;
+    B64Geom* b64_geom;
     /*!< Bitstream level */
     BitstreamLevel level[MAX_NUM_OPERATING_POINTS];
     /*!< Sequence header structure, common between the encoder and decoder */
@@ -118,10 +111,6 @@ typedef struct SequenceControlSet {
     uint8_t enable_dg;
     /*!< Film grain seed */
     uint16_t film_grain_random_seed;
-    /*!< over_boundary_block: pad resolution to a multiple of SB for smaller overhead
-        (The signal changes per preset; 0: No over boundary blk allowed, 1: over boundary blk allowed) Default is 1.
-        to enable when md_skip_blk is on */
-    uint8_t over_boundary_block_mode;
 
     /*!< Sequence resolution parameters */
     uint32_t          chroma_format_idc;
@@ -139,13 +128,10 @@ typedef struct SequenceControlSet {
     uint32_t          chroma_height;
     uint32_t          pad_right;
     uint32_t          pad_bottom;
-    uint16_t          left_padding;
-    uint16_t          top_padding;
-    uint16_t          right_padding;
-    uint16_t          bot_padding;
+    uint16_t          border; // Padding to be applied to picture buffers
     double            frame_rate;
     uint32_t          encoder_bit_depth;
-    EbInputResolution input_resolution;
+    ResolutionRange   input_resolution;
 
     /*!< Super block parameters set for the stream */
     uint8_t  b64_size;
@@ -158,7 +144,7 @@ typedef struct SequenceControlSet {
     uint16_t sb_total_count;
     uint16_t max_block_cnt;
     // Pointer to block geometry table (owned by EbEncHandle)
-    struct BlockGeom *blk_geom_mds;
+    struct BlockGeom* blk_geom_mds;
     /*!< Restoration Unit parameters set for the stream */
     int32_t rest_units_per_tile;
     /*!< Sub picture reagions for picture analysis */
@@ -250,10 +236,11 @@ typedef struct SequenceControlSet {
     int cqp_base_q;
 #endif
     // less than 200 frames or gop_constraint_rc is set, used in VBR and set in multipass encode
-    uint8_t           is_short_clip;
-    uint8_t           passes;
-    FirstPassControls first_pass_ctrls;
-    uint8_t           final_pass_preset;
+    uint8_t is_short_clip;
+    uint8_t passes;
+    // use downsampled input for first pass
+    bool    first_pass_downsample;
+    uint8_t final_pass_preset;
     /* Specifies whether to use 16bit pipeline.
     *
     * 0: 8 bit pipeline.
@@ -303,9 +290,8 @@ typedef struct SequenceControlSet {
     bool stats_based_sb_lambda_modulation;
     // Desired dimensions for an externally triggered resize
     ResizePendingParams resize_pending_params;
-    // Enable low latency KF coding for RTC
-    bool          low_latency_kf;
-    List0OnlyBase list0_only_base_ctrls;
+    // Specifies whether to use List1 for BASE frame(s) or not
+    bool list0_only_base;
     // Control if feature levels are directly modulated using the sequence QP.
     // 0: No seq QP modulation
     // 1: Enable only high-QP modulation (apply conservative offsets to high QP)
@@ -323,21 +309,22 @@ typedef struct SequenceControlSet {
     // If true, enables fast anti-alias aware screen detection
     bool fast_aa_aware_screen_detection_mode;
 } SequenceControlSet;
+
 typedef struct EbSequenceControlSetInstance {
     EbDctor             dctor;
-    EncodeContext      *enc_ctx;
-    SequenceControlSet *scs;
+    EncodeContext*      enc_ctx;
+    SequenceControlSet* scs;
     EbHandle            config_mutex;
 } EbSequenceControlSetInstance;
 
 /**************************************
      * Extern Function Declarations
      **************************************/
-extern EbErrorType svt_sequence_control_set_instance_ctor(EbSequenceControlSetInstance *object_ptr);
+EbErrorType svt_sequence_control_set_instance_ctor(EbSequenceControlSetInstance* object_ptr);
 
-extern EbErrorType svt_aom_derive_input_resolution(EbInputResolution *input_resolution, uint32_t input_size);
-extern EbErrorType copy_sequence_control_set(SequenceControlSet *dst, SequenceControlSet *src);
-extern EbErrorType svt_aom_scs_set_creator(EbPtr *object_dbl_ptr, EbPtr object_init_data_ptr);
+EbErrorType svt_aom_derive_input_resolution(ResolutionRange* input_resolution, uint32_t input_size);
+EbErrorType copy_sequence_control_set(SequenceControlSet* dst, SequenceControlSet* src);
+EbErrorType svt_aom_scs_set_creator(EbPtr* object_dbl_ptr, EbPtr object_init_data_ptr);
 
 #ifdef __cplusplus
 }

@@ -42,7 +42,7 @@ using svt_av1_test_tool::SVTRandom;
 
 namespace {
 using FwdTxfm2dAsmParam =
-    std::tuple<int, int, EB_TRANS_COEFF_SHAPE, const FwdTxfm2dFunc *,
+    std::tuple<int, int, TxCoeffShape, const FwdTxfm2dFunc *,
                const FwdTxfm2dFunc *>;
 
 #ifdef ARCH_X86_64
@@ -312,7 +312,7 @@ class FwdTxfm2dAsmTest : public ::testing::TestWithParam<FwdTxfm2dAsmParam> {
 
   private:
     void execute_test(FwdTxfm2dFunc test_func, FwdTxfm2dFunc ref_func,
-                      EB_TRANS_COEFF_SHAPE shape) {
+                      TxCoeffShape shape) {
         if (ref_func == nullptr || test_func == nullptr)
             return;
 
@@ -460,7 +460,7 @@ class FwdTxfm2dAsmTest : public ::testing::TestWithParam<FwdTxfm2dAsmParam> {
   private:
     const TxSize tx_size_; /**< input param tx_size */
     const int bd_;         /**< input param 8bit or 10bit */
-    EB_TRANS_COEFF_SHAPE shape_;
+    TxCoeffShape shape_;
     const FwdTxfm2dFunc *ref_func_tbl_;
     const FwdTxfm2dFunc *test_func_tbl_;
     int width_;

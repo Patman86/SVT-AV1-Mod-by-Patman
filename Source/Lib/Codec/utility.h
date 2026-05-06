@@ -18,6 +18,7 @@
 extern "C" {
 #endif
 #include <limits.h>
+
 /****************************
      * UTILITY FUNCTIONS
      ****************************/
@@ -25,6 +26,7 @@ typedef struct BlockList {
     uint8_t  list_size;
     uint16_t blk_mds_table[3]; //stores a max of 3 redundant blocks
 } BlockList_t;
+
 typedef enum GeomIndex {
     GEOM_0, //64x64  ->16x16  NSQ:OFF
     GEOM_1, //64x64  ->16x16  NSQ:ON (only H & V shapes, but not 16x8 and 8x16)
@@ -41,11 +43,6 @@ typedef enum GeomIndex {
 } GeomIndex;
 
 typedef struct BlockGeom {
-    Part    shape; // P_N..P_V4 . P_S is not used.
-    uint8_t org_x; // orgin x from topleft of sb
-    uint8_t org_y; // orgin x from topleft of sb
-
-    uint8_t has_uv;
     uint8_t sq_size; // size of parent square
 
     uint8_t   bwidth; // block width
@@ -54,137 +51,21 @@ typedef struct BlockGeom {
     uint8_t   bheight_uv; // block height for Chroma 4:2:0
     BlockSize bsize; // bloc size
     BlockSize bsize_uv; // bloc size for Chroma 4:2:0
-    uint8_t   txb_count[MAX_VARTX_DEPTH + 1]; //4-2-1
-    TxSize    txsize[MAX_VARTX_DEPTH + 1];
-    TxSize    txsize_uv[MAX_VARTX_DEPTH + 1];
-    uint8_t   tx_width[MAX_VARTX_DEPTH + 1]; //tx_size_wide
-    uint8_t   tx_height[MAX_VARTX_DEPTH + 1]; //tx_size_high
-    uint8_t   tx_width_uv[MAX_VARTX_DEPTH + 1]; //tx_size_wide
-    uint8_t   tx_height_uv[MAX_VARTX_DEPTH + 1]; //tx_size_high
 
-    //origin is SB - separate tables for INTRA (idx 0) and INTER (idx 1)
-    uint8_t tx_org_x[2][MAX_VARTX_DEPTH + 1][MAX_TXB_COUNT];
-    uint8_t tx_org_y[2][MAX_VARTX_DEPTH + 1][MAX_TXB_COUNT];
-
-    uint16_t blkidx_mds; // block index in md scan
-    // index of the block in d1 dimension 0..24  (0 is parent square, 1 top half of H , ...., 24:last quarter of V4)
-    uint8_t  d1i;
-    uint16_t sqi_mds; // index of the parent square in md  scan.
-    uint16_t parent_depth_idx_mds; // index of the parent block of a given depth
-    // max number of ns blocks within one partition 1..4 (N:1,H:2,V:2,HA:3,HB:3,VA:3,VB:3,H4:4,V4:4)
-    uint8_t     totns;
-    uint8_t     nsi; // non square index within a partition  0..totns-1
-    uint8_t     quadi; // parent square is in which quadrant 0..3
-    uint8_t     depth; // depth of the block
-    uint16_t    d1_depth_offset; // offset to the next d1 sq block
-    uint16_t    ns_depth_offset; // offset to the next nsq block (skip remaining d2 blocks)
-    uint8_t     is_last_quadrant; // only for square bloks, is this the fourth quadrant block?
-    uint8_t     redund; // 1: means that this block is redundant to another
-    BlockList_t redund_list; // the list where the block is redundant
+    uint16_t d1_depth_offset; // offset to the next d1 sq block
+    uint16_t ns_depth_offset; // offset to the next nsq block (skip remaining d2 blocks)
+#if _DEBUG
+    // when debugging, track the mds_idx for each block so can confirm we are using the
+    // correct MDS when we get the BlkGeom. Should not be used in the code though.
+    uint32_t mds_idx;
+#endif
 } BlockGeom;
 
 void svt_aom_build_blk_geom(GeomIndex geom, BlockGeom* blk_geom_table);
 
-static const BlockSize ss_size_lookup[BlockSizeS_ALL][2][2] = {
-    //  ss_x == 0    ss_x == 0        ss_x == 1      ss_x == 1
-    //  ss_y == 0    ss_y == 1        ss_y == 0      ss_y == 1
-    {{BLOCK_4X4, BLOCK_4X4}, {BLOCK_4X4, BLOCK_4X4}},
-    {{BLOCK_4X8, BLOCK_4X4}, {BLOCK_INVALID, BLOCK_4X4}},
-    {{BLOCK_8X4, BLOCK_INVALID}, {BLOCK_4X4, BLOCK_4X4}},
-    {{BLOCK_8X8, BLOCK_8X4}, {BLOCK_4X8, BLOCK_4X4}},
-    {{BLOCK_8X16, BLOCK_8X8}, {BLOCK_INVALID, BLOCK_4X8}},
-    {{BLOCK_16X8, BLOCK_INVALID}, {BLOCK_8X8, BLOCK_8X4}},
-    {{BLOCK_16X16, BLOCK_16X8}, {BLOCK_8X16, BLOCK_8X8}},
-    {{BLOCK_16X32, BLOCK_16X16}, {BLOCK_INVALID, BLOCK_8X16}},
-    {{BLOCK_32X16, BLOCK_INVALID}, {BLOCK_16X16, BLOCK_16X8}},
-    {{BLOCK_32X32, BLOCK_32X16}, {BLOCK_16X32, BLOCK_16X16}},
-    {{BLOCK_32X64, BLOCK_32X32}, {BLOCK_INVALID, BLOCK_16X32}},
-    {{BLOCK_64X32, BLOCK_INVALID}, {BLOCK_32X32, BLOCK_32X16}},
-    {{BLOCK_64X64, BLOCK_64X32}, {BLOCK_32X64, BLOCK_32X32}},
-    {{BLOCK_64X128, BLOCK_64X64}, {BLOCK_INVALID, BLOCK_32X64}},
-    {{BLOCK_128X64, BLOCK_INVALID}, {BLOCK_64X64, BLOCK_64X32}},
-    {{BLOCK_128X128, BLOCK_128X64}, {BLOCK_64X128, BLOCK_64X64}},
-    {{BLOCK_4X16, BLOCK_4X8}, {BLOCK_INVALID, BLOCK_4X8}},
-    {{BLOCK_16X4, BLOCK_INVALID}, {BLOCK_8X4, BLOCK_8X4}},
-    {{BLOCK_8X32, BLOCK_8X16}, {BLOCK_INVALID, BLOCK_4X16}},
-    {{BLOCK_32X8, BLOCK_INVALID}, {BLOCK_16X8, BLOCK_16X4}},
-    {{BLOCK_16X64, BLOCK_16X32}, {BLOCK_INVALID, BLOCK_8X32}},
-    {{BLOCK_64X16, BLOCK_INVALID}, {BLOCK_32X16, BLOCK_32X8}}};
-static INLINE BlockSize get_plane_block_size(BlockSize bsize, int32_t subsampling_x, int32_t subsampling_y) {
-    if (bsize == BLOCK_INVALID)
-        return BLOCK_INVALID;
-    return ss_size_lookup[bsize][subsampling_x][subsampling_y];
-}
-
-static INLINE TxSize av1_get_max_uv_txsize(BlockSize bsize, int32_t subsampling_x, int32_t subsampling_y) {
-    const BlockSize plane_bsize = get_plane_block_size(bsize, subsampling_x, subsampling_y);
-    TxSize          uv_tx       = TX_INVALID;
-    if (plane_bsize < BlockSizeS_ALL)
-        uv_tx = eb_max_txsize_rect_lookup[plane_bsize];
-    return av1_get_adjusted_tx_size(uv_tx);
-}
-
-#define NOT_USED_VALUE 0
-//gives the index of parent from the last qudrant child
-static const uint32_t parent_depth_offset[GEOM_TOT][6] = {
-    {NOT_USED_VALUE, 16, 4, NOT_USED_VALUE, NOT_USED_VALUE, NOT_USED_VALUE},
-    {NOT_USED_VALUE, 32, 8, NOT_USED_VALUE, NOT_USED_VALUE, NOT_USED_VALUE},
-    {NOT_USED_VALUE, 64, 16, 4, NOT_USED_VALUE, NOT_USED_VALUE},
-    {NOT_USED_VALUE, 80, 20, 4, NOT_USED_VALUE, NOT_USED_VALUE},
-    {NOT_USED_VALUE, 128, 32, 8, NOT_USED_VALUE, NOT_USED_VALUE},
-    {NOT_USED_VALUE, 320, 80, 20, NOT_USED_VALUE, NOT_USED_VALUE},
-    {NOT_USED_VALUE, 512, 128, 32, 8, NOT_USED_VALUE},
-    {NOT_USED_VALUE, 640, 160, 40, 8, NOT_USED_VALUE},
-    {NOT_USED_VALUE, 832, 208, 52, 8, NOT_USED_VALUE},
-    {NOT_USED_VALUE, 3320, 832, 208, 52, 8},
-    {NOT_USED_VALUE, 1784, 448, 112, 28, NOT_USED_VALUE}};
-//gives the index of next quadrant child within a depth
-static const uint32_t ns_depth_offset[GEOM_TOT][6] = {{21, 5, 1, 1, NOT_USED_VALUE, NOT_USED_VALUE},
-                                                      {41, 9, 1, 1, NOT_USED_VALUE, NOT_USED_VALUE},
-                                                      {85, 21, 5, 1, NOT_USED_VALUE, NOT_USED_VALUE},
-                                                      {105, 25, 5, 1, NOT_USED_VALUE, NOT_USED_VALUE},
-                                                      {169, 41, 9, 1, NOT_USED_VALUE, NOT_USED_VALUE},
-                                                      {425, 105, 25, 5, NOT_USED_VALUE, NOT_USED_VALUE},
-                                                      {681, 169, 41, 9, 1, NOT_USED_VALUE},
-                                                      {849, 209, 49, 9, 1, NOT_USED_VALUE},
-                                                      {1101, 269, 61, 9, 1, NOT_USED_VALUE},
-                                                      {4421, 1101, 269, 61, 9, 1},
-                                                      {2377, 593, 145, 33, 5, NOT_USED_VALUE}};
-//gives the next depth block(first qudrant child) from a given parent square
-static const uint32_t d1_depth_offset[GEOM_TOT][6] = {{1, 1, 1, 1, 1, NOT_USED_VALUE},
-                                                      {5, 5, 1, 1, 1, NOT_USED_VALUE},
-                                                      {1, 1, 1, 1, 1, NOT_USED_VALUE},
-                                                      {5, 5, 1, 1, 1, NOT_USED_VALUE},
-                                                      {5, 5, 5, 1, 1, NOT_USED_VALUE},
-                                                      {5, 5, 5, 5, 1, NOT_USED_VALUE},
-                                                      {5, 5, 5, 5, 1, NOT_USED_VALUE},
-                                                      {13, 13, 13, 5, 1, NOT_USED_VALUE},
-                                                      {25, 25, 25, 5, 1, NOT_USED_VALUE},
-                                                      {17, 25, 25, 25, 5, 1},
-                                                      {5, 13, 13, 13, 5, NOT_USED_VALUE}};
-// gives the index offset (relative to SQ block) of the given nsq shape
-// Different tables for 128x128 because H4/V4 are not allowed
-static const uint32_t ns_blk_offset[EXT_PARTITION_TYPES]     = {0, 1, 3, 25, 13, 16, 19, 22, 5, 9};
-static const uint32_t ns_blk_offset_128[EXT_PARTITION_TYPES] = {
-    0, 1, 3, 25, 5, 8, 11, 14, 0 /*H4 not allowed*/, 0 /*V4 not allowed*/};
-
-// number of blocks in the given NSQ shape
-static const uint32_t ns_blk_num[EXT_PARTITION_TYPES] = {1, 2, 2, 4, 3, 3, 3, 3, 4, 4};
-
-// Index of the 32x32 blocks when have a max bsize of 64
-static const uint32_t blk32_idx_tab[GEOM_TOT - 1][4] = {{1, 22, 43, 64},
-                                                        {5, 30, 55, 80},
-                                                        {5, 46, 87, 128},
-                                                        {5, 110, 215, 320},
-                                                        {5, 174, 343, 512},
-                                                        {13, 222, 431, 640},
-                                                        {25, 294, 563, 832}};
-
 static INLINE const BlockGeom* get_blk_geom_mds(const BlockGeom* blk_geom_table, uint32_t bidx_mds) {
     return &blk_geom_table[bidx_mds];
 }
-uint32_t svt_aom_get_mds_idx(const BlockGeom* blk_geom_table, uint32_t max_block_count, uint32_t orgx, uint32_t orgy,
-                             uint32_t size);
 
 // CU Stats Helper Functions
 typedef struct CodedBlockStats {
@@ -197,7 +78,7 @@ typedef struct CodedBlockStats {
     uint8_t parent32x32_index;
 } CodedBlockStats;
 
-extern const CodedBlockStats* svt_aom_get_coded_blk_stats(const uint32_t cu_idx);
+const CodedBlockStats* svt_aom_get_coded_blk_stats(const uint32_t cu_idx);
 
 /****************************
      * MACROS
@@ -211,6 +92,7 @@ extern const CodedBlockStats* svt_aom_get_coded_blk_stats(const uint32_t cu_idx)
 //**************************************************
 // MACROS
 //**************************************************
+#define NOT_USED_VALUE 0
 #define DIVIDE_AND_ROUND(x, y) (((x) + ((y) >> 1)) / (y))
 #define DIVIDE_AND_CEIL(x, y) (((x) + ((y) - 1)) / (y))
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
@@ -219,11 +101,6 @@ extern const CodedBlockStats* svt_aom_get_coded_blk_stats(const uint32_t cu_idx)
 #define CLIP3(min_val, max_val, a) (((a) < (min_val)) ? (min_val) : (((a) > (max_val)) ? (max_val) : (a)))
 #define CLIP3EQ(min_val, max_val, a) (((a) <= (min_val)) ? (min_val) : (((a) >= (max_val)) ? (max_val) : (a)))
 #define BITDEPTH_MIDRANGE_VALUE(precision) (1 << ((precision) - 1))
-#define SWAP(a, b)                    \
-    MULTI_LINE_MACRO_BEGIN(a) ^= (b); \
-    (b) ^= (a);                       \
-    (a) ^= (b);                       \
-    MULTI_LINE_MACRO_END
 #define ABS(a) (((a) < 0) ? (-(a)) : (a))
 #define EB_ABS_DIFF(a, b) ((a) > (b) ? ((a) - (b)) : ((b) - (a)))
 #define EB_DIFF_SQR(a, b) (((a) - (b)) * ((a) - (b)))
@@ -300,7 +177,9 @@ typedef struct MiniGopStats {
     uint8_t end_index;
     uint8_t length;
 } MiniGopStats;
-extern const MiniGopStats* svt_aom_get_mini_gop_stats(const uint32_t mini_gop_index);
+
+const MiniGopStats* svt_aom_get_mini_gop_stats(const uint32_t mini_gop_index);
+
 typedef enum MinigopIndex {
     L6_INDEX    = 0,
     L5_0_INDEX  = 1,
@@ -334,24 +213,30 @@ typedef enum MinigopIndex {
     L2_14_INDEX = 29,
     L2_15_INDEX = 30
 } MinigopIndex;
+
 // Right shift that replicates gcc's implementation
 
 static inline int gcc_right_shift(int a, unsigned shift) {
-    if (!a)
+    if (!a) {
         return 0;
-    if (a > 0)
+    }
+    if (a > 0) {
         return a >> shift;
+    }
     static const unsigned sbit = 1u << (sizeof(sbit) * CHAR_BIT - 1);
     a                          = (unsigned)a >> shift;
-    while (shift) a |= sbit >> shift--;
+    while (shift) {
+        a |= sbit >> shift--;
+    }
     return a ^ sbit;
 }
 
 static INLINE int convert_to_trans_prec(int allow_hp, int coor) {
-    if (allow_hp)
+    if (allow_hp) {
         return ROUND_POWER_OF_TWO_SIGNED(coor, WARPEDMODEL_PREC_BITS - 3);
-    else
+    } else {
         return ROUND_POWER_OF_TWO_SIGNED(coor, WARPEDMODEL_PREC_BITS - 2) * 2;
+    }
 }
 
 /* Convert Floating Point to Fixed Point example: int32_t val_fp8 = FLOAT2FP(val_float, 8, int32_t) */

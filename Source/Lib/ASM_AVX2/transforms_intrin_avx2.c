@@ -15,9 +15,9 @@
 #include <immintrin.h>
 #include "motion_estimation.h"
 
-static INLINE void energy_computation_kernel_avx2(const int32_t *const in, __m256i *const sum256) {
+static INLINE void energy_computation_kernel_avx2(const int32_t* const in, __m256i* const sum256) {
     const __m256i zero      = _mm256_setzero_si256();
-    const __m256i input     = _mm256_loadu_si256((__m256i *)in);
+    const __m256i input     = _mm256_loadu_si256((__m256i*)in);
     const __m256i in_lo     = _mm256_unpacklo_epi32(input, zero);
     const __m256i in_hi     = _mm256_unpackhi_epi32(input, zero);
     const __m256i energy_lo = _mm256_mul_epi32(in_lo, in_lo);
@@ -36,7 +36,7 @@ static INLINE uint64_t hadd64_avx2(const __m256i sum256) {
     return _mm_extract_epi64(sum, 0);
 }
 
-static INLINE uint64_t energy_computation_avx2(const int32_t *const in, const uint32_t size) {
+static INLINE uint64_t energy_computation_avx2(const int32_t* const in, const uint32_t size) {
     const __m256i zero = _mm256_setzero_si256();
     uint32_t      i    = 0;
     __m256i       sum  = zero;
@@ -49,7 +49,7 @@ static INLINE uint64_t energy_computation_avx2(const int32_t *const in, const ui
     return hadd64_avx2(sum);
 }
 
-static INLINE uint64_t energy_computation_64_avx2(const int32_t *in, const uint32_t height) {
+static INLINE uint64_t energy_computation_64_avx2(const int32_t* in, const uint32_t height) {
     const __m256i zero = _mm256_setzero_si256();
     uint32_t      i    = height;
     __m256i       sum  = zero;
@@ -64,12 +64,13 @@ static INLINE uint64_t energy_computation_64_avx2(const int32_t *in, const uint3
 
     return hadd64_avx2(sum);
 }
-static INLINE void copy_32_bytes_avx2(const int32_t *src, int32_t *dst) {
-    const __m256i val = _mm256_loadu_si256((__m256i *)(src + 0 * 8));
-    _mm256_storeu_si256((__m256i *)(dst + 0 * 8), val);
+
+static INLINE void copy_32_bytes_avx2(const int32_t* src, int32_t* dst) {
+    const __m256i val = _mm256_loadu_si256((__m256i*)(src + 0 * 8));
+    _mm256_storeu_si256((__m256i*)(dst + 0 * 8), val);
 }
 
-static INLINE void copy_256x_bytes_avx2(const int32_t *src, int32_t *dst, const uint32_t height) {
+static INLINE void copy_256x_bytes_avx2(const int32_t* src, int32_t* dst, const uint32_t height) {
     uint32_t h = height;
 
     do {
@@ -82,19 +83,19 @@ static INLINE void copy_256x_bytes_avx2(const int32_t *src, int32_t *dst, const 
     } while (--h);
 }
 
-uint64_t svt_handle_transform16x64_avx2(int32_t *output) {
+uint64_t svt_handle_transform16x64_avx2(int32_t* output) {
     //bottom 16x32 area.
     const uint64_t three_quad_energy = energy_computation_avx2(output + 16 * 32, 16 * 32);
     return three_quad_energy;
 }
 
-uint64_t svt_handle_transform32x64_avx2(int32_t *output) {
+uint64_t svt_handle_transform32x64_avx2(int32_t* output) {
     //bottom 32x32 area.
     const uint64_t three_quad_energy = energy_computation_avx2(output + 32 * 32, 32 * 32);
     return three_quad_energy;
 }
 
-uint64_t svt_handle_transform64x16_avx2(int32_t *output) {
+uint64_t svt_handle_transform64x16_avx2(int32_t* output) {
     // top - right 32x16 area.
     const uint64_t three_quad_energy = energy_computation_64_avx2(output + 32, 16);
     // Re-pack non-zero coeffs in the first 32x16 indices.
@@ -103,7 +104,7 @@ uint64_t svt_handle_transform64x16_avx2(int32_t *output) {
     return three_quad_energy;
 }
 
-uint64_t svt_handle_transform64x32_avx2(int32_t *output) {
+uint64_t svt_handle_transform64x32_avx2(int32_t* output) {
     // top - right 32x32 area.
     const uint64_t three_quad_energy = energy_computation_64_avx2(output + 32, 32);
     // Re-pack non-zero coeffs in the first 32x32 indices.
@@ -112,7 +113,7 @@ uint64_t svt_handle_transform64x32_avx2(int32_t *output) {
     return three_quad_energy;
 }
 
-uint64_t svt_handle_transform64x64_avx2(int32_t *output) {
+uint64_t svt_handle_transform64x64_avx2(int32_t* output) {
     uint64_t three_quad_energy;
 
     // top - right 32x32 area.
@@ -124,34 +125,36 @@ uint64_t svt_handle_transform64x64_avx2(int32_t *output) {
 
     return three_quad_energy;
 }
-uint64_t svt_handle_transform16x64_N2_N4_avx2(int32_t *output) {
+
+uint64_t svt_handle_transform16x64_N2_N4_avx2(int32_t* output) {
     (void)output;
     return 0;
 }
 
-uint64_t svt_handle_transform32x64_N2_N4_avx2(int32_t *output) {
+uint64_t svt_handle_transform32x64_N2_N4_avx2(int32_t* output) {
     (void)output;
     return 0;
 }
 
-uint64_t svt_handle_transform64x16_N2_N4_avx2(int32_t *output) {
+uint64_t svt_handle_transform64x16_N2_N4_avx2(int32_t* output) {
     // Re-pack non-zero coeffs in the first 32x16 indices.
     copy_256x_bytes_avx2(output + 64, output + 32, 15);
     return 0;
 }
 
-uint64_t svt_handle_transform64x32_N2_N4_avx2(int32_t *output) {
+uint64_t svt_handle_transform64x32_N2_N4_avx2(int32_t* output) {
     // Re-pack non-zero coeffs in the first 32x32 indices.
     copy_256x_bytes_avx2(output + 64, output + 32, 31);
     return 0;
 }
 
-uint64_t svt_handle_transform64x64_N2_N4_avx2(int32_t *output) {
+uint64_t svt_handle_transform64x64_N2_N4_avx2(int32_t* output) {
     // Re-pack non-zero coeffs in the first 32x32 indices.
     copy_256x_bytes_avx2(output + 64, output + 32, 31);
     return 0;
 }
-static INLINE __m128i compute_sum(__m256i *in, __m256i *prev_in) {
+
+static INLINE __m128i compute_sum(__m256i* in, __m256i* prev_in) {
     const __m256i zero    = _mm256_setzero_si256();
     const __m256i round_2 = _mm256_set1_epi16(2);
     __m256i       prev_in_lo, in_lo, sum_;
@@ -168,18 +171,18 @@ static INLINE __m128i compute_sum(__m256i *in, __m256i *prev_in) {
     return _mm_packus_epi16(_mm256_castsi256_si128(sum_), _mm256_extracti128_si256(sum_, 0x1));
 }
 
-void svt_aom_downsample_2d_avx2(uint8_t *input_samples, // input parameter, input samples Ptr
+void svt_aom_downsample_2d_avx2(uint8_t* input_samples, // input parameter, input samples Ptr
                                 uint32_t input_stride, // input parameter, input stride
                                 uint32_t input_area_width, // input parameter, input area width
                                 uint32_t input_area_height, // input parameter, input area height
-                                uint8_t *decim_samples, // output parameter, decimated samples Ptr
+                                uint8_t* decim_samples, // output parameter, decimated samples Ptr
                                 uint32_t decim_stride, // input parameter, output stride
                                 uint32_t decim_step) // input parameter, decimation amount in pixels
 {
     uint32_t input_stripe_stride = input_stride * decim_step;
     uint32_t decim_horizontal_index;
-    uint8_t *in_ptr        = input_samples;
-    uint8_t *out_ptr       = decim_samples;
+    uint8_t* in_ptr        = input_samples;
+    uint8_t* out_ptr       = decim_samples;
     uint32_t width_align32 = input_area_width - (input_area_width % 32);
 
     __m256i in, prev_in;
@@ -189,22 +192,22 @@ void svt_aom_downsample_2d_avx2(uint8_t *input_samples, // input parameter, inpu
     if (decim_step == 2) {
         in_ptr += input_stride;
         for (uint32_t vert_idx = 1; vert_idx < input_area_height; vert_idx += 2) {
-            uint8_t *prev_in_line  = in_ptr - input_stride;
+            uint8_t* prev_in_line  = in_ptr - input_stride;
             decim_horizontal_index = 0;
             for (uint32_t horiz_idx = 1; horiz_idx < width_align32; horiz_idx += 32) {
-                prev_in  = _mm256_loadu_si256((__m256i *)(prev_in_line + horiz_idx - 1));
-                in       = _mm256_loadu_si256((__m256i *)(in_ptr + horiz_idx - 1));
+                prev_in  = _mm256_loadu_si256((__m256i*)(prev_in_line + horiz_idx - 1));
+                in       = _mm256_loadu_si256((__m256i*)(in_ptr + horiz_idx - 1));
                 sum_epu8 = compute_sum(&in, &prev_in);
-                _mm_storeu_si128((__m128i *)(out_ptr + decim_horizontal_index), sum_epu8);
+                _mm_storeu_si128((__m128i*)(out_ptr + decim_horizontal_index), sum_epu8);
                 decim_horizontal_index += 16;
             }
             //complement when input_area_width is not multiple of 32
             if (width_align32 < input_area_width) {
-                prev_in   = _mm256_loadu_si256((__m256i *)(prev_in_line + width_align32));
-                in        = _mm256_loadu_si256((__m256i *)(in_ptr + width_align32));
+                prev_in   = _mm256_loadu_si256((__m256i*)(prev_in_line + width_align32));
+                in        = _mm256_loadu_si256((__m256i*)(in_ptr + width_align32));
                 sum_epu8  = compute_sum(&in, &prev_in);
                 int count = (input_area_width - width_align32) >> 1;
-                _mm_storeu_si128((__m128i *)(tmp_buf), sum_epu8);
+                _mm_storeu_si128((__m128i*)(tmp_buf), sum_epu8);
                 memcpy(out_ptr + decim_horizontal_index, tmp_buf, count * sizeof(uint8_t));
             }
             in_ptr += input_stripe_stride;
@@ -214,24 +217,24 @@ void svt_aom_downsample_2d_avx2(uint8_t *input_samples, // input parameter, inpu
         const __m128i mask = _mm_set_epi64x(0x0F0D0B0907050301, 0x0E0C0A0806040200);
         in_ptr += 2 * input_stride;
         for (uint32_t vertical_index = 2; vertical_index < input_area_height; vertical_index += 4) {
-            uint8_t *prev_in_line  = in_ptr - input_stride;
+            uint8_t* prev_in_line  = in_ptr - input_stride;
             decim_horizontal_index = 0;
             for (uint32_t horiz_idx = 2; horiz_idx < width_align32; horiz_idx += 32) {
-                prev_in  = _mm256_loadu_si256((__m256i *)(prev_in_line + horiz_idx - 1));
-                in       = _mm256_loadu_si256((__m256i *)(in_ptr + horiz_idx - 1));
+                prev_in  = _mm256_loadu_si256((__m256i*)(prev_in_line + horiz_idx - 1));
+                in       = _mm256_loadu_si256((__m256i*)(in_ptr + horiz_idx - 1));
                 sum_epu8 = compute_sum(&in, &prev_in);
                 sum_epu8 = _mm_shuffle_epi8(sum_epu8, mask);
-                _mm_storel_epi64((__m128i *)(out_ptr + decim_horizontal_index), sum_epu8);
+                _mm_storel_epi64((__m128i*)(out_ptr + decim_horizontal_index), sum_epu8);
                 decim_horizontal_index += 8;
             }
             //complement when input_area_width is not multiple of 32
             if (width_align32 < input_area_width) {
-                prev_in   = _mm256_loadu_si256((__m256i *)(prev_in_line + width_align32 + 1));
-                in        = _mm256_loadu_si256((__m256i *)(in_ptr + width_align32 + 1));
+                prev_in   = _mm256_loadu_si256((__m256i*)(prev_in_line + width_align32 + 1));
+                in        = _mm256_loadu_si256((__m256i*)(in_ptr + width_align32 + 1));
                 sum_epu8  = compute_sum(&in, &prev_in);
                 sum_epu8  = _mm_shuffle_epi8(sum_epu8, mask);
                 int count = (input_area_width - width_align32) >> 2;
-                _mm_storeu_si128((__m128i *)(tmp_buf), sum_epu8);
+                _mm_storeu_si128((__m128i*)(tmp_buf), sum_epu8);
                 memcpy(out_ptr + decim_horizontal_index, tmp_buf, count * sizeof(uint8_t));
             }
             in_ptr += input_stripe_stride;

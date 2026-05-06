@@ -75,8 +75,8 @@ static inline int16x8_t convolve8_8_h(const uint8x8_t s0, const uint8x8_t s1, co
     return vcombine_s16(vshrn_n_s32(sum0123, ROUND0_BITS - 1), vshrn_n_s32(sum4567, ROUND0_BITS - 1));
 }
 
-static inline void convolve_horiz_scale_neon_dotprod(const uint8_t *src, int src_stride, int16_t *dst, int dst_stride,
-                                                     int w, int h, const int16_t *x_filter, const int subpel_x_qn,
+static inline void convolve_horiz_scale_neon_dotprod(const uint8_t* src, int src_stride, int16_t* dst, int dst_stride,
+                                                     int w, int h, const int16_t* x_filter, const int subpel_x_qn,
                                                      const int x_step_qn) {
     DECLARE_ALIGNED(16, int16_t, temp[8 * 8]);
     const int bd = 8;
@@ -96,7 +96,7 @@ static inline void convolve_horiz_scale_neon_dotprod(const uint8_t *src, int src
 
             // Process a 4x4 tile.
             for (int r = 0; r < 4; r++) {
-                const uint8_t *const s = &src[x_qn >> SCALE_SUBPEL_BITS];
+                const uint8_t* const s = &src[x_qn >> SCALE_SUBPEL_BITS];
 
                 const ptrdiff_t filter_offset = SUBPEL_TAPS * ((x_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
                 // Filter values are all even so halve them to fit in int8_t.
@@ -127,13 +127,13 @@ static inline void convolve_horiz_scale_neon_dotprod(const uint8_t *src, int src
     } else {
         do {
             int      x_qn  = subpel_x_qn;
-            int16_t *d     = dst;
+            int16_t* d     = dst;
             int      width = w;
 
             do {
                 // Process an 8x8 tile.
                 for (int r = 0; r < 8; r++) {
-                    const uint8_t *const s = &src[(x_qn >> SCALE_SUBPEL_BITS)];
+                    const uint8_t* const s = &src[(x_qn >> SCALE_SUBPEL_BITS)];
 
                     const ptrdiff_t filter_offset = SUBPEL_TAPS * ((x_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
                     // Filter values are all even so halve them to fit in int8_t.
@@ -210,8 +210,8 @@ static inline int16x8_t convolve8_8_h_scale_2(uint8x16_t samples[2], const int8x
     return vcombine_s16(vshrn_n_s32(sum0123, ROUND0_BITS - 1), vshrn_n_s32(sum4567, ROUND0_BITS - 1));
 }
 
-static inline void convolve_horiz_scale_2_neon_dotprod(const uint8_t *src, int src_stride, int16_t *dst, int dst_stride,
-                                                       int w, int h, const int16_t *x_filter) {
+static inline void convolve_horiz_scale_2_neon_dotprod(const uint8_t* src, int src_stride, int16_t* dst, int dst_stride,
+                                                       int w, int h, const int16_t* x_filter) {
     const int bd = 8;
     // A shim of 1 << (ROUND0_BITS - 1) enables us to use non-rounding
     // shifts - which are generally faster than rounding shifts on modern CPUs.
@@ -228,8 +228,8 @@ static inline void convolve_horiz_scale_2_neon_dotprod(const uint8_t *src, int s
 
     if (w == 4) {
         do {
-            const uint8_t *s     = src;
-            int16_t       *d     = dst;
+            const uint8_t* s     = src;
+            int16_t*       d     = dst;
             int            width = w;
 
             do {
@@ -254,8 +254,8 @@ static inline void convolve_horiz_scale_2_neon_dotprod(const uint8_t *src, int s
         } while (h > 0);
     } else {
         do {
-            const uint8_t *s     = src;
-            int16_t       *d     = dst;
+            const uint8_t* s     = src;
+            int16_t*       d     = dst;
             int            width = w;
 
             do {
@@ -282,11 +282,11 @@ static inline void convolve_horiz_scale_2_neon_dotprod(const uint8_t *src, int s
     }
 }
 
-void svt_av1_convolve_2d_scale_neon_dotprod(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w,
-                                            int h, const InterpFilterParams *filter_params_x,
-                                            const InterpFilterParams *filter_params_y, const int subpel_x_qn,
+void svt_av1_convolve_2d_scale_neon_dotprod(const uint8_t* src, int src_stride, uint8_t* dst, int dst_stride, int w,
+                                            int h, const InterpFilterParams* filter_params_x,
+                                            const InterpFilterParams* filter_params_y, const int subpel_x_qn,
                                             const int x_step_qn, const int subpel_y_qn, const int y_step_qn,
-                                            ConvolveParams *conv_params) {
+                                            ConvolveParams* conv_params) {
     if (w < 4 || h < 4) {
         svt_av1_convolve_2d_scale_c(src,
                                     src_stride,
@@ -310,7 +310,7 @@ void svt_av1_convolve_2d_scale_neon_dotprod(const uint8_t *src, int src_stride, 
     DECLARE_ALIGNED(32, int16_t, im_block[(2 * MAX_SB_SIZE + MAX_FILTER_TAP) * MAX_SB_SIZE]);
     int            im_h         = (((h - 1) * y_step_qn + subpel_y_qn) >> SCALE_SUBPEL_BITS) + filter_params_y->taps;
     int            im_stride    = MAX_SB_SIZE;
-    CONV_BUF_TYPE *dst16        = conv_params->dst;
+    CONV_BUF_TYPE* dst16        = conv_params->dst;
     const int      dst16_stride = conv_params->dst_stride;
 
     // Account for needing filter_taps / 2 - 1 lines prior and filter_taps / 2
@@ -336,7 +336,7 @@ void svt_av1_convolve_2d_scale_neon_dotprod(const uint8_t *src, int src_stride, 
         // equation, where the values of x are from 0 to w. If x_step_qn is a
         // multiple of SCALE_SUBPEL_MASK we can leave it out of the equation.
         const ptrdiff_t filter_offset = SUBPEL_TAPS * ((subpel_x_qn & SCALE_SUBPEL_MASK) >> SCALE_EXTRA_BITS);
-        const int16_t  *x_filter      = filter_params_x->filter_ptr + filter_offset;
+        const int16_t*  x_filter      = filter_params_x->filter_ptr + filter_offset;
 
         // The source index is calculated using the (subpel_x_qn + x * x_step_qn) >>
         // SCALE_SUBPEL_BITS, where the values of x are from 0 to w. If subpel_x_qn

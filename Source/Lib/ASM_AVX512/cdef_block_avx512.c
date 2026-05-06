@@ -18,7 +18,7 @@
 #include "cdef.h"
 #include "memory_avx2.h"
 
-static INLINE __m512i loadu_u16_8x4_avx512(const uint16_t *const src, const uint32_t stride) {
+static INLINE __m512i loadu_u16_8x4_avx512(const uint16_t* const src, const uint32_t stride) {
     const __m256i s0 = loadu_u16_8x2_avx2(src + 0 * stride, stride);
     const __m256i s1 = loadu_u16_8x2_avx2(src + 2 * stride, stride);
     return _mm512_inserti64x4(_mm512_castsi256_si512(s0), s1, 1);
@@ -36,10 +36,11 @@ static INLINE __m512i constrain16_avx512(const __m512i in0, const __m512i in1, c
     const __m512i d    = _mm512_add_epi16(sign, m);
     return _mm512_xor_si512(d, sign);
 }
-static INLINE void cdef_filter_block_8xn_16_pri_avx512(const uint16_t *const in, const __m128i damping,
+
+static INLINE void cdef_filter_block_8xn_16_pri_avx512(const uint16_t* const in, const __m128i damping,
                                                        const int32_t po, const __m512i row, const __m512i strength,
-                                                       const __m512i pri_taps, __m512i *const max, __m512i *const min,
-                                                       __m512i *const sum, uint8_t subsampling_factor) {
+                                                       const __m512i pri_taps, __m512i* const max, __m512i* const min,
+                                                       __m512i* const sum, uint8_t subsampling_factor) {
     const __m512i large = _mm512_set1_epi16(CDEF_VERY_LARGE);
     const __m512i p0    = loadu_u16_8x4_avx512(in + po, subsampling_factor * CDEF_BSTRIDE);
     const __m512i p1    = loadu_u16_8x4_avx512(in - po, subsampling_factor * CDEF_BSTRIDE);
@@ -56,10 +57,10 @@ static INLINE void cdef_filter_block_8xn_16_pri_avx512(const uint16_t *const in,
     *sum = _mm512_add_epi16(*sum, _mm512_mullo_epi16(pri_taps, _mm512_add_epi16(q0, q1)));
 }
 
-static INLINE void cdef_filter_block_8xn_16_sec_avx512(const uint16_t *const in, const __m128i damping,
+static INLINE void cdef_filter_block_8xn_16_sec_avx512(const uint16_t* const in, const __m128i damping,
                                                        const int32_t so1, const int32_t so2, const __m512i row,
                                                        const __m512i strength, const __m512i sec_taps,
-                                                       __m512i *const max, __m512i *const min, __m512i *const sum,
+                                                       __m512i* const max, __m512i* const min, __m512i* const sum,
                                                        uint8_t subsampling_factor) {
     const __m512i large = _mm512_set1_epi16(CDEF_VERY_LARGE);
     const __m512i p0    = loadu_u16_8x4_avx512(in + so1, subsampling_factor * CDEF_BSTRIDE);
@@ -88,9 +89,9 @@ static INLINE void cdef_filter_block_8xn_16_sec_avx512(const uint16_t *const in,
 
 // subsampling_factor of 1 means no subsampling
 // requires height/subsampling_factor >= 4
-void svt_cdef_filter_block_8xn_16_avx512(const uint16_t *const in, const int32_t pri_strength,
+void svt_cdef_filter_block_8xn_16_avx512(const uint16_t* const in, const int32_t pri_strength,
                                          const int32_t sec_strength, const int32_t dir, int32_t pri_damping,
-                                         int32_t sec_damping, const int32_t coeff_shift, uint16_t *const dst,
+                                         int32_t sec_damping, const int32_t coeff_shift, uint16_t* const dst,
                                          const int32_t dstride, uint8_t height, uint8_t subsampling_factor) {
     const int32_t  po1              = svt_aom_eb_cdef_directions[dir][0];
     const int32_t  po2              = svt_aom_eb_cdef_directions[dir][1];
@@ -98,8 +99,8 @@ void svt_cdef_filter_block_8xn_16_avx512(const uint16_t *const in, const int32_t
     const int32_t  s1o2             = svt_aom_eb_cdef_directions[(dir + 2)][1];
     const int32_t  s2o1             = svt_aom_eb_cdef_directions[(dir - 2)][0];
     const int32_t  s2o2             = svt_aom_eb_cdef_directions[(dir - 2)][1];
-    const int32_t *pri_taps         = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
-    const int32_t *sec_taps         = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
+    const int32_t* pri_taps         = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
+    const int32_t* sec_taps         = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
     const __m512i  pri_taps_0       = _mm512_set1_epi16(pri_taps[0]);
     const __m512i  pri_taps_1       = _mm512_set1_epi16(pri_taps[1]);
     const __m512i  sec_taps_0       = _mm512_set1_epi16(sec_taps[0]);
@@ -109,10 +110,12 @@ void svt_cdef_filter_block_8xn_16_avx512(const uint16_t *const in, const int32_t
     const __m512i  sec_strength_256 = _mm512_set1_epi16(sec_strength);
     const __m512i  zero             = _mm512_setzero_si512();
 
-    if (pri_strength)
+    if (pri_strength) {
         pri_damping = AOMMAX(0, pri_damping - get_msb(pri_strength));
-    if (sec_strength)
+    }
+    if (sec_strength) {
         sec_damping = AOMMAX(0, sec_damping - get_msb(sec_strength));
+    }
 
     const __m128i pri_d = _mm_cvtsi32_si128(pri_damping);
     const __m128i sec_d = _mm_cvtsi32_si128(sec_damping);
@@ -167,10 +170,10 @@ void svt_cdef_filter_block_8xn_16_avx512(const uint16_t *const in, const int32_t
         res                  = _mm512_max_epi16(res, min);
         res                  = _mm512_min_epi16(res, max);
 
-        _mm_storeu_si128((__m128i *)&dst[i * dstride], _mm512_castsi512_si128(res));
-        _mm_storeu_si128((__m128i *)&dst[(i + 1 * subsampling_factor) * dstride], _mm512_extracti32x4_epi32(res, 1));
-        _mm_storeu_si128((__m128i *)&dst[(i + 2 * subsampling_factor) * dstride], _mm512_extracti32x4_epi32(res, 2));
-        _mm_storeu_si128((__m128i *)&dst[(i + 3 * subsampling_factor) * dstride], _mm512_extracti32x4_epi32(res, 3));
+        _mm_storeu_si128((__m128i*)&dst[i * dstride], _mm512_castsi512_si128(res));
+        _mm_storeu_si128((__m128i*)&dst[(i + 1 * subsampling_factor) * dstride], _mm512_extracti32x4_epi32(res, 1));
+        _mm_storeu_si128((__m128i*)&dst[(i + 2 * subsampling_factor) * dstride], _mm512_extracti32x4_epi32(res, 2));
+        _mm_storeu_si128((__m128i*)&dst[(i + 3 * subsampling_factor) * dstride], _mm512_extracti32x4_epi32(res, 3));
     }
 }
 #endif // EN_AVX512_SUPPORT

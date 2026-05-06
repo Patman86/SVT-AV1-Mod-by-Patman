@@ -20,9 +20,10 @@
 #include "transpose_neon.h"
 
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
-void svt_av1_filter_intra_edge_high_neon(uint16_t *p, int sz, int strength) {
-    if (!strength)
+void svt_av1_filter_intra_edge_high_neon(uint16_t* p, int sz, int strength) {
+    if (!strength) {
         return;
+    }
     assert(sz >= 0 && sz <= 129);
 
     DECLARE_ALIGNED(16, static const uint16_t, idx[8]) = {0, 1, 2, 3, 4, 5, 6, 7};
@@ -37,11 +38,11 @@ void svt_av1_filter_intra_edge_high_neon(uint16_t *p, int sz, int strength) {
     edge[sz + 2] = edge[sz];
 
     // Don't overwrite first pixel.
-    uint16_t *dst = p + 1;
+    uint16_t* dst = p + 1;
     sz--;
 
     if (strength == 1) { // Filter: {4, 8, 4}.
-        const uint16_t *src = edge + 1;
+        const uint16_t* src = edge + 1;
 
         while (sz >= 8) {
             uint16x8_t s0 = vld1q_u16(src);
@@ -82,7 +83,7 @@ void svt_av1_filter_intra_edge_high_neon(uint16_t *p, int sz, int strength) {
             vst1q_u16(dst, res);
         }
     } else if (strength == 2) { // Filter: {5, 6, 5}.
-        const uint16_t *src = edge + 1;
+        const uint16_t* src = edge + 1;
 
         const uint16x8x3_t filter = {{vdupq_n_u16(5), vdupq_n_u16(6), vdupq_n_u16(5)}};
         while (sz >= 8) {
@@ -120,7 +121,7 @@ void svt_av1_filter_intra_edge_high_neon(uint16_t *p, int sz, int strength) {
             vst1q_u16(dst, res);
         }
     } else { // Filter {2, 4, 4, 4, 2}.
-        const uint16_t *src = edge;
+        const uint16_t* src = edge;
 
         while (sz >= 8) {
             uint16x8_t s0 = vld1q_u16(src);
@@ -192,10 +193,10 @@ const uint16_t sm_weight_arrays_u16[2 * MAX_BLOCK_DIM] = {
 };
 // clang-format on
 
-static inline void highbd_smooth_v_4xh_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *const top_row,
-                                            const uint16_t *const left_column, const int height) {
+static inline void highbd_smooth_v_4xh_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* const top_row,
+                                            const uint16_t* const left_column, const int height) {
     const uint16_t        bottom_left = left_column[height - 1];
-    const uint16_t *const weights_y   = sm_weight_arrays_u16 + height - 4;
+    const uint16_t* const weights_y   = sm_weight_arrays_u16 + height - 4;
 
     const uint16x4_t top_v         = vld1_u16(top_row);
     const uint16x4_t bottom_left_v = vdup_n_u16(bottom_left);
@@ -209,10 +210,10 @@ static inline void highbd_smooth_v_4xh_neon(uint16_t *dst, ptrdiff_t stride, con
     }
 }
 
-static inline void highbd_smooth_v_8xh_neon(uint16_t *dst, const ptrdiff_t stride, const uint16_t *const top_row,
-                                            const uint16_t *const left_column, const int height) {
+static inline void highbd_smooth_v_8xh_neon(uint16_t* dst, const ptrdiff_t stride, const uint16_t* const top_row,
+                                            const uint16_t* const left_column, const int height) {
     const uint16_t        bottom_left = left_column[height - 1];
-    const uint16_t *const weights_y   = sm_weight_arrays_u16 + height - 4;
+    const uint16_t* const weights_y   = sm_weight_arrays_u16 + height - 4;
 
     const uint16x4_t top_low       = vld1_u16(top_row);
     const uint16x4_t top_high      = vld1_u16(top_row + 4);
@@ -232,7 +233,7 @@ static inline void highbd_smooth_v_8xh_neon(uint16_t *dst, const ptrdiff_t strid
 
 #define HIGHBD_SMOOTH_V_NXM(W, H)                                                                 \
     void svt_aom_highbd_smooth_v_predictor_##W##x##H##_neon(                                      \
-        uint16_t *dst, ptrdiff_t y_stride, const uint16_t *above, const uint16_t *left, int bd) { \
+        uint16_t* dst, ptrdiff_t y_stride, const uint16_t* above, const uint16_t* left, int bd) { \
         (void)bd;                                                                                 \
         highbd_smooth_v_##W##xh_neon(dst, y_stride, above, left, H);                              \
     }
@@ -249,13 +250,13 @@ HIGHBD_SMOOTH_V_NXM(8, 32)
 
 // For width 16 and above.
 #define HIGHBD_SMOOTH_V_PREDICTOR(W)                                                                                   \
-    static inline void highbd_smooth_v_##W##xh_neon(uint16_t             *dst,                                         \
+    static inline void highbd_smooth_v_##W##xh_neon(uint16_t*             dst,                                         \
                                                     const ptrdiff_t       stride,                                      \
-                                                    const uint16_t *const top_row,                                     \
-                                                    const uint16_t *const left_column,                                 \
+                                                    const uint16_t* const top_row,                                     \
+                                                    const uint16_t* const left_column,                                 \
                                                     const int             height) {                                                \
         const uint16_t        bottom_left = left_column[height - 1];                                                   \
-        const uint16_t *const weights_y   = sm_weight_arrays_u16 + height - 4;                                         \
+        const uint16_t* const weights_y   = sm_weight_arrays_u16 + height - 4;                                         \
                                                                                                                        \
         uint16x8_t top_vals[(W) >> 3];                                                                                 \
         for (int i = 0; i < (W) >> 3; ++i) {                                                                           \
@@ -267,7 +268,7 @@ HIGHBD_SMOOTH_V_NXM(8, 32)
         for (int y = 0; y < height; ++y) {                                                                             \
             const uint32x4_t weighted_bl = vmull_n_u16(bottom_left_v, 256 - weights_y[y]);                             \
                                                                                                                        \
-            uint16_t *dst_x = dst;                                                                                     \
+            uint16_t* dst_x = dst;                                                                                     \
             for (int i = 0; i < (W) >> 3; ++i) {                                                                       \
                 const uint32x4_t weighted_top_low = vmlal_n_u16(weighted_bl, vget_low_u16(top_vals[i]), weights_y[y]); \
                 vst1_u16(dst_x, vrshrn_n_u32(weighted_top_low, SMOOTH_WEIGHT_LOG2_SCALE));                             \
@@ -289,7 +290,7 @@ HIGHBD_SMOOTH_V_PREDICTOR(64)
 
 #define HIGHBD_SMOOTH_V_NXM_WIDE(W, H)                                                            \
     void svt_aom_highbd_smooth_v_predictor_##W##x##H##_neon(                                      \
-        uint16_t *dst, ptrdiff_t y_stride, const uint16_t *above, const uint16_t *left, int bd) { \
+        uint16_t* dst, ptrdiff_t y_stride, const uint16_t* above, const uint16_t* left, int bd) { \
         (void)bd;                                                                                 \
         highbd_smooth_v_##W##xh_neon(dst, y_stride, above, left, H);                              \
     }
@@ -310,10 +311,12 @@ HIGHBD_SMOOTH_V_NXM_WIDE(64, 64)
 #undef HIGHBD_SMOOTH_V_NXM_WIDE
 
 // 256 - v = vneg_s8(v)
-static inline uint16x4_t negate_s8(const uint16x4_t v) { return vreinterpret_u16_s8(vneg_s8(vreinterpret_s8_u16(v))); }
+static inline uint16x4_t negate_s8(const uint16x4_t v) {
+    return vreinterpret_u16_s8(vneg_s8(vreinterpret_s8_u16(v)));
+}
 
-static inline void highbd_smooth_h_4xh_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *const top_row,
-                                            const uint16_t *left_column, int height) {
+static inline void highbd_smooth_h_4xh_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* const top_row,
+                                            const uint16_t* left_column, int height) {
     const uint16_t top_right = top_row[3];
 
     const uint16x4_t weights_x        = vld1_u16(sm_weight_arrays_u16);
@@ -338,8 +341,8 @@ static inline void highbd_smooth_h_4xh_neon(uint16_t *dst, ptrdiff_t stride, con
     } while (height != 0);
 }
 
-static inline void highbd_smooth_h_8xh_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *const top_row,
-                                            const uint16_t *const left_column, const int height) {
+static inline void highbd_smooth_h_8xh_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* const top_row,
+                                            const uint16_t* const left_column, const int height) {
     const uint16_t top_right = top_row[7];
 
     const uint16x8_t weights_x = vld1q_u16(sm_weight_arrays_u16 + 4);
@@ -360,7 +363,7 @@ static inline void highbd_smooth_h_8xh_neon(uint16_t *dst, ptrdiff_t stride, con
 
 #define HIGHBD_SMOOTH_H_NXM(W, H)                                                                 \
     void svt_aom_highbd_smooth_h_predictor_##W##x##H##_neon(                                      \
-        uint16_t *dst, ptrdiff_t y_stride, const uint16_t *above, const uint16_t *left, int bd) { \
+        uint16_t* dst, ptrdiff_t y_stride, const uint16_t* above, const uint16_t* left, int bd) { \
         (void)bd;                                                                                 \
         highbd_smooth_h_##W##xh_neon(dst, y_stride, above, left, H);                              \
     }
@@ -377,10 +380,10 @@ HIGHBD_SMOOTH_H_NXM(8, 32)
 
 // For width 16 and above.
 #define HIGHBD_SMOOTH_H_PREDICTOR(W)                                                                               \
-    static inline void highbd_smooth_h_##W##xh_neon(uint16_t             *dst,                                     \
+    static inline void highbd_smooth_h_##W##xh_neon(uint16_t*             dst,                                     \
                                                     ptrdiff_t             stride,                                  \
-                                                    const uint16_t *const top_row,                                 \
-                                                    const uint16_t *const left_column,                             \
+                                                    const uint16_t* const top_row,                                 \
+                                                    const uint16_t* const left_column,                             \
                                                     const int             height) {                                            \
         const uint16_t top_right = top_row[(W) - 1];                                                               \
                                                                                                                    \
@@ -397,7 +400,7 @@ HIGHBD_SMOOTH_H_NXM(8, 32)
         }                                                                                                          \
                                                                                                                    \
         for (int y = 0; y < height; ++y) {                                                                         \
-            uint16_t      *dst_x  = dst;                                                                           \
+            uint16_t*      dst_x  = dst;                                                                           \
             const uint16_t left_y = left_column[y];                                                                \
             for (int i = 0; i < (W) >> 3; ++i) {                                                                   \
                 const uint32x4_t weighted_left_low = vmlal_n_u16(weighted_tr_low[i], weights_x_low[i], left_y);    \
@@ -419,7 +422,7 @@ HIGHBD_SMOOTH_H_PREDICTOR(64)
 
 #define HIGHBD_SMOOTH_H_NXM_WIDE(W, H)                                                            \
     void svt_aom_highbd_smooth_h_predictor_##W##x##H##_neon(                                      \
-        uint16_t *dst, ptrdiff_t y_stride, const uint16_t *above, const uint16_t *left, int bd) { \
+        uint16_t* dst, ptrdiff_t y_stride, const uint16_t* above, const uint16_t* left, int bd) { \
         (void)bd;                                                                                 \
         highbd_smooth_h_##W##xh_neon(dst, y_stride, above, left, H);                              \
     }
@@ -439,11 +442,11 @@ HIGHBD_SMOOTH_H_NXM_WIDE(64, 64)
 
 #undef HIGHBD_SMOOTH_H_NXM_WIDE
 
-static inline void highbd_smooth_4xh_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *const top_row,
-                                          const uint16_t *const left_column, const int height) {
+static inline void highbd_smooth_4xh_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* const top_row,
+                                          const uint16_t* const left_column, const int height) {
     const uint16_t        top_right   = top_row[3];
     const uint16_t        bottom_left = left_column[height - 1];
-    const uint16_t *const weights_y   = sm_weight_arrays_u16 + height - 4;
+    const uint16_t* const weights_y   = sm_weight_arrays_u16 + height - 4;
 
     const uint16x4_t top_v            = vld1_u16(top_row);
     const uint16x4_t bottom_left_v    = vdup_n_u16(bottom_left);
@@ -465,7 +468,7 @@ static inline void highbd_smooth_4xh_neon(uint16_t *dst, ptrdiff_t stride, const
 }
 
 // Common code between 8xH and [16|32|64]xH.
-static inline void highbd_calculate_pred8(uint16_t *dst, const uint32x4_t weighted_corners_low,
+static inline void highbd_calculate_pred8(uint16_t* dst, const uint32x4_t weighted_corners_low,
                                           const uint32x4_t weighted_corners_high, const uint16x8_t top_vals,
                                           const uint16x8_t weights_x, const uint16_t left_y, const uint16_t weight_y) {
     // Each variable in the running summation is named for the last item to be
@@ -483,11 +486,11 @@ static inline void highbd_calculate_pred8(uint16_t *dst, const uint32x4_t weight
     vst1_u16(dst + 4, pred_high);
 }
 
-static inline void highbd_smooth_8xh_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *const top_row,
-                                          const uint16_t *const left_column, const int height) {
+static inline void highbd_smooth_8xh_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* const top_row,
+                                          const uint16_t* const left_column, const int height) {
     const uint16_t        top_right   = top_row[7];
     const uint16_t        bottom_left = left_column[height - 1];
-    const uint16_t *const weights_y   = sm_weight_arrays_u16 + height - 4;
+    const uint16_t* const weights_y   = sm_weight_arrays_u16 + height - 4;
 
     const uint16x8_t top_vals         = vld1q_u16(top_row);
     const uint16x4_t bottom_left_v    = vdup_n_u16(bottom_left);
@@ -508,7 +511,7 @@ static inline void highbd_smooth_8xh_neon(uint16_t *dst, ptrdiff_t stride, const
 
 #define HIGHBD_SMOOTH_NXM(W, H)                                                                   \
     void svt_aom_highbd_smooth_predictor_##W##x##H##_neon(                                        \
-        uint16_t *dst, ptrdiff_t y_stride, const uint16_t *above, const uint16_t *left, int bd) { \
+        uint16_t* dst, ptrdiff_t y_stride, const uint16_t* above, const uint16_t* left, int bd) { \
         (void)bd;                                                                                 \
         highbd_smooth_##W##xh_neon(dst, y_stride, above, left, H);                                \
     }
@@ -525,14 +528,14 @@ HIGHBD_SMOOTH_NXM(8, 32)
 
 // For width 16 and above.
 #define HIGHBD_SMOOTH_PREDICTOR(W)                                                                    \
-    static inline void highbd_smooth_##W##xh_neon(uint16_t             *dst,                          \
+    static inline void highbd_smooth_##W##xh_neon(uint16_t*             dst,                          \
                                                   ptrdiff_t             stride,                       \
-                                                  const uint16_t *const top_row,                      \
-                                                  const uint16_t *const left_column,                  \
+                                                  const uint16_t* const top_row,                      \
+                                                  const uint16_t* const left_column,                  \
                                                   const int             height) {                                 \
         const uint16_t        top_right   = top_row[(W) - 1];                                         \
         const uint16_t        bottom_left = left_column[height - 1];                                  \
-        const uint16_t *const weights_y   = sm_weight_arrays_u16 + height - 4;                        \
+        const uint16_t* const weights_y   = sm_weight_arrays_u16 + height - 4;                        \
                                                                                                       \
         /* Precompute weighted values that don't vary with |y|. */                                    \
         uint32x4_t       weighted_tr_low[(W) >> 3];                                                   \
@@ -549,7 +552,7 @@ HIGHBD_SMOOTH_NXM(8, 32)
         const uint16x4_t bottom_left_v = vdup_n_u16(bottom_left);                                     \
         for (int y = 0; y < height; ++y) {                                                            \
             const uint32x4_t weighted_bl = vmlal_n_u16(offset, bottom_left_v, 256 - weights_y[y]);    \
-            uint16_t        *dst_x       = dst;                                                       \
+            uint16_t*        dst_x       = dst;                                                       \
             for (int i = 0; i < (W) >> 3; ++i) {                                                      \
                 const int        x                     = i << 3;                                      \
                 const uint16x8_t top_vals              = vld1q_u16(top_row + x);                      \
@@ -578,7 +581,7 @@ HIGHBD_SMOOTH_PREDICTOR(64)
 
 #define HIGHBD_SMOOTH_NXM_WIDE(W, H)                                                              \
     void svt_aom_highbd_smooth_predictor_##W##x##H##_neon(                                        \
-        uint16_t *dst, ptrdiff_t y_stride, const uint16_t *above, const uint16_t *left, int bd) { \
+        uint16_t* dst, ptrdiff_t y_stride, const uint16_t* above, const uint16_t* left, int bd) { \
         (void)bd;                                                                                 \
         highbd_smooth_##W##xh_neon(dst, y_stride, above, left, H);                                \
     }
@@ -601,7 +604,7 @@ HIGHBD_SMOOTH_NXM_WIDE(64, 64)
 // -----------------------------------------------------------------------------
 // V_PRED
 
-static inline uint16x8x2_t load_uint16x8x2(uint16_t const *ptr) {
+static inline uint16x8x2_t load_uint16x8x2(uint16_t const* ptr) {
     uint16x8x2_t x;
     // Clang/gcc uses ldp here.
     x.val[0] = vld1q_u16(ptr);
@@ -609,12 +612,12 @@ static inline uint16x8x2_t load_uint16x8x2(uint16_t const *ptr) {
     return x;
 }
 
-static inline void store_uint16x8x2(uint16_t *ptr, uint16x8x2_t x) {
+static inline void store_uint16x8x2(uint16_t* ptr, uint16x8x2_t x) {
     vst1q_u16(ptr, x.val[0]);
     vst1q_u16(ptr + 8, x.val[1]);
 }
 
-static inline void vertical4xh_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *const above, int height) {
+static inline void vertical4xh_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* const above, int height) {
     const uint16x4_t row = vld1_u16(above);
     int              y   = height;
     do {
@@ -625,7 +628,7 @@ static inline void vertical4xh_neon(uint16_t *dst, ptrdiff_t stride, const uint1
     } while (y != 0);
 }
 
-static inline void vertical8xh_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *const above, int height) {
+static inline void vertical8xh_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* const above, int height) {
     const uint16x8_t row = vld1q_u16(above);
     int              y   = height;
     do {
@@ -636,7 +639,7 @@ static inline void vertical8xh_neon(uint16_t *dst, ptrdiff_t stride, const uint1
     } while (y != 0);
 }
 
-static inline void vertical16xh_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *const above, int height) {
+static inline void vertical16xh_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* const above, int height) {
     const uint16x8x2_t row = load_uint16x8x2(above);
     int                y   = height;
     do {
@@ -647,7 +650,7 @@ static inline void vertical16xh_neon(uint16_t *dst, ptrdiff_t stride, const uint
     } while (y != 0);
 }
 
-static inline uint16x8x4_t load_uint16x8x4(uint16_t const *ptr) {
+static inline uint16x8x4_t load_uint16x8x4(uint16_t const* ptr) {
     uint16x8x4_t x;
     // Clang/gcc uses ldp here.
     x.val[0] = vld1q_u16(ptr);
@@ -657,14 +660,14 @@ static inline uint16x8x4_t load_uint16x8x4(uint16_t const *ptr) {
     return x;
 }
 
-static inline void store_uint16x8x4(uint16_t *ptr, uint16x8x4_t x) {
+static inline void store_uint16x8x4(uint16_t* ptr, uint16x8x4_t x) {
     vst1q_u16(ptr, x.val[0]);
     vst1q_u16(ptr + 8, x.val[1]);
     vst1q_u16(ptr + 16, x.val[2]);
     vst1q_u16(ptr + 24, x.val[3]);
 }
 
-static inline void vertical32xh_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *const above, int height) {
+static inline void vertical32xh_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* const above, int height) {
     const uint16x8x4_t row = load_uint16x8x4(above);
     int                y   = height;
     do {
@@ -675,8 +678,8 @@ static inline void vertical32xh_neon(uint16_t *dst, ptrdiff_t stride, const uint
     } while (y != 0);
 }
 
-static inline void vertical64xh_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *const above, int height) {
-    uint16_t          *dst32 = dst + 32;
+static inline void vertical64xh_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* const above, int height) {
+    uint16_t*          dst32 = dst + 32;
     const uint16x8x4_t row   = load_uint16x8x4(above);
     const uint16x8x4_t row32 = load_uint16x8x4(above + 32);
     int                y     = height;
@@ -693,7 +696,7 @@ static inline void vertical64xh_neon(uint16_t *dst, ptrdiff_t stride, const uint
 
 #define HIGHBD_V_NXM(W, H)                                                                      \
     void svt_aom_highbd_v_predictor_##W##x##H##_neon(                                           \
-        uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left, int bd) { \
+        uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left, int bd) { \
         (void)left;                                                                             \
         (void)bd;                                                                               \
         vertical##W##xh_neon(dst, stride, above, H);                                            \
@@ -726,47 +729,47 @@ HIGHBD_V_NXM(64, 64)
 // -----------------------------------------------------------------------------
 // H_PRED
 
-static inline void highbd_h_store_4x4(uint16_t *dst, ptrdiff_t stride, uint16x4_t left) {
+static inline void highbd_h_store_4x4(uint16_t* dst, ptrdiff_t stride, uint16x4_t left) {
     vst1_u16(dst + 0 * stride, vdup_lane_u16(left, 0));
     vst1_u16(dst + 1 * stride, vdup_lane_u16(left, 1));
     vst1_u16(dst + 2 * stride, vdup_lane_u16(left, 2));
     vst1_u16(dst + 3 * stride, vdup_lane_u16(left, 3));
 }
 
-static inline void highbd_h_store_8x4(uint16_t *dst, ptrdiff_t stride, uint16x4_t left) {
+static inline void highbd_h_store_8x4(uint16_t* dst, ptrdiff_t stride, uint16x4_t left) {
     vst1q_u16(dst + 0 * stride, vdupq_lane_u16(left, 0));
     vst1q_u16(dst + 1 * stride, vdupq_lane_u16(left, 1));
     vst1q_u16(dst + 2 * stride, vdupq_lane_u16(left, 2));
     vst1q_u16(dst + 3 * stride, vdupq_lane_u16(left, 3));
 }
 
-static inline void highbd_h_store_16x1(uint16_t *dst, uint16x8_t left) {
+static inline void highbd_h_store_16x1(uint16_t* dst, uint16x8_t left) {
     vst1q_u16(dst + 0, left);
     vst1q_u16(dst + 8, left);
 }
 
-static inline void highbd_h_store_16x4(uint16_t *dst, ptrdiff_t stride, uint16x4_t left) {
+static inline void highbd_h_store_16x4(uint16_t* dst, ptrdiff_t stride, uint16x4_t left) {
     highbd_h_store_16x1(dst + 0 * stride, vdupq_lane_u16(left, 0));
     highbd_h_store_16x1(dst + 1 * stride, vdupq_lane_u16(left, 1));
     highbd_h_store_16x1(dst + 2 * stride, vdupq_lane_u16(left, 2));
     highbd_h_store_16x1(dst + 3 * stride, vdupq_lane_u16(left, 3));
 }
 
-static inline void highbd_h_store_32x1(uint16_t *dst, uint16x8_t left) {
+static inline void highbd_h_store_32x1(uint16_t* dst, uint16x8_t left) {
     vst1q_u16(dst + 0, left);
     vst1q_u16(dst + 8, left);
     vst1q_u16(dst + 16, left);
     vst1q_u16(dst + 24, left);
 }
 
-static inline void highbd_h_store_32x4(uint16_t *dst, ptrdiff_t stride, uint16x4_t left) {
+static inline void highbd_h_store_32x4(uint16_t* dst, ptrdiff_t stride, uint16x4_t left) {
     highbd_h_store_32x1(dst + 0 * stride, vdupq_lane_u16(left, 0));
     highbd_h_store_32x1(dst + 1 * stride, vdupq_lane_u16(left, 1));
     highbd_h_store_32x1(dst + 2 * stride, vdupq_lane_u16(left, 2));
     highbd_h_store_32x1(dst + 3 * stride, vdupq_lane_u16(left, 3));
 }
 
-static inline void highbd_h_store_64x1(uint16_t *dst, uint16x8_t left) {
+static inline void highbd_h_store_64x1(uint16_t* dst, uint16x8_t left) {
     vst1q_u16(dst + 0, left);
     vst1q_u16(dst + 8, left);
     vst1q_u16(dst + 16, left);
@@ -777,21 +780,21 @@ static inline void highbd_h_store_64x1(uint16_t *dst, uint16x8_t left) {
     vst1q_u16(dst + 56, left);
 }
 
-static inline void highbd_h_store_64x4(uint16_t *dst, ptrdiff_t stride, uint16x4_t left) {
+static inline void highbd_h_store_64x4(uint16_t* dst, ptrdiff_t stride, uint16x4_t left) {
     highbd_h_store_64x1(dst + 0 * stride, vdupq_lane_u16(left, 0));
     highbd_h_store_64x1(dst + 1 * stride, vdupq_lane_u16(left, 1));
     highbd_h_store_64x1(dst + 2 * stride, vdupq_lane_u16(left, 2));
     highbd_h_store_64x1(dst + 3 * stride, vdupq_lane_u16(left, 3));
 }
 
-void svt_aom_highbd_h_predictor_4x4_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left,
+void svt_aom_highbd_h_predictor_4x4_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left,
                                          int bd) {
     (void)above;
     (void)bd;
     highbd_h_store_4x4(dst, stride, vld1_u16(left));
 }
 
-void svt_aom_highbd_h_predictor_4x8_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left,
+void svt_aom_highbd_h_predictor_4x8_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left,
                                          int bd) {
     (void)above;
     (void)bd;
@@ -800,14 +803,14 @@ void svt_aom_highbd_h_predictor_4x8_neon(uint16_t *dst, ptrdiff_t stride, const 
     highbd_h_store_4x4(dst + 4 * stride, stride, vget_high_u16(l));
 }
 
-void svt_aom_highbd_h_predictor_8x4_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left,
+void svt_aom_highbd_h_predictor_8x4_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left,
                                          int bd) {
     (void)above;
     (void)bd;
     highbd_h_store_8x4(dst, stride, vld1_u16(left));
 }
 
-void svt_aom_highbd_h_predictor_8x8_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left,
+void svt_aom_highbd_h_predictor_8x8_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left,
                                          int bd) {
     (void)above;
     (void)bd;
@@ -816,14 +819,14 @@ void svt_aom_highbd_h_predictor_8x8_neon(uint16_t *dst, ptrdiff_t stride, const 
     highbd_h_store_8x4(dst + 4 * stride, stride, vget_high_u16(l));
 }
 
-void svt_aom_highbd_h_predictor_16x4_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left,
+void svt_aom_highbd_h_predictor_16x4_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left,
                                           int bd) {
     (void)above;
     (void)bd;
     highbd_h_store_16x4(dst, stride, vld1_u16(left));
 }
 
-void svt_aom_highbd_h_predictor_16x8_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left,
+void svt_aom_highbd_h_predictor_16x8_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left,
                                           int bd) {
     (void)above;
     (void)bd;
@@ -832,7 +835,7 @@ void svt_aom_highbd_h_predictor_16x8_neon(uint16_t *dst, ptrdiff_t stride, const
     highbd_h_store_16x4(dst + 4 * stride, stride, vget_high_u16(l));
 }
 
-void svt_aom_highbd_h_predictor_32x8_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left,
+void svt_aom_highbd_h_predictor_32x8_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left,
                                           int bd) {
     (void)above;
     (void)bd;
@@ -844,7 +847,7 @@ void svt_aom_highbd_h_predictor_32x8_neon(uint16_t *dst, ptrdiff_t stride, const
 // For cases where height >= 16 we use pairs of loads to get LDP instructions.
 #define HIGHBD_H_WXH_LARGE(w, h)                                                                \
     void svt_aom_highbd_h_predictor_##w##x##h##_neon(                                           \
-        uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left, int bd) { \
+        uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left, int bd) { \
         (void)above;                                                                            \
         (void)bd;                                                                               \
         for (int i = 0; i < (h) / 16; ++i) {                                                    \
@@ -877,8 +880,8 @@ HIGHBD_H_WXH_LARGE(64, 64)
 // -----------------------------------------------------------------------------
 // PAETH
 
-static inline void highbd_paeth_4xh_neon(uint16_t *dest, ptrdiff_t stride, const uint16_t *const top_row,
-                                         const uint16_t *const left_column, int height) {
+static inline void highbd_paeth_4xh_neon(uint16_t* dest, ptrdiff_t stride, const uint16_t* const top_row,
+                                         const uint16_t* const left_column, int height) {
     const uint16x8_t top_left    = vdupq_n_u16(top_row[-1]);
     const uint16x8_t top_left_x2 = vdupq_n_u16(top_row[-1] + top_row[-1]);
     uint16x8_t       top         = vcombine_u16(vld1_u16(top_row), vld1_u16(top_row));
@@ -914,8 +917,8 @@ static inline void highbd_paeth_4xh_neon(uint16_t *dest, ptrdiff_t stride, const
     }
 }
 
-static inline void highbd_paeth_8xh_neon(uint16_t *dest, ptrdiff_t stride, const uint16_t *const top_row,
-                                         const uint16_t *const left_column, int height) {
+static inline void highbd_paeth_8xh_neon(uint16_t* dest, ptrdiff_t stride, const uint16_t* const top_row,
+                                         const uint16_t* const left_column, int height) {
     const uint16x8_t top_left    = vdupq_n_u16(top_row[-1]);
     const uint16x8_t top_left_x2 = vdupq_n_u16(top_row[-1] + top_row[-1]);
     uint16x8_t       top         = vld1q_u16(top_row);
@@ -952,7 +955,7 @@ static inline void highbd_paeth_8xh_neon(uint16_t *dest, ptrdiff_t stride, const
 
 #define HIGHBD_PAETH_NXM(W, H)                                                                  \
     void svt_aom_highbd_paeth_predictor_##W##x##H##_neon(                                       \
-        uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left, int bd) { \
+        uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left, int bd) { \
         (void)bd;                                                                               \
         highbd_paeth_##W##xh_neon(dst, stride, above, left, H);                                 \
     }
@@ -985,7 +988,7 @@ static inline uint16x8_t select_paeth(const uint16x8_t top, const uint16x8_t lef
 }
 
 static inline void paeth_predictor(const uint16x8_t top, const uint16x8_t top_left, const uint16x8_t top_left_x2,
-                                   const uint16x8_t left, const uint16x8_t top_dist, uint16_t *dest) {
+                                   const uint16x8_t left, const uint16x8_t top_dist, uint16_t* dest) {
     const uint16x8_t left_dist        = vabdq_u16(top, top_left);
     const uint16x8_t top_left_dist    = vabdq_u16(vaddq_u16(top, left), top_left_x2);
     const uint16x8_t left_le_top      = vcleq_u16(left_dist, top_dist);
@@ -995,8 +998,8 @@ static inline void paeth_predictor(const uint16x8_t top, const uint16x8_t top_le
     vst1q_u16(dest, result);
 }
 
-static inline void highbd_paeth_16_plus_x_h_neon(uint16_t *dest, ptrdiff_t stride, const uint16_t *const top_row,
-                                                 const uint16_t *const left_column, int width, int height) {
+static inline void highbd_paeth_16_plus_x_h_neon(uint16_t* dest, ptrdiff_t stride, const uint16_t* const top_row,
+                                                 const uint16_t* const left_column, int width, int height) {
     const uint16x8_t top_left    = vdupq_n_u16(top_row[-1]);
     const uint16x8_t top_left_x2 = vdupq_n_u16(top_row[-1] + top_row[-1]);
     uint16x8_t       top[8];
@@ -1034,7 +1037,7 @@ static inline void highbd_paeth_16_plus_x_h_neon(uint16_t *dest, ptrdiff_t strid
 
 #define HIGHBD_PAETH_NXM_WIDE(W, H)                                                             \
     void svt_aom_highbd_paeth_predictor_##W##x##H##_neon(                                       \
-        uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left, int bd) { \
+        uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left, int bd) { \
         (void)bd;                                                                               \
         highbd_paeth_16_plus_x_h_neon(dst, stride, above, left, W, H);                          \
     }
@@ -1055,22 +1058,26 @@ HIGHBD_PAETH_NXM_WIDE(64, 64)
 // -----------------------------------------------------------------------------
 // DC
 
-static inline void highbd_dc_store_4xh(uint16_t *dst, ptrdiff_t stride, int h, uint16x4_t dc) {
-    for (int i = 0; i < h; ++i) { vst1_u16(dst + i * stride, dc); }
+static inline void highbd_dc_store_4xh(uint16_t* dst, ptrdiff_t stride, int h, uint16x4_t dc) {
+    for (int i = 0; i < h; ++i) {
+        vst1_u16(dst + i * stride, dc);
+    }
 }
 
-static inline void highbd_dc_store_8xh(uint16_t *dst, ptrdiff_t stride, int h, uint16x8_t dc) {
-    for (int i = 0; i < h; ++i) { vst1q_u16(dst + i * stride, dc); }
+static inline void highbd_dc_store_8xh(uint16_t* dst, ptrdiff_t stride, int h, uint16x8_t dc) {
+    for (int i = 0; i < h; ++i) {
+        vst1q_u16(dst + i * stride, dc);
+    }
 }
 
-static inline void highbd_dc_store_16xh(uint16_t *dst, ptrdiff_t stride, int h, uint16x8_t dc) {
+static inline void highbd_dc_store_16xh(uint16_t* dst, ptrdiff_t stride, int h, uint16x8_t dc) {
     for (int i = 0; i < h; ++i) {
         vst1q_u16(dst + i * stride, dc);
         vst1q_u16(dst + i * stride + 8, dc);
     }
 }
 
-static inline void highbd_dc_store_32xh(uint16_t *dst, ptrdiff_t stride, int h, uint16x8_t dc) {
+static inline void highbd_dc_store_32xh(uint16_t* dst, ptrdiff_t stride, int h, uint16x8_t dc) {
     for (int i = 0; i < h; ++i) {
         vst1q_u16(dst + i * stride, dc);
         vst1q_u16(dst + i * stride + 8, dc);
@@ -1079,7 +1086,7 @@ static inline void highbd_dc_store_32xh(uint16_t *dst, ptrdiff_t stride, int h, 
     }
 }
 
-static inline void highbd_dc_store_64xh(uint16_t *dst, ptrdiff_t stride, int h, uint16x8_t dc) {
+static inline void highbd_dc_store_64xh(uint16_t* dst, ptrdiff_t stride, int h, uint16x8_t dc) {
     for (int i = 0; i < h; ++i) {
         vst1q_u16(dst + i * stride, dc);
         vst1q_u16(dst + i * stride + 8, dc);
@@ -1100,7 +1107,7 @@ static inline uint32x4_t horizontal_add_and_broadcast_long_u16x8(uint16x8_t a) {
     return vpaddq_u32(c, c);
 }
 
-static inline uint16x8_t highbd_dc_load_partial_sum_4(const uint16_t *left) {
+static inline uint16x8_t highbd_dc_load_partial_sum_4(const uint16_t* left) {
     // Nothing to do since sum is already one vector, but saves needing to
     // special case w=4 or h=4 cases. The combine will be zero cost for a sane
     // compiler since vld1 already sets the top half of a vector to zero as part
@@ -1108,19 +1115,19 @@ static inline uint16x8_t highbd_dc_load_partial_sum_4(const uint16_t *left) {
     return vcombine_u16(vld1_u16(left), vdup_n_u16(0));
 }
 
-static inline uint16x8_t highbd_dc_load_partial_sum_8(const uint16_t *left) {
+static inline uint16x8_t highbd_dc_load_partial_sum_8(const uint16_t* left) {
     // Nothing to do since sum is already one vector, but saves needing to
     // special case w=8 or h=8 cases.
     return vld1q_u16(left);
 }
 
-static inline uint16x8_t highbd_dc_load_partial_sum_16(const uint16_t *left) {
+static inline uint16x8_t highbd_dc_load_partial_sum_16(const uint16_t* left) {
     const uint16x8_t a0 = vld1q_u16(left + 0); // up to 10 bits
     const uint16x8_t a1 = vld1q_u16(left + 8);
     return vaddq_u16(a0, a1); // up to 11 bits
 }
 
-static inline uint16x8_t highbd_dc_load_partial_sum_32(const uint16_t *left) {
+static inline uint16x8_t highbd_dc_load_partial_sum_32(const uint16_t* left) {
     const uint16x8_t a0 = vld1q_u16(left + 0); // up to 10 bits
     const uint16x8_t a1 = vld1q_u16(left + 8);
     const uint16x8_t a2 = vld1q_u16(left + 16);
@@ -1130,7 +1137,7 @@ static inline uint16x8_t highbd_dc_load_partial_sum_32(const uint16_t *left) {
     return vaddq_u16(b0, b1); // up to 12 bits
 }
 
-static inline uint16x8_t highbd_dc_load_partial_sum_64(const uint16_t *left) {
+static inline uint16x8_t highbd_dc_load_partial_sum_64(const uint16_t* left) {
     const uint16x8_t a0 = vld1q_u16(left + 0); // up to 10 bits
     const uint16x8_t a1 = vld1q_u16(left + 8);
     const uint16x8_t a2 = vld1q_u16(left + 16);
@@ -1150,7 +1157,7 @@ static inline uint16x8_t highbd_dc_load_partial_sum_64(const uint16_t *left) {
 
 #define HIGHBD_DC_PREDICTOR(w, h, shift)                                                        \
     void svt_aom_highbd_dc_predictor_##w##x##h##_neon(                                          \
-        uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left, int bd) { \
+        uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left, int bd) { \
         (void)bd;                                                                               \
         const uint16x8_t a   = highbd_dc_load_partial_sum_##w(above);                           \
         const uint16x8_t l   = highbd_dc_load_partial_sum_##h(left);                            \
@@ -1159,7 +1166,7 @@ static inline uint16x8_t highbd_dc_load_partial_sum_64(const uint16_t *left) {
         highbd_dc_store_##w##xh(dst, stride, (h), vdupq_lane_u16(dc0, 0));                      \
     }
 
-void svt_aom_highbd_dc_predictor_4x4_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left,
+void svt_aom_highbd_dc_predictor_4x4_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left,
                                           int bd) {
     // In the rectangular cases we simply extend the shorter vector to uint16x8
     // in order to accumulate, however in the 4x4 case there is no shorter vector
@@ -1199,7 +1206,7 @@ static inline int highbd_dc_predictor_rect(int bw, int bh, int sum, int shift1, 
 
 #define HIGHBD_DC_PREDICTOR_RECT(w, h, q, shift, mult)                                          \
     void svt_aom_highbd_dc_predictor_##w##x##h##_neon(                                          \
-        uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left, int bd) { \
+        uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left, int bd) { \
         (void)bd;                                                                               \
         uint16x8_t sum_above = highbd_dc_load_partial_sum_##w(above);                           \
         uint16x8_t sum_left  = highbd_dc_load_partial_sum_##h(left);                            \
@@ -1231,31 +1238,31 @@ HIGHBD_DC_PREDICTOR_RECT(64, 32, q, 5, HIGHBD_DC_MULTIPLIER_1X2)
 // -----------------------------------------------------------------------------
 // DC_LEFT
 
-static inline uint32x4_t highbd_dc_load_sum_4(const uint16_t *left) {
+static inline uint32x4_t highbd_dc_load_sum_4(const uint16_t* left) {
     const uint16x4_t a = vld1_u16(left); // up to 10 bits
     const uint16x4_t b = vpadd_u16(a, a); // up to 11 bits
     return vcombine_u32(vpaddl_u16(b), vdup_n_u32(0));
 }
 
-static inline uint32x4_t highbd_dc_load_sum_8(const uint16_t *left) {
+static inline uint32x4_t highbd_dc_load_sum_8(const uint16_t* left) {
     return horizontal_add_and_broadcast_long_u16x8(vld1q_u16(left));
 }
 
-static inline uint32x4_t highbd_dc_load_sum_16(const uint16_t *left) {
+static inline uint32x4_t highbd_dc_load_sum_16(const uint16_t* left) {
     return horizontal_add_and_broadcast_long_u16x8(highbd_dc_load_partial_sum_16(left));
 }
 
-static inline uint32x4_t highbd_dc_load_sum_32(const uint16_t *left) {
+static inline uint32x4_t highbd_dc_load_sum_32(const uint16_t* left) {
     return horizontal_add_and_broadcast_long_u16x8(highbd_dc_load_partial_sum_32(left));
 }
 
-static inline uint32x4_t highbd_dc_load_sum_64(const uint16_t *left) {
+static inline uint32x4_t highbd_dc_load_sum_64(const uint16_t* left) {
     return horizontal_add_and_broadcast_long_u16x8(highbd_dc_load_partial_sum_64(left));
 }
 
 #define DC_PREDICTOR_LEFT(w, h, shift, q)                                                       \
     void svt_aom_highbd_dc_left_predictor_##w##x##h##_neon(                                     \
-        uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left, int bd) { \
+        uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left, int bd) { \
         (void)above;                                                                            \
         (void)bd;                                                                               \
         const uint32x4_t sum = highbd_dc_load_sum_##h(left);                                    \
@@ -1290,7 +1297,7 @@ DC_PREDICTOR_LEFT(64, 64, 6, q)
 
 #define DC_PREDICTOR_TOP(w, h, shift, q)                                                        \
     void svt_aom_highbd_dc_top_predictor_##w##x##h##_neon(                                      \
-        uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left, int bd) { \
+        uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left, int bd) { \
         (void)bd;                                                                               \
         (void)left;                                                                             \
         const uint32x4_t sum = highbd_dc_load_sum_##w(above);                                   \
@@ -1325,7 +1332,7 @@ DC_PREDICTOR_TOP(64, 64, 6, q)
 
 #define HIGHBD_DC_PREDICTOR_128(w, h, q)                                                        \
     void svt_aom_highbd_dc_128_predictor_##w##x##h##_neon(                                      \
-        uint16_t *dst, ptrdiff_t stride, const uint16_t *above, const uint16_t *left, int bd) { \
+        uint16_t* dst, ptrdiff_t stride, const uint16_t* above, const uint16_t* left, int bd) { \
         (void)above;                                                                            \
         (void)left;                                                                             \
         highbd_dc_store_##w##xh(dst, stride, (h), vdup##q##_n_u16(0x80 << (bd - 8)));           \
@@ -1386,14 +1393,14 @@ static const uint8_t kLoadMaxShuffles[] = {
 };
 // clang-format on
 
-static inline uint16x8_t zn_load_masked_neon(const uint16_t *ptr, int shuffle_idx) {
+static inline uint16x8_t zn_load_masked_neon(const uint16_t* ptr, int shuffle_idx) {
     uint8x16_t shuffle = vld1q_u8(&kLoadMaxShuffles[16 * shuffle_idx]);
     uint8x16_t src     = vreinterpretq_u8_u16(vld1q_u16(ptr));
     return vreinterpretq_u16_u8(vqtbl1q_u8(src, shuffle));
 }
 
-static inline void highbd_dr_prediction_z1_upsample0_neon(uint16_t *dst, ptrdiff_t stride, int bw, int bh,
-                                                          const uint16_t *above, int dx) {
+static inline void highbd_dr_prediction_z1_upsample0_neon(uint16_t* dst, ptrdiff_t stride, int bw, int bh,
+                                                          const uint16_t* above, int dx) {
     assert(bw % 4 == 0);
     assert(bh % 4 == 0);
     assert(dx > 0);
@@ -1461,8 +1468,8 @@ static inline void highbd_dr_prediction_z1_upsample0_neon(uint16_t *dst, ptrdiff
     } while (++r < bh);
 }
 
-static inline void highbd_dr_prediction_z1_upsample1_neon(uint16_t *dst, ptrdiff_t stride, int bw, int bh,
-                                                          const uint16_t *above, int dx) {
+static inline void highbd_dr_prediction_z1_upsample1_neon(uint16_t* dst, ptrdiff_t stride, int bw, int bh,
+                                                          const uint16_t* above, int dx) {
     assert(bw % 4 == 0);
     assert(bh % 4 == 0);
     assert(dx > 0);
@@ -1515,8 +1522,8 @@ static inline void highbd_dr_prediction_z1_upsample1_neon(uint16_t *dst, ptrdiff
 }
 
 // Directional prediction, zone 1: 0 < angle < 90
-void svt_av1_highbd_dr_prediction_z1_neon(uint16_t *dst, ptrdiff_t stride, int bw, int bh, const uint16_t *above,
-                                          const uint16_t *left, int upsample_above, int dx, int dy, int bd) {
+void svt_av1_highbd_dr_prediction_z1_neon(uint16_t* dst, ptrdiff_t stride, int bw, int bh, const uint16_t* above,
+                                          const uint16_t* left, int upsample_above, int dx, int dy, int bd) {
     (void)left;
     (void)dy;
     (void)bd;
@@ -1532,6 +1539,7 @@ void svt_av1_highbd_dr_prediction_z1_neon(uint16_t *dst, ptrdiff_t stride, int b
 // -----------------------------------------------------------------------------
 // Z2
 
+// clang-format off
 // Incrementally shift more elements from `above` into the result, merging with
 // existing `left` elements.
 // X0, X1, X2, X3
@@ -1539,7 +1547,6 @@ void svt_av1_highbd_dr_prediction_z1_neon(uint16_t *dst, ptrdiff_t stride, int b
 // Y0, Y1, X0, X1
 // Y0, Y1, Y2, X0
 // Y0, Y1, Y2, Y3
-// clang-format off
 static const uint8_t z2_merge_shuffles_u16x4[5][8] = {
   {  8,  9, 10, 11, 12, 13, 14, 15 },
   {  0,  1,  8,  9, 10, 11, 12, 13 },
@@ -1547,7 +1554,6 @@ static const uint8_t z2_merge_shuffles_u16x4[5][8] = {
   {  0,  1,  2,  3,  4,  5,  8,  9 },
   {  0,  1,  2,  3,  4,  5,  6,  7 },
 };
-// clang-format on
 
 // Incrementally shift more elements from `above` into the result, merging with
 // existing `left` elements.
@@ -1560,7 +1566,6 @@ static const uint8_t z2_merge_shuffles_u16x4[5][8] = {
 // Y0, Y1, Y2, Y3, Y4, Y5, X0, X1
 // Y0, Y1, Y2, Y3, Y4, Y5, Y6, X0
 // Y0, Y1, Y2, Y3, Y4, Y5, Y6, Y7
-// clang-format off
 static const uint8_t z2_merge_shuffles_u16x8[9][16] = {
   { 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 },
   {  0,  1, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29 },
@@ -1572,9 +1577,7 @@ static const uint8_t z2_merge_shuffles_u16x8[9][16] = {
   {  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 16, 17 },
   {  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15 },
 };
-// clang-format on
 
-// clang-format off
 static const uint16_t z2_y_iter_masks_u16x4[5][4] = {
   {      0U,      0U,      0U,      0U },
   { 0xffffU,      0U,      0U,      0U },
@@ -1582,9 +1585,7 @@ static const uint16_t z2_y_iter_masks_u16x4[5][4] = {
   { 0xffffU, 0xffffU, 0xffffU,      0U },
   { 0xffffU, 0xffffU, 0xffffU, 0xffffU },
 };
-// clang-format on
 
-// clang-format off
 static const uint16_t z2_y_iter_masks_u16x8[9][8] = {
   {      0U,      0U,      0U,      0U,      0U,      0U,      0U,      0U },
   { 0xffffU,      0U,      0U,      0U,      0U,      0U,      0U,      0U },
@@ -1648,7 +1649,7 @@ static AOM_FORCE_INLINE uint16x8_t highbd_dr_prediction_z2_tbl_left_x8_from_x16(
     return vandq_u16(ret, vld1q_u16(z2_y_iter_masks_u16x8[n]));
 }
 
-static AOM_FORCE_INLINE uint16x4x2_t highbd_dr_prediction_z2_gather_left_x4(const uint16_t *left,
+static AOM_FORCE_INLINE uint16x4x2_t highbd_dr_prediction_z2_gather_left_x4(const uint16_t* left,
                                                                             const int16x4_t indices, int n) {
     assert(n > 0);
     assert(n <= 4);
@@ -1680,7 +1681,7 @@ static AOM_FORCE_INLINE uint16x4x2_t highbd_dr_prediction_z2_gather_left_x4(cons
     return vuzp_u16(vreinterpret_u16_u32(ret0_u32), vreinterpret_u16_u32(ret1_u32));
 }
 
-static AOM_FORCE_INLINE uint16x8x2_t highbd_dr_prediction_z2_gather_left_x8(const uint16_t *left,
+static AOM_FORCE_INLINE uint16x8x2_t highbd_dr_prediction_z2_gather_left_x8(const uint16_t* left,
                                                                             const int16x8_t indices, int n) {
     assert(n > 0);
     assert(n <= 8);
@@ -1763,8 +1764,8 @@ static AOM_FORCE_INLINE uint16x8_t highbd_dr_prediction_z2_apply_shift_x8(uint16
         highbd_dr_prediction_z2_apply_shift_x4(vget_high_u16(a0), vget_high_u16(a1), vget_high_s16(shift)));
 }
 
-static AOM_FORCE_INLINE uint16x4_t highbd_dr_prediction_z2_step_x4(const uint16_t *above, const uint16x4_t above0,
-                                                                   const uint16x4_t above1, const uint16_t *left,
+static AOM_FORCE_INLINE uint16x4_t highbd_dr_prediction_z2_step_x4(const uint16_t* above, const uint16x4_t above0,
+                                                                   const uint16x4_t above1, const uint16_t* left,
                                                                    int dx, int dy, int r, int c) {
     const int16x4_t iota = vld1_s16(iota1_s16);
 
@@ -1808,8 +1809,8 @@ static AOM_FORCE_INLINE uint16x4_t highbd_dr_prediction_z2_step_x4(const uint16_
     }
 }
 
-static AOM_FORCE_INLINE uint16x8_t highbd_dr_prediction_z2_step_x8(const uint16_t *above, const uint16x8_t above0,
-                                                                   const uint16x8_t above1, const uint16_t *left,
+static AOM_FORCE_INLINE uint16x8_t highbd_dr_prediction_z2_step_x8(const uint16_t* above, const uint16x8_t above0,
+                                                                   const uint16x8_t above1, const uint16_t* left,
                                                                    int dx, int dy, int r, int c) {
     const int16x8_t iota = vld1q_s16(iota1_s16);
 
@@ -1856,10 +1857,10 @@ static AOM_FORCE_INLINE uint16x8_t highbd_dr_prediction_z2_step_x8(const uint16_
 // Left array is accessed from -1 through `bh - 1` inclusive.
 // Above array is accessed from -1 through `bw - 1` inclusive.
 #define HIGHBD_DR_PREDICTOR_Z2_WXH(bw, bh)                                                                       \
-    static inline void highbd_dr_prediction_z2_##bw##x##bh##_neon(uint16_t       *dst,                           \
+    static inline void highbd_dr_prediction_z2_##bw##x##bh##_neon(uint16_t*       dst,                           \
                                                                   ptrdiff_t       stride,                        \
-                                                                  const uint16_t *above,                         \
-                                                                  const uint16_t *left,                          \
+                                                                  const uint16_t* above,                         \
+                                                                  const uint16_t* left,                          \
                                                                   int             upsample_above,                \
                                                                   int             upsample_left,                 \
                                                                   int             dx,                            \
@@ -1922,12 +1923,12 @@ HIGHBD_DR_PREDICTOR_Z2_WXH(64, 64)
 
 #undef HIGHBD_DR_PREDICTOR_Z2_WXH
 
-typedef void (*highbd_dr_prediction_z2_ptr)(uint16_t *dst, ptrdiff_t stride, const uint16_t *above,
-                                            const uint16_t *left, int upsample_above, int upsample_left, int dx, int dy,
+typedef void (*highbd_dr_prediction_z2_ptr)(uint16_t* dst, ptrdiff_t stride, const uint16_t* above,
+                                            const uint16_t* left, int upsample_above, int upsample_left, int dx, int dy,
                                             int bd);
 
-static inline void highbd_dr_prediction_z2_4x4_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *above,
-                                                    const uint16_t *left, int upsample_above, int upsample_left, int dx,
+static inline void highbd_dr_prediction_z2_4x4_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* above,
+                                                    const uint16_t* left, int upsample_above, int upsample_left, int dx,
                                                     int dy, int bd) {
     (void)bd;
     assert(dx > 0);
@@ -2017,8 +2018,8 @@ static inline void highbd_dr_prediction_z2_4x4_neon(uint16_t *dst, ptrdiff_t str
     }
 }
 
-static inline void highbd_dr_prediction_z2_4x8_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *above,
-                                                    const uint16_t *left, int upsample_above, int upsample_left, int dx,
+static inline void highbd_dr_prediction_z2_4x8_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* above,
+                                                    const uint16_t* left, int upsample_above, int upsample_left, int dx,
                                                     int dy, int bd) {
     (void)bd;
     assert(dx > 0);
@@ -2112,8 +2113,8 @@ static inline void highbd_dr_prediction_z2_4x8_neon(uint16_t *dst, ptrdiff_t str
     }
 }
 
-static inline void highbd_dr_prediction_z2_8x4_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *above,
-                                                    const uint16_t *left, int upsample_above, int upsample_left, int dx,
+static inline void highbd_dr_prediction_z2_8x4_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* above,
+                                                    const uint16_t* left, int upsample_above, int upsample_left, int dx,
                                                     int dy, int bd) {
     (void)bd;
     assert(dx > 0);
@@ -2207,8 +2208,8 @@ static inline void highbd_dr_prediction_z2_8x4_neon(uint16_t *dst, ptrdiff_t str
     }
 }
 
-static inline void highbd_dr_prediction_z2_8x8_neon(uint16_t *dst, ptrdiff_t stride, const uint16_t *above,
-                                                    const uint16_t *left, int upsample_above, int upsample_left, int dx,
+static inline void highbd_dr_prediction_z2_8x8_neon(uint16_t* dst, ptrdiff_t stride, const uint16_t* above,
+                                                    const uint16_t* left, int upsample_above, int upsample_left, int dx,
                                                     int dy, int bd) {
     (void)bd;
     assert(dx > 0);
@@ -2343,8 +2344,8 @@ static highbd_dr_prediction_z2_ptr dr_predictor_z2_arr_neon[7][7] = {
 };
 
 // Directional prediction, zone 2: 90 < angle < 180
-void svt_av1_highbd_dr_prediction_z2_neon(uint16_t *dst, ptrdiff_t stride, int bw, int bh, const uint16_t *above,
-                                          const uint16_t *left, int upsample_above, int upsample_left, int dx, int dy,
+void svt_av1_highbd_dr_prediction_z2_neon(uint16_t* dst, ptrdiff_t stride, int bw, int bh, const uint16_t* above,
+                                          const uint16_t* left, int upsample_above, int upsample_left, int dx, int dy,
                                           int bd) {
     highbd_dr_prediction_z2_ptr f = dr_predictor_z2_arr_neon[get_msb(bw)][get_msb(bh)];
     assert(f != NULL);
@@ -2373,7 +2374,7 @@ void svt_av1_highbd_dr_prediction_z2_neon(uint16_t *dst, ptrdiff_t stride, int b
         *(out)            = vcombine_u16(vrshrn_n_u32(val_lo, (shift)), vrshrn_n_u32(val_hi, (shift))); \
     } while (0)
 
-static inline uint16x8x2_t z3_load_left_neon(const uint16_t *left0, int ofs, int max_ofs) {
+static inline uint16x8x2_t z3_load_left_neon(const uint16_t* left0, int ofs, int max_ofs) {
     uint16x8_t r0;
     uint16x8_t r1;
     if (ofs + 7 >= max_ofs) {
@@ -2391,8 +2392,8 @@ static inline uint16x8x2_t z3_load_left_neon(const uint16_t *left0, int ofs, int
     return (uint16x8x2_t){{r0, r1}};
 }
 
-static inline void highbd_dr_prediction_z3_upsample0_neon(uint16_t *dst, ptrdiff_t stride, int bw, int bh,
-                                                          const uint16_t *left, int dy) {
+static inline void highbd_dr_prediction_z3_upsample0_neon(uint16_t* dst, ptrdiff_t stride, int bw, int bh,
+                                                          const uint16_t* left, int dy) {
     assert(bw % 4 == 0);
     assert(bh % 4 == 0);
     assert(dy > 0);
@@ -2400,7 +2401,7 @@ static inline void highbd_dr_prediction_z3_upsample0_neon(uint16_t *dst, ptrdiff
     // Factor out left + 1 to give the compiler a better chance of recognising
     // that the offsets used for the loads from left and left + 1 are otherwise
     // identical.
-    const uint16_t *left1 = left + 1;
+    const uint16_t* left1 = left + 1;
 
     const int max_base_y = (bw + bh - 1);
     const int left_max   = left[max_base_y];
@@ -2457,7 +2458,9 @@ static inline void highbd_dr_prediction_z3_upsample0_neon(uint16_t *dst, ptrdiff
                 HIGHBD_DR_PREDICTOR_Z3_STEP_X4(&out[3], iota1x4, base3, l30, l31, shifts0, shifts1, 3, 6);
             }
             transpose_array_inplace_u16_4x4(out);
-            for (int r2 = 0; r2 < 4; ++r2) { vst1_u16(dst + r2 * stride + c, out[r2]); }
+            for (int r2 = 0; r2 < 4; ++r2) {
+                vst1_u16(dst + r2 * stride + c, out[r2]);
+            }
             y += 4 * dy;
             c += 4;
         } while (c < bw);
@@ -2505,8 +2508,12 @@ static inline void highbd_dr_prediction_z3_upsample0_neon(uint16_t *dst, ptrdiff
                         &out[3], iota1x8, base3, l3.val[0], l3.val[1], shifts0, shifts1, 3, 6);
                 }
                 transpose_array_inplace_u16_4x8(out);
-                for (int r2 = 0; r2 < 4; ++r2) { vst1_u16(dst + (r + r2) * stride + c, vget_low_u16(out[r2])); }
-                for (int r2 = 0; r2 < 4; ++r2) { vst1_u16(dst + (r + r2 + 4) * stride + c, vget_high_u16(out[r2])); }
+                for (int r2 = 0; r2 < 4; ++r2) {
+                    vst1_u16(dst + (r + r2) * stride + c, vget_low_u16(out[r2]));
+                }
+                for (int r2 = 0; r2 < 4; ++r2) {
+                    vst1_u16(dst + (r + r2 + 4) * stride + c, vget_high_u16(out[r2]));
+                }
                 r += 8;
             } while (r < bh);
             y += 4 * dy;
@@ -2515,8 +2522,8 @@ static inline void highbd_dr_prediction_z3_upsample0_neon(uint16_t *dst, ptrdiff
     }
 }
 
-static inline void highbd_dr_prediction_z3_upsample1_neon(uint16_t *dst, ptrdiff_t stride, int bw, int bh,
-                                                          const uint16_t *left, int dy) {
+static inline void highbd_dr_prediction_z3_upsample1_neon(uint16_t* dst, ptrdiff_t stride, int bw, int bh,
+                                                          const uint16_t* left, int dy) {
     assert(bw % 4 == 0);
     assert(bh % 4 == 0);
     assert(dy > 0);
@@ -2558,7 +2565,9 @@ static inline void highbd_dr_prediction_z3_upsample1_neon(uint16_t *dst, ptrdiff
             HIGHBD_DR_PREDICTOR_Z3_STEP_X4(&out[2], iota2x4, base2, l2.val[0], l2.val[1], shifts0, shifts1, 2, 5);
             HIGHBD_DR_PREDICTOR_Z3_STEP_X4(&out[3], iota2x4, base3, l3.val[0], l3.val[1], shifts0, shifts1, 3, 5);
             transpose_array_inplace_u16_4x4(out);
-            for (int r2 = 0; r2 < 4; ++r2) { vst1_u16(dst + r2 * stride + c, out[r2]); }
+            for (int r2 = 0; r2 < 4; ++r2) {
+                vst1_u16(dst + r2 * stride + c, out[r2]);
+            }
             y += 4 * dy;
             c += 4;
         } while (c < bw);
@@ -2588,8 +2597,12 @@ static inline void highbd_dr_prediction_z3_upsample1_neon(uint16_t *dst, ptrdiff
                 HIGHBD_DR_PREDICTOR_Z3_STEP_X8(&out[2], iota2x8, base2, l2.val[0], l2.val[1], shifts0, shifts1, 2, 5);
                 HIGHBD_DR_PREDICTOR_Z3_STEP_X8(&out[3], iota2x8, base3, l3.val[0], l3.val[1], shifts0, shifts1, 3, 5);
                 transpose_array_inplace_u16_4x8(out);
-                for (int r2 = 0; r2 < 4; ++r2) { vst1_u16(dst + (r + r2) * stride + c, vget_low_u16(out[r2])); }
-                for (int r2 = 0; r2 < 4; ++r2) { vst1_u16(dst + (r + r2 + 4) * stride + c, vget_high_u16(out[r2])); }
+                for (int r2 = 0; r2 < 4; ++r2) {
+                    vst1_u16(dst + (r + r2) * stride + c, vget_low_u16(out[r2]));
+                }
+                for (int r2 = 0; r2 < 4; ++r2) {
+                    vst1_u16(dst + (r + r2 + 4) * stride + c, vget_high_u16(out[r2]));
+                }
                 r += 8;
             } while (r < bh);
             y += 4 * dy;
@@ -2599,8 +2612,8 @@ static inline void highbd_dr_prediction_z3_upsample1_neon(uint16_t *dst, ptrdiff
 }
 
 // Directional prediction, zone 3: 180 < angle < 270
-void svt_av1_highbd_dr_prediction_z3_neon(uint16_t *dst, ptrdiff_t stride, int bw, int bh, const uint16_t *above,
-                                          const uint16_t *left, int upsample_left, int dx, int dy, int bd) {
+void svt_av1_highbd_dr_prediction_z3_neon(uint16_t* dst, ptrdiff_t stride, int bw, int bh, const uint16_t* above,
+                                          const uint16_t* left, int upsample_left, int dx, int dy, int bd) {
     (void)above;
     (void)dx;
     (void)bd;

@@ -21,10 +21,11 @@ float svt_aom_noise_psd_get_default_value(int32_t block_size, float factor) {
     return (factor * factor / 10000) * block_size * block_size / 8;
 }
 
-struct aom_noise_tx_t *svt_aom_noise_tx_malloc(int32_t block_size) {
-    struct aom_noise_tx_t *noise_tx = (struct aom_noise_tx_t *)malloc(sizeof(struct aom_noise_tx_t));
-    if (!noise_tx)
+struct aom_noise_tx_t* svt_aom_noise_tx_malloc(int32_t block_size) {
+    struct aom_noise_tx_t* noise_tx = (struct aom_noise_tx_t*)malloc(sizeof(struct aom_noise_tx_t));
+    if (!noise_tx) {
         return NULL;
+    }
     memset(noise_tx, 0, sizeof(*noise_tx));
     switch (block_size) {
     case 2:
@@ -53,8 +54,8 @@ struct aom_noise_tx_t *svt_aom_noise_tx_malloc(int32_t block_size) {
         return NULL;
     }
     noise_tx->block_size = block_size;
-    noise_tx->tx_block   = (float *)svt_aom_memalign(32, 2 * sizeof(*noise_tx->tx_block) * block_size * block_size);
-    noise_tx->temp       = (float *)svt_aom_memalign(32, 2 * sizeof(*noise_tx->temp) * block_size * block_size);
+    noise_tx->tx_block   = (float*)svt_aom_memalign(32, 2 * sizeof(*noise_tx->tx_block) * block_size * block_size);
+    noise_tx->temp       = (float*)svt_aom_memalign(32, 2 * sizeof(*noise_tx->temp) * block_size * block_size);
     if (!noise_tx->tx_block || !noise_tx->temp) {
         svt_aom_noise_tx_free(noise_tx);
         return NULL;
@@ -66,16 +67,16 @@ struct aom_noise_tx_t *svt_aom_noise_tx_malloc(int32_t block_size) {
     return noise_tx;
 }
 
-void svt_aom_noise_tx_forward(struct aom_noise_tx_t *noise_tx, const float *data) {
+void svt_aom_noise_tx_forward(struct aom_noise_tx_t* noise_tx, const float* data) {
     noise_tx->fft(data, noise_tx->temp, noise_tx->tx_block);
 }
 
-void svt_aom_noise_tx_filter_c(int32_t block_size, float *block_ptr, const float psd) {
+void svt_aom_noise_tx_filter_c(int32_t block_size, float* block_ptr, const float psd) {
     const float k_beta               = 1.1f;
     const float k_beta_m1_div_k_beta = (k_beta - 1.0f) / k_beta;
     const float psd_mul_k_beta       = k_beta * psd;
     const float k_eps                = 1e-6f;
-    float      *tx_block             = block_ptr;
+    float*      tx_block             = block_ptr;
     for (int32_t y = 0; y < block_size; ++y) {
         for (int32_t x = 0; x < block_size; ++x) {
             const float p = tx_block[0] * tx_block[0] + tx_block[1] * tx_block[1];
@@ -92,15 +93,18 @@ void svt_aom_noise_tx_filter_c(int32_t block_size, float *block_ptr, const float
     }
 }
 
-void svt_aom_noise_tx_inverse(struct aom_noise_tx_t *noise_tx, float *data) {
+void svt_aom_noise_tx_inverse(struct aom_noise_tx_t* noise_tx, float* data) {
     const int32_t n = noise_tx->block_size * noise_tx->block_size;
     noise_tx->ifft(noise_tx->tx_block, noise_tx->temp, data);
-    for (int32_t i = 0; i < n; ++i) data[i] /= n;
+    for (int32_t i = 0; i < n; ++i) {
+        data[i] /= n;
+    }
 }
 
-void svt_aom_noise_tx_free(struct aom_noise_tx_t *noise_tx) {
-    if (!noise_tx)
+void svt_aom_noise_tx_free(struct aom_noise_tx_t* noise_tx) {
+    if (!noise_tx) {
         return;
+    }
     svt_aom_free(noise_tx->tx_block);
     svt_aom_free(noise_tx->temp);
     free(noise_tx);

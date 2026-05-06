@@ -26,6 +26,7 @@
 #include "FrameQueue.h"
 #include "PerformanceCollect.h"
 #include "CompareTools.h"
+#include "app_config.h"
 #include "definitions.h"
 #include "RefDecoder.h"
 // Copied from EbAppProcessCmd.c
@@ -60,8 +61,9 @@ typedef struct {
         *input_picture_buffer; /**< input buffer of encoder in test */
 } SvtAv1Context;
 
-/** SvtAv1E2ETestFramework is a class with impelmention of video source control,
- * encoding progress, decoding progress, data collection and data comparision */
+/** SvtAv1E2ETestFramework is a class with implementation of video source
+ * control, encoding progress, decoding progress, data collection and data
+ * comparison */
 class SvtAv1E2ETestFramework : public ::testing::TestWithParam<EncTestSetting> {
   public:
     struct IvfFile {
@@ -193,7 +195,8 @@ class SvtAv1E2ETestFramework : public ::testing::TestWithParam<EncTestSetting> {
     bool enable_config;  /**< flag to control if use configuratio of encoder
                             params */
     bool enable_invert_tile_decoding;
-    void *enc_config_; /**< handle of encoder configuration data structure */
+    EbConfigWrapper
+        enc_config_; /**< handle of encoder configuration data structure */
     int insert_blank_interval; /**< interval of inserting blank frame in
                                   source*/
 };

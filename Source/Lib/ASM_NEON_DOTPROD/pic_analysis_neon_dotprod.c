@@ -15,8 +15,8 @@
 #include "me_context.h"
 #include "mem_neon.h"
 
-void svt_compute_interm_var_four8x8_neon_dotprod(uint8_t *input_samples, uint16_t input_stride,
-                                                 uint64_t *mean_of8x8_blocks, uint64_t *mean_of_squared8x8_blocks) {
+void svt_compute_interm_var_four8x8_neon_dotprod(uint8_t* input_samples, uint16_t input_stride,
+                                                 uint64_t* mean_of8x8_blocks, uint64_t* mean_of_squared8x8_blocks) {
     uint8x16_t s0, s1, s2, s3;
     // First and second 8x8 block.
     load_u8_16x4(input_samples, 2 * input_stride, &s0, &s1, &s2, &s3);

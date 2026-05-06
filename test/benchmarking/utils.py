@@ -45,6 +45,7 @@ def delete_file(fpath):
     if os.path.exists(fpath):
         os.remove(fpath)
 
+
 def clean_directory(directory):
     # purge entire dir
     if os.path.isdir(directory):

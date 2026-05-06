@@ -25,7 +25,7 @@
 
 #include "gtest/gtest.h"
 #include "aom_dsp_rtcd.h"
-#include "definitions.h"
+#include "common_utils.h"
 #include "random.h"
 #include "util.h"
 namespace {
@@ -288,7 +288,7 @@ TEST_P(AomUpsampledPredTest, MatchTest) {
 INSTANTIATE_TEST_SUITE_P(
     SSE2, AomUpsampledPredTest,
     ::testing::Combine(
-        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+        ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
         ::testing::Values(svt_aom_upsampled_pred_sse2),
         ::testing::Values((int)USE_2_TAPS, (int)USE_4_TAPS, (int)USE_8_TAPS),
         ::testing::Values(0, 1, 2), ::testing::Values(0, 1, 2),
@@ -298,7 +298,7 @@ INSTANTIATE_TEST_SUITE_P(
 #ifdef ARCH_AARCH64
 INSTANTIATE_TEST_SUITE_P(
     NEON, AomUpsampledPredTest,
-    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
                        ::testing::Values(svt_aom_upsampled_pred_neon),
                        ::testing::Values((int)USE_2_TAPS, (int)USE_4_TAPS,
                                          (int)USE_8_TAPS),
@@ -308,7 +308,7 @@ INSTANTIATE_TEST_SUITE_P(
 #if HAVE_NEON_DOTPROD
 INSTANTIATE_TEST_SUITE_P(
     NEON_DOTPROD, AomUpsampledPredTest,
-    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
                        ::testing::Values(svt_aom_upsampled_pred_neon),
                        ::testing::Values((int)USE_2_TAPS, (int)USE_4_TAPS,
                                          (int)USE_8_TAPS),
@@ -319,7 +319,7 @@ INSTANTIATE_TEST_SUITE_P(
 #if HAVE_NEON_I8MM
 INSTANTIATE_TEST_SUITE_P(
     NEON_I8MM, AomUpsampledPredTest,
-    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
                        ::testing::Values(svt_aom_upsampled_pred_neon),
                        ::testing::Values((int)USE_2_TAPS, (int)USE_4_TAPS,
                                          (int)USE_8_TAPS),
@@ -390,7 +390,7 @@ TEST_P(CflLumaSubsamplingLbdTest, MatchTest) {
 INSTANTIATE_TEST_SUITE_P(
     AVX2, CflLumaSubsamplingLbdTest,
     ::testing::Combine(
-        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+        ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
         ::testing::Values(svt_cfl_luma_subsampling_420_lbd_avx2)));
 #endif
 
@@ -398,7 +398,7 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     NEON, CflLumaSubsamplingLbdTest,
     ::testing::Combine(
-        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+        ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
         ::testing::Values(svt_cfl_luma_subsampling_420_lbd_neon)));
 #endif
 
@@ -464,7 +464,7 @@ TEST_P(CflLumaSubsamplingHbdTest, MatchTest) {
 INSTANTIATE_TEST_SUITE_P(
     AVX2, CflLumaSubsamplingHbdTest,
     ::testing::Combine(
-        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+        ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
         ::testing::Values(svt_cfl_luma_subsampling_420_hbd_avx2)));
 #endif  // ARCH_X86_64
 
@@ -472,7 +472,7 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     NEON, CflLumaSubsamplingHbdTest,
     ::testing::Combine(
-        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+        ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL),
         ::testing::Values(svt_cfl_luma_subsampling_420_hbd_neon)));
 #endif  // ARCH_AARCH64
 

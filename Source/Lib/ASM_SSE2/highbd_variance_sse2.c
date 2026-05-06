@@ -15,24 +15,24 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef uint32_t (*HighVarianceFn)(const uint16_t *src, int32_t src_stride, const uint16_t *ref, int32_t ref_stride,
-                                   uint32_t *sse, int32_t *sum);
+typedef uint32_t (*HighVarianceFn)(const uint16_t* src, int32_t src_stride, const uint16_t* ref, int32_t ref_stride,
+                                   uint32_t* sse, int32_t* sum);
 
-uint32_t svt_aom_highbd_calc4x4var_sse2(const uint16_t *src, int32_t src_stride, const uint16_t *ref,
-                                        int32_t ref_stride, uint32_t *sse, int32_t *sum);
+uint32_t svt_aom_highbd_calc4x4var_sse2(const uint16_t* src, int32_t src_stride, const uint16_t* ref,
+                                        int32_t ref_stride, uint32_t* sse, int32_t* sum);
 
-uint32_t svt_aom_highbd_calc8x8var_sse2(const uint16_t *src, int32_t src_stride, const uint16_t *ref,
-                                        int32_t ref_stride, uint32_t *sse, int32_t *sum);
+uint32_t svt_aom_highbd_calc8x8var_sse2(const uint16_t* src, int32_t src_stride, const uint16_t* ref,
+                                        int32_t ref_stride, uint32_t* sse, int32_t* sum);
 
-uint32_t svt_aom_highbd_calc16x16var_sse2(const uint16_t *src, int32_t src_stride, const uint16_t *ref,
-                                          int32_t ref_stride, uint32_t *sse, int32_t *sum);
+uint32_t svt_aom_highbd_calc16x16var_sse2(const uint16_t* src, int32_t src_stride, const uint16_t* ref,
+                                          int32_t ref_stride, uint32_t* sse, int32_t* sum);
 
 #ifdef __cplusplus
 }
 #endif // __cplusplus
 
-static void highbd_10_variance_sse2(const uint16_t *src, int32_t src_stride, const uint16_t *ref, int32_t ref_stride,
-                                    int32_t w, int32_t h, uint32_t *sse, int32_t *sum, HighVarianceFn var_fn,
+static void highbd_10_variance_sse2(const uint16_t* src, int32_t src_stride, const uint16_t* ref, int32_t ref_stride,
+                                    int32_t w, int32_t h, uint32_t* sse, int32_t* sum, HighVarianceFn var_fn,
                                     int32_t block_size) {
     int32_t  i, j;
     uint64_t sse_long = 0;
@@ -53,11 +53,11 @@ static void highbd_10_variance_sse2(const uint16_t *src, int32_t src_stride, con
 
 #define VAR_FN(w, h, block_size, shift)                                                                    \
     uint32_t svt_aom_highbd_10_variance##w##x##h##_sse2(                                                   \
-        const uint8_t *src8, int32_t src_stride, const uint8_t *ref8, int32_t ref_stride, uint32_t *sse) { \
+        const uint8_t* src8, int32_t src_stride, const uint8_t* ref8, int32_t ref_stride, uint32_t* sse) { \
         int32_t   sum;                                                                                     \
         int64_t   var;                                                                                     \
-        uint16_t *src = CONVERT_TO_SHORTPTR(src8);                                                         \
-        uint16_t *ref = CONVERT_TO_SHORTPTR(ref8);                                                         \
+        uint16_t* src = CONVERT_TO_SHORTPTR(src8);                                                         \
+        uint16_t* ref = CONVERT_TO_SHORTPTR(ref8);                                                         \
         highbd_10_variance_sse2(src,                                                                       \
                                 src_stride,                                                                \
                                 ref,                                                                       \
@@ -93,10 +93,10 @@ VAR_FN(64, 16, 16, 10);
 
 #undef VAR_FN
 
-uint32_t svt_aom_highbd_mse16x16_sse2(const uint8_t *src8, int32_t src_stride, const uint8_t *ref8,
+uint32_t svt_aom_highbd_mse16x16_sse2(const uint8_t* src8, int32_t src_stride, const uint8_t* ref8,
                                       int32_t ref_stride) {
-    uint16_t *src = CONVERT_TO_SHORTPTR(src8);
-    uint16_t *ref = CONVERT_TO_SHORTPTR(ref8);
+    uint16_t* src = CONVERT_TO_SHORTPTR(src8);
+    uint16_t* ref = CONVERT_TO_SHORTPTR(ref8);
 
     /*TODO: Remove calculate unused sum.*/
     int32_t  sum;

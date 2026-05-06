@@ -20,7 +20,7 @@ extern "C" {
 
 double svt_av1_compute_overall_elapsed_time_ms(const uint64_t start_seconds, const uint64_t start_useconds,
                                                const uint64_t finish_seconds, const uint64_t finish_useconds);
-void   svt_av1_get_time(uint64_t *const seconds, uint64_t *const useconds);
+void   svt_av1_get_time(uint64_t* const seconds, uint64_t* const useconds);
 
 #ifdef __cplusplus
 }

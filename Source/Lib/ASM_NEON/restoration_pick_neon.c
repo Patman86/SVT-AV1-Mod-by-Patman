@@ -15,9 +15,9 @@
 #include "definitions.h"
 #include "restoration.h"
 
-static inline void svt_calc_proj_params_r0_r1_lowbd_neon(const uint8_t *src8, int32_t width, int32_t height,
-                                                         int32_t src_stride, const uint8_t *dat8, int32_t dat_stride,
-                                                         int32_t *flt0, int32_t flt0_stride, int32_t *flt1,
+static inline void svt_calc_proj_params_r0_r1_lowbd_neon(const uint8_t* src8, int32_t width, int32_t height,
+                                                         int32_t src_stride, const uint8_t* dat8, int32_t dat_stride,
+                                                         int32_t* flt0, int32_t flt0_stride, int32_t* flt1,
                                                          int32_t flt1_stride, double H[2][2], double C[2]) {
     const int32_t size   = width * height;
     int64x2_t     h00_lo = vdupq_n_s64(0);
@@ -33,10 +33,10 @@ static inline void svt_calc_proj_params_r0_r1_lowbd_neon(const uint8_t *src8, in
 
     assert(width % 8 == 0);
     do {
-        const uint8_t *src_ptr  = src8;
-        const uint8_t *dat_ptr  = dat8;
-        int32_t       *flt0_ptr = flt0;
-        int32_t       *flt1_ptr = flt1;
+        const uint8_t* src_ptr  = src8;
+        const uint8_t* dat_ptr  = dat8;
+        int32_t*       flt0_ptr = flt0;
+        int32_t*       flt1_ptr = flt1;
         int            w        = width;
         do {
             uint8x8_t u     = vld1_u8(dat_ptr);
@@ -108,13 +108,13 @@ static inline void svt_calc_proj_params_r0_r1_lowbd_neon(const uint8_t *src8, in
     C[1] /= size;
 }
 
-static inline void svt_calc_proj_params_r0_r1_highbd_neon(const uint8_t *src8, int32_t width, int32_t height,
-                                                          int32_t src_stride, const uint8_t *dat8, int32_t dat_stride,
-                                                          int32_t *flt0, int32_t flt0_stride, int32_t *flt1,
+static inline void svt_calc_proj_params_r0_r1_highbd_neon(const uint8_t* src8, int32_t width, int32_t height,
+                                                          int32_t src_stride, const uint8_t* dat8, int32_t dat_stride,
+                                                          int32_t* flt0, int32_t flt0_stride, int32_t* flt1,
                                                           int32_t flt1_stride, double H[2][2], double C[2]) {
     const int32_t   size   = width * height;
-    const uint16_t *src    = CONVERT_TO_SHORTPTR(src8);
-    const uint16_t *dat    = CONVERT_TO_SHORTPTR(dat8);
+    const uint16_t* src    = CONVERT_TO_SHORTPTR(src8);
+    const uint16_t* dat    = CONVERT_TO_SHORTPTR(dat8);
     int64x2_t       h00_lo = vdupq_n_s64(0);
     int64x2_t       h00_hi = vdupq_n_s64(0);
     int64x2_t       h11_lo = vdupq_n_s64(0);
@@ -128,10 +128,10 @@ static inline void svt_calc_proj_params_r0_r1_highbd_neon(const uint8_t *src8, i
 
     assert(width % 8 == 0);
     do {
-        const uint16_t *src_ptr  = src;
-        const uint16_t *dat_ptr  = dat;
-        int32_t        *flt0_ptr = flt0;
-        int32_t        *flt1_ptr = flt1;
+        const uint16_t* src_ptr  = src;
+        const uint16_t* dat_ptr  = dat;
+        int32_t*        flt0_ptr = flt0;
+        int32_t*        flt1_ptr = flt1;
         int             w        = width;
         do {
             uint16x8_t u     = vld1q_u16(dat_ptr);
@@ -205,9 +205,9 @@ static inline void svt_calc_proj_params_r0_r1_highbd_neon(const uint8_t *src8, i
     C[1] /= size;
 }
 
-static inline void svt_calc_proj_params_r0_lowbd_neon(const uint8_t *src8, int32_t width, int32_t height,
-                                                      int32_t src_stride, const uint8_t *dat8, int32_t dat_stride,
-                                                      int32_t *flt0, int32_t flt0_stride, double H[2][2], double C[2]) {
+static inline void svt_calc_proj_params_r0_lowbd_neon(const uint8_t* src8, int32_t width, int32_t height,
+                                                      int32_t src_stride, const uint8_t* dat8, int32_t dat_stride,
+                                                      int32_t* flt0, int32_t flt0_stride, double H[2][2], double C[2]) {
     const int32_t size   = width * height;
     int64x2_t     h00_lo = vdupq_n_s64(0);
     int64x2_t     h00_hi = vdupq_n_s64(0);
@@ -216,9 +216,9 @@ static inline void svt_calc_proj_params_r0_lowbd_neon(const uint8_t *src8, int32
 
     assert(width % 8 == 0);
     do {
-        const uint8_t *src_ptr  = src8;
-        const uint8_t *dat_ptr  = dat8;
-        int32_t       *flt0_ptr = flt0;
+        const uint8_t* src_ptr  = src8;
+        const uint8_t* dat_ptr  = dat8;
+        int32_t*       flt0_ptr = flt0;
         int            w        = width;
         do {
             uint8x8_t u     = vld1_u8(dat_ptr);
@@ -262,13 +262,13 @@ static inline void svt_calc_proj_params_r0_lowbd_neon(const uint8_t *src8, int32
     C[0] /= size;
 }
 
-static inline void svt_calc_proj_params_r0_highbd_neon(const uint8_t *src8, int32_t width, int32_t height,
-                                                       int32_t src_stride, const uint8_t *dat8, int32_t dat_stride,
-                                                       int32_t *flt0, int32_t flt0_stride, double H[2][2],
+static inline void svt_calc_proj_params_r0_highbd_neon(const uint8_t* src8, int32_t width, int32_t height,
+                                                       int32_t src_stride, const uint8_t* dat8, int32_t dat_stride,
+                                                       int32_t* flt0, int32_t flt0_stride, double H[2][2],
                                                        double C[2]) {
     const int32_t   size   = width * height;
-    const uint16_t *src    = CONVERT_TO_SHORTPTR(src8);
-    const uint16_t *dat    = CONVERT_TO_SHORTPTR(dat8);
+    const uint16_t* src    = CONVERT_TO_SHORTPTR(src8);
+    const uint16_t* dat    = CONVERT_TO_SHORTPTR(dat8);
     int64x2_t       h00_lo = vdupq_n_s64(0);
     int64x2_t       h00_hi = vdupq_n_s64(0);
     int64x2_t       c0_lo  = vdupq_n_s64(0);
@@ -276,9 +276,9 @@ static inline void svt_calc_proj_params_r0_highbd_neon(const uint8_t *src8, int3
 
     assert(width % 8 == 0);
     do {
-        const uint16_t *src_ptr  = src;
-        const uint16_t *dat_ptr  = dat;
-        int32_t        *flt0_ptr = flt0;
+        const uint16_t* src_ptr  = src;
+        const uint16_t* dat_ptr  = dat;
+        int32_t*        flt0_ptr = flt0;
         int             w        = width;
         do {
             uint16x8_t u     = vld1q_u16(dat_ptr);
@@ -324,9 +324,9 @@ static inline void svt_calc_proj_params_r0_highbd_neon(const uint8_t *src8, int3
     C[0] /= size;
 }
 
-static inline void svt_calc_proj_params_r1_lowbd_neon(const uint8_t *src8, int32_t width, int32_t height,
-                                                      int32_t src_stride, const uint8_t *dat8, int32_t dat_stride,
-                                                      int32_t *flt1, int32_t flt1_stride, double H[2][2], double C[2]) {
+static inline void svt_calc_proj_params_r1_lowbd_neon(const uint8_t* src8, int32_t width, int32_t height,
+                                                      int32_t src_stride, const uint8_t* dat8, int32_t dat_stride,
+                                                      int32_t* flt1, int32_t flt1_stride, double H[2][2], double C[2]) {
     const int32_t size   = width * height;
     int64x2_t     h11_lo = vdupq_n_s64(0);
     int64x2_t     h11_hi = vdupq_n_s64(0);
@@ -335,9 +335,9 @@ static inline void svt_calc_proj_params_r1_lowbd_neon(const uint8_t *src8, int32
 
     assert(width % 8 == 0);
     do {
-        const uint8_t *src_ptr  = src8;
-        const uint8_t *dat_ptr  = dat8;
-        int32_t       *flt1_ptr = flt1;
+        const uint8_t* src_ptr  = src8;
+        const uint8_t* dat_ptr  = dat8;
+        int32_t*       flt1_ptr = flt1;
         int            w        = width;
         do {
             uint8x8_t u     = vld1_u8(dat_ptr);
@@ -380,13 +380,13 @@ static inline void svt_calc_proj_params_r1_lowbd_neon(const uint8_t *src8, int32
     C[1] /= size;
 }
 
-static inline void svt_calc_proj_params_r1_highbd_neon(const uint8_t *src8, int32_t width, int32_t height,
-                                                       int32_t src_stride, const uint8_t *dat8, int32_t dat_stride,
-                                                       int32_t *flt1, int32_t flt1_stride, double H[2][2],
+static inline void svt_calc_proj_params_r1_highbd_neon(const uint8_t* src8, int32_t width, int32_t height,
+                                                       int32_t src_stride, const uint8_t* dat8, int32_t dat_stride,
+                                                       int32_t* flt1, int32_t flt1_stride, double H[2][2],
                                                        double C[2]) {
     const int32_t   size   = width * height;
-    const uint16_t *src    = CONVERT_TO_SHORTPTR(src8);
-    const uint16_t *dat    = CONVERT_TO_SHORTPTR(dat8);
+    const uint16_t* src    = CONVERT_TO_SHORTPTR(src8);
+    const uint16_t* dat    = CONVERT_TO_SHORTPTR(dat8);
     int64x2_t       h11_lo = vdupq_n_s64(0);
     int64x2_t       h11_hi = vdupq_n_s64(0);
     int64x2_t       c1_lo  = vdupq_n_s64(0);
@@ -394,9 +394,9 @@ static inline void svt_calc_proj_params_r1_highbd_neon(const uint8_t *src8, int3
 
     assert(width % 8 == 0);
     do {
-        const uint16_t *src_ptr  = src;
-        const uint16_t *dat_ptr  = dat;
-        int32_t        *flt1_ptr = flt1;
+        const uint16_t* src_ptr  = src;
+        const uint16_t* dat_ptr  = dat;
+        int32_t*        flt1_ptr = flt1;
         int             w        = width;
         do {
             uint16x8_t u     = vld1q_u16(dat_ptr);
@@ -448,11 +448,11 @@ static inline void svt_calc_proj_params_r1_highbd_neon(const uint8_t *src8, int3
 //    non-zero and need to be computed.
 // 3) When only params->r[1] > 0. In this case only H[1][1] and C[1] are
 //    non-zero and need to be computed.
-static inline void av1_calc_proj_params_lowbd_neon(const uint8_t *src8, int32_t width, int32_t height,
-                                                   int32_t src_stride, const uint8_t *dat8, int32_t dat_stride,
-                                                   int32_t *flt0, int32_t flt0_stride, int32_t *flt1,
+static inline void av1_calc_proj_params_lowbd_neon(const uint8_t* src8, int32_t width, int32_t height,
+                                                   int32_t src_stride, const uint8_t* dat8, int32_t dat_stride,
+                                                   int32_t* flt0, int32_t flt0_stride, int32_t* flt1,
                                                    int32_t flt1_stride, double H[2][2], double C[2],
-                                                   const SgrParamsType *params) {
+                                                   const SgrParamsType* params) {
     if (params->r[0] > 0 && params->r[1] > 0) {
         svt_calc_proj_params_r0_r1_lowbd_neon(
             src8, width, height, src_stride, dat8, dat_stride, flt0, flt0_stride, flt1, flt1_stride, H, C);
@@ -463,11 +463,11 @@ static inline void av1_calc_proj_params_lowbd_neon(const uint8_t *src8, int32_t 
     }
 }
 
-static inline void av1_calc_proj_params_highbd_neon(const uint8_t *src8, int32_t width, int32_t height,
-                                                    int32_t src_stride, const uint8_t *dat8, int32_t dat_stride,
-                                                    int32_t *flt0, int32_t flt0_stride, int32_t *flt1,
+static inline void av1_calc_proj_params_highbd_neon(const uint8_t* src8, int32_t width, int32_t height,
+                                                    int32_t src_stride, const uint8_t* dat8, int32_t dat_stride,
+                                                    int32_t* flt0, int32_t flt0_stride, int32_t* flt1,
                                                     int32_t flt1_stride, double H[2][2], double C[2],
-                                                    const SgrParamsType *params) {
+                                                    const SgrParamsType* params) {
     if (params->r[0] > 0 && params->r[1] > 0) {
         svt_calc_proj_params_r0_r1_highbd_neon(
             src8, width, height, src_stride, dat8, dat_stride, flt0, flt0_stride, flt1, flt1_stride, H, C);
@@ -478,10 +478,10 @@ static inline void av1_calc_proj_params_highbd_neon(const uint8_t *src8, int32_t
     }
 }
 
-void svt_get_proj_subspace_neon(const uint8_t *src8, int32_t width, int32_t height, int32_t src_stride,
-                                const uint8_t *dat8, int32_t dat_stride, int32_t use_highbitdepth, int32_t *flt0,
-                                int32_t flt0_stride, int32_t *flt1, int32_t flt1_stride, int32_t *xq,
-                                const SgrParamsType *params) {
+void svt_get_proj_subspace_neon(const uint8_t* src8, int32_t width, int32_t height, int32_t src_stride,
+                                const uint8_t* dat8, int32_t dat_stride, int32_t use_highbitdepth, int32_t* flt0,
+                                int32_t flt0_stride, int32_t* flt1, int32_t flt1_stride, int32_t* xq,
+                                const SgrParamsType* params) {
     double H[2][2] = {{0, 0}, {0, 0}};
     double C[2]    = {0, 0};
     double det;
@@ -518,8 +518,9 @@ void svt_get_proj_subspace_neon(const uint8_t *src8, int32_t width, int32_t heig
 
     if (params->r[0] > 0 && params->r[1] > 0) {
         det = (H[0][0] * H[1][1] - H[0][1] * H[1][0]);
-        if (det < 1e-8)
+        if (det < 1e-8) {
             return; // ill-posed, return default values
+        }
         x[0] = (H[1][1] * C[0] - H[0][1] * C[1]) / det;
         x[1] = (H[0][0] * C[1] - H[1][0] * C[0]) / det;
 
@@ -529,8 +530,9 @@ void svt_get_proj_subspace_neon(const uint8_t *src8, int32_t width, int32_t heig
         // H matrix is now only the scalar H[0][0]
         // C vector is now only the scalar C[0]
         det = H[0][0];
-        if (det < 1e-8)
+        if (det < 1e-8) {
             return; // ill-posed, return default values
+        }
         x[0] = C[0] / det;
         x[1] = 0;
 
@@ -540,8 +542,9 @@ void svt_get_proj_subspace_neon(const uint8_t *src8, int32_t width, int32_t heig
         // H matrix is now only the scalar H[1][1]
         // C vector is now only the scalar C[1]
         det = H[1][1];
-        if (det < 1e-8)
+        if (det < 1e-8) {
             return; // ill-posed, return default values
+        }
         x[0] = 0;
         x[1] = C[1] / det;
 

@@ -24,24 +24,25 @@ extern "C" {
  ***************************************/
 typedef struct PictureManagerContext {
     EbDctor  dctor;
-    EbFifo  *picture_input_fifo_ptr;
-    EbFifo  *picture_manager_output_fifo_ptr;
-    EbFifo  *picture_control_set_fifo_ptr;
-    EbFifo  *recon_coef_fifo_ptr;
+    EbFifo*  picture_input_fifo_ptr;
+    EbFifo*  picture_manager_output_fifo_ptr;
+    EbFifo*  picture_control_set_fifo_ptr;
+    EbFifo*  recon_coef_fifo_ptr;
     uint64_t pmgr_dec_order;
     uint64_t consecutive_dec_order;
 
-    uint64_t *started_pics_dec_order; // Heap storage array
+    uint64_t* started_pics_dec_order; // Heap storage array
     int       started_pics_dec_order_size; // Maximum heap capacity
     int       started_pics_dec_order_count; // Current number of elements in the heap
 } PictureManagerContext;
+
 /***************************************
  * Extern Function Declaration
  ***************************************/
-EbErrorType svt_aom_picture_manager_context_ctor(EbThreadContext *thread_ctx, const EbEncHandle *enc_handle_ptr,
+EbErrorType svt_aom_picture_manager_context_ctor(EbThreadContext* thread_ctx, const EbEncHandle* enc_handle_ptr,
                                                  int rate_control_index, uint32_t ppcs_count);
 
-extern void *svt_aom_picture_manager_kernel(void *input_ptr);
+void* svt_aom_picture_manager_kernel(void* input_ptr);
 
 #ifdef __cplusplus
 }

@@ -407,8 +407,9 @@ void svt_av1_wiener_convolve_add_src_avx512(const uint8_t* const src, const ptrd
                 x -= 64;
             }
 
-            if (!width)
+            if (!width) {
                 return;
+            }
 
             x = width & ~31;
             if (x) {
@@ -489,8 +490,9 @@ void svt_av1_wiener_convolve_add_src_avx512(const uint8_t* const src, const ptrd
                 width -= 32;
             }
 
-            if (!width)
+            if (!width) {
                 return;
+            }
         }
 
         const __m256i filt_center = yy_load_256(filt_center_tap7_global_avx);
@@ -669,8 +671,9 @@ void svt_av1_wiener_convolve_add_src_avx512(const uint8_t* const src, const ptrd
                 x -= 64;
             }
 
-            if (!width)
+            if (!width) {
                 return;
+            }
 
             x = width & ~31;
             if (x) {
@@ -738,8 +741,9 @@ void svt_av1_wiener_convolve_add_src_avx512(const uint8_t* const src, const ptrd
                 width -= 32;
             }
 
-            if (!width)
+            if (!width) {
                 return;
+            }
         }
 
         const __m256i filt_center = yy_load_256(filt_center_tap5_global_avx);
@@ -888,8 +892,9 @@ void svt_av1_wiener_convolve_add_src_avx512(const uint8_t* const src, const ptrd
                 x -= 64;
             }
 
-            if (!width)
+            if (!width) {
                 return;
+            }
 
             x = width & ~31;
             if (x) {
@@ -943,8 +948,9 @@ void svt_av1_wiener_convolve_add_src_avx512(const uint8_t* const src, const ptrd
                 width -= 32;
             }
 
-            if (!width)
+            if (!width) {
                 return;
+            }
         }
 
         const __m256i filt_center = yy_load_256(filt_center_tap3_global_avx);

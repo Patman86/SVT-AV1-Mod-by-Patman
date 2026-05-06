@@ -360,8 +360,7 @@ class Convolve8Test : public ::testing::TestWithParam<ConvolveParam> {
         SVTRandom rnd(0, 255);
         for (int y = 0; y < height_; ++y) {
             for (int x = 0; x < width_; ++x) {
-                uint16_t r;
-                r = rnd.Rand8();
+                uint8_t r = rnd.Rand8();
                 out[y * kOutputStride + x] = r;
                 ref_[y * kOutputStride + x] = r;
             }
@@ -455,8 +454,7 @@ class Convolve8Test : public ::testing::TestWithParam<ConvolveParam> {
         SVTRandom rnd(0, 255);
         for (int y = 0; y < height_; ++y) {
             for (int x = 0; x < width_; ++x) {
-                uint16_t r;
-                r = rnd.Rand8();
+                uint8_t r = rnd.Rand8();
                 out[y * kOutputStride + x] = r;
                 ref_[y * kOutputStride + x] = r;
             }

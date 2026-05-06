@@ -23,7 +23,7 @@
 
 #include "gtest/gtest.h"
 #include "aom_dsp_rtcd.h"
-#include "definitions.h"
+#include "common_utils.h"
 #include "intra_prediction.h"
 #include "random.h"
 #include "util.h"

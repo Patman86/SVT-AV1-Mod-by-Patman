@@ -25,7 +25,7 @@ extern "C" {
 #define MAX_LAG_BUFFERS 35
 
 /*!
- * \brief The stucture of acummulated frame stats in the first pass.
+ * \brief The structure of accumulated frame stats in the first pass.
  */
 typedef struct {
     /*!
@@ -52,16 +52,17 @@ typedef struct {
 /*!\cond */
 
 #define FC_ANIMATION_THRESH 0.15
+
 enum { FC_NORMAL = 0, FC_GRAPHICS_ANIMATION = 1, FRAME_CONTENT_TYPES = 2 } UENUM1BYTE(FRAME_CONTENT_TYPE);
 
 typedef struct {
-    FIRSTPASS_STATS *stats_in_start;
+    FIRSTPASS_STATS* stats_in_start;
     // used when writing the stat.i.e in the first pass
-    FIRSTPASS_STATS *stats_in_end_write;
-    FIRSTPASS_STATS *stats_in_end;
-    FIRSTPASS_STATS *stats_in_buf_end;
-    FIRSTPASS_STATS *total_stats;
-    FIRSTPASS_STATS *total_left_stats;
+    FIRSTPASS_STATS* stats_in_end_write;
+    FIRSTPASS_STATS* stats_in_end;
+    FIRSTPASS_STATS* stats_in_buf_end;
+    FIRSTPASS_STATS* total_stats;
+    FIRSTPASS_STATS* total_left_stats;
     int64_t          last_frame_accumulated;
     EbHandle         stats_in_write_mutex; // mutex for write point protection
 } STATS_BUFFER_CTX;
@@ -75,8 +76,8 @@ typedef struct {
     // Circular queue of first pass stats stored for most recent frames.
     // cpi->output_pkt_list[i].data.twopass_stats.buf points to actual data stored
     // here.
-    const FIRSTPASS_STATS *stats_in;
-    STATS_BUFFER_CTX      *stats_buf_ctx;
+    const FIRSTPASS_STATS* stats_in;
+    STATS_BUFFER_CTX*      stats_buf_ctx;
     int                    first_pass_done;
     int64_t                bits_left;
     double                 modified_error_min;
@@ -99,10 +100,8 @@ typedef struct {
 
 /*!\cond */
 
-struct TileDataEnc;
-
-void svt_av1_twopass_zero_stats(FIRSTPASS_STATS *section);
-void svt_av1_accumulate_stats(FIRSTPASS_STATS *section, const FIRSTPASS_STATS *frame);
+void svt_av1_twopass_zero_stats(FIRSTPASS_STATS* section);
+void svt_av1_accumulate_stats(FIRSTPASS_STATS* section, const FIRSTPASS_STATS* frame);
 /*!\endcond */
 
 #ifdef __cplusplus

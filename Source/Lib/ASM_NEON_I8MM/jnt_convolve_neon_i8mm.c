@@ -99,9 +99,9 @@ static inline uint16x8_t convolve8_8_x_usmmla(uint8x16_t samples, const int8x16_
     return vshrq_n_u16(sum, ROUND0_BITS - 1);
 }
 
-static inline void dist_wtd_convolve_x_dist_wtd_avg_6tap_neon_i8mm(const uint8_t *src, int src_stride, uint16_t *dst,
-                                                                   int dst_stride, uint8_t *dst8, int dst8_stride,
-                                                                   int w, int h, const int16_t *x_filter_ptr,
+static inline void dist_wtd_convolve_x_dist_wtd_avg_6tap_neon_i8mm(const uint8_t* src, int src_stride, uint16_t* dst,
+                                                                   int dst_stride, uint8_t* dst8, int dst8_stride,
+                                                                   int w, int h, const int16_t* x_filter_ptr,
                                                                    const uint16_t fwd_offset,
                                                                    const uint16_t bck_offset) {
     assert(w % 4 == 0);
@@ -153,9 +153,9 @@ static inline void dist_wtd_convolve_x_dist_wtd_avg_6tap_neon_i8mm(const uint8_t
     } else {
         const uint8x16x2_t permute_tbl = vld1q_u8_x2(svt_kMatMul6PermuteTbl);
         do {
-            const uint8_t *s     = src;
-            uint16_t      *d     = dst;
-            uint8_t       *d_u8  = dst8;
+            const uint8_t* s     = src;
+            uint16_t*      d     = dst;
+            uint8_t*       d_u8  = dst8;
             int            width = w;
 
             do {
@@ -202,9 +202,9 @@ static inline void dist_wtd_convolve_x_dist_wtd_avg_6tap_neon_i8mm(const uint8_t
     }
 }
 
-static inline void dist_wtd_convolve_x_dist_wtd_avg_8tap_neon_i8mm(const uint8_t *src, int src_stride, uint16_t *dst,
-                                                                   int dst_stride, uint8_t *dst8, int dst8_stride,
-                                                                   int w, int h, const int16_t *x_filter_ptr,
+static inline void dist_wtd_convolve_x_dist_wtd_avg_8tap_neon_i8mm(const uint8_t* src, int src_stride, uint16_t* dst,
+                                                                   int dst_stride, uint8_t* dst8, int dst8_stride,
+                                                                   int w, int h, const int16_t* x_filter_ptr,
                                                                    const uint16_t fwd_offset,
                                                                    const uint16_t bck_offset) {
     assert(w % 4 == 0);
@@ -226,9 +226,9 @@ static inline void dist_wtd_convolve_x_dist_wtd_avg_8tap_neon_i8mm(const uint8_t
     const int8x8_t x_filter = vshrn_n_s16(vld1q_s16(x_filter_ptr), 1);
 
     do {
-        const uint8_t *s     = src;
-        uint16_t      *d     = dst;
-        uint8_t       *d_u8  = dst8;
+        const uint8_t* s     = src;
+        uint16_t*      d     = dst;
+        uint8_t*       d_u8  = dst8;
         int            width = w;
 
         do {
@@ -274,9 +274,9 @@ static inline void dist_wtd_convolve_x_dist_wtd_avg_8tap_neon_i8mm(const uint8_t
     } while (h != 0);
 }
 
-static inline void dist_wtd_convolve_x_avg_6tap_neon_i8mm(const uint8_t *src, int src_stride, uint16_t *dst,
-                                                          int dst_stride, uint8_t *dst8, int dst8_stride, int w, int h,
-                                                          const int16_t *x_filter_ptr) {
+static inline void dist_wtd_convolve_x_avg_6tap_neon_i8mm(const uint8_t* src, int src_stride, uint16_t* dst,
+                                                          int dst_stride, uint8_t* dst8, int dst8_stride, int w, int h,
+                                                          const int16_t* x_filter_ptr) {
     assert(w % 4 == 0);
     assert(h % 4 == 0);
 
@@ -325,9 +325,9 @@ static inline void dist_wtd_convolve_x_avg_6tap_neon_i8mm(const uint8_t *src, in
     } else {
         const uint8x16x2_t permute_tbl = vld1q_u8_x2(svt_kMatMul6PermuteTbl);
         do {
-            const uint8_t *s     = src;
-            uint16_t      *d     = dst;
-            uint8_t       *d_u8  = dst8;
+            const uint8_t* s     = src;
+            uint16_t*      d     = dst;
+            uint8_t*       d_u8  = dst8;
             int            width = w;
 
             do {
@@ -361,9 +361,9 @@ static inline void dist_wtd_convolve_x_avg_6tap_neon_i8mm(const uint8_t *src, in
     }
 }
 
-static inline void dist_wtd_convolve_x_avg_8tap_neon_i8mm(const uint8_t *src, int src_stride, uint16_t *dst,
-                                                          int dst_stride, uint8_t *dst8, int dst8_stride, int w, int h,
-                                                          const int16_t *x_filter_ptr) {
+static inline void dist_wtd_convolve_x_avg_8tap_neon_i8mm(const uint8_t* src, int src_stride, uint16_t* dst,
+                                                          int dst_stride, uint8_t* dst8, int dst8_stride, int w, int h,
+                                                          const int16_t* x_filter_ptr) {
     assert(w % 4 == 0);
     assert(h % 4 == 0);
 
@@ -392,9 +392,9 @@ static inline void dist_wtd_convolve_x_avg_8tap_neon_i8mm(const uint8_t *src, in
     const uint8x8_t f0 = vdup_n_u8(-x_filter_ptr[0] >> 1);
 
     do {
-        const uint8_t *s     = src;
-        uint16_t      *d     = dst;
-        uint8_t       *d_u8  = dst8;
+        const uint8_t* s     = src;
+        uint16_t*      d     = dst;
+        uint8_t*       d_u8  = dst8;
         int            width = w;
 
         do {
@@ -426,8 +426,8 @@ static inline void dist_wtd_convolve_x_avg_8tap_neon_i8mm(const uint8_t *src, in
     } while (h != 0);
 }
 
-static inline void dist_wtd_convolve_x_6tap_neon_i8mm(const uint8_t *src, int src_stride, uint16_t *dst, int dst_stride,
-                                                      int w, int h, const int16_t *x_filter_ptr) {
+static inline void dist_wtd_convolve_x_6tap_neon_i8mm(const uint8_t* src, int src_stride, uint16_t* dst, int dst_stride,
+                                                      int w, int h, const int16_t* x_filter_ptr) {
     assert(w % 4 == 0);
     assert(h % 4 == 0);
 
@@ -467,8 +467,8 @@ static inline void dist_wtd_convolve_x_6tap_neon_i8mm(const uint8_t *src, int sr
     } else {
         const uint8x16x2_t permute_tbl = vld1q_u8_x2(svt_kMatMul6PermuteTbl);
         do {
-            const uint8_t *s     = src;
-            uint16_t      *d     = dst;
+            const uint8_t* s     = src;
+            uint16_t*      d     = dst;
             int            width = w;
 
             do {
@@ -493,8 +493,8 @@ static inline void dist_wtd_convolve_x_6tap_neon_i8mm(const uint8_t *src, int sr
     }
 }
 
-static inline void dist_wtd_convolve_x_8tap_neon_i8mm(const uint8_t *src, int src_stride, uint16_t *dst, int dst_stride,
-                                                      int w, int h, const int16_t *x_filter_ptr) {
+static inline void dist_wtd_convolve_x_8tap_neon_i8mm(const uint8_t* src, int src_stride, uint16_t* dst, int dst_stride,
+                                                      int w, int h, const int16_t* x_filter_ptr) {
     assert(w % 4 == 0);
     assert(h % 4 == 0);
 
@@ -522,8 +522,8 @@ static inline void dist_wtd_convolve_x_8tap_neon_i8mm(const uint8_t *src, int sr
     const uint8x8_t f0 = vdup_n_u8(-x_filter_ptr[0] >> 1);
 
     do {
-        const uint8_t *s     = src;
-        uint16_t      *d     = dst;
+        const uint8_t* s     = src;
+        uint16_t*      d     = dst;
         int            width = w;
 
         do {
@@ -547,10 +547,10 @@ static inline void dist_wtd_convolve_x_8tap_neon_i8mm(const uint8_t *src, int sr
     } while (h != 0);
 }
 
-void svt_av1_jnt_convolve_x_neon_i8mm(const uint8_t *src, int src_stride, uint8_t *dst8, int dst8_stride, int w, int h,
-                                      const InterpFilterParams *filter_params_x,
-                                      const InterpFilterParams *filter_params_y, const int subpel_x_qn,
-                                      const int subpel_y_qn, ConvolveParams *conv_params) {
+void svt_av1_jnt_convolve_x_neon_i8mm(const uint8_t* src, int src_stride, uint8_t* dst8, int dst8_stride, int w, int h,
+                                      const InterpFilterParams* filter_params_x,
+                                      const InterpFilterParams* filter_params_y, const int subpel_x_qn,
+                                      const int subpel_y_qn, ConvolveParams* conv_params) {
     assert(w % 4 == 0);
     assert(h % 4 == 0);
 
@@ -569,7 +569,7 @@ void svt_av1_jnt_convolve_x_neon_i8mm(const uint8_t *src, int src_stride, uint8_
         return;
     }
 
-    const int16_t *x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
+    const int16_t* x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
     const int      filter_taps  = get_filter_tap(filter_params_x, subpel_x_qn & SUBPEL_MASK);
 
     src -= (SUBPEL_TAPS / 2 - 1);
@@ -662,8 +662,8 @@ static inline int16x8_t convolve6_8_2d_h(uint8x16_t samples, const int8x16_t x_f
     return vcombine_s16(vshrn_n_s32(sum0123, ROUND0_BITS - 1), vshrn_n_s32(sum4567, ROUND0_BITS - 1));
 }
 
-static inline void dist_wtd_convolve_2d_horiz_6tap_neon_i8mm(const uint8_t *src, int src_stride, int16_t *im_block,
-                                                             const int im_stride, const int16_t *x_filter_ptr,
+static inline void dist_wtd_convolve_2d_horiz_6tap_neon_i8mm(const uint8_t* src, int src_stride, int16_t* im_block,
+                                                             const int im_stride, const int16_t* x_filter_ptr,
                                                              const int im_h, int w) {
     const int bd = 8;
     // A shim of 1 << ((ROUND0_BITS - 1) - 1) enables us to use non-rounding
@@ -677,8 +677,8 @@ static inline void dist_wtd_convolve_2d_horiz_6tap_neon_i8mm(const uint8_t *src,
     // { f0, f1, f2, f3, f4, f5,  0,  0,  0, f0, f1, f2, f3, f4, f5,  0 }
     const int8x16_t x_filter = vcombine_s8(vext_s8(x_filter_s8, x_filter_s8, 1), x_filter_s8);
 
-    const uint8_t *src_ptr    = src;
-    int16_t       *dst_ptr    = im_block;
+    const uint8_t* src_ptr    = src;
+    int16_t*       dst_ptr    = im_block;
     int            dst_stride = im_stride;
     int            height     = im_h;
 
@@ -713,8 +713,8 @@ static inline void dist_wtd_convolve_2d_horiz_6tap_neon_i8mm(const uint8_t *src,
     } else {
         const uint8x16x2_t permute_tbl = vld1q_u8_x2(svt_kMatMul6PermuteTbl);
         do {
-            const uint8_t *s     = src_ptr;
-            int16_t       *d     = dst_ptr;
+            const uint8_t* s     = src_ptr;
+            int16_t*       d     = dst_ptr;
             int            width = w;
 
             do {
@@ -738,8 +738,8 @@ static inline void dist_wtd_convolve_2d_horiz_6tap_neon_i8mm(const uint8_t *src,
         } while (height > 4);
 
         do {
-            const uint8_t *s     = src_ptr;
-            int16_t       *d     = dst_ptr;
+            const uint8_t* s     = src_ptr;
+            int16_t*       d     = dst_ptr;
             int            width = w;
 
             do {
@@ -780,8 +780,8 @@ static inline int16x8_t convolve8_8_2d_h(uint8x16_t samples, const int8x16_t x_f
     return vreinterpretq_s16_u16(vshrq_n_u16(sum, ROUND0_BITS - 1));
 }
 
-static inline void dist_wtd_convolve_2d_horiz_8tap_neon_i8mm(const uint8_t *src, int src_stride, int16_t *im_block,
-                                                             const int im_stride, const int16_t *x_filter_ptr,
+static inline void dist_wtd_convolve_2d_horiz_8tap_neon_i8mm(const uint8_t* src, int src_stride, int16_t* im_block,
+                                                             const int im_stride, const int16_t* x_filter_ptr,
                                                              const int im_h, int w) {
     const int bd = 8;
     // A shim of 1 << ((ROUND0_BITS - 1) - 1) enables us to use non-rounding
@@ -800,14 +800,14 @@ static inline void dist_wtd_convolve_2d_horiz_8tap_neon_i8mm(const uint8_t *src,
     // Since f0 is always negative and s0 is unsigned, subtract (unsigned) s0 * -f0 to avoid signed overflow.
     const uint8x8_t f0 = vdup_n_u8(-x_filter_ptr[0] >> 1);
 
-    const uint8_t *src_ptr    = src;
-    int16_t       *dst_ptr    = im_block;
+    const uint8_t* src_ptr    = src;
+    int16_t*       dst_ptr    = im_block;
     int            dst_stride = im_stride;
     int            height     = im_h;
 
     do {
-        const uint8_t *s     = src_ptr;
-        int16_t       *d     = dst_ptr;
+        const uint8_t* s     = src_ptr;
+        int16_t*       d     = dst_ptr;
         int            width = w;
 
         do {
@@ -831,8 +831,8 @@ static inline void dist_wtd_convolve_2d_horiz_8tap_neon_i8mm(const uint8_t *src,
     } while (height > 4);
 
     do {
-        const uint8_t *s     = src_ptr;
-        int16_t       *d     = dst_ptr;
+        const uint8_t* s     = src_ptr;
+        int16_t*       d     = dst_ptr;
         int            width = w;
 
         do {
@@ -851,10 +851,10 @@ static inline void dist_wtd_convolve_2d_horiz_8tap_neon_i8mm(const uint8_t *src,
     } while (--height != 0);
 }
 
-void svt_av1_jnt_convolve_2d_neon_i8mm(const uint8_t *src, int src_stride, uint8_t *dst8, int dst8_stride, int w, int h,
-                                       const InterpFilterParams *filter_params_x,
-                                       const InterpFilterParams *filter_params_y, const int subpel_x_qn,
-                                       const int subpel_y_qn, ConvolveParams *conv_params) {
+void svt_av1_jnt_convolve_2d_neon_i8mm(const uint8_t* src, int src_stride, uint8_t* dst8, int dst8_stride, int w, int h,
+                                       const InterpFilterParams* filter_params_x,
+                                       const InterpFilterParams* filter_params_y, const int subpel_x_qn,
+                                       const int subpel_y_qn, ConvolveParams* conv_params) {
     if (w == 2 || h == 2) {
         svt_av1_jnt_convolve_2d_c(src,
                                   src_stride,
@@ -884,9 +884,9 @@ void svt_av1_jnt_convolve_2d_neon_i8mm(const uint8_t *src, int src_stride, uint8
     const int      im_stride    = MAX_SB_SIZE;
     const int      vert_offset  = clamped_y_taps / 2 - 1;
     const int      horiz_offset = clamped_x_taps / 2 - 1;
-    const uint8_t *src_ptr      = src - vert_offset * src_stride - horiz_offset;
-    const int16_t *x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
-    const int16_t *y_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_y, subpel_y_qn & SUBPEL_MASK);
+    const uint8_t* src_ptr      = src - vert_offset * src_stride - horiz_offset;
+    const int16_t* x_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_x, subpel_x_qn & SUBPEL_MASK);
+    const int16_t* y_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_y, subpel_y_qn & SUBPEL_MASK);
 
     const int16x8_t y_filter = vld1q_s16(y_filter_ptr);
 
@@ -942,15 +942,15 @@ static inline uint16x8_t convolve4_8_y(const uint8x16_t s0, const uint8x16_t s1,
     return vreinterpretq_u16_s16(vrsraq_n_s16(round_offset, sum, ROUND0_BITS - 1));
 }
 
-static inline void dist_wtd_convolve_y_4tap_neon_i8mm(const uint8_t *src_ptr, int src_stride, int w, int h,
-                                                      const int16_t *y_filter_ptr, ConvolveParams *conv_params) {
+static inline void dist_wtd_convolve_y_4tap_neon_i8mm(const uint8_t* src_ptr, int src_stride, int w, int h,
+                                                      const int16_t* y_filter_ptr, ConvolveParams* conv_params) {
     const int     bd           = 8;
     const int     offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int16_t round_offset = (1 << (offset_bits - COMPOUND_ROUND1_BITS)) +
         (1 << (offset_bits - COMPOUND_ROUND1_BITS - 1));
     const int16x8_t round_offset_vec = vdupq_n_s16(round_offset);
 
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int      dst_stride = conv_params->dst_stride;
 
     // Filter values are even, so halve to reduce intermediate precision reqs.
@@ -1006,8 +1006,8 @@ static inline void dist_wtd_convolve_y_4tap_neon_i8mm(const uint8_t *src_ptr, in
     } else {
         do {
             int            height = h;
-            const uint8_t *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
+            const uint8_t* s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
 
             uint8x8_t s0, s1, s2, s3;
             load_u8_8x4(s, src_stride, &s0, &s1, &s2, &s3);
@@ -1061,16 +1061,16 @@ static inline void dist_wtd_convolve_y_4tap_neon_i8mm(const uint8_t *src_ptr, in
     }
 }
 
-static inline void dist_wtd_convolve_y_4tap_avg_neon_i8mm(const uint8_t *src_ptr, int src_stride, uint8_t *dst8_ptr,
+static inline void dist_wtd_convolve_y_4tap_avg_neon_i8mm(const uint8_t* src_ptr, int src_stride, uint8_t* dst8_ptr,
                                                           const int dst8_stride, int w, int h,
-                                                          const int16_t *y_filter_ptr, ConvolveParams *conv_params) {
+                                                          const int16_t* y_filter_ptr, ConvolveParams* conv_params) {
     const int     bd           = 8;
     const int     offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int16_t round_offset = (1 << (offset_bits - COMPOUND_ROUND1_BITS)) +
         (1 << (offset_bits - COMPOUND_ROUND1_BITS - 1));
     const int16x8_t round_offset_vec = vdupq_n_s16(round_offset);
 
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int      dst_stride = conv_params->dst_stride;
 
     // Filter values are even, so halve to reduce intermediate precision reqs.
@@ -1136,9 +1136,9 @@ static inline void dist_wtd_convolve_y_4tap_avg_neon_i8mm(const uint8_t *src_ptr
     } else {
         do {
             int            height = h;
-            const uint8_t *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
-            uint8_t       *d_u8   = dst8_ptr;
+            const uint8_t* s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
+            uint8_t*       d_u8   = dst8_ptr;
 
             uint8x8_t s0, s1, s2, s3;
             load_u8_8x4(s, src_stride, &s0, &s1, &s2, &s3);
@@ -1201,10 +1201,10 @@ static inline void dist_wtd_convolve_y_4tap_avg_neon_i8mm(const uint8_t *src_ptr
     }
 }
 
-static inline void dist_wtd_convolve_y_4tap_dist_wtd_avg_neon_i8mm(const uint8_t *src_ptr, int src_stride,
-                                                                   uint8_t *dst8_ptr, const int dst8_stride, int w,
-                                                                   int h, const int16_t *y_filter_ptr,
-                                                                   ConvolveParams *conv_params) {
+static inline void dist_wtd_convolve_y_4tap_dist_wtd_avg_neon_i8mm(const uint8_t* src_ptr, int src_stride,
+                                                                   uint8_t* dst8_ptr, const int dst8_stride, int w,
+                                                                   int h, const int16_t* y_filter_ptr,
+                                                                   ConvolveParams* conv_params) {
     const int     bd           = 8;
     const int     offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int16_t round_offset = (1 << (offset_bits - COMPOUND_ROUND1_BITS)) +
@@ -1214,7 +1214,7 @@ static inline void dist_wtd_convolve_y_4tap_dist_wtd_avg_neon_i8mm(const uint8_t
     const uint16_t fwd_offset = conv_params->fwd_offset;
     const uint16_t bck_offset = conv_params->bck_offset;
 
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int      dst_stride = conv_params->dst_stride;
 
     // Filter values are even, so halve to reduce intermediate precision reqs.
@@ -1287,9 +1287,9 @@ static inline void dist_wtd_convolve_y_4tap_dist_wtd_avg_neon_i8mm(const uint8_t
     } else {
         do {
             int            height = h;
-            const uint8_t *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
-            uint8_t       *d_u8   = dst8_ptr;
+            const uint8_t* s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
+            uint8_t*       d_u8   = dst8_ptr;
 
             uint8x8_t s0, s1, s2, s3;
             load_u8_8x4(s, src_stride, &s0, &s1, &s2, &s3);
@@ -1388,15 +1388,15 @@ static inline uint16x8_t convolve8_8_y(const uint8x16_t s0_lo, const uint8x16_t 
     return vreinterpretq_u16_s16(vrsraq_n_s16(round_offset, sum, ROUND0_BITS - 1));
 }
 
-static inline void dist_wtd_convolve_y_8tap_neon_i8mm(const uint8_t *src_ptr, int src_stride, int w, int h,
-                                                      const int16_t *y_filter_ptr, ConvolveParams *conv_params) {
+static inline void dist_wtd_convolve_y_8tap_neon_i8mm(const uint8_t* src_ptr, int src_stride, int w, int h,
+                                                      const int16_t* y_filter_ptr, ConvolveParams* conv_params) {
     const int     bd           = 8;
     const int     offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int16_t round_offset = (1 << (offset_bits - COMPOUND_ROUND1_BITS)) +
         (1 << (offset_bits - COMPOUND_ROUND1_BITS - 1));
     const int16x8_t round_offset_vec = vdupq_n_s16(round_offset);
 
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int      dst_stride = conv_params->dst_stride;
 
     // Filter values are even, so halve to reduce intermediate precision reqs.
@@ -1456,8 +1456,8 @@ static inline void dist_wtd_convolve_y_8tap_neon_i8mm(const uint8_t *src_ptr, in
     } else {
         do {
             int            height = h;
-            const uint8_t *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
+            const uint8_t* s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
 
             uint8x8_t s0, s1, s2, s3, s4, s5, s6;
             load_u8_8x7(s, src_stride, &s0, &s1, &s2, &s3, &s4, &s5, &s6);
@@ -1519,10 +1519,10 @@ static inline void dist_wtd_convolve_y_8tap_neon_i8mm(const uint8_t *src_ptr, in
     }
 }
 
-static inline void dist_wtd_convolve_y_8tap_dist_wtd_avg_neon_i8mm(const uint8_t *src_ptr, int src_stride,
-                                                                   uint8_t *dst8_ptr, const int dst8_stride, int w,
-                                                                   int h, const int16_t *y_filter_ptr,
-                                                                   ConvolveParams *conv_params) {
+static inline void dist_wtd_convolve_y_8tap_dist_wtd_avg_neon_i8mm(const uint8_t* src_ptr, int src_stride,
+                                                                   uint8_t* dst8_ptr, const int dst8_stride, int w,
+                                                                   int h, const int16_t* y_filter_ptr,
+                                                                   ConvolveParams* conv_params) {
     const int     bd           = 8;
     const int     offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int16_t round_offset = (1 << (offset_bits - COMPOUND_ROUND1_BITS)) +
@@ -1531,7 +1531,7 @@ static inline void dist_wtd_convolve_y_8tap_dist_wtd_avg_neon_i8mm(const uint8_t
 
     const uint16_t fwd_offset = conv_params->fwd_offset;
     const uint16_t bck_offset = conv_params->bck_offset;
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int      dst_stride = conv_params->dst_stride;
 
     // Filter values are even, so halve to reduce intermediate precision reqs.
@@ -1608,9 +1608,9 @@ static inline void dist_wtd_convolve_y_8tap_dist_wtd_avg_neon_i8mm(const uint8_t
     } else {
         do {
             int            height = h;
-            const uint8_t *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
-            uint8_t       *d_u8   = dst8_ptr;
+            const uint8_t* s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
+            uint8_t*       d_u8   = dst8_ptr;
 
             uint8x8_t s0, s1, s2, s3, s4, s5, s6;
             load_u8_8x7(s, src_stride, &s0, &s1, &s2, &s3, &s4, &s5, &s6);
@@ -1694,16 +1694,16 @@ static inline void dist_wtd_convolve_y_8tap_dist_wtd_avg_neon_i8mm(const uint8_t
     }
 }
 
-static inline void dist_wtd_convolve_y_8tap_avg_neon_i8mm(const uint8_t *src_ptr, int src_stride, uint8_t *dst8_ptr,
+static inline void dist_wtd_convolve_y_8tap_avg_neon_i8mm(const uint8_t* src_ptr, int src_stride, uint8_t* dst8_ptr,
                                                           const int dst8_stride, int w, int h,
-                                                          const int16_t *y_filter_ptr, ConvolveParams *conv_params) {
+                                                          const int16_t* y_filter_ptr, ConvolveParams* conv_params) {
     const int     bd           = 8;
     const int     offset_bits  = bd + 2 * FILTER_BITS - ROUND0_BITS;
     const int16_t round_offset = (1 << (offset_bits - COMPOUND_ROUND1_BITS)) +
         (1 << (offset_bits - COMPOUND_ROUND1_BITS - 1));
     const int16x8_t round_offset_vec = vdupq_n_s16(round_offset);
 
-    CONV_BUF_TYPE *dst_ptr    = conv_params->dst;
+    CONV_BUF_TYPE* dst_ptr    = conv_params->dst;
     const int      dst_stride = conv_params->dst_stride;
 
     // Filter values are even, so halve to reduce intermediate precision reqs.
@@ -1773,9 +1773,9 @@ static inline void dist_wtd_convolve_y_8tap_avg_neon_i8mm(const uint8_t *src_ptr
     } else {
         do {
             int            height = h;
-            const uint8_t *s      = src_ptr;
-            CONV_BUF_TYPE *d      = dst_ptr;
-            uint8_t       *d_u8   = dst8_ptr;
+            const uint8_t* s      = src_ptr;
+            CONV_BUF_TYPE* d      = dst_ptr;
+            uint8_t*       d_u8   = dst8_ptr;
 
             uint8x8_t s0, s1, s2, s3, s4, s5, s6;
             load_u8_8x7(s, src_stride, &s0, &s1, &s2, &s3, &s4, &s5, &s6);
@@ -1846,10 +1846,10 @@ static inline void dist_wtd_convolve_y_8tap_avg_neon_i8mm(const uint8_t *src_ptr
     }
 }
 
-void svt_av1_jnt_convolve_y_neon_i8mm(const uint8_t *src, int32_t src_stride, uint8_t *dst8, int32_t dst8_stride,
-                                      int32_t w, int32_t h, const InterpFilterParams *filter_params_x,
-                                      const InterpFilterParams *filter_params_y, const int32_t subpel_x_qn,
-                                      const int32_t subpel_y_qn, ConvolveParams *conv_params) {
+void svt_av1_jnt_convolve_y_neon_i8mm(const uint8_t* src, int32_t src_stride, uint8_t* dst8, int32_t dst8_stride,
+                                      int32_t w, int32_t h, const InterpFilterParams* filter_params_x,
+                                      const InterpFilterParams* filter_params_y, const int32_t subpel_x_qn,
+                                      const int32_t subpel_y_qn, ConvolveParams* conv_params) {
     assert(w % 4 == 0);
     assert(h % 4 == 0);
     (void)filter_params_x;
@@ -1870,7 +1870,7 @@ void svt_av1_jnt_convolve_y_neon_i8mm(const uint8_t *src, int32_t src_stride, ui
         return;
     }
 
-    const int16_t *y_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_y, subpel_y_qn & SUBPEL_MASK);
+    const int16_t* y_filter_ptr = av1_get_interp_filter_subpel_kernel(*filter_params_y, subpel_y_qn & SUBPEL_MASK);
 
     if (get_filter_tap(filter_params_y, subpel_y_qn) <= 4) {
         if (conv_params->do_average) {

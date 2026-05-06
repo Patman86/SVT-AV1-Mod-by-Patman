@@ -25,17 +25,22 @@
 
 // Loads and stores to do away with the tedium of casting the address
 // to the right type.
-static INLINE __m256i yy_load_256(const void *const a) {
+static INLINE __m256i yy_load_256(const void* const a) {
 #ifdef EB_TEST_SIMD_ALIGN
-    if ((intptr_t)a % 32)
+    if ((intptr_t)a % 32) {
         SVT_LOG("\n yy_load_256() NOT 32-byte aligned!!!\n");
+    }
 #endif
-    return _mm256_loadu_si256((const __m256i *)a);
+    return _mm256_loadu_si256((const __m256i*)a);
 }
 
-static INLINE __m256i yy_loadu_256(const void *const a) { return _mm256_loadu_si256((const __m256i *)a); }
+static INLINE __m256i yy_loadu_256(const void* const a) {
+    return _mm256_loadu_si256((const __m256i*)a);
+}
 
-static INLINE void yy_storeu_256(void *const a, const __m256i v) { _mm256_storeu_si256((__m256i *)a, v); }
+static INLINE void yy_storeu_256(void* const a, const __m256i v) {
+    _mm256_storeu_si256((__m256i*)a, v);
+}
 
 // The _mm256_set1_epi64x() intrinsic is undefined for some Visual Studio
 // compilers. The following function is equivalent to _mm256_set1_epi64x()
@@ -58,20 +63,23 @@ static INLINE __m256i yy_set_m128i(__m128i hi, __m128i lo) {
 // Some compilers don't have _mm256_setr_m128i defined in immintrin.h. We
 // therefore define an equivalent function using a different intrinsic.
 // ([ lo ], [ hi ]) -> [ hi ][ lo ]
-static INLINE __m256i yy_setr_m128i(__m128i lo, __m128i hi) { return yy_set_m128i(hi, lo); }
+static INLINE __m256i yy_setr_m128i(__m128i lo, __m128i hi) {
+    return yy_set_m128i(hi, lo);
+}
 
 static INLINE __m256i yy_roundn_epu16(__m256i v_val_w, int bits) {
     const __m256i v_s_w = _mm256_srli_epi16(v_val_w, bits - 1);
     return _mm256_avg_epu16(v_s_w, _mm256_setzero_si256());
 }
-static INLINE void yy_storeu2_128(void *hi, void *lo, const __m256i a) {
-    _mm_storeu_si128((__m128i *)hi, _mm256_extracti128_si256(a, 1));
-    _mm_storeu_si128((__m128i *)lo, _mm256_castsi256_si128(a));
+
+static INLINE void yy_storeu2_128(void* hi, void* lo, const __m256i a) {
+    _mm_storeu_si128((__m128i*)hi, _mm256_extracti128_si256(a, 1));
+    _mm_storeu_si128((__m128i*)lo, _mm256_castsi256_si128(a));
 }
 
-static INLINE __m256i yy_loadu2_128(const void *hi, const void *lo) {
-    __m128i mhi = _mm_loadu_si128((__m128i *)(hi));
-    __m128i mlo = _mm_loadu_si128((__m128i *)(lo));
+static INLINE __m256i yy_loadu2_128(const void* hi, const void* lo) {
+    __m128i mhi = _mm_loadu_si128((__m128i*)(hi));
+    __m128i mlo = _mm_loadu_si128((__m128i*)(lo));
     return yy_set_m128i(mhi, mlo);
 }
 

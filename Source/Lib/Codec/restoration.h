@@ -21,8 +21,8 @@
 extern "C" {
 #endif
 
-void svt_apply_selfguided_restoration_c(const uint8_t *dat8, int32_t width, int32_t height, int32_t stride, int32_t eps,
-                                        const int32_t *xqd, uint8_t *dst8, int32_t dst_stride, int32_t *tmpbuf,
+void svt_apply_selfguided_restoration_c(const uint8_t* dat8, int32_t width, int32_t height, int32_t stride, int32_t eps,
+                                        const int32_t* xqd, uint8_t* dst8, int32_t dst_stride, int32_t* tmpbuf,
                                         int32_t bit_depth, int32_t highbd);
 
 // Border for Loop restoration buffer
@@ -31,7 +31,7 @@ void svt_apply_selfguided_restoration_c(const uint8_t *dat8, int32_t width, int3
 #define CLIP(x, lo, hi) ((x) < (lo) ? (lo) : (x) > (hi) ? (hi) : (x))
 #define RINT(x) ((x) < 0 ? (int32_t)((x) - 0.5) : (int32_t)((x) + 0.5))
 
-#define REAL_PTR(hbd, d) ((hbd) ? (uint8_t *)CONVERT_TO_SHORTPTR(d) : (d))
+#define REAL_PTR(hbd, d) ((hbd) ? (uint8_t*)CONVERT_TO_SHORTPTR(d) : (d))
 
 #define RESTORATION_PROC_UNIT_SIZE 64
 
@@ -189,6 +189,7 @@ typedef struct WienerUnitInfo {
     RestorationType restoration_type;
     WienerInfo      wiener_info;
 } WienerUnitInfo;
+
 typedef struct Av1PixelRect {
     int32_t left, top, right, bottom;
 } Av1PixelRect;
@@ -214,8 +215,8 @@ typedef struct RestorationLineBuffers {
 } RestorationLineBuffers;
 
 typedef struct RestorationStripeBoundaries {
-    uint8_t *stripe_boundary_above;
-    uint8_t *stripe_boundary_below;
+    uint8_t* stripe_boundary_above;
+    uint8_t* stripe_boundary_below;
     int32_t  stripe_boundary_stride;
     int32_t  stripe_boundary_size;
 } RestorationStripeBoundaries;
@@ -234,17 +235,17 @@ typedef struct RestorationInfo {
     // out as if all tiles are of full size.
     int32_t                     units_per_tile;
     int32_t                     vert_units_per_tile, horz_units_per_tile;
-    RestorationUnitInfo        *unit_info;
+    RestorationUnitInfo*        unit_info;
     RestorationStripeBoundaries boundaries;
     int32_t                     optimized_lr;
 } RestorationInfo;
 
-static INLINE void set_default_sgrproj(SgrprojInfo *sgrproj_info) {
+static INLINE void set_default_sgrproj(SgrprojInfo* sgrproj_info) {
     sgrproj_info->xqd[0] = (SGRPROJ_PRJ_MIN0 + SGRPROJ_PRJ_MAX0) / 2;
     sgrproj_info->xqd[1] = (SGRPROJ_PRJ_MIN1 + SGRPROJ_PRJ_MAX1) / 2;
 }
 
-static INLINE void set_default_wiener(WienerInfo *wiener_info) {
+static INLINE void set_default_wiener(WienerInfo* wiener_info) {
     wiener_info->vfilter[0] = wiener_info->hfilter[0] = WIENER_FILT_TAP0_MIDV;
     wiener_info->vfilter[1] = wiener_info->hfilter[1] = WIENER_FILT_TAP1_MIDV;
     wiener_info->vfilter[2] = wiener_info->hfilter[2] = WIENER_FILT_TAP2_MIDV;
@@ -265,9 +266,9 @@ extern const int32_t       svt_aom_eb_one_by_x[MAX_NELEM];
 
 //void svt_av1_alloc_restoration_struct(struct Av1Common *cm, RestorationInfo *rsi,
 //                                      int32_t is_uv);
-void svt_extend_frame(uint8_t *data, int32_t width, int32_t height, int32_t stride, int32_t border_horz,
+void svt_extend_frame(uint8_t* data, int32_t width, int32_t height, int32_t stride, int32_t border_horz,
                       int32_t border_vert, int32_t highbd);
-void svt_decode_xq(const int32_t *xqd, int32_t *xq, const SgrParamsType *params);
+void svt_decode_xq(const int32_t* xqd, int32_t* xq, const SgrParamsType* params);
 
 // Filter a single loop restoration unit.
 //
@@ -288,24 +289,24 @@ void svt_decode_xq(const int32_t *xqd, int32_t *xq, const SgrParamsType *params)
 //
 // Finally tmpbuf is a scratch buffer used by the sgrproj filter which should
 // be at least SGRPROJ_TMPBUF_SIZE big.
-void svt_av1_loop_restoration_filter_unit(uint8_t need_bounadaries, const RestorationTileLimits *limits,
-                                          const RestorationUnitInfo *rui, const RestorationStripeBoundaries *rsb,
-                                          RestorationLineBuffers *rlbs, const Av1PixelRect *tile_rect,
+void svt_av1_loop_restoration_filter_unit(uint8_t need_bounadaries, const RestorationTileLimits* limits,
+                                          const RestorationUnitInfo* rui, const RestorationStripeBoundaries* rsb,
+                                          RestorationLineBuffers* rlbs, const Av1PixelRect* tile_rect,
                                           int32_t tile_stripe0, int32_t ss_x, int32_t ss_y, int32_t highbd,
-                                          int32_t bit_depth, uint8_t *data8, int32_t stride, uint8_t *dst8,
-                                          int32_t dst_stride, int32_t *tmpbuf, int32_t optimized_lr);
+                                          int32_t bit_depth, uint8_t* data8, int32_t stride, uint8_t* dst8,
+                                          int32_t dst_stride, int32_t* tmpbuf, int32_t optimized_lr);
 
 // Returns 1 if a superres upscaled frame is unscaled and 0 otherwise.
-static INLINE int32_t av1_superres_unscaled(const FrameSize *frm_size) {
+static INLINE int32_t av1_superres_unscaled(const FrameSize* frm_size) {
     return (frm_size->frame_width == frm_size->superres_upscaled_width);
 }
 
 //void svt_av1_loop_restoration_filter_frame(Yv12BufferConfig *frame,
 //                                           Av1Common *cm, int32_t optimized_lr);
-typedef void (*RestUnitVisitor)(const RestorationTileLimits *limits, const Av1PixelRect *tile_rect,
-                                int32_t rest_unit_idx, void *priv);
+typedef void (*RestUnitVisitor)(const RestorationTileLimits* limits, const Av1PixelRect* tile_rect,
+                                int32_t rest_unit_idx, void* priv);
 
-typedef void (*RestTileStartVisitor)(int32_t tile_row, int32_t tile_col, void *priv);
+typedef void (*RestTileStartVisitor)(int32_t tile_row, int32_t tile_col, void* priv);
 
 // Call on_rest_unit for each loop restoration unit in the frame. At the start
 // of each tile, call on_tile.
@@ -324,16 +325,16 @@ typedef void (*RestTileStartVisitor)(int32_t tile_row, int32_t tile_col, void *p
 // to the current tile, whose starting index is returned as
 // *tile_tl_idx.
 struct Av1Common;
-int32_t svt_av1_loop_restoration_corners_in_sb(struct Av1Common *cm, SeqHeader *seq_header_p, int32_t plane,
-                                               int32_t mi_row, int32_t mi_col, BlockSize bsize, int32_t *rcol0,
-                                               int32_t *rcol1, int32_t *rrow0, int32_t *rrow1, int32_t *tile_tl_idx);
+int32_t svt_av1_loop_restoration_corners_in_sb(struct Av1Common* cm, SeqHeader* seq_header_p, int32_t plane,
+                                               int32_t mi_row, int32_t mi_col, BlockSize bsize, int32_t* rcol0,
+                                               int32_t* rcol1, int32_t* rrow0, int32_t* rrow1, int32_t* tile_tl_idx);
 
-void svt_av1_loop_restoration_save_boundary_lines(const Yv12BufferConfig *frame, struct Av1Common *cm,
+void svt_av1_loop_restoration_save_boundary_lines(const Yv12BufferConfig* frame, struct Av1Common* cm,
                                                   int32_t after_cdef);
-void svt_aom_foreach_rest_unit_in_frame(struct Av1Common *cm, int32_t plane, RestTileStartVisitor on_tile,
-                                        RestUnitVisitor on_rest_unit, void *priv);
-void svt_aom_foreach_rest_unit_in_frame_seg(struct Av1Common *cm, int32_t plane, RestTileStartVisitor on_tile,
-                                            RestUnitVisitor on_rest_unit, void *priv,
+void svt_aom_foreach_rest_unit_in_frame(struct Av1Common* cm, int32_t plane, RestTileStartVisitor on_tile,
+                                        RestUnitVisitor on_rest_unit, void* priv);
+void svt_aom_foreach_rest_unit_in_frame_seg(struct Av1Common* cm, int32_t plane, RestTileStartVisitor on_tile,
+                                            RestUnitVisitor on_rest_unit, void* priv,
                                             uint8_t rest_segments_column_count, uint8_t rest_segments_row_count,
                                             uint32_t segment_index);
 

@@ -52,13 +52,13 @@ static INLINE __m128i dc_sum_8x16bit_large(const __m128i src) {
     return dc_sum_4x16bit_large(sum);
 }
 
-static INLINE __m128i dc_sum_4(const uint16_t *const src) {
-    const __m128i s = _mm_loadl_epi64((const __m128i *)src);
+static INLINE __m128i dc_sum_4(const uint16_t* const src) {
+    const __m128i s = _mm_loadl_epi64((const __m128i*)src);
     return dc_sum_4x16bit(s);
 }
 
-static INLINE __m128i dc_sum_8(const uint16_t *const src) {
-    const __m128i s = _mm_loadu_si128((const __m128i *)src);
+static INLINE __m128i dc_sum_8(const uint16_t* const src) {
+    const __m128i s = _mm_loadu_si128((const __m128i*)src);
     return dc_sum_8x16bit(s);
 }
 

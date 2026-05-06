@@ -25,14 +25,14 @@
 //  return _mm_unpacklo_epi8(_mm_unpacklo_epi8(row0, row1), _mm_setzero_si128());
 //}
 
-static INLINE __m128i load4x2_sse2(const uint8_t *const p, const int32_t stride) {
-    const __m128i p0 = _mm_cvtsi32_si128(*(const uint32_t *)(p + 0 * stride));
-    const __m128i p1 = _mm_cvtsi32_si128(*(const uint32_t *)(p + 1 * stride));
+static INLINE __m128i load4x2_sse2(const uint8_t* const p, const int32_t stride) {
+    const __m128i p0 = _mm_cvtsi32_si128(*(const uint32_t*)(p + 0 * stride));
+    const __m128i p1 = _mm_cvtsi32_si128(*(const uint32_t*)(p + 1 * stride));
     return _mm_unpacklo_epi8(_mm_unpacklo_epi32(p0, p1), _mm_setzero_si128());
 }
 
-static INLINE __m128i load8_8to16_sse2(const uint8_t *const p) {
-    const __m128i p0 = _mm_loadl_epi64((const __m128i *)p);
+static INLINE __m128i load8_8to16_sse2(const uint8_t* const p) {
+    const __m128i p0 = _mm_loadl_epi64((const __m128i*)p);
     return _mm_unpacklo_epi8(p0, _mm_setzero_si128());
 }
 

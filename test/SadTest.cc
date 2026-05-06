@@ -743,7 +743,7 @@ typedef std::tuple<TestPattern, SADPattern,
  *
  *
  * Expect result:
- *  Results come from reference function and SIMD funtion are equal.
+ *  Results come from reference function and SIMD function are equal.
  *
  **/
 
@@ -1015,7 +1015,7 @@ INSTANTIATE_TEST_SUITE_P(
  *
  *
  * Expect result:
- *  Results come from reference function and SIMD funtion are equal.
+ *  Results come from reference function and SIMD function are equal.
  *
  * Test coverage:
  *
@@ -1167,7 +1167,7 @@ INSTANTIATE_TEST_SUITE_P(
  *
  *
  * Expect result:
- *  Results come from reference function and SIMD funtion are equal.
+ *  Results come from reference function and SIMD function are equal.
  **/
 
 typedef void (*svt_ext_sad_calculation_32x32_64x64_fn)(
@@ -1451,7 +1451,7 @@ class SADTestBase16bit : public ::testing::Test {
  *
  *
  * Expect result:
- *  Results from reference function SIMD funtion are equal.
+ *  Results from reference function SIMD function are equal.
  *
  * Test cases:
  *  Width {4, 8, 16, 24, 32, 48, 64, 128} x height{ 4, 8, 16, 24, 32, 48, 64,
@@ -1602,10 +1602,10 @@ INSTANTIATE_TEST_SUITE_P(
 #endif  // ARCH_AARCH64
 
 typedef void (*PmeSadLoopKernel)(
-    const struct svt_mv_cost_param *mv_cost_params, uint8_t *src,
-    uint32_t src_stride, uint8_t *ref, uint32_t ref_stride,
-    uint32_t block_height, uint32_t block_width, uint32_t *best_cost,
-    int16_t *best_mvx, int16_t *best_mvy, int16_t search_position_start_x,
+    const svt_mv_cost_param *mv_cost_params, uint8_t *src, uint32_t src_stride,
+    uint8_t *ref, uint32_t ref_stride, uint32_t block_height,
+    uint32_t block_width, uint32_t *best_cost, int16_t *best_mvx,
+    int16_t *best_mvy, int16_t search_position_start_x,
     int16_t search_position_start_y, int16_t search_area_width,
     int16_t search_area_height, int16_t search_step, int16_t mvx, int16_t mvy);
 
@@ -1648,7 +1648,7 @@ class PmeSadLoopTest
     int16_t mvy;
     int16_t search_position_start_x;
     int16_t search_position_start_y;
-    MV_COST_PARAMS mv_cost_params;
+    svt_mv_cost_param mv_cost_params;
     Mv ref_mv;
     int32_t mv_jcost[MV_JOINTS];
     int mv_cost[MV_VALS];
