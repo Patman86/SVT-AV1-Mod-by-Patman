@@ -192,6 +192,12 @@ if -%1-==-- (
     set "CC=clang"
     set "CXX=clang"
     shift
+) else if /I "%1"=="clang" (
+    echo Setting environment for Clang with Ninja
+    set "GENERATOR=Ninja"
+    set "CC=clang"
+    set "CXX=clang"
+    shift
 ) else if /I "%1"=="release" (
     set "buildtype=Release"
     shift

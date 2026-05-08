@@ -213,12 +213,11 @@ typedef struct SvtAv1SFramePositions {
     int8_t*   sframe_qp_offsets;
 } SvtAv1SFramePositions;
 
-
 typedef struct QualityZone {
-    uint64_t start_frame;  // inclusive
-    uint64_t end_frame;    // inclusive
-    int      zone_baseq;   // base CRF/CQP value for this zone
-    int      zone_qsidx;   // quarter step index
+    uint32_t start_frame; // inclusive
+    uint32_t end_frame;   // inclusive
+    int      zone_baseq;  // base CRF/CQP value for this zone
+    int      zone_qsidx;  // quarter step index
 } QualityZone;
 
 // Will contain the EbEncApi which will live in the EncHandle class
@@ -1139,10 +1138,17 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * Default is no zones.
      */
     char* zones;
-
     // Internal parsed zones (not exposed to CLI)
     QualityZone* parsed_zones;
     uint16_t     num_zones;
+
+    /**
+     * @brief Enable alternative CDEF biases
+     * 0: disabled
+     * 1-3: enabled
+     * Default is 0
+     */
+    uint8_t alt_cdef;
 } EbSvtAv1EncConfiguration;
 
 /**

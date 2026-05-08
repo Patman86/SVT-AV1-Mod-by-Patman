@@ -207,10 +207,12 @@ typedef struct EbConfig {
 #endif
 
     char* fgs_table_path;
+
     bool color;
+
     bool  use_ffms2;
-    void *ffms_video_source;
-    void *ffms_index;
+    void* ffms_video_source;
+    void* ffms_index;
     int   ffms_track_num;
 } EbConfig;
 

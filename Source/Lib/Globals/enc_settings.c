@@ -276,6 +276,10 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         SVT_ERROR("The minimum intra period must be [-1, 2^31-2]  \n");
         return_error = EB_ErrorBadParameter;
     }
+    if (config->scene_change_detection > 1) {
+        SVT_ERROR("The scene change detection must be 0 or 1 \n");
+        return_error = EB_ErrorBadParameter;
+    }
     if (config->scene_change_detection != 0) {
         if (config->intra_period_length >= 0 &&
             config->min_intra_period_length > config->intra_period_length) {
@@ -945,6 +949,15 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
+    if (config->alt_cdef > 3) {
+        SVT_ERROR("enable-alt-cdef must be between 0 and 3\n");
+        return_error = EB_ErrorBadParameter;
+    }
+
+    if (config->alt_ssim_tuning && config->tune != TUNE_SSIM) {
+        SVT_WARN("alt-ssim-tuning only works with tune 2 (SSIM). It will be ignored.\n");
+    }
+
     return return_error;
 }
 
@@ -1126,6 +1139,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->zones                             = NULL;
     config_ptr->parsed_zones                      = NULL;
     config_ptr->num_zones                         = 0;
+    config_ptr->alt_cdef                          = 0;
     return return_error;
 }
 
@@ -1295,9 +1309,8 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
                      config->tile_columns,
                      config->tile_rows);
         PRINT_CONFIG("max / min gop size / mini-gop size / type", "%d / %d / %d / %s",
-            config->intra_period_length < 0 ? config->intra_period_length
-                : config->intra_period_length + 1,
-            config->min_intra_period_length < 0 ? config->min_intra_period_length
+            config->intra_period_length + 1,
+            config->min_intra_period_length <= 1 ? config->min_intra_period_length 
                 : config->min_intra_period_length + 1,
             (1 << config->hierarchical_levels),
             config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH    ? "Open GOP"
@@ -1345,6 +1358,14 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
             }
         }
 
+        if (config->enable_qm == 1) {
+            PRINT_CONFIG("quant. matrices min / max / chroma-min / chroma-max", "%d / %d / %d / %d",
+                     config->min_qm_level,
+                     config->max_qm_level,
+                     config->min_chroma_qm_level,
+                     config->max_chroma_qm_level);
+        }
+
         if (config->film_grain_denoise_strength != 0) {
             if (config->adaptive_film_grain) {
                 PRINT_CONFIG("film grain / denoise / level / adapt. blocksize", "True / %d / %d / True",
@@ -1386,14 +1407,29 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
                  : (config->tx_bias == 3 ? "interp. only" : "off")));
         }
 
-        if (config->noise_norm_strength > 0) {
-            PRINT_CONFIG("Noise Normalization Strength", "%d", config->noise_norm_strength);
-        }
+        PRINT_CONFIG("Noise Normalization Strength / adaptive filtering", "%d / %s",
+            config->noise_norm_strength,
+            config->noise_adaptive_filtering == 0 ? "CDEF/Restoration off (0)" :
+            config->noise_adaptive_filtering == 1 ? "CDEF/Restoration on (1)" :
+            config->noise_adaptive_filtering == 2 ? "default tune (2)" :
+            config->noise_adaptive_filtering == 3 ? "CDEF only (3)" :
+            config->noise_adaptive_filtering == 4 ? "Restoration only (4)" :
+                                                    "unknown");
 
         if (config->cdef_scaling != 15 && config->cdef_level != 0) {
             PRINT_CONFIG("CDEF scaling (ratio)", "%d (%.2fx)",
                      config->cdef_scaling,
                      config->cdef_scaling / 15.0);
+        }
+
+        if (config->complex_hvs == 1) {
+            PRINT_CONFIG("highest complexity HVS model", "%d",
+                     config->complex_hvs);
+        }
+
+        if (config->cdef_level != 0 && config->alt_cdef) {
+            PRINT_CONFIG("alternative CDEF bias", "%d",
+                     config->alt_cdef);
         }
     }
 #if DEBUG_BUFFERS
@@ -2252,7 +2288,7 @@ static EbErrorType str_to_sframe_qp_offset(const char* nptr, SvtAv1SFramePositio
 
 static EbErrorType parse_zones_string(const char* zones_str, QualityZone** zones_out, uint16_t* num_zones_out) {
     if (!zones_str || strlen(zones_str) == 0) {
-        *zones_out = NULL;
+        *zones_out     = NULL;
         *num_zones_out = 0;
         return EB_ErrorNone;
     }
@@ -2260,7 +2296,9 @@ static EbErrorType parse_zones_string(const char* zones_str, QualityZone** zones
     // Count semicolons to determine number of zones
     int zone_count = 1;
     for (const char* p = zones_str; *p; p++) {
-        if (*p == ';') zone_count++;
+        if (*p == ';') {
+            zone_count++;
+        }
     }
 
     // Allocate memory for zones
@@ -2268,6 +2306,7 @@ static EbErrorType parse_zones_string(const char* zones_str, QualityZone** zones
     if (!zones) {
         return EB_ErrorInsufficientResources;
     }
+
     // Parse zones
     char* zones_copy = strdup(zones_str);
     if (!zones_copy) {
@@ -2275,13 +2314,13 @@ static EbErrorType parse_zones_string(const char* zones_str, QualityZone** zones
         return EB_ErrorInsufficientResources;
     }
 
-    char* zone_token = strtok(zones_copy, ";");
-    int parsed_zones = 0;
-    
+    char* zone_token   = strtok(zones_copy, ";");
+    int   parsed_zones = 0;
+
     while (zone_token && parsed_zones < zone_count) {
         unsigned long long start, end;
-        double quality;
-        int base_q, qs_index;
+        double             quality;
+        int                base_q, qs_index;
 
         if (sscanf(zone_token, "%llu,%llu,%lf", &start, &end, &quality) != 3) {
             free(zones);
@@ -2292,6 +2331,7 @@ static EbErrorType parse_zones_string(const char* zones_str, QualityZone** zones
             base_q   = (int)quality / 4;
             qs_index = (int)quality % 4;
         }
+
         // Validate zone parameters
         if (start > end) {
             SVT_ERROR("Invalid zone: start frame (%llu) > end frame (%llu)\n", start, end);
@@ -2299,30 +2339,32 @@ static EbErrorType parse_zones_string(const char* zones_str, QualityZone** zones
             free(zones_copy);
             return EB_ErrorBadParameter;
         }
-        if (quality < 1 || quality > 70) {
-            SVT_ERROR("Invalid QP value (%lf) in zone, must be 1-63\n", quality);
+
+        if (base_q < 0 || base_q > 70) {
+            SVT_ERROR("Invalid quality value (%d) in zone, must be 0-70\n", quality);
             free(zones);
             free(zones_copy);
             return EB_ErrorBadParameter;
         }
+
         zones[parsed_zones].start_frame = start;
-        zones[parsed_zones].end_frame = end;
-        zones[parsed_zones].zone_baseq = base_q;
-        zones[parsed_zones].zone_qsidx = qs_index;
+        zones[parsed_zones].end_frame   = end;
+        zones[parsed_zones].zone_baseq  = base_q;
+        zones[parsed_zones].zone_qsidx  = qs_index;
         parsed_zones++;
-        
+
         zone_token = strtok(NULL, ";");
     }
 
     free(zones_copy);
 
-    *zones_out = zones;
+    *zones_out     = zones;
     *num_zones_out = parsed_zones;
     return EB_ErrorNone;
 }
 
-EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_struct, const char *name,
-                                               const char *value) {
+EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_struct, const char* name,
+                                               const char* value) {
     if (config_struct == NULL || name == NULL || value == NULL) {
         return EB_ErrorBadParameter;
     }
@@ -2446,14 +2488,15 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
             }
         }
         config_struct->zones = strdup(value);
+
         // Parse zones immediately
-        EbErrorType err = parse_zones_string(config_struct->zones,
-                                            &config_struct->parsed_zones,
-                                            &config_struct->num_zones);
+        EbErrorType err = parse_zones_string(
+            config_struct->zones, &config_struct->parsed_zones, &config_struct->num_zones);
         if (err != EB_ErrorNone) {
             SVT_ERROR("Failed to parse zones parameter: %s\n", value);
             return err;
         }
+
         // Print parsed zones for verification
         if (config_struct->num_zones > 0) {
             if (config_struct->num_zones == 1) {
@@ -2463,17 +2506,19 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
             }
             for (int i = 0; i < config_struct->num_zones; i++) {
                 if (config_struct->aq_mode == 0 && config_struct->enable_variance_boost == 0) {
-                    SVT_INFO("  Zone %d: frames %llu-%llu, CQP %.2f\n",
-                            i + 1,
-                            config_struct->parsed_zones[i].start_frame,
-                            config_struct->parsed_zones[i].end_frame,
-                            config_struct->parsed_zones[i].zone_baseq + config_struct->parsed_zones[i].zone_qsidx / 4.0);
+                    SVT_INFO(
+                        "  Zone %d: frames %llu-%llu, CQP %.2f\n",
+                        i + 1,
+                        config_struct->parsed_zones[i].start_frame,
+                        config_struct->parsed_zones[i].end_frame,
+                        config_struct->parsed_zones[i].zone_baseq + config_struct->parsed_zones[i].zone_qsidx / 4.0);
                 } else {
-                    SVT_INFO("  Zone %d: frames %llu-%llu, CRF %.2f\n",
-                            i + 1,
-                            config_struct->parsed_zones[i].start_frame,
-                            config_struct->parsed_zones[i].end_frame,
-                            config_struct->parsed_zones[i].zone_baseq + config_struct->parsed_zones[i].zone_qsidx / 4.0);
+                    SVT_INFO(
+                        "  Zone %d: frames %llu-%llu, CRF %.2f\n",
+                        i + 1,
+                        config_struct->parsed_zones[i].start_frame,
+                        config_struct->parsed_zones[i].end_frame,
+                        config_struct->parsed_zones[i].zone_baseq + config_struct->parsed_zones[i].zone_qsidx / 4.0);
                 }
             }
         }
@@ -2577,6 +2622,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"complex-hvs", &config_struct->complex_hvs},
         {"noise-adaptive-filtering", &config_struct->noise_adaptive_filtering},
         {"cdef-scaling", &config_struct->cdef_scaling},
+        {"enable-alt-cdef", &config_struct->alt_cdef},
     };
 
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);

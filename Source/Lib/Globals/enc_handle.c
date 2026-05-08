@@ -2206,25 +2206,26 @@ static int32_t compute_default_intra_period(SequenceControlSet* scs) {
     return intra_period;
 }
 
-static int32_t compute_default_min_intra_period(
-    SequenceControlSet       *scs){
-    int32_t min_intra_period           = 0;
-    EbSvtAv1EncConfiguration   *config = &scs->static_config;
-    double fps                         = scs->frame_rate;
-    int32_t mini_gop_size              = (1 << (config->hierarchical_levels));
+static int32_t compute_default_min_intra_period(SequenceControlSet* scs) {
+    EbSvtAv1EncConfiguration* config = &scs->static_config;
+
+    double  fps           = scs->frame_rate;
+    int32_t mini_gop_size = (1 << (config->hierarchical_levels));
 
     // If mini_gop_size = 32, pretend that the minigop size is 16 instead
     // The calculated intra period will result in either one of these outcomes:
-    // - intra_period is mod 16: every minigop will be 32 except the very last one (i.e. 16)
-    // - intra_period is mod 32: every minigop will be 32 including the very last one
+    // - min_intra_period is mod 16: every minigop will be 32 except the very last one (i.e. 16)
+    // - min_intra_period is mod 32: every minigop will be 32 including the very last one
     if (mini_gop_size == 32) {
         mini_gop_size = 16;
     }
 
-    min_intra_period                   = (((int)(fps + mini_gop_size - 1) / mini_gop_size) * (mini_gop_size));
+    // ~1-sec min-intra
+    int32_t min_intra_period = (((int)(fps + mini_gop_size - 1) / mini_gop_size) * (mini_gop_size));
 
-    if (config->intra_refresh_type == 1)
+    if (config->intra_refresh_type == 1) {
         min_intra_period -= 1;
+    }
 
     return min_intra_period;
 }
@@ -3920,6 +3921,14 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
             "Aggressive Variance Boost strength used. This is a curve that's only useful under specific situations. "
             "Use with caution!\n");
     }
+    if (scs->static_config.cdef_level != 0 && scs->static_config.alt_cdef > 1 && !(scs->static_config.pred_structure == LOW_DELAY)) {
+        SVT_WARN("CDEF level is set to 1, or full CDEF decision, when alt-cdef is >= 2\n");
+        scs->static_config.cdef_level = 1;
+    }
+    if (scs->static_config.alt_cdef && scs->static_config.cdef_scaling != 15) {
+        SVT_WARN("alt-cdef is enabled; cdef-scaling will be ignored.\n");
+        scs->static_config.cdef_scaling = 15;
+    }
     if (scs->static_config.max_tx_size == 32 && scs->static_config.qp >= 25 && scs->static_config.tune != 3) {
         SVT_WARN(
             "Restricting transform sizes to a max of 32x32 might reduce coding efficiency at low to medium fidelity "
@@ -4322,9 +4331,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     }
 
     // Zones
-    scs->static_config.zones = config_struct->zones;
+    scs->static_config.zones        = config_struct->zones;
     scs->static_config.parsed_zones = config_struct->parsed_zones;
-    scs->static_config.num_zones = config_struct->num_zones;
+    scs->static_config.num_zones    = config_struct->num_zones;
 
     // Rate Control
     scs->static_config.scene_change_detection = config_struct->scene_change_detection;
@@ -4657,6 +4666,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
 
     // CDEF scaling
     scs->static_config.cdef_scaling = config_struct->cdef_scaling;
+
+    // Alt CDEF
+    scs->static_config.alt_cdef = config_struct->alt_cdef;
 
     // Override settings for Still IQ tune
     if (scs->static_config.tune == TUNE_IQ) {
