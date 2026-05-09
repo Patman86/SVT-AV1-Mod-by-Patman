@@ -3921,6 +3921,16 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
             "Aggressive Variance Boost strength used. This is a curve that's only useful under specific situations. "
             "Use with caution!\n");
     }
+    if (scs->static_config.enable_daala >= 1 && scs->static_config.cdef_level != 0) {
+        if (scs->static_config.alt_cdef) {
+            SVT_WARN("Daala CDEF is enabled; alt-cdef will be disabled.\n");
+            scs->static_config.alt_cdef = 0;
+        }
+        if (scs->static_config.cdef_scaling != 15) {
+            SVT_WARN("Daala CDEF is enabled; cdef-scaling will be ignored.\n");
+            scs->static_config.cdef_scaling = 15;
+        }
+    }
     if (scs->static_config.cdef_level != 0 && scs->static_config.alt_cdef > 1 && !(scs->static_config.pred_structure == LOW_DELAY)) {
         SVT_WARN("CDEF level is set to 1, or full CDEF decision, when alt-cdef is >= 2\n");
         scs->static_config.cdef_level = 1;
@@ -4669,6 +4679,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
 
     // Alt CDEF
     scs->static_config.alt_cdef = config_struct->alt_cdef;
+
+    // Daala
+    scs->static_config.enable_daala = config_struct->enable_daala;
 
     // Override settings for Still IQ tune
     if (scs->static_config.tune == TUNE_IQ) {

@@ -1149,6 +1149,17 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * Default is 0
      */
     uint8_t alt_cdef;
+
+    /**
+     * @brief Enable Daala distortion metric.
+     * 0 = OFF
+     * 1 = CDEF
+     * 2 = 1 + TX Search + MDS3 Selection
+     * 3 = 2 + DCT TX
+     * 4 = 3 + MDS0 + IFS
+     * Default is 0.
+     */
+    uint8_t enable_daala;
 } EbSvtAv1EncConfiguration;
 
 /**
