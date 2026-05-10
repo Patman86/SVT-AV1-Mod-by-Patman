@@ -31,6 +31,7 @@ if(Git_FOUND AND EXISTS "${GIT_ROOT_DIR}/.git")
         ERROR_VARIABLE git_describe_error
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_STRIP_TRAILING_WHITESPACE)
+    string(REGEX REPLACE "-Essential$" "" git_describe_stripped "${git_describe_output}")
     execute_process(COMMAND
         ${GIT_EXECUTABLE}  -C ${GIT_ROOT_DIR}
             rev-list --right-only --count ${git_describe_output}..origin/Essential-v4.0.1
@@ -59,7 +60,7 @@ if(Git_FOUND AND EXISTS "${GIT_ROOT_DIR}/.git")
     if (git_describe_status)
         message(WARNING "Failure to get version from Git: ${git_describe_error}")
     else()
-        set(PACKAGE_VERSION_STRING "${git_describe_output}-${git_describe_distance}+${git_describe_mod}-${git_describe_rev_id} [Mod by Patman]")
+        set(PACKAGE_VERSION_STRING "${git_describe_stripped}+${git_describe_distance}+${git_describe_mod}-${git_describe_rev_id} [Mod by Patman]")
     endif()
 endif()
 
