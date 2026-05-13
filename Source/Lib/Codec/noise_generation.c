@@ -169,7 +169,8 @@ static void set_scaling_points_y(AomFilmGrain* film_grain, const NoiseArgs* nois
 }
 
 static void set_scaling_points_uv(AomFilmGrain* film_grain, const NoiseArgs* noise_args, const uint8_t grain_size) {
-    const int32_t noise_setting = (noise_args->str_chroma == -1) ? noise_args->str_luma * 0.75 : noise_args->str_chroma;
+    const int32_t noise_setting = (noise_args->str_chroma == -1) ? pow(noise_args->str_luma, 0.75)
+                                                                 : noise_args->str_chroma;
     const double  noise         = (23 - grain_size) * noise_setting / 50.0;
 
     if (noise_args->chroma_from_luma == 0) {
