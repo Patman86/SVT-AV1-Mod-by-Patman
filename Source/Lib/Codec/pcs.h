@@ -305,8 +305,18 @@ typedef struct PictureControlSet {
     uint8_t md_sq_mv_search_level;
     uint8_t md_nsq_mv_search_level;
     uint8_t md_pme_level;
+#if OPT_LPD1
+    uint8_t me_subpel_level;
+    uint8_t pme_subpel_level;
+#endif
     uint8_t mds0_level;
     uint8_t rdoq_level;
+#if OPT_COEFF_SHAVING
+    uint8_t coeff_shaving_level;
+#endif
+#if OPT_VLPD0_COST_BIS
+    uint16_t vlpd0_cost_bias_weight; // [512..1024] = 50%..100% of default variance offset; 0 = off
+#endif
     uint8_t rate_est_level;
     uint8_t intra_level;
     uint8_t dist_based_ang_intra_level;
@@ -549,8 +559,13 @@ typedef struct CdefSearchControls {
     // process at once. Only search best filter strengths of the nearest ref frames (skips the
     // search if the filters of list0/list1 are the same).
     uint8_t search_best_ref_fs;
+#if OPT_CDEF_SKIP_TH
+    // Shut CDEF if ref skip percentage exceeds this threshold (0 = OFF).
+    uint8_t skip_th;
+#else
     // Shut CDEF at the picture level based on the skip area of the nearest reference frames.
     uint8_t use_skip_detector;
+#endif
     // If true, skip UV filter search and force UV filters to take the chosen luma values
     bool uv_from_y;
     // Enable QP-based CDEF strength prediction (bypass strength search)

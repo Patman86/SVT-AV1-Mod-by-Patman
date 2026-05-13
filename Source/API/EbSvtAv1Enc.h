@@ -980,6 +980,13 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * Default is -1
      */
     int hbd_mds;
+
+    /**
+     * @brief Enable MCTF for key frames.
+     * 0 = off
+     * 1 = on
+     * Default is 1. */
+    bool enable_tf_key;
 } EbSvtAv1EncConfiguration;
 
 /**

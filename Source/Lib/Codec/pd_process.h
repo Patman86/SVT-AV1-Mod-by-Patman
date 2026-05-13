@@ -101,6 +101,9 @@ typedef struct PictureDecisionContext {
     uint8_t                  last_i_picture_sc_class2;
     uint8_t                  last_i_picture_sc_class3;
     uint8_t                  last_i_picture_sc_class4;
+#if TUNE_SIMPLIFY_SETTINGS
+    uint8_t last_i_picture_sc_class5;
+#endif
     uint64_t                 last_long_base_pic;
     uint64_t                 key_poc;
     uint8_t                  tf_level;
@@ -134,6 +137,7 @@ typedef struct PictureDecisionContext {
     int32_t  sframe_hier_lvls;
     uint64_t sframe_last_arf;
     bool     next_arf_is_s;
+    int64_t  current_input_poc;
 } PictureDecisionContext;
 
 #endif // EbPictureDecision_h

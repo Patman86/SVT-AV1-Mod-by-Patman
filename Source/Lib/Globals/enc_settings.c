@@ -953,6 +953,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
 
     // Alt-Ref default values
     config_ptr->enable_tf       = 1;
+    config_ptr->enable_tf_key   = 1;
     config_ptr->enable_overlays = false;
     config_ptr->tune            = 1;
     // Super-resolution default values
@@ -2338,6 +2339,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"avif", &config_struct->avif},
         {"rtc", &config_struct->rtc},
         {"adaptive-film-grain", &config_struct->adaptive_film_grain},
+        {"enable-kf-tf", &config_struct->enable_tf_key},
     };
     const size_t bool_opts_size = sizeof(bool_opts) / sizeof(bool_opts[0]);
 

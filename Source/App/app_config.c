@@ -95,6 +95,7 @@
 #define SCREEN_CONTENT_TOKEN "--scm"
 // --- start: ALTREF_FILTERING_SUPPORT
 #define ENABLE_TF_TOKEN "--enable-tf"
+#define ENABLE_TF_KEY_TOKEN "--enable-kf-tf"
 #define ENABLE_OVERLAYS "--enable-overlays"
 #define TUNE_TOKEN "--tune"
 // --- end: ALTREF_FILTERING_SUPPORT
@@ -919,7 +920,7 @@ ConfigDescription config_entry_specific[] = {
     {FAST_DECODE_TOKEN, "Fast Decoder levels, default is 0 [0-2]"},
     // --- start: ALTREF_FILTERING_SUPPORT
     {ENABLE_TF_TOKEN, "Enable ALT-REF (temporally filtered) frames, default is 1 [0-2]"},
-
+    {ENABLE_TF_KEY_TOKEN, "Enable MCTF for key frames, default is 1 [0-1]"},
     {ENABLE_OVERLAYS,
      "Enable the insertion of overlayer pictures which will be used as an additional reference "
      "frame for the base layer picture, default is 0 [0-1]"},
@@ -1153,6 +1154,7 @@ ConfigEntry config_entry[] = {
     {TUNE_TOKEN, "Tune", set_cfg_generic_token},
     //   ALT-REF filtering support
     {ENABLE_TF_TOKEN, "EnableTf", set_cfg_generic_token},
+    {ENABLE_TF_KEY_TOKEN, "EnableTfKey", set_cfg_generic_token},
     {ENABLE_OVERLAYS, "EnableOverlays", set_cfg_generic_token},
     {SCREEN_CONTENT_TOKEN, "ScreenContentMode", set_cfg_generic_token},
 

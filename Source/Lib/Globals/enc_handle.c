@@ -460,6 +460,15 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
         scs->overlay_input_picture_buffer_init_count   = min_overlay;
 
         scs->output_recon_buffer_fifo_init_count = MAX(scs->reference_picture_buffer_init_count, min_recon);
+#if CONFIG_SINGLE_THREAD_KERNEL
+        // In ST mode the dispatcher processes a full mini-GOP before returning
+        // to the app.  svt_aom_recon_output() is called from both REST and
+        // Packetization for each non-alt-ref frame, consuming 2 buffers per
+        // frame.  The pool must hold enough for the full mini-GOP.
+        if (scs->static_config.recon_enabled) {
+            scs->output_recon_buffer_fifo_init_count = MAX(scs->output_recon_buffer_fifo_init_count, return_ppcs);
+        }
+#endif
     } else if (lp <= PARALLEL_LEVEL_2) {
         scs->picture_control_set_pool_init_count_child = scs->enc_dec_pool_init_count = clamp(2, min_child, max_child) +
             superres_count;
@@ -1120,7 +1129,8 @@ static int create_pa_ref_buf_descs(EbEncHandle* enc_handle_ptr) {
            0,
            svt_pa_reference_object_creator,
            &(eb_pa_ref_obj_ect_desc_init_data_structure),
-           NULL);
+           NULL,
+           (scs->lp == 1));
     // Set the SequenceControlSet Picture Pool Fifo Ptrs
     enc_handle_ptr->scs_instance->enc_ctx->pa_reference_picture_pool_fifo_ptr = svt_system_resource_get_producer_fifo(
         enc_handle_ptr->pa_reference_picture_pool_ptr, 0);
@@ -1162,7 +1172,8 @@ static int create_tpl_ref_buf_descs(EbEncHandle* enc_handle_ptr) {
            0,
            svt_tpl_reference_object_creator,
            &(eb_tpl_ref_obj_ect_desc_init_data_structure),
-           NULL);
+           NULL,
+           (scs->lp == 1));
     // Set the SequenceControlSet Picture Pool Fifo Ptrs
     enc_handle_ptr->scs_instance->enc_ctx->tpl_reference_picture_pool_fifo_ptr = svt_system_resource_get_producer_fifo(
         enc_handle_ptr->tpl_reference_picture_pool_ptr, 0);
@@ -1211,7 +1222,8 @@ static int create_ref_buf_descs(EbEncHandle* enc_handle_ptr) {
            0,
            svt_reference_object_creator,
            &(eb_ref_obj_ect_desc_init_data_structure),
-           NULL);
+           NULL,
+           (scs->lp == 1));
 
     // Create reference list for Picture Manager
     // When decode-order is not enforced at pic mgr, each reference picture must have an allocated reference buffer (for at least one mini-gop) so the
@@ -1225,7 +1237,12 @@ static int create_ref_buf_descs(EbEncHandle* enc_handle_ptr) {
     for (uint32_t idx = 0; idx < ref_pic_list_length; ++idx) {
         EB_NEW(enc_handle_ptr->scs_instance->enc_ctx->ref_pic_list[idx], svt_aom_reference_queue_entry_ctor);
     }
-    EB_CREATE_SEMAPHORE(scs->ref_buffer_available_semaphore, ref_pic_list_length, ref_pic_list_length);
+#if CONFIG_SINGLE_THREAD_KERNEL
+    if (scs->lp > 1)
+#endif
+    {
+        EB_CREATE_SEMAPHORE(scs->ref_buffer_available_semaphore, ref_pic_list_length, ref_pic_list_length);
+    }
     enc_handle_ptr->scs_instance->enc_ctx->reference_picture_pool_fifo_ptr = svt_system_resource_get_producer_fifo(
         enc_handle_ptr->reference_picture_pool_ptr, 0);
 
@@ -1265,6 +1282,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
     EbErrorType         return_error   = EB_ErrorNone;
     SequenceControlSet* scs            = enc_handle_ptr->scs_instance->scs;
     EbColorFormat       color_format   = scs->static_config.encoder_color_format;
+    const bool          single_thread  = (scs->lp == 1);
 
     svt_aom_setup_common_rtcd_internal(scs->static_config.use_cpu_flags);
     svt_aom_setup_rtcd_internal(scs->static_config.use_cpu_flags);
@@ -1283,7 +1301,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
            0,
            svt_aom_scs_set_creator,
            NULL,
-           NULL);
+           NULL,
+           single_thread);
     /************************************
     * Picture Control Set: Parent
     ************************************/
@@ -1308,15 +1327,19 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         input_data.enc_dec_segment_col  = (uint16_t)scs->tpl_segment_col_count_array;
         input_data.enc_dec_segment_row  = (uint16_t)scs->tpl_segment_row_count_array;
         MrpCtrls* mrp_ctrl              = &(scs->mrp_ctrls);
+#if TUNE_SIMPLIFY_SETTINGS
+        input_data.ref_count_used_list0 = MAX(mrp_ctrl->base_ref_list0_count, mrp_ctrl->non_base_ref_list0_count);
+        input_data.ref_count_used_list1 = MAX(mrp_ctrl->base_ref_list1_count, mrp_ctrl->non_base_ref_list1_count);
+#else
         input_data.ref_count_used_list0 = MAX(
             mrp_ctrl->sc_base_ref_list0_count,
             MAX(mrp_ctrl->base_ref_list0_count,
                 MAX(mrp_ctrl->sc_non_base_ref_list0_count, mrp_ctrl->non_base_ref_list0_count)));
-
         input_data.ref_count_used_list1 = MAX(
             mrp_ctrl->sc_base_ref_list1_count,
             MAX(mrp_ctrl->base_ref_list1_count,
                 MAX(mrp_ctrl->sc_non_base_ref_list1_count, mrp_ctrl->non_base_ref_list1_count)));
+#endif
         input_data.tpl_synth_size = svt_aom_set_tpl_group(NULL,
                                                           svt_aom_get_tpl_group_level(1, scs->static_config.enc_mode),
                                                           input_data.picture_width,
@@ -1346,7 +1369,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                0,
                svt_aom_picture_parent_control_set_creator,
                &input_data,
-               NULL);
+               NULL,
+               single_thread);
 #if SRM_REPORT
         enc_handle_ptr->picture_parent_control_set_pool_ptr->empty_queue->log = 0;
 #endif
@@ -1357,7 +1381,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                0,
                svt_aom_me_creator,
                &input_data,
-               NULL);
+               NULL,
+               single_thread);
 #if SRM_REPORT
         enc_handle_ptr->me_pool_ptr->empty_queue->log = 0;
         dump_srm_content(enc_handle_ptr->me_pool_ptr, false);
@@ -1406,7 +1431,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                0,
                svt_aom_recon_coef_creator,
                &input_data,
-               NULL);
+               NULL,
+               single_thread);
     }
 
     /************************************
@@ -1451,7 +1477,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                0,
                svt_aom_picture_control_set_creator,
                &input_data,
-               NULL);
+               NULL,
+               single_thread);
     }
 
     /************************************
@@ -1492,7 +1519,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                    0,
                    svt_overlay_buffer_header_creator,
                    scs,
-                   svt_input_buffer_header_destroyer);
+                   svt_input_buffer_header_destroyer,
+                   single_thread);
             // Set the SequenceControlSet Overlay input Picture Pool Fifo Ptrs
             enc_handle_ptr->scs_instance->enc_ctx->overlay_input_picture_pool_fifo_ptr =
                 svt_system_resource_get_producer_fifo(enc_handle_ptr->overlay_input_picture_pool_ptr, 0);
@@ -1509,7 +1537,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
            EB_ResourceCoordinationProcessInitCount,
            svt_input_cmd_creator,
            scs,
-           NULL);
+           NULL,
+           single_thread);
     enc_handle_ptr->input_cmd_producer_fifo_ptr = svt_system_resource_get_producer_fifo(
         enc_handle_ptr->input_cmd_resource_ptr, 0);
 
@@ -1521,7 +1550,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
            0, //1/2 SRM; no consumer FIFO
            svt_input_buffer_header_creator,
            scs,
-           svt_input_buffer_header_destroyer);
+           svt_input_buffer_header_destroyer,
+           single_thread);
     enc_handle_ptr->input_buffer_producer_fifo_ptr = svt_system_resource_get_producer_fifo(
         enc_handle_ptr->input_buffer_resource_ptr, 0);
 
@@ -1533,7 +1563,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
            0, //1/2 SRM; no consumer FIFO
            svt_input_y8b_creator,
            scs,
-           svt_input_y8b_destroyer);
+           svt_input_y8b_destroyer,
+           single_thread);
 
 #if SRM_REPORT
     enc_handle_ptr->input_y8b_buffer_resource_ptr->empty_queue->log = 1;
@@ -1550,7 +1581,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                1,
                svt_output_buffer_header_creator,
                &scs->static_config,
-               svt_output_buffer_header_destroyer);
+               svt_output_buffer_header_destroyer,
+               single_thread);
     }
     enc_handle_ptr->output_stream_buffer_consumer_fifo_ptr = svt_system_resource_get_consumer_fifo(
         enc_handle_ptr->output_stream_buffer_resource_ptr, 0);
@@ -1564,7 +1596,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                    1,
                    svt_output_recon_buffer_header_creator,
                    scs,
-                   svt_output_recon_buffer_header_destroyer);
+                   svt_output_recon_buffer_header_destroyer,
+                   single_thread);
         }
         enc_handle_ptr->output_recon_buffer_consumer_fifo_ptr = svt_system_resource_get_consumer_fifo(
             enc_handle_ptr->output_recon_buffer_resource_ptr, 0);
@@ -1580,7 +1613,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                scs->picture_analysis_process_init_count,
                svt_aom_resource_coordination_result_creator,
                &resource_coordination_result_init_data,
-               NULL);
+               NULL,
+               single_thread);
     }
 
     // Picture Analysis Results
@@ -1593,7 +1627,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                EB_PictureDecisionProcessInitCount,
                svt_aom_picture_analysis_result_creator,
                &picture_analysis_result_init_data,
-               NULL);
+               NULL,
+               single_thread);
     }
 
     // Picture Decision Results
@@ -1607,7 +1642,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                scs->motion_estimation_process_init_count,
                svt_aom_picture_decision_result_creator,
                &picture_decision_result_init_data,
-               NULL);
+               NULL,
+               single_thread);
         EB_ALLOC_PTR_ARRAY(scs->enc_ctx->picture_decision_reorder_queue,
                            scs->enc_ctx->picture_decision_reorder_queue_size);
 
@@ -1629,7 +1665,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                EB_InitialRateControlProcessInitCount,
                svt_aom_motion_estimation_results_creator,
                &motion_estimation_result_init_data,
-               NULL);
+               NULL,
+               single_thread);
     }
 
     // Initial Rate Control Results
@@ -1642,7 +1679,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                scs->source_based_operations_process_init_count,
                svt_aom_initial_rate_control_results_creator,
                &initial_rate_control_result_init_data,
-               NULL);
+               NULL,
+               single_thread);
     }
 
     // Picture Demux Results
@@ -1655,7 +1693,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                EB_PictureManagerProcessInitCount,
                svt_aom_picture_results_creator,
                &picture_result_init_data,
-               NULL);
+               NULL,
+               single_thread);
 
         EB_ALLOC_PTR_ARRAY(scs->enc_ctx->pic_mgr_input_pic_list, scs->enc_ctx->pic_mgr_input_pic_list_size);
 
@@ -1675,7 +1714,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                scs->tpl_disp_process_init_count,
                tpl_disp_results_creator,
                &tpl_disp_result_init_data,
-               NULL);
+               NULL,
+               single_thread);
     }
 
     // Rate Control Tasks
@@ -1688,7 +1728,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                EB_RateControlProcessInitCount,
                svt_aom_rate_control_tasks_creator,
                &rate_control_tasks_init_data,
-               NULL);
+               NULL,
+               single_thread);
     }
 
     // Rate Control Results
@@ -1701,7 +1742,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                scs->mode_decision_configuration_process_init_count,
                svt_aom_rate_control_results_creator,
                &rate_control_result_init_data,
-               NULL);
+               NULL,
+               single_thread);
     }
     // EncDec Tasks
     {
@@ -1714,7 +1756,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                scs->enc_dec_process_init_count,
                svt_aom_enc_dec_tasks_creator,
                &mode_decision_result_init_data,
-               NULL);
+               NULL,
+               single_thread);
     }
 
     // EncDec Results
@@ -1727,7 +1770,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                scs->dlf_process_init_count,
                svt_aom_enc_dec_results_creator,
                &enc_dec_result_init_data,
-               NULL);
+               NULL,
+               single_thread);
     }
 
     //DLF results
@@ -1740,7 +1784,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                scs->cdef_process_init_count,
                dlf_results_creator,
                &delf_result_init_data,
-               NULL);
+               NULL,
+               single_thread);
     }
     //CDEF results
     {
@@ -1752,7 +1797,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                scs->rest_process_init_count,
                cdef_results_creator,
                &cdef_result_init_data,
-               NULL);
+               NULL,
+               single_thread);
     }
     //REST results
     {
@@ -1764,7 +1810,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                scs->entropy_coding_process_init_count,
                rest_results_creator,
                &rest_result_init_data,
-               NULL);
+               NULL,
+               single_thread);
     }
 
     // Entropy Coding Results
@@ -1777,7 +1824,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                EB_PacketizationProcessInitCount,
                svt_aom_entropy_coding_results_creator,
                &entropy_coding_results_init_data,
-               NULL);
+               NULL,
+               single_thread);
         EB_ALLOC_PTR_ARRAY(scs->enc_ctx->packetization_reorder_queue, scs->enc_ctx->packetization_reorder_queue_size);
 
         for (uint32_t picture_index = 0; picture_index < scs->enc_ctx->packetization_reorder_queue_size;
@@ -1941,100 +1989,235 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
     /************************************
     * Thread Handles
     ************************************/
-    // Resource Coordination
-    EB_CREATE_THREAD(enc_handle_ptr->resource_coordination_thread_handle,
-                     svt_aom_resource_coordination_kernel,
-                     enc_handle_ptr->resource_coordination_context_ptr);
-    EB_CREATE_THREAD_ARRAY(enc_handle_ptr->picture_analysis_thread_handle_array,
-                           scs->picture_analysis_process_init_count,
-                           svt_aom_picture_analysis_kernel,
-                           enc_handle_ptr->picture_analysis_context_ptr_array,
-                           "svt-picana");
+#if CONFIG_SINGLE_THREAD_KERNEL
+    // Single-thread kernel dispatch: at lp=1, register all kernels for
+    // cooperative dispatch instead of creating 16 OS threads.
+    svt_kernel_dispatcher_init(&enc_handle_ptr->kernel_dispatcher);
+    if (scs->lp == 1) {
+        enc_handle_ptr->kernel_dispatcher.active = true;
 
-    // Picture Decision
-    EB_CREATE_THREAD(enc_handle_ptr->picture_decision_thread_handle,
-                     svt_aom_picture_decision_kernel,
-                     enc_handle_ptr->picture_decision_context_ptr);
+        // Enable non-blocking FIFO mode on all system resources
+#define SRM_SET_ST(member) \
+    svt_system_resource_set_single_thread_mode(enc_handle_ptr->member, &enc_handle_ptr->kernel_dispatcher)
+        SRM_SET_ST(scs_pool_ptr);
+        SRM_SET_ST(picture_parent_control_set_pool_ptr);
+        SRM_SET_ST(me_pool_ptr);
+        SRM_SET_ST(picture_control_set_pool_ptr);
+        SRM_SET_ST(enc_dec_pool_ptr);
+        SRM_SET_ST(reference_picture_pool_ptr);
+        SRM_SET_ST(tpl_reference_picture_pool_ptr);
+        SRM_SET_ST(pa_reference_picture_pool_ptr);
+        SRM_SET_ST(overlay_input_picture_pool_ptr);
+        SRM_SET_ST(input_buffer_resource_ptr);
+        SRM_SET_ST(input_y8b_buffer_resource_ptr);
+        SRM_SET_ST(input_cmd_resource_ptr);
+        SRM_SET_ST(output_stream_buffer_resource_ptr);
+        if (enc_handle_ptr->output_recon_buffer_resource_ptr) {
+            SRM_SET_ST(output_recon_buffer_resource_ptr);
+        }
+        SRM_SET_ST(resource_coordination_results_resource_ptr);
+        SRM_SET_ST(picture_analysis_results_resource_ptr);
+        SRM_SET_ST(picture_decision_results_resource_ptr);
+        SRM_SET_ST(motion_estimation_results_resource_ptr);
+        SRM_SET_ST(initial_rate_control_results_resource_ptr);
+        SRM_SET_ST(picture_demux_results_resource_ptr);
+        SRM_SET_ST(tpl_disp_res_srm);
+        SRM_SET_ST(rate_control_tasks_resource_ptr);
+        SRM_SET_ST(rate_control_results_resource_ptr);
+        SRM_SET_ST(enc_dec_tasks_resource_ptr);
+        SRM_SET_ST(enc_dec_results_resource_ptr);
+        SRM_SET_ST(entropy_coding_results_resource_ptr);
+        SRM_SET_ST(dlf_results_resource_ptr);
+        SRM_SET_ST(cdef_results_resource_ptr);
+        SRM_SET_ST(rest_results_resource_ptr);
+#undef SRM_SET_ST
 
-    // Motion Estimation
-    EB_CREATE_THREAD_ARRAY(enc_handle_ptr->motion_estimation_thread_handle_array,
-                           scs->motion_estimation_process_init_count,
-                           svt_aom_motion_estimation_kernel,
-                           enc_handle_ptr->motion_estimation_context_ptr_array,
-                           "svt-me");
+        // Register all 16 pipeline kernels in stage order
+        SvtKernelDispatcher* d = &enc_handle_ptr->kernel_dispatcher;
+#define CONSUMER_FIFO(res) svt_system_resource_get_consumer_fifo(enc_handle_ptr->res, 0)
 
-    // Initial Rate Control
-    EB_CREATE_THREAD(enc_handle_ptr->initial_rate_control_thread_handle,
-                     svt_aom_initial_rate_control_kernel,
-                     enc_handle_ptr->initial_rate_control_context_ptr);
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_resource_coordination_kernel_iter,
+                                       enc_handle_ptr->resource_coordination_context_ptr->priv,
+                                       CONSUMER_FIFO(input_cmd_resource_ptr),
+                                       "ResCoord");
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_picture_analysis_kernel_iter,
+                                       enc_handle_ptr->picture_analysis_context_ptr_array[0]->priv,
+                                       CONSUMER_FIFO(resource_coordination_results_resource_ptr),
+                                       "PicAnalysis");
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_picture_decision_kernel_iter,
+                                       enc_handle_ptr->picture_decision_context_ptr->priv,
+                                       CONSUMER_FIFO(picture_analysis_results_resource_ptr),
+                                       "PicDecision");
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_motion_estimation_kernel_iter,
+                                       enc_handle_ptr->motion_estimation_context_ptr_array[0]->priv,
+                                       CONSUMER_FIFO(picture_decision_results_resource_ptr),
+                                       "ME");
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_initial_rate_control_kernel_iter,
+                                       enc_handle_ptr->initial_rate_control_context_ptr->priv,
+                                       CONSUMER_FIFO(motion_estimation_results_resource_ptr),
+                                       "InitRC");
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_source_based_operations_kernel_iter,
+                                       enc_handle_ptr->source_based_operations_context_ptr_array[0]->priv,
+                                       CONSUMER_FIFO(initial_rate_control_results_resource_ptr),
+                                       "SrcOps");
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_tpl_disp_kernel_iter,
+                                       enc_handle_ptr->tpl_disp_context_ptr_array[0]->priv,
+                                       CONSUMER_FIFO(tpl_disp_res_srm),
+                                       "TPL");
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_picture_manager_kernel_iter,
+                                       enc_handle_ptr->picture_manager_context_ptr->priv,
+                                       CONSUMER_FIFO(picture_demux_results_resource_ptr),
+                                       "PicMgr");
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_rate_control_kernel_iter,
+                                       enc_handle_ptr->rate_control_context_ptr->priv,
+                                       CONSUMER_FIFO(rate_control_tasks_resource_ptr),
+                                       "RC");
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_mode_decision_configuration_kernel_iter,
+                                       enc_handle_ptr->mode_decision_configuration_context_ptr_array[0]->priv,
+                                       CONSUMER_FIFO(rate_control_results_resource_ptr),
+                                       "MDConfig");
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_mode_decision_kernel_iter,
+                                       enc_handle_ptr->enc_dec_context_ptr_array[0]->priv,
+                                       CONSUMER_FIFO(enc_dec_tasks_resource_ptr),
+                                       "EncDec");
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_dlf_kernel_iter,
+                                       enc_handle_ptr->dlf_context_ptr_array[0]->priv,
+                                       CONSUMER_FIFO(enc_dec_results_resource_ptr),
+                                       "DLF");
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_cdef_kernel_iter,
+                                       enc_handle_ptr->cdef_context_ptr_array[0]->priv,
+                                       CONSUMER_FIFO(dlf_results_resource_ptr),
+                                       "CDEF");
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_rest_kernel_iter,
+                                       enc_handle_ptr->rest_context_ptr_array[0]->priv,
+                                       CONSUMER_FIFO(cdef_results_resource_ptr),
+                                       "Rest");
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_entropy_coding_kernel_iter,
+                                       enc_handle_ptr->entropy_coding_context_ptr_array[0]->priv,
+                                       CONSUMER_FIFO(rest_results_resource_ptr),
+                                       "EC");
+        svt_kernel_dispatcher_register(d,
+                                       svt_aom_packetization_kernel_iter,
+                                       enc_handle_ptr->packetization_context_ptr->priv,
+                                       CONSUMER_FIFO(entropy_coding_results_resource_ptr),
+                                       "Pack");
 
-    // Source Based Oprations
-    EB_CREATE_THREAD_ARRAY(enc_handle_ptr->source_based_operations_thread_handle_array,
-                           scs->source_based_operations_process_init_count,
-                           svt_aom_source_based_operations_kernel,
-                           enc_handle_ptr->source_based_operations_context_ptr_array,
-                           "svt-srcops");
+#undef CONSUMER_FIFO
 
-    // TPL dispenser
-    EB_CREATE_THREAD_ARRAY(enc_handle_ptr->tpl_disp_thread_handle_array,
-                           scs->tpl_disp_process_init_count,
-                           svt_aom_tpl_disp_kernel, //TODOOMK
-                           enc_handle_ptr->tpl_disp_context_ptr_array,
-                           "svt-tpl");
-    // Picture Manager
-    EB_CREATE_THREAD(enc_handle_ptr->picture_manager_thread_handle,
-                     svt_aom_picture_manager_kernel,
-                     enc_handle_ptr->picture_manager_context_ptr);
-    // Rate Control
-    EB_CREATE_THREAD(enc_handle_ptr->rate_control_thread_handle,
-                     svt_aom_rate_control_kernel,
-                     enc_handle_ptr->rate_control_context_ptr);
+        // Store ME context for inline TF/MCTF processing in PD
+        scs->enc_ctx->st_me_context = enc_handle_ptr->motion_estimation_context_ptr_array[0]->priv;
+    } else
+#endif
+    {
+        EB_CREATE_THREAD(enc_handle_ptr->resource_coordination_thread_handle,
+                         svt_aom_resource_coordination_kernel,
+                         enc_handle_ptr->resource_coordination_context_ptr);
+        EB_CREATE_THREAD_ARRAY(enc_handle_ptr->picture_analysis_thread_handle_array,
+                               scs->picture_analysis_process_init_count,
+                               svt_aom_picture_analysis_kernel,
+                               enc_handle_ptr->picture_analysis_context_ptr_array,
+                               "svt-picana");
 
-    // Mode Decision Configuration Process
-    EB_CREATE_THREAD_ARRAY(enc_handle_ptr->mode_decision_configuration_thread_handle_array,
-                           scs->mode_decision_configuration_process_init_count,
-                           svt_aom_mode_decision_configuration_kernel,
-                           enc_handle_ptr->mode_decision_configuration_context_ptr_array,
-                           "svt-mdcfg");
+        // Picture Decision
+        EB_CREATE_THREAD(enc_handle_ptr->picture_decision_thread_handle,
+                         svt_aom_picture_decision_kernel,
+                         enc_handle_ptr->picture_decision_context_ptr);
 
-    // EncDec Process
-    EB_CREATE_THREAD_ARRAY(enc_handle_ptr->enc_dec_thread_handle_array,
-                           scs->enc_dec_process_init_count,
-                           svt_aom_mode_decision_kernel,
-                           enc_handle_ptr->enc_dec_context_ptr_array,
-                           "svt-md");
+        // Motion Estimation
+        EB_CREATE_THREAD_ARRAY(enc_handle_ptr->motion_estimation_thread_handle_array,
+                               scs->motion_estimation_process_init_count,
+                               svt_aom_motion_estimation_kernel,
+                               enc_handle_ptr->motion_estimation_context_ptr_array,
+                               "svt-me");
 
-    // Dlf Process
-    EB_CREATE_THREAD_ARRAY(enc_handle_ptr->dlf_thread_handle_array,
-                           scs->dlf_process_init_count,
-                           svt_aom_dlf_kernel,
-                           enc_handle_ptr->dlf_context_ptr_array,
-                           "svt-dlf");
+        // Initial Rate Control
+        EB_CREATE_THREAD(enc_handle_ptr->initial_rate_control_thread_handle,
+                         svt_aom_initial_rate_control_kernel,
+                         enc_handle_ptr->initial_rate_control_context_ptr);
 
-    // Cdef Process
-    EB_CREATE_THREAD_ARRAY(enc_handle_ptr->cdef_thread_handle_array,
-                           scs->cdef_process_init_count,
-                           svt_aom_cdef_kernel,
-                           enc_handle_ptr->cdef_context_ptr_array,
-                           "svt-cdef");
+        // Source Based Oprations
+        EB_CREATE_THREAD_ARRAY(enc_handle_ptr->source_based_operations_thread_handle_array,
+                               scs->source_based_operations_process_init_count,
+                               svt_aom_source_based_operations_kernel,
+                               enc_handle_ptr->source_based_operations_context_ptr_array,
+                               "svt-srcops");
 
-    // Rest Process
-    EB_CREATE_THREAD_ARRAY(enc_handle_ptr->rest_thread_handle_array,
-                           scs->rest_process_init_count,
-                           svt_aom_rest_kernel,
-                           enc_handle_ptr->rest_context_ptr_array,
-                           "svt-rest");
+        // TPL dispenser
+        EB_CREATE_THREAD_ARRAY(enc_handle_ptr->tpl_disp_thread_handle_array,
+                               scs->tpl_disp_process_init_count,
+                               svt_aom_tpl_disp_kernel, //TODOOMK
+                               enc_handle_ptr->tpl_disp_context_ptr_array,
+                               "svt-tpl");
+        // Picture Manager
+        EB_CREATE_THREAD(enc_handle_ptr->picture_manager_thread_handle,
+                         svt_aom_picture_manager_kernel,
+                         enc_handle_ptr->picture_manager_context_ptr);
+        // Rate Control
+        EB_CREATE_THREAD(enc_handle_ptr->rate_control_thread_handle,
+                         svt_aom_rate_control_kernel,
+                         enc_handle_ptr->rate_control_context_ptr);
 
-    // Entropy Coding Process
-    EB_CREATE_THREAD_ARRAY(enc_handle_ptr->entropy_coding_thread_handle_array,
-                           scs->entropy_coding_process_init_count,
-                           svt_aom_entropy_coding_kernel,
-                           enc_handle_ptr->entropy_coding_context_ptr_array,
-                           "svt-ec");
-    // Packetization
-    EB_CREATE_THREAD(enc_handle_ptr->packetization_thread_handle,
-                     svt_aom_packetization_kernel,
-                     enc_handle_ptr->packetization_context_ptr);
+        // Mode Decision Configuration Process
+        EB_CREATE_THREAD_ARRAY(enc_handle_ptr->mode_decision_configuration_thread_handle_array,
+                               scs->mode_decision_configuration_process_init_count,
+                               svt_aom_mode_decision_configuration_kernel,
+                               enc_handle_ptr->mode_decision_configuration_context_ptr_array,
+                               "svt-mdcfg");
+
+        // EncDec Process
+        EB_CREATE_THREAD_ARRAY(enc_handle_ptr->enc_dec_thread_handle_array,
+                               scs->enc_dec_process_init_count,
+                               svt_aom_mode_decision_kernel,
+                               enc_handle_ptr->enc_dec_context_ptr_array,
+                               "svt-md");
+
+        // Dlf Process
+        EB_CREATE_THREAD_ARRAY(enc_handle_ptr->dlf_thread_handle_array,
+                               scs->dlf_process_init_count,
+                               svt_aom_dlf_kernel,
+                               enc_handle_ptr->dlf_context_ptr_array,
+                               "svt-dlf");
+
+        // Cdef Process
+        EB_CREATE_THREAD_ARRAY(enc_handle_ptr->cdef_thread_handle_array,
+                               scs->cdef_process_init_count,
+                               svt_aom_cdef_kernel,
+                               enc_handle_ptr->cdef_context_ptr_array,
+                               "svt-cdef");
+
+        // Rest Process
+        EB_CREATE_THREAD_ARRAY(enc_handle_ptr->rest_thread_handle_array,
+                               scs->rest_process_init_count,
+                               svt_aom_rest_kernel,
+                               enc_handle_ptr->rest_context_ptr_array,
+                               "svt-rest");
+
+        // Entropy Coding Process
+        EB_CREATE_THREAD_ARRAY(enc_handle_ptr->entropy_coding_thread_handle_array,
+                               scs->entropy_coding_process_init_count,
+                               svt_aom_entropy_coding_kernel,
+                               enc_handle_ptr->entropy_coding_context_ptr_array,
+                               "svt-ec");
+        // Packetization
+        EB_CREATE_THREAD(enc_handle_ptr->packetization_thread_handle,
+                         svt_aom_packetization_kernel,
+                         enc_handle_ptr->packetization_context_ptr);
+    } // end of thread creation block
 
     svt_print_memory_usage();
 
@@ -3072,6 +3255,10 @@ static void derive_tf_params(SequenceControlSet* scs) {
     const EncMode enc_mode = scs->static_config.enc_mode;
     uint8_t       tf_level = 0;
     if (scs->static_config.pred_structure == LOW_DELAY) {
+#if TUNE_SIMPLIFY_SETTINGS
+        // TF disabled for all LD
+        tf_level = 0;
+#else
         // For LD, only use TF for non-SC content in RTC mode; the TF is tuned for RTC content
         if (!do_tf || scs->static_config.screen_content_mode == 1 || !scs->static_config.rtc) {
             tf_level = 0;
@@ -3082,6 +3269,7 @@ static void derive_tf_params(SequenceControlSet* scs) {
         } else {
             tf_level = 0;
         }
+#endif
         tf_ld_controls(scs, tf_level);
         return;
     }
@@ -3107,11 +3295,13 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
 
     switch (mrp_level) {
     case 0:
-        mrp_ctrl->referencing_scheme          = 0;
+        mrp_ctrl->referencing_scheme = 0;
+#if !TUNE_SIMPLIFY_SETTINGS
         mrp_ctrl->sc_base_ref_list0_count     = 1;
         mrp_ctrl->sc_base_ref_list1_count     = 0;
         mrp_ctrl->sc_non_base_ref_list0_count = 1;
         mrp_ctrl->sc_non_base_ref_list1_count = 0;
+#endif
         mrp_ctrl->base_ref_list0_count        = 1;
         mrp_ctrl->base_ref_list1_count        = 0;
         mrp_ctrl->non_base_ref_list0_count    = 1;
@@ -3125,11 +3315,13 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         break;
 
     case 1:
-        mrp_ctrl->referencing_scheme          = 1;
+        mrp_ctrl->referencing_scheme = 1;
+#if !TUNE_SIMPLIFY_SETTINGS
         mrp_ctrl->sc_base_ref_list0_count     = 2;
         mrp_ctrl->sc_base_ref_list1_count     = 2;
         mrp_ctrl->sc_non_base_ref_list0_count = 2;
         mrp_ctrl->sc_non_base_ref_list1_count = 2;
+#endif
         mrp_ctrl->base_ref_list0_count        = 4;
         mrp_ctrl->base_ref_list1_count        = 3;
         mrp_ctrl->non_base_ref_list0_count    = 4;
@@ -3143,11 +3335,13 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         break;
 
     case 2:
-        mrp_ctrl->referencing_scheme          = 1;
+        mrp_ctrl->referencing_scheme = 1;
+#if !TUNE_SIMPLIFY_SETTINGS
         mrp_ctrl->sc_base_ref_list0_count     = 2;
         mrp_ctrl->sc_base_ref_list1_count     = 2;
         mrp_ctrl->sc_non_base_ref_list0_count = 2;
         mrp_ctrl->sc_non_base_ref_list1_count = 2;
+#endif
         mrp_ctrl->base_ref_list0_count        = 4;
         mrp_ctrl->base_ref_list1_count        = 3;
         mrp_ctrl->non_base_ref_list0_count    = 4;
@@ -3160,11 +3354,13 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->use_best_references         = 0;
         break;
     case 3:
-        mrp_ctrl->referencing_scheme          = 1;
+        mrp_ctrl->referencing_scheme = 1;
+#if !TUNE_SIMPLIFY_SETTINGS
         mrp_ctrl->sc_base_ref_list0_count     = 2;
         mrp_ctrl->sc_base_ref_list1_count     = 2;
         mrp_ctrl->sc_non_base_ref_list0_count = 2;
         mrp_ctrl->sc_non_base_ref_list1_count = 2;
+#endif
         mrp_ctrl->base_ref_list0_count        = 4;
         mrp_ctrl->base_ref_list1_count        = 3;
         mrp_ctrl->non_base_ref_list0_count    = 4;
@@ -3177,11 +3373,13 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->use_best_references         = 2;
         break;
     case 4:
-        mrp_ctrl->referencing_scheme          = 1;
+        mrp_ctrl->referencing_scheme = 1;
+#if !TUNE_SIMPLIFY_SETTINGS
         mrp_ctrl->sc_base_ref_list0_count     = 2;
         mrp_ctrl->sc_base_ref_list1_count     = 2;
         mrp_ctrl->sc_non_base_ref_list0_count = 2;
         mrp_ctrl->sc_non_base_ref_list1_count = 2;
+#endif
         mrp_ctrl->base_ref_list0_count        = 4;
         mrp_ctrl->base_ref_list1_count        = 3;
         mrp_ctrl->non_base_ref_list0_count    = 4;
@@ -3194,11 +3392,13 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->use_best_references         = 3;
         break;
     case 5:
-        mrp_ctrl->referencing_scheme          = 0;
+        mrp_ctrl->referencing_scheme = 0;
+#if !TUNE_SIMPLIFY_SETTINGS
         mrp_ctrl->sc_base_ref_list0_count     = 2;
         mrp_ctrl->sc_base_ref_list1_count     = 2;
         mrp_ctrl->sc_non_base_ref_list0_count = 2;
         mrp_ctrl->sc_non_base_ref_list1_count = 2;
+#endif
         mrp_ctrl->base_ref_list0_count        = 4;
         mrp_ctrl->base_ref_list1_count        = 3;
         mrp_ctrl->non_base_ref_list0_count    = 4;
@@ -3211,11 +3411,13 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->use_best_references         = 3;
         break;
     case 6:
-        mrp_ctrl->referencing_scheme          = 0;
+        mrp_ctrl->referencing_scheme = 0;
+#if !TUNE_SIMPLIFY_SETTINGS
         mrp_ctrl->sc_base_ref_list0_count     = 2;
         mrp_ctrl->sc_base_ref_list1_count     = 2;
         mrp_ctrl->sc_non_base_ref_list0_count = 1;
         mrp_ctrl->sc_non_base_ref_list1_count = 1;
+#endif
         mrp_ctrl->base_ref_list0_count        = 3;
         mrp_ctrl->base_ref_list1_count        = 2;
         mrp_ctrl->non_base_ref_list0_count    = 3;
@@ -3228,11 +3430,13 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->use_best_references         = 3;
         break;
     case 7:
-        mrp_ctrl->referencing_scheme          = 0;
+        mrp_ctrl->referencing_scheme = 0;
+#if !TUNE_SIMPLIFY_SETTINGS
         mrp_ctrl->sc_base_ref_list0_count     = 2;
         mrp_ctrl->sc_base_ref_list1_count     = 2;
         mrp_ctrl->sc_non_base_ref_list0_count = 1;
         mrp_ctrl->sc_non_base_ref_list1_count = 1;
+#endif
         mrp_ctrl->base_ref_list0_count        = 3;
         mrp_ctrl->base_ref_list1_count        = 2;
         mrp_ctrl->non_base_ref_list0_count    = 2;
@@ -3245,11 +3449,13 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->use_best_references         = 3;
         break;
     case 8:
-        mrp_ctrl->referencing_scheme          = 0;
+        mrp_ctrl->referencing_scheme = 0;
+#if !TUNE_SIMPLIFY_SETTINGS
         mrp_ctrl->sc_base_ref_list0_count     = 2;
         mrp_ctrl->sc_base_ref_list1_count     = 2;
         mrp_ctrl->sc_non_base_ref_list0_count = 1;
         mrp_ctrl->sc_non_base_ref_list1_count = 1;
+#endif
         mrp_ctrl->base_ref_list0_count        = 2;
         mrp_ctrl->base_ref_list1_count        = 2;
         mrp_ctrl->non_base_ref_list0_count    = 2;
@@ -3262,11 +3468,13 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->use_best_references         = 3;
         break;
     case 9:
-        mrp_ctrl->referencing_scheme          = 0;
+        mrp_ctrl->referencing_scheme = 0;
+#if !TUNE_SIMPLIFY_SETTINGS
         mrp_ctrl->sc_base_ref_list0_count     = 2;
         mrp_ctrl->sc_base_ref_list1_count     = 2;
         mrp_ctrl->sc_non_base_ref_list0_count = 1;
         mrp_ctrl->sc_non_base_ref_list1_count = 1;
+#endif
         mrp_ctrl->base_ref_list0_count        = 3;
         mrp_ctrl->base_ref_list1_count        = 2;
         mrp_ctrl->non_base_ref_list0_count    = 1;
@@ -3279,11 +3487,13 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->use_best_references         = 3;
         break;
     case 10:
-        mrp_ctrl->referencing_scheme          = 0;
+        mrp_ctrl->referencing_scheme = 0;
+#if !TUNE_SIMPLIFY_SETTINGS
         mrp_ctrl->sc_base_ref_list0_count     = 2;
         mrp_ctrl->sc_base_ref_list1_count     = 2;
         mrp_ctrl->sc_non_base_ref_list0_count = 1;
         mrp_ctrl->sc_non_base_ref_list1_count = 1;
+#endif
         mrp_ctrl->base_ref_list0_count        = 2;
         mrp_ctrl->base_ref_list1_count        = 2;
         mrp_ctrl->non_base_ref_list0_count    = 1;
@@ -3296,11 +3506,13 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
         mrp_ctrl->use_best_references         = 3;
         break;
     case 11:
-        mrp_ctrl->referencing_scheme          = 0;
+        mrp_ctrl->referencing_scheme = 0;
+#if !TUNE_SIMPLIFY_SETTINGS
         mrp_ctrl->sc_base_ref_list0_count     = 1;
         mrp_ctrl->sc_base_ref_list1_count     = 1;
         mrp_ctrl->sc_non_base_ref_list0_count = 1;
         mrp_ctrl->sc_non_base_ref_list1_count = 1;
+#endif
         mrp_ctrl->base_ref_list0_count        = 1;
         mrp_ctrl->base_ref_list1_count        = 1;
         mrp_ctrl->non_base_ref_list0_count    = 1;
@@ -3318,10 +3530,12 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
     }
     // For low delay mode, list1 references are not used
     if (scs->static_config.pred_structure == LOW_DELAY && scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR) {
+#if !TUNE_SIMPLIFY_SETTINGS
         mrp_ctrl->sc_base_ref_list1_count     = 0;
         mrp_ctrl->sc_non_base_ref_list1_count = 0;
-        mrp_ctrl->base_ref_list1_count        = 0;
-        mrp_ctrl->non_base_ref_list1_count    = 0;
+#endif
+        mrp_ctrl->base_ref_list1_count     = 0;
+        mrp_ctrl->non_base_ref_list1_count = 0;
         if (scs->use_flat_ipp) {
             mrp_ctrl->referencing_scheme  = 0;
             mrp_ctrl->more_5L_refs        = 0;
@@ -3333,6 +3547,10 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
     }
     if (scs->static_config.pred_structure == LOW_DELAY) {
         if (scs->use_flat_ipp) {
+#if TUNE_SIMPLIFY_SETTINGS
+            mrp_ctrl->flat_max_refs = MAX(MAX(mrp_ctrl->base_ref_list0_count, mrp_ctrl->base_ref_list1_count),
+                                          MAX(mrp_ctrl->non_base_ref_list0_count, mrp_ctrl->non_base_ref_list1_count));
+#else
             const uint8_t max_sc_refs = MAX(
                 MAX(scs->mrp_ctrls.sc_non_base_ref_list0_count, scs->mrp_ctrls.sc_non_base_ref_list1_count),
                 MAX(scs->mrp_ctrls.sc_base_ref_list0_count, scs->mrp_ctrls.sc_base_ref_list1_count));
@@ -3342,7 +3560,19 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
             mrp_ctrl->flat_max_refs = scs->static_config.screen_content_mode == 2 ? MAX(max_sc_refs, max_nsc_refs)
                 : scs->static_config.screen_content_mode == 1                     ? max_sc_refs
                                                                                   : max_nsc_refs;
+#endif
         }
+
+#if TUNE_SIMPLIFY_SETTINGS
+        mrp_ctrl->ld_reduce_ref_buffs = (mrp_ctrl->base_ref_list0_count <= 1 && mrp_ctrl->base_ref_list1_count <= 1 &&
+                                         mrp_ctrl->non_base_ref_list0_count <= 1 &&
+                                         mrp_ctrl->non_base_ref_list1_count <= 1)
+            ? 2
+            : (mrp_ctrl->base_ref_list0_count <= 2 && mrp_ctrl->base_ref_list1_count <= 2 &&
+               mrp_ctrl->non_base_ref_list0_count <= 2 && mrp_ctrl->non_base_ref_list1_count <= 2)
+            ? 1
+            : 0;
+#else
         // If content type (SC/NSC) is known, can allocate refs based on settings, else consider worst-case
         if (scs->static_config.screen_content_mode == 1) {
             mrp_ctrl->ld_reduce_ref_buffs = (mrp_ctrl->sc_base_ref_list0_count <= 1 &&
@@ -3379,6 +3609,7 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
                 ? 1
                 : 0;
         }
+#endif
     } else {
         mrp_ctrl->ld_reduce_ref_buffs = 0;
     }
@@ -3549,7 +3780,22 @@ void set_qp_based_th_scaling_ctrls_default(SequenceControlSet* scs) {
 
 void set_qp_based_th_scaling_ctrls_rtc(SequenceControlSet* scs) {
     QpBasedThScaling* qp_ctrls = &scs->qp_based_th_scaling_ctrls;
-    const EncMode     enc_mode = scs->static_config.enc_mode;
+#if TUNE_SIMPLIFY_SETTINGS
+    qp_ctrls->tf_me_qp_based_th_scaling        = 1;
+    qp_ctrls->tf_ref_qp_based_th_scaling       = 1;
+    qp_ctrls->depths_qp_based_th_scaling       = 1;
+    qp_ctrls->hme_qp_based_th_scaling          = 1;
+    qp_ctrls->me_qp_based_th_scaling           = 1;
+    qp_ctrls->nsq_qp_based_th_scaling          = 1;
+    qp_ctrls->nic_max_qp_based_th_scaling      = 1;
+    qp_ctrls->nic_pruning_qp_based_th_scaling  = 1;
+    qp_ctrls->pme_qp_based_th_scaling          = 1;
+    qp_ctrls->txt_qp_based_th_scaling          = 1;
+    qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
+    qp_ctrls->lpd0_qp_based_th_scaling         = 1;
+    qp_ctrls->intra_bc_mesh_qp_scaling         = 1;
+#else
+    const EncMode enc_mode = scs->static_config.enc_mode;
 
     if (enc_mode <= ENC_MR) {
         qp_ctrls->tf_me_qp_based_th_scaling        = 0;
@@ -3580,6 +3826,7 @@ void set_qp_based_th_scaling_ctrls_rtc(SequenceControlSet* scs) {
         qp_ctrls->lpd0_qp_based_th_scaling         = 1;
         qp_ctrls->intra_bc_mesh_qp_scaling         = 1;
     }
+#endif
 }
 
 void set_qp_based_th_scaling_ctrls_all_intra(SequenceControlSet* scs) {
@@ -3634,6 +3881,9 @@ void set_qp_based_th_scaling_ctrls_all_intra(SequenceControlSet* scs) {
 static void set_param_based_on_input(SequenceControlSet* scs) {
     const bool allintra = scs->allintra;
     const bool rtc_tune = scs->static_config.rtc;
+#if TUNE_SIMPLIFY_SETTINGS
+    const bool use_flat_ipp = scs->use_flat_ipp;
+#endif
     set_multi_pass_params(scs);
 
     // superres_mode and resize_mode may be updated,
@@ -3878,7 +4128,11 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         if (scs->allintra) {
             nsq_geom_level = svt_aom_get_nsq_geom_level_allintra(scs->static_config.enc_mode);
         } else if (scs->static_config.rtc) {
+#if TUNE_SIMPLIFY_SETTINGS
+            nsq_geom_level = svt_aom_get_nsq_geom_level_rtc();
+#else
             nsq_geom_level = svt_aom_get_nsq_geom_level_rtc(scs->static_config.enc_mode);
+#endif
         } else {
             nsq_geom_level = svt_aom_get_nsq_geom_level_default(scs->static_config.enc_mode, coeff_lvl);
         }
@@ -3898,7 +4152,11 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         disallow_4x4 = svt_aom_get_disallow_4x4_allintra(scs->static_config.enc_mode);
         disallow_8x8 = svt_aom_get_disallow_8x8_allintra();
     } else if (scs->static_config.rtc) {
+#if TUNE_SIMPLIFY_SETTINGS
+        disallow_4x4 = svt_aom_get_disallow_4x4_rtc();
+#else
         disallow_4x4 = svt_aom_get_disallow_4x4_rtc(scs->static_config.enc_mode);
+#endif
         disallow_8x8 = svt_aom_get_disallow_8x8_rtc(
             scs->static_config.enc_mode, scs->max_input_luma_width, scs->max_input_luma_height);
     } else {
@@ -4001,6 +4259,42 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     }
     // MRP level
     uint8_t mrp_level;
+#if TUNE_SIMPLIFY_SETTINGS
+    if (rtc_tune) {
+        if (use_flat_ipp) {
+#if TUNE_SHIFT_PRESETS_RTC
+            if (scs->static_config.enc_mode <= ENC_M8) {
+                mrp_level = 6;
+            } else {
+                mrp_level = 0;
+            }
+#else
+            if (scs->static_config.enc_mode <= ENC_M8) {
+                mrp_level = 6;
+            } else if (scs->static_config.enc_mode <= ENC_M9) {
+                mrp_level = 9;
+            } else {
+                mrp_level = 0;
+            }
+#endif
+        } else {
+#if TUNE_SHIFT_PRESETS_RTC
+            if (scs->static_config.enc_mode <= ENC_M9) {
+#else
+            if (scs->static_config.enc_mode <= ENC_M10) {
+#endif
+                mrp_level = 6;
+#if TUNE_SHIFT_PRESETS_RTC
+            } else if (scs->static_config.enc_mode <= ENC_M10) {
+#else
+            } else if (scs->static_config.enc_mode <= ENC_M11) {
+#endif
+                mrp_level = 9;
+            } else {
+                mrp_level = 0;
+            }
+        }
+#else
     if (scs->static_config.rtc) {
         if (scs->static_config.enc_mode <= ENC_M8 || (!scs->use_flat_ipp && scs->static_config.enc_mode <= ENC_M10)) {
             mrp_level = 6;
@@ -4010,7 +4304,10 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         } else {
             mrp_level = 0;
         }
-    } else {
+#endif
+    }
+
+    else {
         if (scs->static_config.enc_mode <= ENC_MR) {
             mrp_level = 1;
         } else if (scs->static_config.enc_mode <= ENC_M2) {
@@ -4043,7 +4340,15 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     scs->resize_pending_params.resize_state = ORIG;
     scs->resize_pending_params.resize_denom = SCALE_NUMERATOR;
 
+#if OPT_GATE_SB_LAMBDA_MOD
+#if TUNE_SHIFT_PRESETS_RTC
+    scs->stats_based_sb_lambda_modulation = (scs->static_config.enc_mode <= (rtc_tune ? ENC_M10 : ENC_M11)) ? 1 : 0;
+#else
+    scs->stats_based_sb_lambda_modulation = (scs->static_config.enc_mode <= ENC_M11) ? 1 : 0;
+#endif
+#else
     scs->stats_based_sb_lambda_modulation = 1;
+#endif
 
     scs->fast_aa_aware_screen_detection_mode = (scs->static_config.enc_mode >= ENC_M3) ? 1 : 0;
 }
@@ -4084,18 +4389,35 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->static_config.intra_refresh_type = config_struct->intra_refresh_type;
     scs->static_config.enc_mode           = config_struct->enc_mode;
     if (scs->allintra) {
+#if FIX_MR_STILL_IMAGE
+        if (scs->static_config.enc_mode > ENC_M9) {
+#else
         if (scs->static_config.enc_mode == ENC_MR) {
             SVT_WARN("The lowest supported preset for all-intra and still-image is M0.\n");
             scs->static_config.enc_mode = ENC_M0;
         } else if (scs->static_config.enc_mode > ENC_M9) {
+#endif
             SVT_WARN("Preset M%d is mapped to M9.\n", scs->static_config.enc_mode);
             scs->static_config.enc_mode = ENC_M9;
         }
     } else if (scs->static_config.rtc) {
+#if TUNE_SHIFT_PRESETS_RTC
+        if (scs->static_config.enc_mode > ENC_M11) {
+            SVT_WARN("Preset M%d is mapped to M11.\n", scs->static_config.enc_mode);
+            scs->static_config.enc_mode = ENC_M11;
+        }
+#else
         if (scs->static_config.enc_mode > ENC_M12) {
             SVT_WARN("Preset M%d is mapped to M12.\n", scs->static_config.enc_mode);
             scs->static_config.enc_mode = ENC_M12;
         }
+#if TUNE_SIMPLIFY_SETTINGS
+        else if (scs->static_config.enc_mode == ENC_M9) {
+            SVT_WARN("Preset M%d is temporarily mapped to M10 (placeholder).\n", scs->static_config.enc_mode);
+            scs->static_config.enc_mode = ENC_M10;
+        }
+#endif
+#endif
     }
 
     else if (scs->static_config.enc_mode > ENC_M11) {
@@ -4303,6 +4625,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->subsampling_y     = (scs->chroma_format_idc >= EB_YUV422 ? 0 : 1);
     // Force screen-content detection OFF when allintra
     const bool allintra = scs->allintra;
+#if TUNE_SIMPLIFY_SETTINGS
+    const bool rtc = scs->static_config.rtc;
+#endif
 #if OPT_SC_STILL_IMAGE
     if (allintra) {
         if (config_struct->screen_content_mode <= 1) {
@@ -4321,9 +4646,35 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         SVT_WARN("Screen-content detection is disabled for all-intra coding; forcing NSC path\n");
 #endif
     }
-
+#if TUNE_SIMPLIFY_SETTINGS
+    else if (rtc) {
+        if (config_struct->screen_content_mode <= 1 && scs->static_config.enc_mode <= ENC_M8) {
+            scs->static_config.screen_content_mode = config_struct->screen_content_mode;
+        } else if (scs->static_config.enc_mode <= ENC_M8) {
+            scs->static_config.screen_content_mode = 3;
+        } else {
+            scs->static_config.screen_content_mode = 0;
+            SVT_WARN(
+                "Screen-content detection and tools are disabled for RTC mode coding at M9 and above; forcing NSC "
+                "path\n");
+        }
+    }
+#endif
     else {
+#if TUNE_SIMPLIFY_SETTINGS
+        if (config_struct->screen_content_mode <= 1 && scs->static_config.enc_mode <= ENC_M8) {
+            scs->static_config.screen_content_mode = config_struct->screen_content_mode;
+        } else if (scs->static_config.enc_mode <= ENC_M8) {
+            scs->static_config.screen_content_mode = 3;
+        } else {
+            scs->static_config.screen_content_mode = 0;
+            SVT_WARN(
+                "Screen-content detection and tools are disabled for RA mode coding at M9 and above; forcing NSC "
+                "path\n");
+        }
+#else
         scs->static_config.screen_content_mode = config_struct->screen_content_mode;
+#endif
     }
     // Annex A parameters
     scs->static_config.profile     = config_struct->profile;
@@ -4364,6 +4715,7 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         scs->static_config.look_ahead_distance = compute_default_look_ahead(&scs->static_config);
     }
     scs->static_config.enable_tf          = scs->allintra ? 0 : config_struct->enable_tf;
+    scs->static_config.enable_tf_key      = config_struct->enable_tf && config_struct->enable_tf_key;
     scs->static_config.enable_overlays    = config_struct->enable_overlays;
     scs->static_config.superres_mode      = config_struct->superres_mode;
     scs->static_config.superres_denom     = config_struct->superres_denom;
@@ -5290,6 +5642,14 @@ EB_API EbErrorType svt_av1_enc_send_picture(EbComponentType* svt_enc_component, 
     input_cmd_obj->y8b_wrapper          = y8b_wrapper;
     //Send to Lib
     svt_post_full_object(input_cmd_wrp);
+
+#if CONFIG_SINGLE_THREAD_KERNEL
+    // In single-thread mode, run the entire pipeline synchronously
+    if (enc_handle_ptr->kernel_dispatcher.active) {
+        svt_kernel_dispatcher_run(&enc_handle_ptr->kernel_dispatcher);
+    }
+#endif
+
     return return_val;
 }
 
