@@ -98,6 +98,13 @@ if -%1-==-- (
         rmdir /s /q "%%~i" 1>nul
     )
     exit /b
+) else if /I "%1"=="2026" (
+    set "text=Setting environment for Visual Studio 2026"
+    set "GENERATOR=Visual Studio 18 2026"
+    set vs=2026
+    set dir=MSVC
+    set "flags=/MD /O2 /Ob3 /Gw /GL /DNDEBUG /W0"
+    shift
 ) else if /I "%1"=="2022" (
     set "text=Setting environment for Visual Studio 2022"
     set "GENERATOR=Visual Studio 17 2022"
@@ -141,14 +148,14 @@ if -%1-==-- (
         if /I "%MSYSTEM%"=="CLANG64" (
             echo Detected MSYS CLANG64 environment
             set "PATH=%MSYS_ROOT%\clang64\bin;%PATH%"
-            set "CC=clang"
-            set "CXX=clang++"
+            set "CC=%MSYS_ROOT%\clang64\bin\clang.exe"
+            set "CXX=%MSYS_ROOT%\clang64\bin\clang++.exe"
             set "flags=-s -O3 -DNDEBUG -w -march=x86-64-v4 -ffast-math"
         ) else (
             echo Detected MSYS/MINGW environment
-            set "PATH=%MSYS_ROOT%\mingw64\bin;%MSYS_ROOT%\clang64\bin;%PATH%"
-            set "CC=clang"
-            set "CXX=clang++"
+            set "PATH=%MSYS_ROOT%\mingw64\bin;%PATH%"
+            set "CC=%MSYS_ROOT%\mingw64\bin\clang.exe"
+            set "CXX=%MSYS_ROOT%\mingw64\bin\clang++.exe"
             set "flags=-s -O3 -DNDEBUG -w -march=x86-64-v4 -ffast-math"
         )
     ) else (
@@ -159,16 +166,19 @@ if -%1-==-- (
         set "flags=/MD /MT /O2 /Ot /Gw /GA /DNDEBUG /W0"
     )
     shift
-) else if /I "%1"=="ninja" (
-    set "text=Setting environment for Ninja"
-    set "GENERATOR=Ninja"
-    set dir=GNU
-    shift
 ) else if /I "%1"=="msys" (
     set "text=Setting environment for MSYS"
     set "GENERATOR=MSYS Makefiles"
     set dir=GNU
+    set "PATH=%MSYS_ROOT%\ucrt64\bin;%PATH%"
+    set "CC=%MSYS_ROOT%\ucrt64\bin\gcc.exe"
+    set "CXX=%MSYS_ROOT%\ucrt64\bin\g++.exe"
     set "flags=-s -O3 -DNDEBUG -w"
+    shift
+) else if /I "%1"=="ninja" (
+    set "text=Setting environment for Ninja"
+    set "GENERATOR=Ninja"
+    set dir=GNU
     shift
 ) else if /I "%1"=="mingw" (
     set "text=Setting environment for MinGW"
