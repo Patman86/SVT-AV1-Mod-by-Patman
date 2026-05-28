@@ -40,6 +40,11 @@ set(all_files
 add_executable(SvtAv1EncApp
     ${all_files})
 
+if(WIN32)
+    target_sources(SvtAv1EncApp PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}/svt.rc
+    )
+endif()
 # Expose pthread_setname_np on glibc for the app's main-thread naming.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_compile_definitions(SvtAv1EncApp PRIVATE _GNU_SOURCE)
