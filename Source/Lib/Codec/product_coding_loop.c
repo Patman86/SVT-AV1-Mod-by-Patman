@@ -4723,7 +4723,20 @@ static void tx_type_search(PictureControlSet *pcs, ModeDecisionContext *ctx, Mod
                     ctx->luma_dc_sign_context,
                     cand_bf->cand->pred_mode,
                     full_lambda,
-                    FALSE);
+                    FALSE,
+                    TRUE,
+                    input_pic->buffer_y,
+                    input_txb_origin_index,
+                    input_pic->stride_y,
+                    cand_bf->pred->buffer_y,
+                    txb_origin_index,
+                    cand_bf->pred->stride_y,
+                    recon_ptr->buffer_y,
+                    txb_origin_index,
+                    cand_bf->recon->stride_y,
+                    cropped_tx_width,
+                    cropped_tx_height,
+                    cand_bf);
             }
             uint32_t y_has_coeff = eob_txt[tx_type] > 0;
 
@@ -5509,7 +5522,20 @@ static void perform_dct_dct_tx_light_pd1(PictureControlSet *pcs, ModeDecisionCon
                                                            0,
                                                            cand_bf->cand->pred_mode,
                                                            full_lambda,
-                                                           FALSE);
+                                                           FALSE,
+                                                           FALSE,
+                                                           NULL,
+                                                           0,
+                                                           0,
+                                                           NULL,
+                                                           0,
+                                                           0,
+                                                           NULL,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           NULL);
     // LUMA DISTORTION
     const uint32_t txbwidth  = ctx->blk_geom->tx_width[0];
     const uint32_t txbheight = ctx->blk_geom->tx_height[0];
@@ -5689,6 +5715,11 @@ static void perform_dct_dct_tx(PictureControlSet *pcs, ModeDecisionContext *ctx,
     EbPictureBufferDesc *const recon_coeff_ptr = cand_bf->rec_coeff;
     EbPictureBufferDesc *const recon_ptr       = cand_bf->recon;
     EbPictureBufferDesc *const quant_coeff_ptr = cand_bf->quant;
+    
+    const int32_t cropped_tx_width  = MIN(ctx->blk_geom->tx_width[tx_depth],
+                                         pcs->ppcs->aligned_width - (ctx->sb_origin_x + tx_org_x));
+    const int32_t cropped_tx_height = MIN((uint8_t)(ctx->blk_geom->tx_height[tx_depth] >> ctx->mds_subres_step),
+                                          pcs->ppcs->aligned_height - (ctx->sb_origin_y + tx_org_y));
 
     if (!tx_search_skip_flag) {
         // Y: T Q i_q
@@ -5719,7 +5750,20 @@ static void perform_dct_dct_tx(PictureControlSet *pcs, ModeDecisionContext *ctx,
             ctx->luma_dc_sign_context,
             cand_bf->cand->pred_mode,
             full_lambda,
-            FALSE);
+            FALSE,
+            TRUE,
+            input_pic->buffer_y,
+            input_txb_origin_index,
+            input_pic->stride_y,
+            cand_bf->pred->buffer_y,
+            txb_origin_index,
+            cand_bf->pred->stride_y,
+            recon_ptr->buffer_y,
+            txb_origin_index,
+            cand_bf->recon->stride_y,
+            cropped_tx_width,
+            cropped_tx_height,
+            cand_bf);
     } else {
         // Init params
         cand_bf->quant_dc.y[txb_itr] = 0;
@@ -5759,10 +5803,6 @@ static void perform_dct_dct_tx(PictureControlSet *pcs, ModeDecisionContext *ctx,
                                  PICTURE_BUFFER_DESC_Y_FLAG,
                                  ctx->hbd_md);
 
-        const int32_t cropped_tx_width  = MIN(ctx->blk_geom->tx_width[tx_depth],
-                                             pcs->ppcs->aligned_width - (ctx->sb_origin_x + tx_org_x));
-        const int32_t cropped_tx_height = MIN((uint8_t)(ctx->blk_geom->tx_height[tx_depth] >> ctx->mds_subres_step),
-                                              pcs->ppcs->aligned_height - (ctx->sb_origin_y + tx_org_y));
         if (ssim_level == SSIM_LVL_1 || ssim_level == SSIM_LVL_3) {
             y_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION] = svt_spatial_full_distortion_ssim_kernel(
                 input_pic->buffer_y,

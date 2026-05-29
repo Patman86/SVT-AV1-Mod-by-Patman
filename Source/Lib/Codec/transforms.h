@@ -120,7 +120,13 @@ extern uint8_t svt_aom_quantize_inv_quantize(PictureControlSet *pcs, ModeDecisio
                                              int32_t segmentation_qp_offset, TxSize txsize, uint16_t *eob,
                                              uint32_t component_type, uint32_t bit_depth, TxType tx_type,
                                              int16_t txb_skip_context, int16_t dc_sign_context,
-                                             PredictionMode pred_mode, uint32_t lambda, Bool is_encode_pass);
+                                             PredictionMode pred_mode, uint32_t lambda, Bool is_encode_pass,
+                                             uint8_t optimize_eob_slow,
+                                             uint8_t *input, uint32_t input_offset, uint32_t input_stride,
+                                             uint8_t *pred, uint32_t pred_offset, uint32_t pred_stride,
+                                             uint8_t *recon, int32_t recon_offset, uint32_t recon_stride,
+                                             uint32_t area_width, uint32_t area_height,
+                                             ModeDecisionCandidateBuffer* cand_bf);
 
 void svt_aom_quantize_inv_quantize_light(PictureControlSet *pcs, int32_t *coeff, int32_t *quant_coeff,
                                          int32_t *recon_coeff, uint32_t qindex, TxSize txsize, uint16_t *eob,

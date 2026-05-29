@@ -382,6 +382,25 @@ static void av1_encode_loop(PictureControlSet *pcs, EncDecContext *ed_ctx, Super
         aom_av1_set_ssim_rdmult(md_ctx, pcs, mi_row, mi_col);
     }
 
+    ModeDecisionCandidateBuffer **cand_bf_ptr_array_base = md_ctx->cand_bf_ptr_array;
+    ModeDecisionCandidateBuffer **cand_bf_ptr_array      = &(cand_bf_ptr_array_base[0]);
+    ModeDecisionCandidateBuffer  *cand_bf;
+
+    // Set the Candidate Buffer
+    cand_bf = cand_bf_ptr_array[0];
+    // Rate estimation function uses the values from CandidatePtr. The right values are copied from blk_ptr to CandidatePtr
+    cand_bf->cand->pred_mode         = blk_ptr->pred_mode;
+    cand_bf->cand->filter_intra_mode = blk_ptr->filter_intra_mode;
+
+    const int32_t cropped_tx_width  = MIN(blk_geom->tx_width[blk_ptr->tx_depth],
+                                          pcs->ppcs->aligned_width - (md_ctx->sb_origin_x + tx_org_x));
+    const int32_t cropped_tx_height = MIN(blk_geom->tx_height[blk_ptr->tx_depth],
+                                          pcs->ppcs->aligned_height - (md_ctx->sb_origin_y + tx_org_y));
+    const int32_t cropped_tx_width_uv = MIN(blk_geom->tx_width_uv[blk_ptr->tx_depth],
+                                            pcs->ppcs->aligned_width / 2 - ((md_ctx->sb_origin_x + ((tx_org_x >> 3) << 3)) >> 1));
+    const int32_t cropped_tx_height_uv = MIN(blk_geom->tx_height_uv[blk_ptr->tx_depth],
+                                             pcs->ppcs->aligned_height / 2 - ((md_ctx->sb_origin_y + ((tx_org_y >> 3) << 3)) >> 1));
+
     //**********************************
     // Luma
     //**********************************
@@ -430,7 +449,20 @@ static void av1_encode_loop(PictureControlSet *pcs, EncDecContext *ed_ctx, Super
                 md_ctx->luma_dc_sign_context,
                 blk_ptr->pred_mode,
                 md_ctx->full_lambda_md[(bit_depth == EB_TEN_BIT) ? EB_10_BIT_MD : EB_8_BIT_MD],
-                TRUE);
+                TRUE,
+                TRUE,
+                input_samples->buffer_y,
+                input_luma_offset,
+                input_samples->stride_y,
+                pred_samples->buffer_y,
+                pred_luma_offset,
+                pred_samples->stride_y,
+                md_ctx->temp_recon_ptr->buffer_y,
+                0,
+                md_ctx->temp_recon_ptr->stride_y,
+                cropped_tx_width,
+                cropped_tx_height,
+                cand_bf);
         }
 
         blk_ptr->y_has_coeff |= (eob[0] > 0) << ed_ctx->txb_itr;
@@ -506,7 +538,20 @@ static void av1_encode_loop(PictureControlSet *pcs, EncDecContext *ed_ctx, Super
                 md_ctx->cb_dc_sign_context,
                 blk_ptr->pred_mode,
                 md_ctx->full_lambda_md[(bit_depth == EB_TEN_BIT) ? EB_10_BIT_MD : EB_8_BIT_MD],
-                TRUE);
+                TRUE,
+                TRUE,
+                input_samples->buffer_cb,
+                input_cb_offset,
+                input_samples->stride_cb,
+                pred_samples->buffer_cb,
+                pred_cb_offset,
+                pred_samples->stride_cb,
+                md_ctx->temp_recon_ptr->buffer_cb,
+                0,
+                md_ctx->temp_recon_ptr->stride_cb,
+                cropped_tx_width_uv,
+                cropped_tx_height_uv,
+                cand_bf);
 
             //**********************************
             // Cr
@@ -551,7 +596,20 @@ static void av1_encode_loop(PictureControlSet *pcs, EncDecContext *ed_ctx, Super
                 md_ctx->cr_dc_sign_context,
                 blk_ptr->pred_mode,
                 md_ctx->full_lambda_md[(bit_depth == EB_TEN_BIT) ? EB_10_BIT_MD : EB_8_BIT_MD],
-                TRUE);
+                TRUE,
+                TRUE,
+                input_samples->buffer_cr,
+                input_cr_offset,
+                input_samples->stride_cr,
+                pred_samples->buffer_cr,
+                pred_cr_offset,
+                pred_samples->stride_cr,
+                md_ctx->temp_recon_ptr->buffer_cr,
+                0,
+                md_ctx->temp_recon_ptr->stride_cr,
+                cropped_tx_width_uv,
+                cropped_tx_height_uv,
+                cand_bf);
         }
 
         blk_ptr->u_has_coeff |= (eob[1] > 0) << ed_ctx->txb_itr;

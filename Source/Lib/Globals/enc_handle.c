@@ -4811,6 +4811,7 @@ static void copy_api_from_app(
     scs->static_config.psy_bias_inter_mode_bias = config_struct->psy_bias_inter_mode_bias;
     scs->static_config.psy_bias_qm_bias = config_struct->psy_bias_qm_bias;
     scs->static_config.psy_bias_sharpness_rounding = config_struct->psy_bias_sharpness_rounding;
+    scs->static_config.psy_bias_optimize_b = config_struct->psy_bias_optimize_b;
 
     scs->static_config.high_quality_encode_psy_bias = config_struct->high_quality_encode_psy_bias;
     scs->static_config.high_fidelity_encode_psy_bias = config_struct->high_fidelity_encode_psy_bias;

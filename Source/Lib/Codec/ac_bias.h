@@ -33,6 +33,10 @@ uint64_t get_svt_psy_full_dist(const void *s, uint32_t so, uint32_t sp, const vo
                                const uint32_t w, const uint32_t h, const uint8_t is_hbd,
                                const double effective_ac_bias, const double effective_energy_bias, double effective_satd_bias,
                                const QmVal *satd_bias_qmatrix);
+uint64_t get_psy_dist_satd_bias_only(const void *s, const uint32_t so, const uint32_t sp, const void *r, const uint32_t ro,
+                                     const uint32_t rp, const uint32_t w, const uint32_t h, const uint8_t is_hbd,
+                                     double effective_satd_bias,
+                                     const QmVal *satd_bias_qmatrix);
 uint64_t svt_psy_adjust_rate_light(const int32_t *coeff, uint64_t coeff_bits, const uint32_t bwidth,
                                    const uint32_t bheight, const double ac_bias);
 double   get_effective_ac_bias(const double ac_bias, const bool is_islice, const uint8_t temporal_layer_index);
