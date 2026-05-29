@@ -76,6 +76,10 @@ extern "C" {
 
 #define FIX_MR_STILL_IMAGE         1 // Restore MR for still-image
 
+#define FTR_TUNE_VMAF  1 // Implement an unsharp preprocessing filter under TUNE-VMAF (--tune 5)
+#define OPT_TUNE_VMAF  1 // TUNE-VMAF Optimizations: adaptive sharpening (per-QP + spatial MAD), noise gate (Laplacian),
+                         // per-pixel High Frequency delta clip (QP-adaptive), chroma QP compensation, SIMD
+
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one
 #define DEBUG_TPL               0 // Prints to debug TPL
@@ -93,6 +97,7 @@ extern "C" {
 #define FTR_KF_ON_FLY_SAMPLE         0 // Sample code to signal KF
 #define FTR_RES_ON_FLY_SAMPLE        0 // Sample functions to change the resolution on the fly
 #define FTR_RATE_ON_FLY_SAMPLE       0 // Sample functions to change bit rate
+#define FTR_PRESET_ON_FLY_SAMPLE     0 // Sample functions to change preset on the fly
 #define FTR_FRAME_RATE_ON_FLY_SAMPLE 0 // Sample functions to change frame rate
 #define FTR_PER_FRAME_QUALITY_SAMPLE 0 // Sample functions to compute PSNR per frame
 #endif

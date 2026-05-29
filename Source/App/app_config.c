@@ -124,6 +124,8 @@
 #define UNDER_SHOOT_PCT_TOKEN "--undershoot-pct"
 #define OVER_SHOOT_PCT_TOKEN "--overshoot-pct"
 #define MBR_OVER_SHOOT_PCT_TOKEN "--mbr-overshoot-pct"
+#define MAX_INTRA_BITRATE_PCT_TOKEN "--max-intra-bitrate-pct"
+#define MAX_INTER_BITRATE_PCT_TOKEN "--max-inter-bitrate-pct"
 #define GOP_CONSTRAINT_RC_TOKEN "--gop-constraint-rc"
 #define BUFFER_SIZE_TOKEN "--buf-sz"
 #define BUFFER_INITIAL_SIZE_TOKEN "--buf-initial-sz"
@@ -165,6 +167,7 @@
 
 #define QP_LONG_TOKEN "--qp"
 #define CRF_LONG_TOKEN "--crf"
+#define CQP_LONG_TOKEN "--cqp"
 #define LOOP_FILTER_ENABLE "--enable-dlf"
 #define FORCED_MAX_FRAME_WIDTH_TOKEN "--forced-max-frame-width"
 #define FORCED_MAX_FRAME_HEIGHT_TOKEN "--forced-max-frame-height"
@@ -209,6 +212,7 @@
 #define MAX_TX_SIZE_TOKEN "--max-tx-size"
 #define AC_BIAS_TOKEN "--ac-bias"
 #define HBD_MDS_TOKEN "--hbd-mds"
+#define ENABLE_INTRABC_TOKEN "--enable-intrabc"
 
 static EbErrorType validate_error(EbErrorType err, const char* token, const char* value) {
     switch (err) {
@@ -792,6 +796,10 @@ ConfigDescription config_entry_rc[] = {
      "Constant Rate Factor value, setting this value is similar to `--rc 0 --aq-mode 2 --qp "
      "x`.  Compared to `--qp`, `--crf` can take a value up to 70, and can be set in 0.25 increments, default is 35 "
      "[1-70]"},
+    {CQP_LONG_TOKEN,
+     "Constant Quality value, setting this value is similar to `--rc 0 --aq-mode 0 --qp "
+     "x`.  Compared to `--qp`, `--cqp` can take a value up to 70, and can be set in 0.25 increments, default is 35 "
+     "[1-70]"},
 
     {TARGET_BIT_RATE_TOKEN,
      "Target Bitrate (kbps), only applicable for VBR and CBR encoding, default is 7000 [1-100000]"},
@@ -837,6 +845,10 @@ ConfigDescription config_entry_rc[] = {
     {MBR_OVER_SHOOT_PCT_TOKEN,
      "Only for Capped CRF, allowable datarate overshoot (max) target (percentage), default is 50, "
      "but can change based on rate control [0-100]"},
+    {MAX_INTRA_BITRATE_PCT_TOKEN,
+     "Max bitrate for intra frames as a percentage of the target bitrate, 0 to disable, default is 300"},
+    {MAX_INTER_BITRATE_PCT_TOKEN,
+     "Max bitrate for inter frames as a percentage of the target bitrate, 0 to disable, default is 0"},
     {GOP_CONSTRAINT_RC_TOKEN,
      "Enable GoP constraint rc.  When enabled, the rate control matches the target rate for each "
      "GoP, default is 0 [0-1]"},
@@ -927,11 +939,12 @@ ConfigDescription config_entry_specific[] = {
     // --- end: ALTREF_FILTERING_SUPPORT
     {TUNE_TOKEN,
      "Optimize the encoding process for different desired outcomes [0 = VQ, 1 = PSNR, 2 = SSIM, 3 = IQ (Image "
-     "Quality)], 4 = MS_SSIM (MS_SSIM and SSIMULACRA2 optimized mode), default is 1 [0-4]"},
+     "Quality), 4 = MS_SSIM (MS_SSIM and SSIMULACRA2 optimized mode), 5 = VMAF], default is 1 [0-5]"},
     // MD Parameters
     {SCREEN_CONTENT_TOKEN,
      "Set screen content detection level, default is 2 [0: off, 1: on, 2: content adaptive, 3: content adaptive "
      "(anti-alias aware)]"},
+    {ENABLE_INTRABC_TOKEN, "Enable Intra Block Copy, default is 1 [0: off, 1: on]"},
 #if CONFIG_ENABLE_FILM_GRAIN
     // Annex A parameters
     {FILM_GRAIN_TOKEN, "Enable film grain, default is 0 [0: off, 1-50: level of denoising for film grain]"},
@@ -1091,6 +1104,7 @@ ConfigEntry config_entry[] = {
     {QP_TOKEN, "QP", set_cfg_generic_token},
     {QP_LONG_TOKEN, "QP", set_cfg_generic_token},
     {CRF_LONG_TOKEN, "CRF", set_cfg_generic_token},
+    {CQP_LONG_TOKEN, "CQP", set_cfg_generic_token},
     {TARGET_BIT_RATE_TOKEN, "TargetBitRate", set_cfg_generic_token},
     {MAX_BIT_RATE_TOKEN, "MaxBitRate", set_cfg_generic_token},
 
@@ -1117,6 +1131,8 @@ ConfigEntry config_entry[] = {
     {UNDER_SHOOT_PCT_TOKEN, "UnderShootPct", set_cfg_generic_token},
     {OVER_SHOOT_PCT_TOKEN, "OverShootPct", set_cfg_generic_token},
     {MBR_OVER_SHOOT_PCT_TOKEN, "MbrOverShootPct", set_cfg_generic_token},
+    {MAX_INTRA_BITRATE_PCT_TOKEN, "MaxIntraBitratePct", set_cfg_generic_token},
+    {MAX_INTER_BITRATE_PCT_TOKEN, "MaxInterBitratePct", set_cfg_generic_token},
     {GOP_CONSTRAINT_RC_TOKEN, "GopConstraintRc", set_cfg_generic_token},
     {BUFFER_SIZE_TOKEN, "BufSz", set_cfg_generic_token},
     {BUFFER_INITIAL_SIZE_TOKEN, "BufInitialSz", set_cfg_generic_token},
@@ -1157,6 +1173,7 @@ ConfigEntry config_entry[] = {
     {ENABLE_TF_KEY_TOKEN, "EnableTfKey", set_cfg_generic_token},
     {ENABLE_OVERLAYS, "EnableOverlays", set_cfg_generic_token},
     {SCREEN_CONTENT_TOKEN, "ScreenContentMode", set_cfg_generic_token},
+    {ENABLE_INTRABC_TOKEN, "EnableIntraBC", set_cfg_generic_token},
 
 #if CONFIG_ENABLE_FILM_GRAIN
     {FILM_GRAIN_TOKEN, "FilmGrain", set_cfg_generic_token},

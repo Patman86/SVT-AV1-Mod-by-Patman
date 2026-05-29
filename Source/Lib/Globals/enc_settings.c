@@ -43,8 +43,8 @@
 EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
     EbErrorType               return_error = EB_ErrorNone;
     EbSvtAv1EncConfiguration* config       = &scs->static_config;
-    if (config->enc_mode > MAX_ENC_PRESET || config->enc_mode < -1) {
-        SVT_ERROR("EncoderMode must be in the range of [-1-%d]\n", MAX_ENC_PRESET);
+    if (config->enc_mode > MAX_ENC_PRESET || config->enc_mode < MIN_ENC_PRESET) {
+        SVT_ERROR("EncoderMode must be in the range of [%d-%d]\n", MIN_ENC_PRESET, MAX_ENC_PRESET);
         return_error = EB_ErrorBadParameter;
     }
     if (scs->max_input_luma_width < 1) {
@@ -506,6 +506,52 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
             config->fast_decode);
         return_error = EB_ErrorBadParameter;
     }
+#if FTR_TUNE_VMAF
+    if (config->tune > TUNE_VMAF) {
+        SVT_ERROR(
+            "Invalid tune flag [0 - 5, 0 for VQ, 1 for PSNR, 2 for SSIM, 3 for IQ, 4 for MS_SSIM, and 5 for VMAF], "
+            "your input: "
+            "%d\n",
+            config->tune);
+        return_error = EB_ErrorBadParameter;
+    }
+    // RC: SSIM, IQ, MS_SSIM, VMAF -> CRF only (VBR, CBR not supported)
+    if (config->tune == TUNE_SSIM || config->tune == TUNE_IQ || config->tune == TUNE_MS_SSIM ||
+        config->tune == TUNE_VMAF) {
+        if (config->rate_control_mode != 0) {
+            SVT_ERROR("Tune %s only supports CRF rate control mode\n",
+                      config->tune == TUNE_SSIM       ? "SSIM"
+                          : config->tune == TUNE_IQ   ? "IQ"
+                          : config->tune == TUNE_VMAF ? "VMAF"
+                                                      : "MS_SSIM");
+            return_error = EB_ErrorBadParameter;
+        }
+    }
+
+    // pred_struct: SSIM, MS_SSIM -> ALL_INTRA and RA only (LOW_DELAY not supported)
+    if (config->tune == TUNE_SSIM || config->tune == TUNE_MS_SSIM) {
+        if (config->pred_structure == LOW_DELAY) {
+            SVT_ERROR("Tune %s only supports all-intra and random access prediction structures\n",
+                      config->tune == TUNE_SSIM ? "SSIM" : "MS_SSIM");
+            return_error = EB_ErrorBadParameter;
+        }
+    }
+
+    // pred_struct: VMAF -> RA only (ALL_INTRA and LOW_DELAY not supported)
+    if (config->tune == TUNE_VMAF && (config->pred_structure == ALL_INTRA || config->pred_structure == LOW_DELAY)) {
+        SVT_ERROR("Tune VMAF only supports random access prediction structure\n");
+        return_error = EB_ErrorBadParameter;
+    }
+
+    // pred_struct: IQ -> ALL_INTRA and LOW_DELAY only (RA not supported); LOW_DELAY is experimental
+    if (config->tune == TUNE_IQ && config->pred_structure == RANDOM_ACCESS) {
+        SVT_ERROR("Tune IQ only supports all-intra and low delay (experimental) prediction structures\n");
+        return_error = EB_ErrorBadParameter;
+    }
+    if (config->tune == TUNE_IQ && config->pred_structure == LOW_DELAY) {
+        SVT_WARN("Tune IQ with low delay prediction structure is experimental\n");
+    }
+#else
     if (config->tune > TUNE_MS_SSIM) {
         SVT_ERROR(
             "Invalid tune flag [0 - 4, 0 for VQ, 1 for PSNR, 2 for SSIM, 3 for IQ, and 4 for MS_SSIM], your input: "
@@ -522,6 +568,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
             return_error = EB_ErrorBadParameter;
         }
     }
+#endif
 
     if (config->superres_mode > SUPERRES_AUTO) {
         SVT_ERROR("invalid superres-mode %d, should be in the range [%d - %d]\n",
@@ -926,12 +973,15 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->under_shoot_pct          = (uint32_t)DEFAULT;
     config_ptr->over_shoot_pct           = (uint32_t)DEFAULT;
     config_ptr->mbr_over_shoot_pct       = 50;
+    config_ptr->max_intra_bitrate_pct    = 300;
+    config_ptr->max_inter_bitrate_pct    = 0;
     config_ptr->gop_constraint_rc        = 0;
     config_ptr->maximum_buffer_size_ms   = 1000; // default settings for CBR
     config_ptr->starting_buffer_level_ms = 600; // default settings for CBR
     config_ptr->optimal_buffer_level_ms  = 600; // default settings for CBR
     config_ptr->recode_loop              = ALLOW_RECODE_DEFAULT;
     config_ptr->screen_content_mode      = 2;
+    config_ptr->enable_intrabc           = true;
 
     // Annex A parameters
     config_ptr->profile = 0;
@@ -1069,7 +1119,21 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                 : config->encoder_color_format == EB_YUV422 ? "YUV422"
                 : config->encoder_color_format == EB_YUV444 ? "YUV444"
                                                             : "Unknown color format");
-#if FTR_TUNE_4
+
+#if FTR_TUNE_VMAF
+        PRINT_CONFIG("preset / tune / pred struct", "%d / %s / %s",
+                 config->enc_mode,
+                 config->tune == TUNE_VQ            ? "VQ"
+                     : config->tune == TUNE_PSNR    ? "PSNR"
+                     : config->tune == TUNE_SSIM    ? "SSIM"
+                     : config->tune == TUNE_MS_SSIM ? "MS_SSIM"
+                     : config->tune == TUNE_VMAF    ? "VMAF"
+                                                    : "IQ",
+                 config->pred_structure == LOW_DELAY           ? "low delay"
+                     : config->pred_structure == RANDOM_ACCESS ? "random access"
+                     : config->pred_structure == ALL_INTRA     ? "all intra"
+                                                               : "Unknown pred structure");
+#else
         PRINT_CONFIG("preset / tune / pred struct", "%d / %s / %s",
                  config->enc_mode,
                  config->tune == TUNE_VQ            ? "VQ"
@@ -1080,16 +1144,6 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                  config->pred_structure == LOW_DELAY           ? "low delay"
                      : config->pred_structure == RANDOM_ACCESS ? "random access"
                      : config->pred_structure == ALL_INTRA     ? "all intra"
-                                                               : "Unknown pred structure");
-#else
-        PRINT_CONFIG("preset / tune / pred struct", "%d / %s / %s",
-                 config->enc_mode,
-                 config->tune == TUNE_VQ         ? "VQ"
-                     : config->tune == TUNE_PSNR ? "PSNR"
-                     : config->tune == TUNE_SSIM ? "SSIM"
-                                                 : "IQ",
-                 config->pred_structure == LOW_DELAY           ? "low delay"
-                     : config->pred_structure == RANDOM_ACCESS ? "random access"
                                                                : "Unknown pred structure");
 #endif
         PRINT_CONFIG("gop size / mini-gop size / key-frame type", "%d / %d / %s",
@@ -1445,6 +1499,31 @@ static EbErrorType str_to_crf(const char* nptr, EbSvtAv1EncConfiguration* config
     config_struct->qp                         = qp;
     config_struct->rate_control_mode          = SVT_AV1_RC_MODE_CQP_OR_CRF;
     config_struct->aq_mode                    = 2;
+    config_struct->extended_crf_qindex_offset = extended_crf_qindex_offset;
+
+    return EB_ErrorNone;
+}
+
+static EbErrorType str_to_cqp(const char* nptr, EbSvtAv1EncConfiguration* config_struct) {
+    double      cqp;
+    EbErrorType return_error;
+
+    return_error = str_to_double(nptr, &cqp, NULL);
+
+    if (return_error == EB_ErrorBadParameter) {
+        return return_error;
+    }
+    if (cqp < 0) {
+        return EB_ErrorBadParameter;
+    }
+
+    uint32_t extended_q_index           = (uint32_t)(cqp * 4);
+    uint32_t qp                         = AOMMIN(MAX_QP_VALUE, (uint32_t)cqp);
+    uint32_t extended_crf_qindex_offset = extended_q_index - qp * 4;
+
+    config_struct->qp                         = qp;
+    config_struct->rate_control_mode          = SVT_AV1_RC_MODE_CQP_OR_CRF;
+    config_struct->aq_mode                    = 0;
     config_struct->extended_crf_qindex_offset = extended_crf_qindex_offset;
 
     return EB_ErrorNone;
@@ -2051,6 +2130,10 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         return str_to_crf(value, config_struct);
     }
 
+    if (!strcmp(name, "cqp")) {
+        return str_to_cqp(value, config_struct);
+    }
+
     if (!strcmp(name, "rc")) {
         return str_to_rc_mode(value, &config_struct->rate_control_mode, &config_struct->aq_mode);
     }
@@ -2162,6 +2245,8 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"undershoot-pct", &config_struct->under_shoot_pct},
         {"overshoot-pct", &config_struct->over_shoot_pct},
         {"mbr-overshoot-pct", &config_struct->mbr_over_shoot_pct},
+        {"max-intra-bitrate-pct", &config_struct->max_intra_bitrate_pct},
+        {"max-inter-bitrate-pct", &config_struct->max_inter_bitrate_pct},
         {"recode-loop", &config_struct->recode_loop},
         {"enable-stat-report", &config_struct->stat_report},
         {"scm", &config_struct->screen_content_mode},
@@ -2340,6 +2425,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"rtc", &config_struct->rtc},
         {"adaptive-film-grain", &config_struct->adaptive_film_grain},
         {"enable-kf-tf", &config_struct->enable_tf_key},
+        {"enable-intrabc", &config_struct->enable_intrabc},
     };
     const size_t bool_opts_size = sizeof(bool_opts) / sizeof(bool_opts[0]);
 

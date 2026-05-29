@@ -3705,8 +3705,8 @@ void set_multi_pass_params(SequenceControlSet* scs) {
 
     if (scs->static_config.recode_loop > 0 &&
         ((scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF && scs->static_config.max_bit_rate == 0) ||
-         (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR))) {
-        // Only allow re-encoding for VBR or capped CRF, otherwise force recode_loop to DISALLOW_RECODE or 0
+         (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR && !scs->static_config.rtc))) {
+        // Only allow re-encoding for VBR, RTC CBR or capped CRF, otherwise force recode_loop to DISALLOW_RECODE
         scs->static_config.recode_loop = DISALLOW_RECODE;
     } else if (scs->static_config.recode_loop == ALLOW_RECODE_DEFAULT) {
         // capped CRF has reencde enabled for base layer frames for all presets
@@ -3833,7 +3833,25 @@ void set_qp_based_th_scaling_ctrls_all_intra(SequenceControlSet* scs) {
     QpBasedThScaling* qp_ctrls = &scs->qp_based_th_scaling_ctrls;
     const EncMode     enc_mode = scs->static_config.enc_mode;
 
+#if FIX_MR_STILL_IMAGE
+    if (enc_mode <= ENC_MR) {
+        qp_ctrls->tf_me_qp_based_th_scaling        = 0;
+        qp_ctrls->tf_ref_qp_based_th_scaling       = 0;
+        qp_ctrls->depths_qp_based_th_scaling       = 0;
+        qp_ctrls->hme_qp_based_th_scaling          = 0;
+        qp_ctrls->me_qp_based_th_scaling           = 0;
+        qp_ctrls->nsq_qp_based_th_scaling          = 0;
+        qp_ctrls->nic_max_qp_based_th_scaling      = 1;
+        qp_ctrls->nic_pruning_qp_based_th_scaling  = 1;
+        qp_ctrls->pme_qp_based_th_scaling          = 0;
+        qp_ctrls->txt_qp_based_th_scaling          = 1;
+        qp_ctrls->cap_max_size_qp_based_th_scaling = 0;
+        qp_ctrls->lpd0_qp_based_th_scaling         = 0;
+        qp_ctrls->intra_bc_mesh_qp_scaling         = 0;
+    } else if (enc_mode <= ENC_M3) {
+#else
     if (enc_mode <= ENC_M3) {
+#endif
         qp_ctrls->tf_me_qp_based_th_scaling        = 0;
         qp_ctrls->tf_ref_qp_based_th_scaling       = 0;
         qp_ctrls->depths_qp_based_th_scaling       = 0;
@@ -4237,7 +4255,7 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     // 0: Do not use boundary pixels in the restoration filter search.
     scs->use_boundaries_in_rest_search = 0;
 
-    svt_aom_set_mfmv_config(scs);
+    svt_aom_set_mfmv_config(scs, scs->static_config.enc_mode);
 
     scs->list0_only_base = scs->static_config.enc_mode > ENC_M2;
 
@@ -4476,6 +4494,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     // CDEF
     scs->static_config.cdef_level = config_struct->cdef_level;
 
+    // Intra Block Copy
+    scs->static_config.enable_intrabc = config_struct->enable_intrabc;
+
     // Restoration filtering
     scs->static_config.enable_restoration_filtering = config_struct->enable_restoration_filtering;
 
@@ -4603,6 +4624,8 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         scs->static_config.over_shoot_pct = 25;
     }
     scs->static_config.mbr_over_shoot_pct       = config_struct->mbr_over_shoot_pct;
+    scs->static_config.max_intra_bitrate_pct    = config_struct->max_intra_bitrate_pct;
+    scs->static_config.max_inter_bitrate_pct    = config_struct->max_inter_bitrate_pct;
     scs->static_config.gop_constraint_rc        = config_struct->gop_constraint_rc;
     scs->static_config.maximum_buffer_size_ms   = config_struct->maximum_buffer_size_ms;
     scs->static_config.starting_buffer_level_ms = config_struct->starting_buffer_level_ms;
@@ -4698,18 +4721,16 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->static_config.qp            = config_struct->qp;
     scs->static_config.recon_enabled = config_struct->recon_enabled;
 
-    // Extract frame rate from Numerator and Denominator if not 0
-    if (scs->static_config.frame_rate_numerator != 0 && scs->static_config.frame_rate_denominator != 0) {
-        scs->frame_rate = (double)scs->static_config.frame_rate_numerator /
-            (double)scs->static_config.frame_rate_denominator;
-    }
+    // Numerator and Denominator already checked to be non 0
+    scs->frame_rate = (double)scs->static_config.frame_rate_numerator /
+        (double)scs->static_config.frame_rate_denominator;
+
     // Get Default Intra Period if not specified
     if (scs->static_config.intra_period_length == -2) {
         scs->static_config.intra_period_length = compute_default_intra_period(scs);
         scs->allintra = (scs->static_config.intra_period_length == 0 || scs->static_config.avif);
     } else if (scs->static_config.multiply_keyint) {
-        const double fps = (double)scs->static_config.frame_rate_numerator / scs->static_config.frame_rate_denominator;
-        scs->static_config.intra_period_length = (int32_t)(fps * scs->static_config.intra_period_length);
+        scs->static_config.intra_period_length = (int32_t)(scs->frame_rate * scs->static_config.intra_period_length);
     }
     if (scs->static_config.look_ahead_distance == (uint32_t)~0) {
         scs->static_config.look_ahead_distance = compute_default_look_ahead(&scs->static_config);
@@ -4889,6 +4910,11 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         scs->static_config.variance_boost_strength = 3;
         scs->static_config.variance_boost_curve    = 2;
     }
+#if FTR_TUNE_VMAF
+    else if (scs->static_config.tune == TUNE_VMAF) {
+        SVT_WARN("Tune VMAF: a pre-processing / unsharp masking is applied\n");
+    }
+#endif
     return;
 }
 
@@ -5507,10 +5533,10 @@ static EbErrorType validate_on_the_fly_settings(EbBufferHeaderType* input_ptr, S
         } else if (node->node_type == RATE_CHANGE_EVENT) {
             SvtAv1RateInfo* node_data = (SvtAv1RateInfo*)node->data;
             if ((scs->static_config.target_bit_rate != node_data->target_bit_rate) &&
-                !((scs->static_config.pred_structure == LOW_DELAY) &&
-                  (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR))) {
+                !(scs->static_config.rtc && scs->static_config.pred_structure == LOW_DELAY &&
+                  scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR)) {
                 input_ptr->flags = EB_BUFFERFLAG_EOS;
-                SVT_ERROR("TBR change on the fly not supported for any mode other than Low-Delay CBR\n");
+                SVT_ERROR("TBR change on the fly not supported for any mode other than RTC Low-Delay CBR\n");
                 return EB_ErrorBadParameter;
             }
             if (node_data->seq_qp != 0) {
@@ -5538,6 +5564,21 @@ static EbErrorType validate_on_the_fly_settings(EbBufferHeaderType* input_ptr, S
                 SVT_ERROR(
                     "Frame rate change on the fly requires that he frame_rate_numerator and frame_rate_denominator "
                     "must be greater than 0\n");
+                return EB_ErrorBadParameter;
+            }
+        } else if (node->node_type == PRESET_CHANGE_EVENT) {
+            SvtAv1PresetInfo* node_data = (SvtAv1PresetInfo*)node->data;
+            if (!((scs->static_config.pred_structure == LOW_DELAY) &&
+                  (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR) && scs->static_config.rtc)) {
+                input_ptr->flags = EB_BUFFERFLAG_EOS;
+                SVT_ERROR("Preset change on the fly not supported for any mode other than RTC Low-Delay CBR\n");
+                return EB_ErrorBadParameter;
+            }
+            if (node_data->enc_mode < scs->static_config.enc_mode || node_data->enc_mode > MAX_ENC_PRESET) {
+                input_ptr->flags = EB_BUFFERFLAG_EOS;
+                SVT_ERROR("Preset change on the fly requires enc_mode in range [%d, %d]\n",
+                          scs->static_config.enc_mode,
+                          MAX_ENC_PRESET);
                 return EB_ErrorBadParameter;
             }
         }

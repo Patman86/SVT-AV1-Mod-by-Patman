@@ -222,6 +222,10 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * Min value is -2.
      * Max value is 13.
      * Default is 12.
+     *
+     * When PRESET_CHANGE_EVENT is used to change the preset on the fly, this
+     * value is served as minimum possible preset value. The actual preset value
+     * is stored in pcs->enc_mode.
      */
     int8_t enc_mode;
 
@@ -651,7 +655,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
 
     bool enable_overlays;
     /**
-     * @brief Tune for a particular metric; 0: VQ, 1: PSNR, 2: SSIM, 3: IQ (Image Quality), 4: MS-SSIM.
+     * @brief Tune for a particular metric; 0: VQ, 1: PSNR, 2: SSIM, 3: IQ (Image Quality), 4: MS-SSIM, 5: VMAF.
      *
      * Default is 1.
      */
@@ -987,6 +991,35 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * 1 = on
      * Default is 1. */
     bool enable_tf_key;
+
+    /**
+     * @brief Max Intra Bitrate Percentage
+     *
+     * Maximum bitrate for intra frames, expressed as a percentage of the
+     * target bitrate. 0 means no limit.
+     *
+     * Default is 300.
+     */
+    uint32_t max_intra_bitrate_pct;
+
+    /**
+     * @brief Max Inter Bitrate Percentage
+     *
+     * Maximum bitrate for inter frames, expressed as a percentage of the
+     * target bitrate. 0 means no limit.
+     *
+     * Default is 0.
+     */
+    uint32_t max_inter_bitrate_pct;
+
+    /**
+     * @brief Enable Intra Block Copy
+     *
+     * false: off
+     * true: on (default, preset-based)
+     *
+     * Default is true. */
+    bool enable_intrabc;
 } EbSvtAv1EncConfiguration;
 
 /**

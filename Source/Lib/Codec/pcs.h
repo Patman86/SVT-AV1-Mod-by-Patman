@@ -273,7 +273,6 @@ typedef struct PictureControlSet {
     NeighborArrayUnit** cb_dc_sign_level_coeff_na;
     NeighborArrayUnit** txfm_context_array;
 
-    NeighborArrayUnit**      segmentation_id_pred_array;
     SegmentationNeighborMap* segmentation_neighbor_map;
 
     MbModeInfo** mi_grid_base;
@@ -887,11 +886,6 @@ typedef struct PictureParentControlSet {
     // index of picture in the mg
     uint32_t pic_idx_in_mg;
 
-    /* profile settings */
-#if CONFIG_ENTROPY_STATS
-    int32_t coef_cdf_category;
-#endif
-
     // Global quant matrix tables
     const QmVal* giqmatrix[NUM_QM_LEVELS][3][TX_SIZES_ALL];
     const QmVal* gqmatrix[NUM_QM_LEVELS][3][TX_SIZES_ALL];
@@ -1069,7 +1063,6 @@ typedef struct PictureParentControlSet {
     int         undershoot_seen;
     int         low_cr_seen;
     uint64_t    pcs_total_rate;
-    EbHandle    pcs_total_rate_mutex;
     uint8_t     first_pass_done;
     uint8_t     first_frame_in_minigop;
     TplControls tpl_ctrls;
@@ -1130,6 +1123,15 @@ typedef struct PictureParentControlSet {
     uint64_t tf_avg_luma;
     bool     tf_active_region_present;
     bool     seq_param_changed;
+    bool     bitrate_changed;
+    bool     frame_rate_changed;
+    // Runtime bitrate and frame rate values that may be adjusted mid-encoding
+    // via RATE_CHANGE_EVENT / FRAME_RATE_CHANGE_EVENT. These are per-frame
+    // snapshots stamped by resource coordination so downstream threads (RC)
+    // read thread-safe per-PCS values instead of the shared SCS.
+    uint32_t target_bit_rate;
+    uint32_t frame_rate_numerator;
+    uint32_t frame_rate_denominator;
     uint64_t norm_me_dist;
     uint8_t  tpl_params_ready;
     bool     is_startup_gop;
@@ -1137,6 +1139,10 @@ typedef struct PictureParentControlSet {
 
     bool   sframe_ref_pruned;
     int8_t sframe_qp_offset;
+#if OPT_TUNE_VMAF
+    int     vmaf_sharpening_amount;
+    int32_t vmaf_max_delta;
+#endif
 } PictureParentControlSet;
 
 typedef struct TplDispResults {
@@ -1214,7 +1220,7 @@ EbErrorType svt_aom_picture_parent_control_set_creator(EbPtr* object_dbl_ptr, Eb
 EbErrorType svt_aom_me_creator(EbPtr* object_dbl_ptr, EbPtr object_init_data_ptr);
 EbErrorType svt_aom_me_sb_results_ctor(MeSbResults* obj_ptr, PictureControlSetInitData* init_data_ptr);
 EbErrorType ppcs_update_param(PictureParentControlSet* ppcs);
-EbErrorType pcs_update_param(PictureControlSet* pcs);
+EbErrorType pcs_update_param(PictureControlSet* pcs, int8_t enc_mode);
 EbErrorType me_update_param(MotionEstimationData* me_data, struct SequenceControlSet* scs);
 EbErrorType recon_coef_update_param(EncDecSet* recon_coef, struct SequenceControlSet* scs);
 bool        svt_aom_is_pic_skipped(PictureParentControlSet* pcs);

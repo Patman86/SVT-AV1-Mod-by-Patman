@@ -1918,12 +1918,25 @@ static uint8_t svt_aom_get_sg_filter_level_rtc(EncMode enc_mode, uint8_t input_r
 }
 #endif
 
+#if FIX_MR_STILL_IMAGE
+static uint8_t svt_aom_get_sg_filter_level_allintra(EncMode enc_mode) {
+    uint8_t sg_filter_lvl;
+    if (enc_mode <= ENC_MR) {
+        sg_filter_lvl = 1;
+    } else {
+        sg_filter_lvl = 0;
+    }
+
+    return sg_filter_lvl;
+}
+#else
 static uint8_t svt_aom_get_sg_filter_level_allintra() {
     uint8_t sg_filter_lvl;
     sg_filter_lvl = 0;
 
     return sg_filter_lvl;
 }
+#endif
 
 static void dlf_level_modulation(PictureControlSet* pcs, uint8_t* default_dlf_level, uint8_t modulation_mode) {
     uint8_t dlf_level = *default_dlf_level;
@@ -2234,6 +2247,8 @@ static void svt_aom_set_dlf_controls(PictureParentControlSet* pcs, uint8_t dlf_l
 /*
     set controls for intra block copy
 */
+#define MAX_INTRABC_LEVEL 7
+
 static void set_intrabc_level(PictureParentControlSet* pcs, uint8_t ibc_level) {
     IntrabcCtrls* intrabc_ctrls = &pcs->intrabc_ctrls;
 
@@ -2389,7 +2404,7 @@ static void set_intrabc_level(PictureParentControlSet* pcs, uint8_t ibc_level) {
 
         break;
 
-    case 7:
+    case MAX_INTRABC_LEVEL:
 
         intrabc_ctrls->enabled = 1;
 
@@ -2615,10 +2630,13 @@ void svt_aom_sig_deriv_multi_processes_default(SequenceControlSet* scs, PictureP
 
     // Set intra-bc level
     uint8_t intrabc_level = 0;
+    if (!scs->static_config.enable_intrabc) {
+        intrabc_level = 0;
+    } else
 #if TUNE_SIMPLIFY_SETTINGS
-    if (sc_class5) {
+        if (sc_class5) {
 #else
-    if (sc_class1) {
+        if (sc_class1) {
 #endif
         if (is_islice) {
 #if OPT_SC_RA
@@ -3210,15 +3228,24 @@ void svt_aom_sig_deriv_multi_processes_allintra(SequenceControlSet* scs, Picture
     pcs->multi_pass_pd_level = MULTI_PASS_PD_ON;
 
     // Set intra-bc level
-    uint8_t intrabc_level;
+    uint8_t intrabc_level = 0;
+    if (!scs->static_config.enable_intrabc) {
+        intrabc_level = 0;
+    } else
 #if OPT_SC_STILL_IMAGE
-    if (sc_class5) {
+        if (sc_class5) {
 #else
-    if (sc_class1) {
+        if (sc_class1) {
 #endif
         // Use intrabc_level 1 or 2 to achieve maximum intra-BC coding gain (higher computational complexity)
 #if OPT_SC_STILL_IMAGE
+#if FIX_MR_STILL_IMAGE
+        if (enc_mode <= ENC_MR) {
+            intrabc_level = 1;
+        } else if (enc_mode <= ENC_M0) {
+#else
         if (enc_mode <= ENC_M0) {
+#endif
             intrabc_level = 3;
         } else if (enc_mode <= ENC_M1) {
             intrabc_level = 4;
@@ -3227,7 +3254,7 @@ void svt_aom_sig_deriv_multi_processes_allintra(SequenceControlSet* scs, Picture
         } else if (enc_mode <= ENC_M3) {
             intrabc_level = 6;
         } else if (enc_mode <= ENC_M4) {
-            intrabc_level = 7;
+            intrabc_level = MAX_INTRABC_LEVEL;
         } else {
             intrabc_level = 0;
         }
@@ -3260,7 +3287,7 @@ void svt_aom_sig_deriv_multi_processes_allintra(SequenceControlSet* scs, Picture
 #endif
 #if !TUNE_M5_SC_STILL_IMAGE
         } else if (enc_mode <= ENC_M5) {
-            intrabc_level = 7;
+            intrabc_level = MAX_INTRABC_LEVEL;
 #endif
 #else
         } else if (enc_mode <= ENC_M5) {
@@ -3344,13 +3371,25 @@ void svt_aom_sig_deriv_multi_processes_allintra(SequenceControlSet* scs, Picture
         cdef_search_level = (int8_t)(scs->static_config.cdef_level);
     } else {
         if ((fast_decode == 0 || input_resolution <= INPUT_SIZE_360p_RANGE)) {
+#if FIX_MR_STILL_IMAGE
+            if (enc_mode <= ENC_MR) {
+                cdef_search_level = 1;
+#if OPT_NSC_STILL_IMAGE
+            } else if (enc_mode <= ENC_M0) {
+                cdef_search_level = 2;
+#endif
+            } else if (enc_mode <= ENC_M3) {
+                cdef_search_level = 3;
+#else
 #if OPT_NSC_STILL_IMAGE
             if (enc_mode <= ENC_M0) {
                 cdef_search_level = 2;
             } else
 #endif
+
                 if (enc_mode <= ENC_M3) {
                 cdef_search_level = 3;
+#endif
             } else if (enc_mode <= ENC_M5) {
                 cdef_search_level = 5;
             } else if (enc_mode <= ENC_M6) {
@@ -3409,7 +3448,11 @@ void svt_aom_sig_deriv_multi_processes_allintra(SequenceControlSet* scs, Picture
                                         scs->max_initial_input_luma_width * scs->max_initial_input_luma_height);
 
         wn = svt_aom_get_wn_filter_level_allintra(enc_mode);
+#if FIX_MR_STILL_IMAGE
+        sg = svt_aom_get_sg_filter_level_allintra(enc_mode);
+#else
         sg = svt_aom_get_sg_filter_level_allintra();
+#endif
     }
 
     Av1Common* cm = pcs->av1_cm;
@@ -3423,7 +3466,18 @@ void svt_aom_sig_deriv_multi_processes_allintra(SequenceControlSet* scs, Picture
     // 0                                     OFF
     // 1                                     ON
     pcs->frame_end_cdf_update_mode = 1;
-    pcs->max_can_count             = svt_aom_get_max_can_count(enc_mode);
+#if FIX_MR_STILL_IMAGE
+    if (scs->enable_hbd_mode_decision == DEFAULT) {
+        if (enc_mode <= ENC_MR) {
+            pcs->hbd_md = 1;
+        } else {
+            pcs->hbd_md = 2;
+        }
+    } else {
+        pcs->hbd_md = scs->enable_hbd_mode_decision;
+    }
+#endif
+    pcs->max_can_count = svt_aom_get_max_can_count(enc_mode);
 }
 
 /******************************************************
@@ -3631,11 +3685,19 @@ uint8_t svt_aom_get_enable_sg_rtc(EncMode enc_mode, uint8_t input_resolution, ui
 }
 #endif
 
+#if FIX_MR_STILL_IMAGE
+uint8_t svt_aom_get_enable_sg_allintra(EncMode enc_mode) {
+    uint8_t sg = 0;
+    sg         = svt_aom_get_sg_filter_level_allintra(enc_mode);
+    return (sg > 0);
+}
+#else
 uint8_t svt_aom_get_enable_sg_allintra() {
     uint8_t sg = 0;
     sg         = svt_aom_get_sg_filter_level_allintra();
     return (sg > 0);
 }
+#endif
 
 /*
 * return true if restoration filtering is enabled; false otherwise
@@ -3706,7 +3768,11 @@ uint8_t svt_aom_get_enable_restoration_allintra(EncMode enc_mode, int8_t config_
             break;
         }
     }
+#if FIX_MR_STILL_IMAGE
+    uint8_t sg = svt_aom_get_enable_sg_allintra(enc_mode);
+#else
     uint8_t sg = svt_aom_get_enable_sg_allintra();
+#endif
     return (sg > 0 || wn > 0);
 }
 
@@ -3716,6 +3782,19 @@ Input   : encoder mode and tune
 Output  : Pre-Analysis signal(s)
 ******************************************************/
 void svt_aom_sig_deriv_pre_analysis_pcs(PictureParentControlSet* pcs) {
+    SequenceControlSet* scs = pcs->scs;
+    // Derive ME enable flags based on current enc_mode
+    ResolutionRange resolution;
+    svt_aom_derive_input_resolution(&resolution, scs->max_input_luma_width * scs->max_input_luma_height);
+    pcs->enable_me_16x16 = svt_aom_get_enable_me_16x16(pcs->enc_mode);
+    pcs->enable_me_8x8   = pcs->enable_me_16x16
+#if TUNE_SIMPLIFY_SETTINGS
+        ? svt_aom_get_enable_me_8x8(pcs->enc_mode, resolution, scs->static_config.rtc)
+#else
+        ? svt_aom_get_enable_me_8x8(pcs->enc_mode, resolution, scs->static_config.rtc, scs->use_flat_ipp)
+#endif
+        : 0;
+
     // Derive HME Flag
     // Set here to allocate resources for the downsampled pictures used in HME (generated in PictureAnalysis)
     // Will be later updated for SC/NSC in PictureDecisionProcess
@@ -3736,10 +3815,9 @@ void svt_aom_sig_deriv_pre_analysis_pcs(PictureParentControlSet* pcs) {
 Input   : encoder mode and tune
 Output  : Pre-Analysis signal(s)
 ******************************************************/
-void svt_aom_sig_deriv_pre_analysis_scs(SequenceControlSet* scs) {
-    const int8_t enc_mode = scs->static_config.enc_mode;
-    const bool   rtc_tune = scs->static_config.rtc;
-    const bool   allintra = scs->allintra;
+void svt_aom_sig_deriv_pre_analysis_scs(SequenceControlSet* scs, int8_t enc_mode) {
+    const bool rtc_tune = scs->static_config.rtc;
+    const bool allintra = scs->allintra;
     // initialize sequence level enable_superres
     scs->seq_header.enable_superres = scs->static_config.superres_mode > SUPERRES_NONE ? 1 : 0;
     uint8_t ii_allowed              = 0;
@@ -3792,17 +3870,16 @@ void svt_aom_sig_deriv_pre_analysis_scs(SequenceControlSet* scs) {
         svt_aom_derive_input_resolution(&init_input_resolution,
                                         scs->max_initial_input_luma_width * scs->max_initial_input_luma_height);
         scs->seq_header.enable_restoration = allintra
-            ? svt_aom_get_enable_restoration_allintra(scs->static_config.enc_mode,
-                                                      scs->static_config.enable_restoration_filtering)
+            ? svt_aom_get_enable_restoration_allintra(enc_mode, scs->static_config.enable_restoration_filtering)
 #if TUNE_SIMPLIFY_SETTINGS
             : rtc_tune ? svt_aom_get_enable_restoration_rtc(
 #else
-            : rtc_tune ? svt_aom_get_enable_restoration_rtc(scs->static_config.enc_mode,
+            : rtc_tune ? svt_aom_get_enable_restoration_rtc(enc_mode,
 #endif
                              scs->static_config.enable_restoration_filtering,
                              init_input_resolution,
                              scs->static_config.fast_decode)
-                       : svt_aom_get_enable_restoration_default(scs->static_config.enc_mode,
+                       : svt_aom_get_enable_restoration_default(enc_mode,
                                                                 scs->static_config.enable_restoration_filtering,
                                                                 init_input_resolution,
                                                                 scs->static_config.fast_decode);
@@ -10353,6 +10430,12 @@ uint8_t svt_aom_get_nsq_search_level_allintra(PictureControlSet* pcs, EncMode en
         nsq_search_level = 0;
     }
 
+#if FIX_MR_STILL_IMAGE
+    if ((pcs->coeff_lvl == VLOW_LVL || pcs->coeff_lvl == LOW_LVL) && (enc_mode <= ENC_MR)) {
+        nsq_search_level = MAX(nsq_search_level - 3, 1);
+    }
+#endif
+
     // If NSQ search is off, don't apply offsets
     if (nsq_search_level == 0) {
         return nsq_search_level;
@@ -13032,7 +13115,13 @@ void svt_aom_sig_deriv_mode_decision_config_allintra(SequenceControlSet* scs, Pi
         }
 #endif
     } else {
+#if FIX_MR_STILL_IMAGE
+        if (enc_mode <= ENC_MR) {
+            pcs->pic_block_based_depth_refinement_level = 3;
+        } else if (enc_mode <= ENC_M4) {
+#else
         if (enc_mode <= ENC_M4) {
+#endif
             pcs->pic_block_based_depth_refinement_level = 6;
         } else if (enc_mode <= ENC_M5) {
             pcs->pic_block_based_depth_refinement_level = 9;
@@ -13050,11 +13139,21 @@ void svt_aom_sig_deriv_mode_decision_config_allintra(SequenceControlSet* scs, Pi
         // Upper QP cutoff: QP 39 = (63 - QP) * 3
         pcs->lambda_weight = CLIP3(0, 72, MIN(ppcs->picture_qp * 4, (63 - ppcs->picture_qp) * 3)) + 128;
     } else { // Tune 0 to 2
+#if FIX_MR_STILL_IMAGE
+        if (!(enc_mode <= ENC_MR)) {
+            if (ppcs->picture_qp >= 56) {
+                pcs->lambda_weight = 175;
+            } else if (ppcs->picture_qp >= 16) {
+                pcs->lambda_weight = 150;
+            }
+        }
+#else
         if (ppcs->picture_qp >= 56) {
             pcs->lambda_weight = 175;
         } else if (ppcs->picture_qp >= 16) {
             pcs->lambda_weight = 150;
         }
+#endif
     }
     // Extended CRF range (63.25 - 70), increase lambda weight toward further bit saving
     // Max lambda weight increase: 28 * 28 = 784
@@ -13081,13 +13180,13 @@ void svt_aom_sig_deriv_mode_decision_config_allintra(SequenceControlSet* scs, Pi
 /****************************************************
 * svt_aom_set_mfmv_config: enable/disable mfmv based on the enc_mode, input_res and pred_structure at sequence level
 ****************************************************/
-void svt_aom_set_mfmv_config(SequenceControlSet* scs) {
+void svt_aom_set_mfmv_config(SequenceControlSet* scs, int8_t enc_mode) {
     if (scs->static_config.enable_mfmv == DEFAULT) {
         const bool rtc_tune = scs->static_config.rtc;
         if (rtc_tune) {
             scs->mfmv_enabled = 0;
         } else {
-            if (scs->static_config.enc_mode <= ENC_M10) {
+            if (enc_mode <= ENC_M10) {
                 scs->mfmv_enabled = 1;
             } else {
                 scs->mfmv_enabled = 0;

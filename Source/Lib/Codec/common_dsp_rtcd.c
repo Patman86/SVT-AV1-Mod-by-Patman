@@ -384,7 +384,7 @@ EbCpuFlags svt_aom_get_cpu_flags_to_use() { return 0; }
 #define SET_FUNCTIONS_AVX2(ptr, c, mmx, sse, sse2, sse3, ssse3, sse4_1, sse4_2, avx, avx2, avx512) \
     do {                                                                                           \
         CHECK_PTR_IS_NOT_SET(ptr)                                                                  \
-        SET_FUNCTIONS_X86(ptr, neon, neon_dotprod, neon_i8mm, sve, sve2)                           \
+        SET_FUNCTIONS_X86(ptr, mmx, sse, sse2, sse3, ssse3, sse4_1, sse4_2, avx, avx2, avx512)     \
         CHECK_PTR_IS_SET(ptr)                                                                      \
     } while (0)
 #else
@@ -1025,7 +1025,6 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     SET_AVX2_AVX512(svt_aom_highbd_h_predictor_64x32, svt_aom_highbd_h_predictor_64x32_c, svt_aom_highbd_h_predictor_64x32_avx2, aom_highbd_h_predictor_64x32_avx512);
     SET_AVX2_AVX512(svt_aom_highbd_h_predictor_64x64, svt_aom_highbd_h_predictor_64x64_c, svt_aom_highbd_h_predictor_64x64_avx2, aom_highbd_h_predictor_64x64_avx512);
 #endif
-    SET_SSE2(svt_log2f, svt_aom_log2f_32, Log2f_ASM);
     SET_ONLY_C(svt_av1_copy_wxh_8bit, svt_av1_copy_wxh_8bit_c);
     SET_ONLY_C(svt_av1_copy_wxh_16bit, svt_av1_copy_wxh_16bit_c);
     SET_SSE2(svt_memcpy, svt_memcpy_c, svt_memcpy_intrin_sse);
@@ -1576,7 +1575,6 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     SET_NEON(svt_aom_highbd_h_predictor_64x64, svt_aom_highbd_h_predictor_64x64_c, svt_aom_highbd_h_predictor_64x64_c);
 #endif
 
-    SET_ONLY_C(svt_log2f, svt_aom_log2f_32);
     SET_NEON(svt_av1_copy_wxh_8bit, svt_av1_copy_wxh_8bit_c, svt_av1_copy_wxh_8bit_neon);
     SET_NEON(svt_av1_copy_wxh_16bit, svt_av1_copy_wxh_16bit_c, svt_av1_copy_wxh_16bit_neon);
     SET_NEON(svt_memcpy, svt_memcpy_c, svt_memcpy_neon);
@@ -2121,7 +2119,6 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     SET_ONLY_C(svt_aom_highbd_h_predictor_64x32, svt_aom_highbd_h_predictor_64x32_c);
     SET_ONLY_C(svt_aom_highbd_h_predictor_64x64, svt_aom_highbd_h_predictor_64x64_c);
 #endif
-    SET_ONLY_C(svt_log2f, svt_aom_log2f_32);
     SET_ONLY_C(svt_av1_copy_wxh_8bit, svt_av1_copy_wxh_8bit_c);
     SET_ONLY_C(svt_av1_copy_wxh_16bit, svt_av1_copy_wxh_16bit_c);
     SET_ONLY_C(svt_memcpy, svt_memcpy_c);

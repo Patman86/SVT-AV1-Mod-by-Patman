@@ -19,6 +19,7 @@
  *
  ******************************************************************************/
 #include <algorithm>
+#include <cstring>
 
 #include "EbSvtAv1Enc.h"
 #include "Y4mVideoSource.h"
@@ -169,6 +170,7 @@ void SvtAv1E2ETestFramework::post_process() {
 void SvtAv1E2ETestFramework::init_test(TestVideoVector &test_vector) {
     start_pos_ = std::get<7>(test_vector);
     frames_to_test_ = std::get<8>(test_vector);
+    frame_sizes_.clear();
     video_src_ = prepare_video_src(test_vector);
     psnr_src_ = prepare_video_src(test_vector);
 
@@ -269,7 +271,8 @@ void SvtAv1E2ETestFramework::init_test(TestVideoVector &test_vector) {
 
     // create IvfFile if required.
     if (enable_save_bitstream) {
-        std::string fn = std::get<0>(test_vector) + ".ivf";
+        std::string fn =
+            enc_setting.name + "_" + std::get<0>(test_vector) + ".ivf";
         output_file_ = new IvfFile(fn);
     }
 
@@ -388,6 +391,26 @@ void SvtAv1E2ETestFramework::gen_frame_event(const EncTestSetting &setting,
                 data->scale_kf_denom = std::stoi(std::get<3>(event)[2]);
                 new_node->size = sizeof(EbRefFrameScale);
                 new_node->node_type = REF_FRAME_SCALING_EVENT;
+                new_node->data = data;
+            } break;
+            case RATE_CHANGE_EVENT: {
+                SvtAv1RateInfo *data =
+                    (SvtAv1RateInfo *)malloc(sizeof(SvtAv1RateInfo));
+                ASSERT_NE(data, nullptr);
+                memset(data, 0, sizeof(SvtAv1RateInfo));
+                // parameter[0] = target bitrate in kbps
+                data->target_bit_rate = std::stoi(std::get<3>(event)[0]) * 1000;
+                new_node->size = sizeof(SvtAv1RateInfo);
+                new_node->node_type = RATE_CHANGE_EVENT;
+                new_node->data = data;
+            } break;
+            case PRESET_CHANGE_EVENT: {
+                SvtAv1PresetInfo *data =
+                    (SvtAv1PresetInfo *)malloc(sizeof(SvtAv1PresetInfo));
+                ASSERT_NE(data, nullptr);
+                data->enc_mode = (int8_t)std::stoi(std::get<3>(event)[0]);
+                new_node->size = sizeof(SvtAv1PresetInfo);
+                new_node->node_type = PRESET_CHANGE_EVENT;
                 new_node->data = data;
             } break;
             default: GTEST_FAIL() << "unhandled frame event"; break;
@@ -639,6 +662,7 @@ void SvtAv1E2ETestFramework::write_compress_data(
 void SvtAv1E2ETestFramework::process_compress_data(
     const EbBufferHeaderType *data) {
     ASSERT_NE(data, nullptr);
+    frame_sizes_.push_back(data->n_filled_len);
     if (refer_dec_ == nullptr) {
         if (output_file_)
             write_compress_data(data);
