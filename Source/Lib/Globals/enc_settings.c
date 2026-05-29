@@ -954,10 +954,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (config->alt_ssim_tuning && config->tune != TUNE_SSIM) {
-        SVT_WARN("alt-ssim-tuning only works with tune 2 (SSIM). It will be ignored.\n");
-    }
-
     return return_error;
 }
 

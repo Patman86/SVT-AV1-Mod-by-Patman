@@ -5,8 +5,6 @@ My gratitude also goes to Julio Barbas (SVT‑AV1‑HDR), the psy‑ex team (SVT
 
 -----------------------------------------------------------------------------------------------------------------
 
-# SVT-AV1-Tritium
-
 SVT-AV1-Tritium is a fork of SVT-AV1-HDR aiming to incorporate features from SVT-AV1-PSYEX and SVT-AV1-Essential. Most notably, SVT-AV1-Tritium has scene detection and auto tiling from Essential.
 
 SVT-AV1-Tritium (and SVT-AV1-HDR) is the Scalable Video Technology for AV1 (SVT-AV1 Encoder) with perceptual enhancements for psychovisually optimal SDR and HDR AV1 encoding. The goal is to create the best encoding implementation for perceptual quality with AV1, with additional optimizations for HDR encoding and content with film grain.
@@ -103,7 +101,7 @@ A custom curve specifically designed for HDR video and images with a Perceptual 
 
 An opinionated tune optimized for film grain retention and temporal consistency. The recommended CRF range to use tune 5 is 20 to 40.
 
-Tune 5 is equivalent to setting these parameters: `--tune 0 --enable-tf 0 --enable-restoration 0 --enable-cdef 0 --complex-hvs 1 --tx-bias 1 --ac-bias 4.00`.
+Tune 5 is equivalent to setting these parameters: `--tune 0 --enable-tf 0 --enable-restoration 0 --enable-cdef 0 --tx-bias 1 --ac-bias 4.00`.
 
 - `--cdef-scaling` *1 (0.06x) to 30 (2x)*
 
