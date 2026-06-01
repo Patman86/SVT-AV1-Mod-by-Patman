@@ -322,4 +322,6 @@ else()
     endif()
 endif()
 
+file(WRITE "${GIT_ROOT_DIR}/.svt_version.txt" "${PACKAGE_VERSION_STRING}\n")
+
 configure_version()
