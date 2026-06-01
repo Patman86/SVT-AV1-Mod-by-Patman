@@ -64,6 +64,8 @@ if(Git_FOUND AND EXISTS "${GIT_ROOT_DIR}/.git")
     endif()
 endif()
 
+file(WRITE "${GIT_ROOT_DIR}/.svt_version.txt" "${PACKAGE_VERSION_STRING}\n")
+
 message(STATUS "Configured version: ${PACKAGE_VERSION_STRING}")
 
 configure_file(${INPUT_FILE} ${OUTPUT_FILE} @ONLY)
