@@ -1428,6 +1428,11 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
             PRINT_CONFIG("alternative CDEF bias", "%d",
                      config->alt_cdef);
         }
+
+        if (config->enable_daala) {
+            PRINT_CONFIG("Daala Dist Level", "%d",
+                     config->enable_daala);
+        }
     }
 #if DEBUG_BUFFERS
     PRINT_CONFIG("INPUT / OUTPUT", "%d / %d",
