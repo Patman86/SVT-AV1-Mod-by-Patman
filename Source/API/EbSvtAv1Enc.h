@@ -213,12 +213,12 @@ typedef struct SvtAv1SFramePositions {
     int8_t*   sframe_qp_offsets;
 } SvtAv1SFramePositions;
 
-typedef struct QualityZone {
+typedef struct SvtAv1QualityZone {
     uint32_t start_frame; // inclusive
-    uint32_t end_frame;   // inclusive
-    int      zone_baseq;  // base CRF/CQP value for this zone
-    int      zone_qsidx;  // quarter step index
-} QualityZone;
+    uint32_t end_frame; // inclusive
+    int      zone_baseq; // base CRF/CQP value for this zone
+    int      zone_qsidx; // quarter step index
+} SvtAv1QualityZone;
 
 // Will contain the EbEncApi which will live in the EncHandle class
 // Only modifiable during config-time.
@@ -667,6 +667,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * 0 = off
      * 1 = on
      * 2 = adaptive
+     * 3 = full
      * Default is 1. */
     uint8_t enable_tf;
 
@@ -1131,16 +1132,12 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      */
     bool auto_tiling;
 
-    /* @brief Quality zones configuration string
+    /* @brief Quality zones configuration
      *
-     * Format: "start1,end1,quality1;start2,end2,quality2" etc
-     * Example: "0,100,35;101,200,25"
      * Default is no zones.
      */
-    char* zones;
-    // Internal parsed zones (not exposed to CLI)
-    QualityZone* parsed_zones;
-    uint16_t     num_zones;
+    SvtAv1QualityZone* quality_zones;
+    uint16_t           num_zones;
 
     /**
      * @brief Enable alternative CDEF biases
@@ -1151,15 +1148,35 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     uint8_t alt_cdef;
 
     /**
+     * @brief Enable alternative DLF biases
+     * 0: disabled
+     * 1-3: enabled
+     * Default is 0
+     */
+    uint8_t alt_dlf;
+
+    /**
      * @brief Enable Daala distortion metric.
      * 0 = OFF
      * 1 = CDEF
      * 2 = 1 + TX Search + MDS3 Selection
      * 3 = 2 + DCT TX
-     * 4 = 3 + MDS0 + IFS
+     * 4 = 3 + MDS0 + IFS RD + OBMC
      * Default is 0.
      */
     uint8_t enable_daala;
+
+    /* @brief use settings which reduce memory usage
+     *
+     * Default is false.
+     */
+    bool low_memory;
+
+    /* @brief do not print encoder parameters
+     *
+     * Default is false.
+     */
+    bool hide_banner;
 } EbSvtAv1EncConfiguration;
 
 /**

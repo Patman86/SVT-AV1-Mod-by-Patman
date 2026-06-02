@@ -5,6 +5,8 @@ My gratitude also goes to Julio Barbas (SVT‑AV1‑HDR), the psy‑ex team (SVT
 
 -----------------------------------------------------------------------------------------------------------------
 
+# SVT-AV1-Tritium
+
 SVT-AV1-Tritium is a fork of SVT-AV1-HDR aiming to incorporate features from SVT-AV1-PSYEX and SVT-AV1-Essential. Most notably, SVT-AV1-Tritium has scene detection and auto tiling from Essential.
 
 SVT-AV1-Tritium (and SVT-AV1-HDR) is the Scalable Video Technology for AV1 (SVT-AV1 Encoder) with perceptual enhancements for psychovisually optimal SDR and HDR AV1 encoding. The goal is to create the best encoding implementation for perceptual quality with AV1, with additional optimizations for HDR encoding and content with film grain.
@@ -55,7 +57,7 @@ Enables the Daala perceptual distortion metric, which uses frequency-domain mask
 - **1**: CDEF
 - **2**: 1 + TX Search + MDS3 Selection
 - **3**: 2 + DCT TX
-- **4**: 3 + MDS0 + IFS
+- **4**: 3 + MDS0 + IFS RD + OBMC
 
 ### From [SVT-AV1-Essential](https://github.com/nekotrix/SVT-AV1-Essential)
 
@@ -90,6 +92,26 @@ For example, `--zones 0,100,20;101,200,40` applies a CRF/CQP value of 20 to fram
 
 Proposes different CDEF trade-offs, typically resulting in weaker deringing but improved fidelity. May gradually cause higher distortion, especially at high presets.  
 **2** and **3** force the best CDEF quality level which can improve results, at the cost of speed.
+
+- **`--enable-alt-dlf`** *0 to 3*
+
+Proposes different DLF trade-offs, typically resulting in weaker deblocking but improved fidelity. May gradually cause higher distortion, especially at high presets.  
+It is recommended to pair it with `--enable-dlf 3` to force the best DLF quality level, which can improve results at the cost of speed.
+
+- `--low-memory` *0 and 1*
+
+This parameter sets options that reduce RAM usage of the encoding instance significantly.
+Enabling low-memory can have some impact on encoding speeds and perceptual quality.
+It is most effective in CRF/CQP Random Access mode.
+
+- `--hide-banner` *0 and 1*
+
+Hides the encoder parameters banner that is normally printed at the start of an encode. This helps keep the console output cleaner if you are scripting or wrapping the encoder.
+
+- `--enable-tf 3`
+
+The setting enables a more powerful, user-controllable, temporal filter on *all* frames, which can serve as an effective fast built-in temporal denoiser.  
+The strength can still be adjusted up or down using `--tf-strength`.
 
 ### SVT-AV1-HDR
 

@@ -1639,7 +1639,7 @@ static void is_parent_to_current_deviation_small(PictureControlSet* pcs, ModeDec
             svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.depths_qp_based_th_scaling,
                                                     &q_weight,
                                                     &q_weight_denom,
-                                                    pcs->scs->static_config.qp);
+                                                    svt_av1_get_effective_qp(pcs->scs, pcs->ppcs->picture_number).qp);
             s1_parent_to_current_th = s1_parent_to_current_th == (uint8_t)~0
                 ? MIN_SIGNED_VALUE
                 : DIVIDE_AND_ROUND(s1_parent_to_current_th * q_weight, q_weight_denom);
@@ -1717,7 +1717,7 @@ static void is_child_to_current_deviation_small(PictureControlSet* pcs, ModeDeci
             svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.depths_qp_based_th_scaling,
                                                     &q_weight,
                                                     &q_weight_denom,
-                                                    pcs->scs->static_config.qp);
+                                                    svt_av1_get_effective_qp(pcs->scs, pcs->ppcs->picture_number).qp);
             e1_sub_to_current_th = e1_sub_to_current_th == (uint8_t)~0
                 ? MIN_SIGNED_VALUE
                 : DIVIDE_AND_ROUND(e1_sub_to_current_th * q_weight, q_weight_denom);
@@ -2355,7 +2355,7 @@ static void lpd0_detector_allintra(PictureControlSet* pcs, ModeDecisionContext* 
     svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.lpd0_qp_based_th_scaling,
                                             &q_weight,
                                             &q_weight_denom,
-                                            pcs->scs->static_config.qp);
+                                            svt_av1_get_effective_qp(pcs->scs, pcs->ppcs->picture_number).qp);
 
     // Threshold for detecting lack of a dominant depth
     int32_t delta_var_th = 7500;
@@ -3116,6 +3116,7 @@ void* svt_aom_mode_decision_kernel(void* input_ptr) {
                             pcs->sb_max_sq_size[sb_index] = 0;
                         }
                         sb_ptr->final_blk_cnt = 0;
+                        sb_ptr->all_skip      = true;
                         svt_aom_encode_sb(scs,
                                           pcs,
                                           ed_ctx,

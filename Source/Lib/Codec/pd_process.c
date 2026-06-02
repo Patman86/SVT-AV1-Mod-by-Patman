@@ -3316,7 +3316,7 @@ static int ref_pics_modulation(PictureParentControlSet* pcs, int32_t noise_level
         svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.tf_ref_qp_based_th_scaling,
                                                 &q_weight,
                                                 &q_weight_denom,
-                                                pcs->scs->static_config.qp);
+                                                svt_av1_get_effective_qp(pcs->scs, pcs->picture_number).qp);
         offset = DIVIDE_AND_ROUND(offset * q_weight, q_weight_denom);
     }
     return offset;
@@ -3752,6 +3752,23 @@ static void low_delay_release_tf_pictures(PictureDecisionContext* ctx) {
 static void mctf_frame(SequenceControlSet* scs, PictureParentControlSet* pcs, PictureDecisionContext* pd_ctx) {
     if (scs->static_config.pred_structure != RANDOM_ACCESS && scs->tf_params_per_type[1].enabled) {
         low_delay_store_tf_pictures(scs, pcs, pd_ctx);
+    }
+    if (!pcs->tf_ctrls.enabled && scs->static_config.enable_tf == 3) {
+        // Fallback: use appropriate TF params for frames that don't have TF enabled
+        int tf_type_index = MIN(pcs->temporal_layer_index, 2); // Cap at L2 params
+        if (tf_type_index == 0 && pcs->slice_type != I_SLICE) {
+            tf_type_index = 1; // Use BASE params for non-I frames at temporal layer 0
+        }
+        
+        // Copy the TF parameters
+        pcs->tf_ctrls = scs->tf_params_per_type[tf_type_index];
+        pcs->tf_ctrls.enabled = 1;
+        
+        // Reduce window size for higher temporal layers to avoid reference issues
+        if (pcs->temporal_layer_index > 2) {
+            pcs->tf_ctrls.num_past_pics = 1;
+            pcs->tf_ctrls.num_future_pics = 1;
+        }
     }
     if (pcs->tf_ctrls.enabled) {
         derive_tf_window_params(scs, scs->enc_ctx, pcs, pd_ctx);

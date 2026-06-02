@@ -111,6 +111,7 @@
 #define ENABLE_OVERLAYS "--enable-overlays"
 #define TUNE_TOKEN "--tune"
 // --- end: ALTREF_FILTERING_SUPPORT
+#define LOW_MEMORY_TOKEN "--low-memory"
 // --- start: SUPER-RESOLUTION SUPPORT
 #define SUPERRES_MODE_INPUT "--superres-mode"
 #define SUPERRES_DENOM "--superres-denom"
@@ -238,7 +239,9 @@
 #define AUTO_TILING_TOKEN "--auto-tiling"
 #define ZONES_TOKEN "--zones"
 #define ALT_CDEF_TOKEN "--enable-alt-cdef"
+#define ALT_DLF_TOKEN "--enable-alt-dlf"
 #define ENABLE_DAALA_TOKEN "--enable-daala"
+#define HIDE_BANNER_TOKEN "--hide-banner"
 
 static EbErrorType validate_error(EbErrorType err, const char* token, const char* value) {
     switch (err) {
@@ -801,6 +804,8 @@ ConfigDescription config_entry_options[] = {
     {PROGRESS_TOKEN, "Verbosity of the output, default is 1 [0: no progress is printed, 2: Patman's progress]"},
     {NO_PROGRESS_TOKEN,
      "Do not print out progress, default is 0 [1: `" PROGRESS_TOKEN " 0`, 0: `" PROGRESS_TOKEN " 1`]"},
+    {HIDE_BANNER_TOKEN,
+     "Do not print out encoder parameters [0: params are printed (Default), 1: no param is printed]"},
 
     {PRESET_TOKEN,
      "Encoder preset, presets < 0 are for research purposes. Higher presets means faster encodes, but with "
@@ -1006,7 +1011,7 @@ ConfigDescription config_entry_specific[] = {
     {DG_ENABLE_NEW_TOKEN, "Dynamic GoP control, default is 1 [0-1]"},
     {FAST_DECODE_TOKEN, "Fast Decoder levels, default is 0 [0-2]"},
     // --- start: ALTREF_FILTERING_SUPPORT
-    {ENABLE_TF_TOKEN, "Enable ALT-REF (temporally filtered) frames, default is 1 [0-2]"},
+    {ENABLE_TF_TOKEN, "Enable ALT-REF (temporally filtered) frames, default is 1 [0-3]"},
 
     {ENABLE_OVERLAYS,
      "Enable the insertion of overlayer pictures which will be used as an additional reference "
@@ -1015,6 +1020,11 @@ ConfigDescription config_entry_specific[] = {
     {TUNE_TOKEN,
      "Optimize the encoding process for different desired outcomes [0 = VQ, 1 = PSNR, 2 = SSIM, 3 = IQ (Image "
      "Quality), 4 = MS_SSIM (MS_SSIM and SSIMULACRA2 optimized mode), 5 = Film Grain], default is 1 [0-5]"},
+    {LOW_MEMORY_TOKEN,
+     "Specifies whether to use params which reduce RAM usage with potential efficiency and speed trade-offs, "
+     "most effective in CRF/CQP RA mode, "
+     "default is 0 "
+     "[0-1]"},
     // MD Parameters
     {SCREEN_CONTENT_TOKEN,
      "Set screen content detection level, default is 2 [0: off, 1: on, 2: content adaptive, 3: content adaptive "
@@ -1166,6 +1176,10 @@ ConfigDescription config_entry_psychovisual[] = {
     {ALT_CDEF_TOKEN,
      "Enable alternative CDEF biases."
      "Default is 0 [0-3]."},
+    // Alt DLF
+    {ALT_DLF_TOKEN,
+     "Enable alternative DLF biases."
+     "Default is 0 [0-3]."},
     {ENABLE_DAALA_TOKEN,
      "Enable Daala distortion metric, default is 0 [0-4]"},
     // Termination
@@ -1184,6 +1198,7 @@ ConfigEntry config_entry[] = {
     {STAT_FILE_TOKEN, "StatFile", set_cfg_stat_file},
     {PROGRESS_TOKEN, "Progress", set_progress},
     {NO_PROGRESS_TOKEN, "NoProgress", set_no_progress},
+    {HIDE_BANNER_TOKEN, "HideBanner", set_cfg_generic_token},
     {PRESET_TOKEN, "EncoderMode", set_cfg_generic_token},
     {SVTAV1_PARAMS, "SvtAv1Params", parse_svtav1_params},
 
@@ -1293,6 +1308,7 @@ ConfigEntry config_entry[] = {
     {DG_ENABLE_NEW_TOKEN, "EnableDg", set_cfg_generic_token},
     {FAST_DECODE_TOKEN, "FastDecode", set_cfg_generic_token},
     {TUNE_TOKEN, "Tune", set_cfg_generic_token},
+    {LOW_MEMORY_TOKEN, "LowMemory", set_cfg_generic_token},
     //   ALT-REF filtering support
     {ENABLE_TF_TOKEN, "EnableTf", set_cfg_generic_token},
     {ENABLE_OVERLAYS, "EnableOverlays", set_cfg_generic_token},
@@ -1427,6 +1443,9 @@ ConfigEntry config_entry[] = {
 
     // Alt CDEF
     {ALT_CDEF_TOKEN, "AltCDEF", set_cfg_generic_token},
+
+    // Alt DLF
+    {ALT_DLF_TOKEN, "AltDLF", set_cfg_generic_token},
 
     // Daala
     {ENABLE_DAALA_TOKEN, "EnableDaala", set_cfg_generic_token},

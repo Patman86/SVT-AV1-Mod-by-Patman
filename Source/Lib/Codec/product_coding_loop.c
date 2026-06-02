@@ -1021,6 +1021,20 @@ static void fast_loop_core_light_pd0(ModeDecisionCandidateBuffer* cand_bf, Pictu
                     << 1;
             }
         }
+        if (ctx->tune_daala_level >= 4) {
+            const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+            *(cand_bf->fast_cost) = svt_spatial_full_distortion_daala_kernel(input_pic->y_buffer,
+                                                                             input_origin_index,
+                                                                             input_pic->y_stride,
+                                                                             ref_pic->y_buffer,
+                                                                             ref_origin_index,
+                                                                             ref_pic->y_stride,
+                                                                             ctx->blk_geom->bwidth,
+                                                                             ctx->blk_geom->bheight,
+                                                                             ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
+                                                                             qindex,
+                                                                             1);
+        }
     } else {
         // intrabc not allowed in light_pd0
         product_prediction_fun_table_light_pd0[is_inter_mode(cand->block_mi.mode)](0, ctx, pcs, cand_bf);
@@ -1046,6 +1060,20 @@ static void fast_loop_core_light_pd0(ModeDecisionCandidateBuffer* cand_bf, Pictu
                                                                               pcs->scs->static_config.ac_bias,
                                                                               pcs->scs->static_config.tx_bias)
                 << 1;
+        }
+        if (ctx->tune_daala_level >= 4) {
+            const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+            *(cand_bf->fast_cost) = svt_spatial_full_distortion_daala_kernel(input_pic->y_buffer,
+                                                                             input_origin_index,
+                                                                             input_pic->y_stride,
+                                                                             pred->y_buffer,
+                                                                             cu_origin_index,
+                                                                             pred->y_stride,
+                                                                             ctx->blk_geom->bwidth,
+                                                                             ctx->blk_geom->bheight,
+                                                                             ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
+                                                                             qindex,
+                                                                             1);
         }
     }
 }
@@ -1174,13 +1202,13 @@ static void obmc_trans_face_off(ModeDecisionCandidateBuffer* cand_bf, PictureCon
                 EbSpatialFullDistType spatial_full_dist_type_fun = ctx->hbd_md ? svt_full_distortion_kernel16_bits
                                                                                : svt_spatial_full_distortion_kernel;
                 cand_bf->luma_fast_dist                          = spatial_full_dist_type_fun(input_pic->y_buffer,
-                                                                                              input_origin_index,
-                                                                                              input_pic->y_stride,
-                                                                                              pred->y_buffer,
-                                                                                              0,
-                                                                                              pred->y_stride,
-                                                                                              ctx->blk_geom->bwidth,
-                                                                                              ctx->blk_geom->bheight);
+                                                                     input_origin_index,
+                                                                     input_pic->y_stride,
+                                                                     pred->y_buffer,
+                                                                     0,
+                                                                     pred->y_stride,
+                                                                     ctx->blk_geom->bwidth,
+                                                                     ctx->blk_geom->bheight);
                 const double effective_ac_bias                   = get_effective_ac_bias(
                     pcs->scs->static_config.ac_bias, pcs->slice_type == I_SLICE, pcs->temporal_layer_index);
                 if (effective_ac_bias) {
@@ -1197,11 +1225,6 @@ static void obmc_trans_face_off(ModeDecisionCandidateBuffer* cand_bf, PictureCon
                 }
 
                 luma_fast_dist = cand_bf->luma_fast_dist << 4;
-
-                // Fast Cost
-                cand_bf->fast_luma_rate = obmc_fast_luma_rate;
-                *(cand_bf->fast_cost)   = av1_product_fast_cost_func_table[is_inter_mode(cand->block_mi.mode)](
-                    pcs, ctx, cand_bf, full_lambda, luma_fast_dist);
             } else {
                 assert(ctx->mds0_ctrls.mds0_dist_type == VAR);
                 if (!ctx->hbd_md) {
@@ -1225,8 +1248,32 @@ static void obmc_trans_face_off(ModeDecisionCandidateBuffer* cand_bf, PictureCon
                 // and full lambda is set with the expectation the variance is a squared metric shifted by 4 (the same
                 // shift is applied to sse in the full loop)
                 luma_fast_dist          = cand_bf->luma_fast_dist << 4;
-                cand_bf->fast_luma_rate = obmc_fast_luma_rate;
-                *(cand_bf->fast_cost)   = RDCOST(
+            }
+
+            if (ctx->tune_daala_level >= 4) {
+                const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+                uint64_t daala_dist = svt_spatial_full_distortion_daala_kernel(input_pic->y_buffer,
+                                                                               input_origin_index,
+                                                                               input_pic->y_stride,
+                                                                               pred->y_buffer,
+                                                                               0,
+                                                                               pred->y_stride,
+                                                                               ctx->blk_geom->bwidth,
+                                                                               ctx->blk_geom->bheight,
+                                                                               ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
+                                                                               qindex,
+                                                                               1);
+                cand_bf->luma_fast_dist = daala_dist;
+                luma_fast_dist          = daala_dist << 4;
+            }
+
+            // Fast Cost
+            cand_bf->fast_luma_rate = obmc_fast_luma_rate;
+            if (ctx->mds0_ctrls.mds0_dist_type == SSD) {
+                *(cand_bf->fast_cost) = av1_product_fast_cost_func_table[is_inter_mode(cand->block_mi.mode)](
+                    pcs, ctx, cand_bf, full_lambda, luma_fast_dist);
+            } else {
+                *(cand_bf->fast_cost) = RDCOST(
                     full_lambda, cand_bf->fast_luma_rate + cand_bf->fast_chroma_rate, luma_fast_dist);
             }
             if (simple_translation_cost < *(cand_bf->fast_cost)) {
@@ -1334,13 +1381,13 @@ void fast_loop_core(ModeDecisionCandidateBuffer* cand_bf, PictureControlSet* pcs
         EbSpatialFullDistType spatial_full_dist_type_fun = ctx->hbd_md ? svt_full_distortion_kernel16_bits
                                                                        : svt_spatial_full_distortion_kernel;
         cand_bf->luma_fast_dist                          = spatial_full_dist_type_fun(input_pic->y_buffer,
-                                                                                      input_origin_index,
-                                                                                      input_pic->y_stride,
-                                                                                      pred->y_buffer,
-                                                                                      0,
-                                                                                      pred->y_stride,
-                                                                                      ctx->blk_geom->bwidth,
-                                                                                      ctx->blk_geom->bheight);
+                                                             input_origin_index,
+                                                             input_pic->y_stride,
+                                                             pred->y_buffer,
+                                                             0,
+                                                             pred->y_stride,
+                                                             ctx->blk_geom->bwidth,
+                                                             ctx->blk_geom->bheight);
         const double effective_ac_bias                   = get_effective_ac_bias(
             pcs->scs->static_config.ac_bias, pcs->slice_type == I_SLICE, pcs->temporal_layer_index);
         if (effective_ac_bias) {
@@ -1397,8 +1444,8 @@ void fast_loop_core(ModeDecisionCandidateBuffer* cand_bf, PictureControlSet* pcs
                                                                              ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
                                                                              qindex,
                                                                              1);
-        daala_dist <<= 4;
-        luma_fast_dist += daala_dist;
+        cand_bf->luma_fast_dist   = daala_dist;
+        luma_fast_dist            = daala_dist << 4;
     }
 
     if (ctx->mds0_ctrls.pruning_method_th && ctx->pd_pass == PD_PASS_1) {
@@ -1497,7 +1544,7 @@ void set_md_stage_counts(PictureControlSet* pcs, ModeDecisionContext* ctx) {
                      ctx->md_stage_2_count,
                      ctx->md_stage_3_count,
                      pic_type,
-                     pcs->ppcs->scs->static_config.qp);
+                     svt_av1_get_effective_qp(pcs->scs, pcs->ppcs->picture_number).qp);
 
     // Step 2: derive bypass_stage1 flags
     ctx->bypass_md_stage_1 = (ctx->nic_ctrls.md_staging_mode == MD_STAGING_MODE_1 ||
@@ -3192,7 +3239,7 @@ static void pme_search(PictureControlSet* pcs, ModeDecisionContext* ctx, EbPictu
         svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.pme_qp_based_th_scaling,
                                                 &q_weight,
                                                 &q_weight_denom,
-                                                pcs->scs->static_config.qp);
+                                                svt_av1_get_effective_qp(pcs->scs, pcs->ppcs->picture_number).qp);
         full_pel_search_width  = MAX(3, DIVIDE_AND_ROUND(full_pel_search_width * q_weight, q_weight_denom));
         full_pel_search_height = MAX(3, DIVIDE_AND_ROUND(full_pel_search_height * q_weight, q_weight_denom));
     }
@@ -3364,13 +3411,13 @@ static void av1_cost_calc_cfl(PictureControlSet* pcs, ModeDecisionCandidateBuffe
     // FullLoop and TU search
     uint16_t cb_qindex = ctx->qp_index;
 
-    full_dist[DIST_SSD][DIST_CALC_RESIDUAL]    = 0;
-    full_dist[DIST_SSD][DIST_CALC_PREDICTION]  = 0;
-    full_dist[DIST_SSIM][DIST_CALC_RESIDUAL]   = 0;
-    full_dist[DIST_SSIM][DIST_CALC_PREDICTION] = 0;
+    full_dist[DIST_SSD][DIST_CALC_RESIDUAL]     = 0;
+    full_dist[DIST_SSD][DIST_CALC_PREDICTION]   = 0;
+    full_dist[DIST_SSIM][DIST_CALC_RESIDUAL]    = 0;
+    full_dist[DIST_SSIM][DIST_CALC_PREDICTION]  = 0;
     full_dist[DIST_DAALA][DIST_CALC_RESIDUAL]   = 0;
     full_dist[DIST_DAALA][DIST_CALC_PREDICTION] = 0;
-    *coeff_bits                                = 0;
+    *coeff_bits                                 = 0;
 
     // Loop over alphas and find the best
     if (component_mask == COMPONENT_CHROMA_CB || component_mask == COMPONENT_CHROMA ||
@@ -3560,9 +3607,9 @@ static uint64_t md_cfl_rd_pick_alpha(PictureControlSet* pcs, ModeDecisionCandida
     uint8_t  best_c[CFL_JOINT_SIGNS][CFL_PRED_PLANES];
 
     for (uint8_t plane = 0; plane < CFL_PRED_PLANES; plane++) {
-        coeff_bits                               = 0;
-        full_dist[DIST_SSD][DIST_CALC_RESIDUAL]  = 0;
-        full_dist[DIST_SSIM][DIST_CALC_RESIDUAL] = 0;
+        coeff_bits                                = 0;
+        full_dist[DIST_SSD][DIST_CALC_RESIDUAL]   = 0;
+        full_dist[DIST_SSIM][DIST_CALC_RESIDUAL]  = 0;
         full_dist[DIST_DAALA][DIST_CALC_RESIDUAL] = 0;
         for (uint8_t joint_sign = 0; joint_sign < CFL_JOINT_SIGNS; joint_sign++) {
             best_rd_uv[joint_sign][plane] = MAX_MODE_COST;
@@ -3612,9 +3659,9 @@ static uint64_t md_cfl_rd_pick_alpha(PictureControlSet* pcs, ModeDecisionCandida
                 if (c > ctx->cfl_ctrls.itr_th && progress < c) {
                     break;
                 }
-                coeff_bits                               = 0;
-                full_dist[DIST_SSD][DIST_CALC_RESIDUAL]  = 0;
-                full_dist[DIST_SSIM][DIST_CALC_RESIDUAL] = 0;
+                coeff_bits                                = 0;
+                full_dist[DIST_SSD][DIST_CALC_RESIDUAL]   = 0;
+                full_dist[DIST_SSIM][DIST_CALC_RESIDUAL]  = 0;
                 full_dist[DIST_DAALA][DIST_CALC_RESIDUAL] = 0;
                 for (uint8_t i = 0; i < CFL_SIGNS; i++) {
                     const uint8_t joint_sign = PLANE_SIGN_TO_JOINT_SIGN(plane, pn_sign, i);
@@ -4564,7 +4611,7 @@ static void tx_type_search(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
         svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.txt_qp_based_th_scaling,
                                                 &q_weight,
                                                 &q_weight_denom,
-                                                pcs->scs->static_config.qp);
+                                                svt_av1_get_effective_qp(pcs->scs, pcs->ppcs->picture_number).qp);
         satd_early_exit_th = DIVIDE_AND_ROUND(satd_early_exit_th * q_weight, q_weight_denom);
     }
     int32_t  tx_type;
@@ -7693,7 +7740,7 @@ static void post_mds0_nic_pruning(PictureControlSet* pcs, ModeDecisionContext* c
     svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.nic_pruning_qp_based_th_scaling,
                                             &q_weight,
                                             &q_weight_denom,
-                                            pcs->ppcs->scs->static_config.qp);
+                                            svt_av1_get_effective_qp(pcs->scs, pcs->ppcs->picture_number).qp);
     uint64_t mds1_class_th            = (pcs->slice_type == I_SLICE || pruning_ctrls.mds1_class_th == (uint64_t)~0)
                    ? (uint64_t)~0
                    : DIVIDE_AND_ROUND(pruning_ctrls.mds1_class_th * q_weight, q_weight_denom);
@@ -7760,7 +7807,7 @@ static void post_mds1_nic_pruning(PictureControlSet* pcs, ModeDecisionContext* c
     svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.nic_pruning_qp_based_th_scaling,
                                             &q_weight,
                                             &q_weight_denom,
-                                            pcs->ppcs->scs->static_config.qp);
+                                            svt_av1_get_effective_qp(pcs->scs, pcs->ppcs->picture_number).qp);
     const uint64_t mds2_cand_th = (pruning_ctrls.mds2_cand_base_th == (uint64_t)~0)
         ? pruning_ctrls.mds2_cand_base_th
         : DIVIDE_AND_ROUND(pruning_ctrls.mds2_cand_base_th * q_weight, q_weight_denom);
@@ -7838,7 +7885,7 @@ static void post_mds2_nic_pruning(PictureControlSet* pcs, ModeDecisionContext* c
     svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.nic_pruning_qp_based_th_scaling,
                                             &q_weight,
                                             &q_weight_denom,
-                                            pcs->ppcs->scs->static_config.qp);
+                                            svt_av1_get_effective_qp(pcs->scs, pcs->ppcs->picture_number).qp);
     const uint64_t mds3_cand_th = (pruning_ctrls.mds3_cand_base_th == (uint64_t)~0)
         ? pruning_ctrls.mds3_cand_base_th
         : DIVIDE_AND_ROUND(pruning_ctrls.mds3_cand_base_th * q_weight, q_weight_denom);
@@ -8051,7 +8098,7 @@ static INLINE uint32_t compute_vlpd0_cost_allintra(PictureControlSet* pcs, ModeD
     svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.lpd0_qp_based_th_scaling,
                                             &q_weight,
                                             &q_weight_denom,
-                                            pcs->scs->static_config.qp);
+                                            svt_av1_get_effective_qp(pcs->scs, pcs->ppcs->picture_number).qp);
 
     // Block variance lookup
     int blk_idx;
