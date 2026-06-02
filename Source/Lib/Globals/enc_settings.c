@@ -1469,6 +1469,11 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
                      config->alt_cdef);
         }
 
+        if (config->enable_dlf_flag != 0 && config->alt_dlf) {
+            PRINT_CONFIG("alternative DLF bias", "%d",
+                     config->alt_dlf);
+        }
+
         if (config->enable_daala) {
             PRINT_CONFIG("Daala Dist Level", "%d",
                      config->enable_daala);
@@ -2528,53 +2533,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
 
     if (!strcmp(name, "frame-resz-denoms")) {
         return str_to_resz_denoms(value, &config_struct->frame_scale_evts);
-    }
-
-    if (!strcmp(name, "zones")) {
-        if (config_struct->zones) {
-            free(config_struct->zones);
-            if (config_struct->parsed_zones) {
-                free(config_struct->parsed_zones);
-                config_struct->parsed_zones = NULL;
-            }
-        }
-        config_struct->zones = strdup(value);
-
-        // Parse zones immediately
-        EbErrorType err = parse_zones_string(
-            config_struct->zones, &config_struct->parsed_zones, &config_struct->num_zones);
-        if (err != EB_ErrorNone) {
-            SVT_ERROR("Failed to parse zones parameter: %s\n", value);
-            return err;
-        }
-
-        // Print parsed zones for verification
-        if (config_struct->num_zones > 0) {
-            if (config_struct->num_zones == 1) {
-                SVT_INFO("Parsed %d zone:\n", config_struct->num_zones);
-            } else if (config_struct->num_zones > 1) {
-                SVT_INFO("Parsed %d zones:\n", config_struct->num_zones);
-            }
-            for (int i = 0; i < config_struct->num_zones; i++) {
-                if (config_struct->aq_mode == 0 && config_struct->enable_variance_boost == 0) {
-                    SVT_INFO(
-                        "  Zone %d: frames %llu-%llu, CQP %.2f\n",
-                        i + 1,
-                        config_struct->parsed_zones[i].start_frame,
-                        config_struct->parsed_zones[i].end_frame,
-                        config_struct->parsed_zones[i].zone_baseq + config_struct->parsed_zones[i].zone_qsidx / 4.0);
-                } else {
-                    SVT_INFO(
-                        "  Zone %d: frames %llu-%llu, CRF %.2f\n",
-                        i + 1,
-                        config_struct->parsed_zones[i].start_frame,
-                        config_struct->parsed_zones[i].end_frame,
-                        config_struct->parsed_zones[i].zone_baseq + config_struct->parsed_zones[i].zone_qsidx / 4.0);
-                }
-            }
-        }
-
-        return EB_ErrorNone;
     }
 
     if (!strcmp(name, "sframe-posi")) {

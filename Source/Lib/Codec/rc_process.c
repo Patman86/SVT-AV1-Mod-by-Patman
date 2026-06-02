@@ -384,6 +384,7 @@ int svt_aom_compute_rd_mult_based_on_qindex(EbBitDepth bit_depth, SvtAv1FrameUpd
 
     return rdmult > 0 ? (int)AOMMIN(rdmult, INT_MAX) : 1;
 }
+
 static const int rd_frame_type_factor[2][SVT_AV1_FRAME_UPDATE_TYPES]  = {{150, 180, 150, 150, 180, 180, 150},
                                                                          {128, 144, 128, 128, 144, 144, 128}};
 static const int rd_frame_type_factor_alt[SVT_AV1_FRAME_UPDATE_TYPES] = {140, 180, 128, 140, 164, 164, 140};
@@ -837,6 +838,7 @@ void* svt_aom_rate_control_kernel(void* input_ptr) {
             } else {
                 if (scs->enc_ctx->rc_cfg.mode == AOM_Q) {
                     svt_av1_rc_calc_qindex_crf_cqp(pcs, scs);
+                    svt_aom_setup_segmentation(pcs, scs);
                 } else {
                     if (!is_superres_recode_task) {
                         svt_av1_rc_process_rate_allocation(pcs, scs);

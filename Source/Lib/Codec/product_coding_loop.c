@@ -1004,22 +1004,6 @@ static void fast_loop_core_light_pd0(ModeDecisionCandidateBuffer* cand_bf, Pictu
                                                                               pcs->scs->static_config.ac_bias,
                                                                               pcs->scs->static_config.tx_bias)
                 << 1;
-            if (ctx->tune_daala_level >= 4) {
-                const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
-                *(cand_bf->fast_cost) += svt_spatial_full_distortion_daala_kernel(
-                                             input_pic->y_buffer,
-                                             input_origin_index,
-                                             input_pic->y_stride << 1,
-                                             ref_pic->y_buffer,
-                                             ref_origin_index,
-                                             ref_pic->y_stride << 1,
-                                             ctx->blk_geom->bwidth,
-                                             ctx->blk_geom->bheight >> 1,
-                                             ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
-                                             qindex,
-                                             1)
-                    << 1;
-            }
         }
         if (ctx->tune_daala_level >= 4) {
             const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
