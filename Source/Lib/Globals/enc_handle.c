@@ -4638,11 +4638,12 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     if (scs->static_config.tune == TUNE_FILM_GRAIN) {
         SVT_WARN("Tune 5: Film Grain is opinionated! Works best with 1080p, 4k and 8k content.\n");
         SVT_WARN(
-            "Tune 5: Film Grain turns off: TF, CDEF, rest. filtering, and enables TX bias and strong AC "
+            "Tune 5: Film Grain turns off: TF, CDEF, rest. filtering, and enables complex HVS, TX bias and strong AC "
             "bias.\n");
         scs->static_config.enable_tf                    = 0;
         scs->static_config.cdef_level                   = 0;
         scs->static_config.enable_restoration_filtering = 0;
+        scs->static_config.complex_hvs                  = 1;
         scs->static_config.ac_bias                      = 4.0;
         scs->static_config.tx_bias                      = 1;
     }
@@ -5561,7 +5562,7 @@ EB_API void svt_av1_print_version(void) {
 #if defined(__clang__) && defined(__apple_build_version__)
     __VERSION__ "\t"
 #elif defined(__clang__)
-    "Clang " CONVERT_TO_STR_COMPILE_TIME(__clang_major__) "." CONVERT_TO_STR_COMPILE_TIME(__clang_minor__) "." CONVERT_TO_STR_COMPILE_TIME(__clang_patchlevel__) "\t"
+        "Clang " CONVERT_TO_STR_COMPILE_TIME(__clang_major__) "." CONVERT_TO_STR_COMPILE_TIME(__clang_minor__) "." CONVERT_TO_STR_COMPILE_TIME(__clang_patchlevel__) "\t"
 #elif defined(__GNUC__)
         "GCC " __VERSION__ "\t"
 #elif defined(_MSC_VER) && (_MSC_VER >= 1930)
