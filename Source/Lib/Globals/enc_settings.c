@@ -33,6 +33,8 @@
 #include <unistd.h>
 #endif
 
+#define PRINT_CONFIG(label, fmt, ...) SVT_INFO("SVT [config]: %-52s : " fmt "\n", label, ##__VA_ARGS__)
+
 EbErrorType svt_av1_verify_dlf_bias_max_min_dlf(EbSvtAv1EncConfiguration *source_config, EbSvtAv1EncConfiguration *target_config) {
     EbErrorType return_error = EB_ErrorNone;
 
@@ -1028,7 +1030,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             return_error = EB_ErrorBadParameter;
         }
     }
-    if ((config->tile_columns > 0 || config->tile_rows > 0)) {
+    if (config->fast_decode < 1 && (config->tile_columns > 0 || config->tile_rows > 0)) {
         SVT_WARN(
             "If you are using tiles with the intent of increasing the decoder speed, please also "
             "consider using --fast-decode 1 or 2, especially if the intended decoder is running with "
@@ -1574,25 +1576,21 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
 
     SVT_INFO("-------------------------------------------\n");
     if (config->pass == ENC_FIRST_PASS)
-        SVT_INFO("SVT [config]: preset \t\t\t\t\t\t\t: pass 1\n");
+        SVT_INFO("SVT [config]: First Pass Encode\n");
     else {
-        SVT_INFO("SVT [config]: profile / tier / level \t\t\t\t\t: %s / %s / %s\n",
+        PRINT_CONFIG("profile / tier / level", "%s / %s / %s",
                  config->profile == MAIN_PROFILE               ? "main"
                      : config->profile == HIGH_PROFILE         ? "high"
                      : config->profile == PROFESSIONAL_PROFILE ? "professional"
-                                                               : "unknown",
+                                                               : "Unknown",
                  tier_to_str(config->tier),
                  level_to_str(config->level));
-        SVT_INFO(
-            "SVT [config]: width / height / fps numerator / fps denominator \t\t: %d / %d / %d / "
-            "%d\n",
+        PRINT_CONFIG("width / height / fps numerator / fps denominator", "%d / %d / %d / %d",
             config->source_width,
             config->source_height,
             config->frame_rate_numerator,
             config->frame_rate_denominator);
-        SVT_INFO(
-            "SVT [config]: bit-depth / color format \t\t\t\t\t: %d / "
-            "%s\n",
+        PRINT_CONFIG("bit-depth / color format", "%d / %s",
             config->encoder_bit_depth,
             config->encoder_color_format == EB_YUV400       ? "YUV400"
                 : config->encoder_color_format == EB_YUV420 ? "YUV420"
@@ -1600,7 +1598,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                 : config->encoder_color_format == EB_YUV444 ? "YUV444"
                                                             : "unknown color format");
 
-        SVT_INFO("SVT [config]: preset / tune / pred struct \t\t\t\t\t: %d / %s%s / %s\n",
+        PRINT_CONFIG("preset / tune / pred struct", "%d / %s / %s",
                  config->enc_mode,
                  config->tune == 0       ? "VQ"
                      : config->tune == 1 ? "PSNR"
@@ -1612,13 +1610,12 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                      : config->pred_structure == 2 ? "random access"
                                                    : "unknown");
         if (config->auto_tiling > 0 || config->tile_columns > 0 || config->tile_rows > 0)
-            SVT_INFO("SVT [config]: auto tiling / columns / rows \t\t\t\t\t: %d / %d / %d\n",
+            PRINT_CONFIG("auto tiling / columns / rows", "%d / %d / %d",
                      config->auto_tiling,
                      config->tile_columns,
                      config->tile_rows);
         if (config->scene_change_detection == 1)
-            SVT_INFO("SVT [config]: max / min GOP size / mini-GOP size / refresh type \t\t: "
-                     "%d / %d / %d / %s\n",
+            PRINT_CONFIG("max / min GOP size / mini-GOP size / type", "%d / %d / %d / %s",
                      config->intra_period_length < 0 ? config->intra_period_length
                         : config->intra_period_length + 1,
                      config->min_intra_period_length < 0 ? config->min_intra_period_length
@@ -1628,15 +1625,13 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                         : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "closed GOP"
                                                                            : "unknown");
         else if (config->intra_period_length == -1)
-            SVT_INFO("SVT [config]: GOP size / mini-GOP size / refresh type \t\t\t: "
-                     "inf / %d / %s\n",
+            PRINT_CONFIG("GOP size / mini-GOP size / type", "inf / %d / %s",
                      (1 << config->hierarchical_levels),
                      config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH   ? "open GOP"
                         : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "closed GOP"
                                                                            : "unknown");
         else
-            SVT_INFO("SVT [config]: GOP size / mini-GOP size / refresh type \t\t\t: "
-                     "%d / %d / %s\n",
+            PRINT_CONFIG("GOP size / mini-GOP size / type", "%d / %d / %s",
                      config->intra_period_length + 1,
                      (1 << config->hierarchical_levels),
                      config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH   ? "open GOP"
@@ -1647,35 +1642,31 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
         switch (config->rate_control_mode) {
         case SVT_AV1_RC_MODE_CQP_OR_CRF:
             if (config->max_bit_rate)
-                SVT_INFO(
-                    "SVT [config]: BRC mode / %s / max bitrate (kbps)\t\t\t: %s / %.2f / "
-                    "%d\n",
+                PRINT_CONFIG("BRC mode / mode / factor / max bitrate (kbps)", "%s / %s / %.2f / %d",
                     scs->tpl || scs->static_config.enable_variance_boost ? "rate factor" : "CQP assignment",
                     scs->tpl || scs->static_config.enable_variance_boost ? "capped CRF" : "CQP",
                     get_double_crf(config),
                     (int)config->max_bit_rate / 1000);
             else {
                 if (!config->enable_variance_boost)
-                    SVT_INFO("SVT [config]: BRC mode / AQ mode / %s \t\t\t\t: %s / %d / %.2f \n",
+                    PRINT_CONFIG("BRC mode / AQ mode / mode / factor", "%d / %s / %s / %.2f",
                              scs->tpl || scs->static_config.enable_variance_boost ? "rate factor" : "CQP assignment",
                              scs->tpl || scs->static_config.enable_variance_boost ? "CRF" : "CQP",
                              config->enable_adaptive_quantization,
                              get_double_crf(config));
                 else
-                    SVT_INFO("SVT [config]: BRC mode / %s \t\t\t\t\t: %s / %.2f \n",
+                    PRINT_CONFIG("BRC mode / mode / factor", "%s / %s / %.2f",
                              scs->tpl || scs->static_config.enable_variance_boost ? "rate factor" : "CQP assignment",
                              scs->tpl || scs->static_config.enable_variance_boost ? "CRF" : "CQP",
                              get_double_crf(config));
             }
             break;
         case SVT_AV1_RC_MODE_VBR:
-            SVT_INFO("SVT [config]: BRC mode / target bitrate (kbps)\t\t\t\t: VBR / %d \n",
+            PRINT_CONFIG("BRC mode / target bitrate (kbps)", "VBR / %d",
                      (int)config->target_bit_rate / 1000);
             break;
         case SVT_AV1_RC_MODE_CBR:
-            SVT_INFO(
-                "SVT [config]: BRC mode / target bitrate (kbps)\t\t\t\t: CBR "
-                "/ %d\n",
+            PRINT_CONFIG("BRC mode / target bitrate (kbps)", "CBR / %d",
                 (int)config->target_bit_rate / 1000);
             break;
         }
@@ -1684,10 +1675,10 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                 if (config->rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF && !config->max_bit_rate)
                     ;
                 else
-                    SVT_INFO("SVT [config]: AQ mode / variance boost \t\t\t\t\t: %d / disabled\n",
+                    PRINT_CONFIG("AQ mode / variance boost", "%d / disabled",
                              config->enable_adaptive_quantization);
             } else {
-                SVT_INFO("SVT [config]: AQ mode / variance boost - strength / octile / curve \t\t: %d / %d / %d / %s\n",
+                PRINT_CONFIG("AQ mode / variance boost strength / octile / curve", "%d / %d / %d / %s",
                          config->enable_adaptive_quantization,
                          config->variance_boost_strength,
                          config->variance_octile,
@@ -1697,120 +1688,118 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
 
         if (!config->balancing_q_bias) {
             if (config->low_q_taper)
-                SVT_INFO("SVT [config]: QP scale compress strength / frame low-luma bias / low Q taper : %.2f / %d / on\n",
+                PRINT_CONFIG("QP scale comp. strength / frame luma bias / Q taper", "%.2f / %d / on",
                          config->qp_scale_compress_strength,
                          config->frame_luma_bias >= config->luminance_qp_bias ? config->frame_luma_bias : config->luminance_qp_bias);
             else
-                SVT_INFO("SVT [config]: QP scale compress strength / frame low-luma bias \t\t: %.2f / %d\n",
+                PRINT_CONFIG("QP scale comp. strength / frame luma bias", "%.2f / %d",
                          config->qp_scale_compress_strength,
                          config->frame_luma_bias >= config->luminance_qp_bias ? config->frame_luma_bias : config->luminance_qp_bias);
         }
         else { // config->balancing_q_bias
             if (config->balancing_noise_level_q_bias == 1.0)
-                SVT_INFO("SVT [config]: balancing - Q bias / luminance Q bias \t\t\t\t: based / %d\n",
+                PRINT_CONFIG("Q bias balancing / luminance", "based / %d",
                          config->balancing_luminance_q_bias);
             else
-                SVT_INFO("SVT [config]: balancing - Q bias / luminance Q bias / noise level Q bias \t: based / %d / %.2f\n",
+                PRINT_CONFIG("Q bias balancing / luminance / noise level", "based / %d / %.2f",
                          config->balancing_luminance_q_bias,
                          config->balancing_noise_level_q_bias);
 
             if (config->balancing_r0_dampening_layer == 1)
-                SVT_INFO("SVT [config]: balancing - r0-based decision \t\t\t\t\t: full\n");
+                PRINT_CONFIG("balancing r0 based decision", "full");
             else
-                SVT_INFO("SVT [config]: balancing - r0-based decision / r0 dampening layer \t\t: full / >=%d\n",
+                PRINT_CONFIG("balancing r0 based decision / r0 dampening layer", "full / >=%d",
                          config->balancing_r0_dampening_layer);
         }
 
         // Film grain
         if (config->film_grain_denoise_strength != 0)
-            SVT_INFO("SVT [config]: film grain synth - level / denoising / adaptive blocksize \t: %d / %s / %s\n",
+            PRINT_CONFIG("film grain synth / denoise / adapt. blocksize", "%d / %s / %s",
                      config->film_grain_denoise_strength,
                      config->film_grain_denoise_apply ? "denoising" : "0",
                      config->adaptive_film_grain ? "true" : "false");
         if (!config->chroma_grain)
-            SVT_INFO("SVT [config]: film grain synth - chroma grain \t\t\t\t: disabled\n");
+            PRINT_CONFIG("film grain synth - chroma grain", "disabled");
         if (config->photon_noise_iso > 0) {
             if (config->enable_photon_noise_chroma)
-                SVT_INFO("SVT [config]: photon noise synth - ISO / chroma noise \t\t\t: %d / on\n",
+                PRINT_CONFIG("photon noise synth - ISO / chroma noise", "%d / on",
                          config->photon_noise_iso);
             else
-                SVT_INFO("SVT [config]: photon noise synth ISO \t\t\t\t\t: %d\n",
+                PRINT_CONFIG("photon noise synth ISO", "%d",
                          config->photon_noise_iso);
         }
 
         // Global
         if (config->high_fidelity_encode_psy_bias) {
-            SVT_INFO("SVT [config]: high fidelity encode PSY bias \t\t\t\t\t: on\n");
+            PRINT_CONFIG("high fidelity encode PSY bias", "on");
         }
         else if (config->high_quality_encode_psy_bias) {
-            SVT_INFO("SVT [config]: high quality encode PSY bias \t\t\t\t\t: on\n");
+            PRINT_CONFIG("high quality encode PSY bias", "on");
         }
 
         if (config->lineart_psy_bias_easter_egg == 1) {
-            SVT_INFO("SVT [config]: lineart bias ~ Kumiko version ~ / variance base / common thr \t: %.0f / %d / %d\n",
+            PRINT_CONFIG("lineart bias ~ Kumiko ~ / variance base / common thr", "%.0f / %d / %d",
                      floor(config->lineart_psy_bias),
                      config->lineart_variance_thr,
                      config->lineart_variance_thr >> 1);
-            SVT_INFO("\n");
             srand((unsigned int)(uintptr_t)scs);
             const uint8_t lineart_psy_bias_easter_message = rand() % 4;
-            SVT_INFO("    \x1b[1m\x1b[3mKumiko\x1b[0m    \x1b[3m%s\x1b[0m\n",
+            PRINT_CONFIG("Kumiko", "%s",
                      lineart_psy_bias_easter_message == 0 ? "Kitauji Fight!" :
                      lineart_psy_bias_easter_message == 1 ? "Umaku naritai!" :
                      lineart_psy_bias_easter_message == 2 ? "Datte Watashi, Eupho Suki damon!" :
                                                             "Datte Kore wa, Ai no Kokuhaku dakara.");
             if (lineart_psy_bias_easter_message >= 1)
-                SVT_INFO("              \x1b[3m%s\x1b[0m\n",
+                PRINT_CONFIG("", "%s",
                          lineart_psy_bias_easter_message == 1 ? "I want to improve!" :
                          lineart_psy_bias_easter_message == 2 ? "Because I like playing the euphonium!" :
                                                                 "This is a confession of love, after all.");
-            SVT_INFO("\n");
         }
         else if (config->lineart_psy_bias == -2.0)
-            SVT_INFO("SVT [config]: lineart PSY bias thr testing mode / skip taper variance thr \t: testing / %d\n",
+            PRINT_CONFIG("lineart PSY bias thr mode / skip taper variance thr", "testing / %d",
                      config->lineart_variance_thr >> 1);
         else if (config->lineart_psy_bias >= 1.0)
-            SVT_INFO("SVT [config]: lineart PSY bias / variance base / common thr \t\t\t: %.0f / %d / %d\n",
+            PRINT_CONFIG("lineart PSY bias / variance base / common thr", "%.0f / %d / %d",
                      floor(config->lineart_psy_bias),
                      config->lineart_variance_thr,
                      config->lineart_variance_thr >> 1);
 
         if (config->texture_psy_bias_easter_egg == 1) {
-            SVT_INFO("SVT [config]: \x1b[30m\x1b[1m\x1b[4mcat bias\x1b[0m\x1b[30m\x1b[1m / variance base / common thr \t\t\t\t: %.0f - meow - / %d / %d\x1b[0m\n",
+            PRINT_CONFIG("texture PSY bias / variance base / common thr", "%.0f - meow - / %d / %d",
                      floor(config->texture_psy_bias),
                      config->texture_variance_thr,
                      config->texture_variance_thr >> 2);
             if (config->noise_psy_bias >= 1.0)
-                SVT_INFO("SVT [config]: \x1b[30m\x1b[1mnoise PSY bias \t\t\t\t\t\t: %.0f\x1b[0m\n",
+                PRINT_CONFIG("noise PSY bias", "%.0f",
                          floor(config->noise_psy_bias));
             else
-                SVT_INFO("SVT [config]: noise PSY bias \t\t\t\t\t\t: %.0f\n",
+                PRINT_CONFIG("noise PSY bias", "%.0f",
                          floor(config->noise_psy_bias));
         }
         else if (config->texture_psy_bias >= 1.0)
-            SVT_INFO("SVT [config]: texture PSY bias / variance base / common thr \t\t\t: %.0f / %d / %d\n",
+            PRINT_CONFIG("texture PSY bias / variance base / common thr", "%.0f / %d / %d",
                      floor(config->texture_psy_bias),
                      config->texture_variance_thr,
                      config->texture_variance_thr >> 2);
         if (config->noise_psy_bias >= 1.0)
-            SVT_INFO("SVT [config]: noise PSY bias \t\t\t\t\t\t: %.0f\n",
+            PRINT_CONFIG("noise PSY bias", "%.0f",
                      floor(config->noise_psy_bias));
 
         // Motion Estimation
         if (config->enable_tf) {
             if (config->enable_tf == 2) {
                 if (config->alt_tf_decay && !(config->tune == 0 || config->tune == 3))
-                    SVT_INFO("SVT [config]: temporal filtering - strength / alt decay \t\t\t: auto / enabled\n");
+                    PRINT_CONFIG("temporal filtering - strength / alt decay", "auto / enabled");
                 else
-                    SVT_INFO("SVT [config]: temporal filtering strength \t\t\t\t\t: auto\n");
+                    PRINT_CONFIG("temporal filtering strength", "auto");
             }
             else { // (config->enable_tf == 1)
                 if (config->alt_tf_decay && !(config->tune == 0 || config->tune == 3))
-                    SVT_INFO("SVT [config]: TF - keyframe / non-keyframe strength / alt decay \t\t: %d / %d / enabled\n",
+                    PRINT_CONFIG("TF - keyframe / non-keyframe strength / alt decay", "%d / %d / enabled",
                              config->kf_tf_strength,
                              config->tf_strength);
                 else
-                    SVT_INFO("SVT [config]: temporal filtering - keyframe / non-keyframe strength \t\t: %d / %d\n",
+                    PRINT_CONFIG("TF - keyframe / non-keyframe strength", "%d / %d",
                              config->kf_tf_strength,
                              config->tf_strength);
             }
@@ -1819,54 +1808,54 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
         // Mode Decision
         if (config->enable_qm) {
             if (config->max_qm_level == 15 && config->max_chroma_qm_level == 15)
-                SVT_INFO("SVT [config]: quantizer matrix - min luma / min chroma level \t\t: %d / %d\n",
+                PRINT_CONFIG("quantizer matrix - min luma / min chroma level", "%d / %d",
                          config->min_qm_level,
                          config->min_chroma_qm_level);
             else
-                SVT_INFO("SVT [config]: QM - min / max luma level / min / max chroma level \t\t: %d / %d / %d / %d\n",
+                PRINT_CONFIG("QM - min / max luma level / min / max chroma level", "%d / %d / %d / %d",
                          config->min_qm_level,
                          config->max_qm_level,
                          config->min_chroma_qm_level,
                          config->max_chroma_qm_level);
         }
 
-        SVT_INFO("SVT [config]: sharpness / noise normalization strength \t\t\t: %d / %d\n",
+        PRINT_CONFIG("sharpness / noise normalization strength", "%d / %d",
                  config->sharpness,
                  config->noise_norm_strength);
 
         if (config->ac_bias) {
             if (config->texture_ac_bias != config->ac_bias || config->lineart_energy_bias != 1.0 || config->texture_energy_bias != 1.0 || config->satd_bias) {
-                SVT_INFO("SVT [config]: AC bias - universal / texture bias strength \t\t\t: %.2f / %.2f\n",
+                PRINT_CONFIG("AC bias - universal / texture bias strength", "%.2f / %.2f",
                          config->ac_bias,
                          config->texture_ac_bias);
-                SVT_INFO("SVT [config]: AC bias - lineart / texture energy bias strength \t\t: %.2f / %.2f\n",
+                PRINT_CONFIG("AC bias - lineart / texture energy bias strength", "%.2f / %.2f",
                          config->lineart_energy_bias,
                          config->texture_energy_bias);
                 if (config->satd_bias)
-                    SVT_INFO("SVT [config]: AC bias - SATD bias strength \t\t\t\t\t: %.2f\n",
+                    PRINT_CONFIG("AC bias - SATD bias strength", "%.2f",
                              config->satd_bias);
                 if (config->tx_bias)
-                    SVT_INFO("SVT [config]: TX bias \t\t\t\t\t\t\t: %s\n",
+                    PRINT_CONFIG("TX bias", "%s",
                              config->tx_bias == 1
                                  ? "full"
                                  : (config->tx_bias == 2 ? "size only" : (config->tx_bias == 3 ? "interp. only" : "off")));
             }
             else {
                 if (config->tx_bias)
-                    SVT_INFO("SVT [config]: AC bias strength / TX bias \t\t\t\t\t: %.2f / %s\n",
+                    PRINT_CONFIG("AC bias strength / TX bias", "%.2f / %s",
                              config->ac_bias,
                              config->tx_bias == 1
                                  ? "full"
                                  : (config->tx_bias == 2 ? "size only" : (config->tx_bias == 3 ? "interp. only" : "off")));
                 else
-                    SVT_INFO("SVT [config]: AC bias strength \t\t\t\t\t\t: %.2f\n",
+                    PRINT_CONFIG("AC bias strength", "%.2f",
                              config->ac_bias);
             }
         }
 
         // DLF
         if (config->enable_dlf_flag && config->dlf_bias)
-            SVT_INFO("SVT [config]: DLF bias - DLF sharpness / max / min DLF strength \t\t: %d / %d %d / %d %d\n",
+            PRINT_CONFIG("DLF bias - DLF sharpness / max / min DLF strength", "%d / %d %d / %d %d",
                      config->dlf_sharpness,
                      config->dlf_bias_max_dlf[0],
                      config->dlf_bias_max_dlf[1],
@@ -1892,13 +1881,13 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                     config->texture_cdef_bias_min_cdef[2] == config->cdef_bias_min_cdef[2] &&
                     config->texture_cdef_bias_min_cdef[3] == config->cdef_bias_min_cdef[3]) {
                     if (!config->filtering_noise_detection)
-                        SVT_INFO("SVT [config]: CDEF bias - max CDEF strength \t\t\t\t\t: %d,%d %d,%d\n",
+                        PRINT_CONFIG("CDEF bias - max CDEF", "%d,%d %d,%d",
                                  config->cdef_bias_max_cdef[0],
                                  config->cdef_bias_max_cdef[1],
                                  config->cdef_bias_max_cdef[2],
                                  config->cdef_bias_max_cdef[3]);
                     else
-                        SVT_INFO("SVT [config]: filtering noise detection / CDEF bias - max CDEF strength \t: %s / %d,%d %d,%d\n",
+                        PRINT_CONFIG("filtering noise detection / CDEF bias - max CDEF", "%s / %d,%d %d,%d",
                                  config->filtering_noise_detection == 1 ? "on" :
                                  config->filtering_noise_detection == 2 ? "off" :
                                  config->filtering_noise_detection == 3 ? "on (CDEF only)" :
@@ -1910,12 +1899,12 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                 }
                 else {
                     if (config->filtering_noise_detection)
-                        SVT_INFO("SVT [config]: filtering noise detection \t\t\t\t\t: %s\n",
+                        PRINT_CONFIG("filtering noise detection", "%s",
                                  config->filtering_noise_detection == 1 ? "on" :
                                  config->filtering_noise_detection == 2 ? "off" :
                                  config->filtering_noise_detection == 3 ? "on (CDEF only)" :
                                                                           "on (restoration only)");
-                    SVT_INFO("SVT [config]: CDEF bias - CDEF / texture CDEF max strength \t\t\t: %d,%d %d,%d / %d,%d %d,%d\n",
+                    PRINT_CONFIG("CDEF bias - CDEF / texture CDEF max strength", "%d,%d %d,%d / %d,%d %d,%d",
                              config->cdef_bias_max_cdef[0],
                              config->cdef_bias_max_cdef[1],
                              config->cdef_bias_max_cdef[2],
@@ -1928,12 +1917,12 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
             }
             else {
                 if (config->filtering_noise_detection)
-                    SVT_INFO("SVT [config]: filtering noise detection \t\t\t\t\t: %s\n",
+                    PRINT_CONFIG("filtering noise detection", "%s",
                              config->filtering_noise_detection == 1 ? "on" :
                              config->filtering_noise_detection == 2 ? "off" :
                              config->filtering_noise_detection == 3 ? "on (CDEF only)" :
                                                                       "on (restoration only)");
-                SVT_INFO("SVT [config]: CDEF bias - max / min CDEF strength \t\t\t\t: %d,%d %d,%d / %d,%d %d,%d\n",
+                PRINT_CONFIG("CDEF bias - max / min CDEF strength", "%d,%d %d,%d / %d,%d %d,%d",
                          config->cdef_bias_max_cdef[0],
                          config->cdef_bias_max_cdef[1],
                          config->cdef_bias_max_cdef[2],
@@ -1950,7 +1939,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                     config->texture_cdef_bias_min_cdef[1] != config->cdef_bias_min_cdef[1] ||
                     config->texture_cdef_bias_min_cdef[2] != config->cdef_bias_min_cdef[2] ||
                     config->texture_cdef_bias_min_cdef[3] != config->cdef_bias_min_cdef[3]) {
-                    SVT_INFO("SVT [config]: CDEF bias - texture max / min CDEF strength \t\t\t: %d,%d %d,%d / %d,%d %d,%d\n",
+                    PRINT_CONFIG("CDEF bias - texture max / min CDEF strength", "%d,%d %d,%d / %d,%d %d,%d",
                              config->texture_cdef_bias_max_cdef[0],
                              config->texture_cdef_bias_max_cdef[1],
                              config->texture_cdef_bias_max_cdef[2],
@@ -1965,7 +1954,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
         else {
             if ((config->cdef_level || config->enable_restoration_filtering) &&
                 config->filtering_noise_detection)
-                SVT_INFO("SVT [config]: filtering noise detection \t\t\t\t\t: %s\n",
+                PRINT_CONFIG("filtering noise detection", "%s",
                          config->filtering_noise_detection == 1 ? "on" :
                          config->filtering_noise_detection == 2 ? "off" :
                          config->filtering_noise_detection == 3 ? "on (CDEF only)" :
@@ -1973,44 +1962,42 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
         }
     }
 #ifdef DEBUG_BUFFERS
-    SVT_INFO("SVT [config]: INPUT / OUTPUT \t\t\t\t\t\t\t: %d / %d\n",
+    PRINT_CONFIG("INPUT / OUTPUT", "%d / %d",
              scs->input_buffer_fifo_init_count,
              scs->output_stream_buffer_fifo_init_count);
-    SVT_INFO("SVT [config]: CPCS / PAREF / REF / ME\t\t\t\t\t\t: %d / %d / %d / %d\n",
+    PRINT_CONFIG("CPCS / PAREF / REF / ME", "%d / %d / %d / %d",
              scs->picture_control_set_pool_init_count_child,
              scs->pa_reference_picture_buffer_init_count,
              scs->reference_picture_buffer_init_count,
              scs->me_pool_init_count);
-    SVT_INFO("SVT [config]: ME_SEG_W0 / ME_SEG_W1 / ME_SEG_W2 / ME_SEG_W3 \t\t\t: %d / %d / %d / %d\n",
+    PRINT_CONFIG("ME_SEG_W0 / ME_SEG_W1 / ME_SEG_W2 / ME_SEG_W3", "%d / %d / %d / %d",
              scs->me_segment_column_count_array[0],
              scs->me_segment_column_count_array[1],
              scs->me_segment_column_count_array[2],
              scs->me_segment_column_count_array[3]);
-    SVT_INFO("SVT [config]: ME_SEG_H0 / ME_SEG_H1 / ME_SEG_H2 / ME_SEG_H3 \t\t\t: %d / %d / %d / %d\n",
+    PRINT_CONFIG("ME_SEG_H0 / ME_SEG_H1 / ME_SEG_H2 / ME_SEG_H3", "%d / %d / %d / %d",
              scs->me_segment_row_count_array[0],
              scs->me_segment_row_count_array[1],
              scs->me_segment_row_count_array[2],
              scs->me_segment_row_count_array[3]);
-    SVT_INFO("SVT [config]: ME_SEG_W0 / ME_SEG_W1 / ME_SEG_W2 / ME_SEG_W3 \t\t\t: %d / %d / %d / %d\n",
+    PRINT_CONFIG("ME_SEG_W0 / ME_SEG_W1 / ME_SEG_W2 / ME_SEG_W3", "%d / %d / %d / %d",
              scs->enc_dec_segment_col_count_array[0],
              scs->enc_dec_segment_col_count_array[1],
              scs->enc_dec_segment_col_count_array[2],
              scs->enc_dec_segment_col_count_array[3]);
-    SVT_INFO("SVT [config]: ME_SEG_H0 / ME_SEG_H1 / ME_SEG_H2 / ME_SEG_H3 \t\t\t: %d / %d / %d / %d\n",
+    PRINT_CONFIG("ME_SEG_H0 / ME_SEG_H1 / ME_SEG_H2 / ME_SEG_H3", "%d / %d / %d / %d",
              scs->enc_dec_segment_row_count_array[0],
              scs->enc_dec_segment_row_count_array[1],
              scs->enc_dec_segment_row_count_array[2],
              scs->enc_dec_segment_row_count_array[3]);
-    SVT_INFO(
-        "SVT [config]: PA_P / ME_P / SBO_P / MDC_P / ED_P / EC_P \t\t\t: %d / %d / %d / %d / %d / "
-        "%d\n",
+    PRINT_CONFIG("PA_P / ME_P / SBO_P / MDC_P / ED_P / EC_P", "%d / %d / %d / %d / %d / %d",
         scs->picture_analysis_process_init_count,
         scs->motion_estimation_process_init_count,
         scs->source_based_operations_process_init_count,
         scs->mode_decision_configuration_process_init_count,
         scs->enc_dec_process_init_count,
         scs->entropy_coding_process_init_count);
-    SVT_INFO("SVT [config]: DLF_P / CDEF_P / REST_P \t\t\t\t\t\t: %d / %d / %d\n",
+    PRINT_CONFIG("DLF_P / CDEF_P / REST_P", "%d / %d / %d",
              scs->dlf_process_init_count,
              scs->cdef_process_init_count,
              scs->rest_process_init_count);
