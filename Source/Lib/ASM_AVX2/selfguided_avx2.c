@@ -18,6 +18,13 @@
 #include "transpose_avx2.h"
 #include "transpose_sse2.h"
 
+static AOM_FORCE_INLINE __m256i gatherless_x_by_xplus1(const __m256i z) {
+    __m256 z_ps = _mm256_cvtepi32_ps(z);
+    __m256 denom = _mm256_add_ps(z_ps, _mm256_set1_ps(1.0f));
+    __m256 val_ps = _mm256_div_ps(_mm256_set1_ps(256.0f), denom);
+    return _mm256_cvtps_epi32(val_ps);
+}
+
 static INLINE void cvt_16to32bit_8x8(const __m128i s[8], __m256i r[8]) {
     r[0] = _mm256_cvtepu16_epi32(s[0]);
     r[1] = _mm256_cvtepu16_epi32(s[1]);
@@ -40,22 +47,22 @@ static INLINE void add_32bit_8x8(const __m256i neighbor, __m256i r[8]) {
     r[7] = _mm256_add_epi32(r[6], r[7]);
 }
 
-static INLINE void store_32bit_8x8(const __m256i r[8], int32_t *const buf, const int32_t buf_stride) {
-    _mm256_storeu_si256((__m256i *)(buf + 0 * buf_stride), r[0]);
-    _mm256_storeu_si256((__m256i *)(buf + 1 * buf_stride), r[1]);
-    _mm256_storeu_si256((__m256i *)(buf + 2 * buf_stride), r[2]);
-    _mm256_storeu_si256((__m256i *)(buf + 3 * buf_stride), r[3]);
-    _mm256_storeu_si256((__m256i *)(buf + 4 * buf_stride), r[4]);
-    _mm256_storeu_si256((__m256i *)(buf + 5 * buf_stride), r[5]);
-    _mm256_storeu_si256((__m256i *)(buf + 6 * buf_stride), r[6]);
-    _mm256_storeu_si256((__m256i *)(buf + 7 * buf_stride), r[7]);
+static INLINE void store_32bit_8x8(const __m256i r[8], int32_t* const buf, const int32_t buf_stride) {
+    _mm256_storeu_si256((__m256i*)(buf + 0 * buf_stride), r[0]);
+    _mm256_storeu_si256((__m256i*)(buf + 1 * buf_stride), r[1]);
+    _mm256_storeu_si256((__m256i*)(buf + 2 * buf_stride), r[2]);
+    _mm256_storeu_si256((__m256i*)(buf + 3 * buf_stride), r[3]);
+    _mm256_storeu_si256((__m256i*)(buf + 4 * buf_stride), r[4]);
+    _mm256_storeu_si256((__m256i*)(buf + 5 * buf_stride), r[5]);
+    _mm256_storeu_si256((__m256i*)(buf + 6 * buf_stride), r[6]);
+    _mm256_storeu_si256((__m256i*)(buf + 7 * buf_stride), r[7]);
 }
 
-static AOM_FORCE_INLINE void integral_images(const uint8_t *src, int32_t src_stride, int32_t width, int32_t height,
-                                             int32_t *C, int32_t *D, int32_t buf_stride) {
-    const uint8_t *src_t = src;
-    int32_t       *ct    = C + buf_stride + 1;
-    int32_t       *dt    = D + buf_stride + 1;
+static AOM_FORCE_INLINE void integral_images(const uint8_t* src, int32_t src_stride, int32_t width, int32_t height,
+                                             int32_t* C, int32_t* D, int32_t buf_stride) {
+    const uint8_t* src_t = src;
+    int32_t*       ct    = C + buf_stride + 1;
+    int32_t*       dt    = D + buf_stride + 1;
     const __m256i  zero  = _mm256_setzero_si256();
 
     memset(C, 0, sizeof(*C) * (width + 8));
@@ -81,14 +88,14 @@ static AOM_FORCE_INLINE void integral_images(const uint8_t *src, int32_t src_str
             __m128i s[8];
             __m256i r32[8];
 
-            s[0] = _mm_loadl_epi64((__m128i *)(src_t + 0 * src_stride + x));
-            s[1] = _mm_loadl_epi64((__m128i *)(src_t + 1 * src_stride + x));
-            s[2] = _mm_loadl_epi64((__m128i *)(src_t + 2 * src_stride + x));
-            s[3] = _mm_loadl_epi64((__m128i *)(src_t + 3 * src_stride + x));
-            s[4] = _mm_loadl_epi64((__m128i *)(src_t + 4 * src_stride + x));
-            s[5] = _mm_loadl_epi64((__m128i *)(src_t + 5 * src_stride + x));
-            s[6] = _mm_loadl_epi64((__m128i *)(src_t + 6 * src_stride + x));
-            s[7] = _mm_loadl_epi64((__m128i *)(src_t + 7 * src_stride + x));
+            s[0] = _mm_loadl_epi64((__m128i*)(src_t + 0 * src_stride + x));
+            s[1] = _mm_loadl_epi64((__m128i*)(src_t + 1 * src_stride + x));
+            s[2] = _mm_loadl_epi64((__m128i*)(src_t + 2 * src_stride + x));
+            s[3] = _mm_loadl_epi64((__m128i*)(src_t + 3 * src_stride + x));
+            s[4] = _mm_loadl_epi64((__m128i*)(src_t + 4 * src_stride + x));
+            s[5] = _mm_loadl_epi64((__m128i*)(src_t + 5 * src_stride + x));
+            s[6] = _mm_loadl_epi64((__m128i*)(src_t + 6 * src_stride + x));
+            s[7] = _mm_loadl_epi64((__m128i*)(src_t + 7 * src_stride + x));
 
             partial_transpose_8bit_8x8(s, s);
 
@@ -107,7 +114,7 @@ static AOM_FORCE_INLINE void integral_images(const uint8_t *src, int32_t src_str
 
             transpose_32bit_8x8_avx2(r32, r32);
 
-            const __m256i d_top = _mm256_loadu_si256((__m256i *)(dt - buf_stride + x));
+            const __m256i d_top = _mm256_loadu_si256((__m256i*)(dt - buf_stride + x));
             add_32bit_8x8(d_top, r32);
             store_32bit_8x8(r32, dt + x, buf_stride);
 
@@ -126,7 +133,7 @@ static AOM_FORCE_INLINE void integral_images(const uint8_t *src, int32_t src_str
 
             transpose_32bit_8x8_avx2(r32, r32);
 
-            const __m256i c_top = _mm256_loadu_si256((__m256i *)(ct - buf_stride + x));
+            const __m256i c_top = _mm256_loadu_si256((__m256i*)(ct - buf_stride + x));
             add_32bit_8x8(c_top, r32);
             store_32bit_8x8(r32, ct + x, buf_stride);
             x += 8;
@@ -134,8 +141,8 @@ static AOM_FORCE_INLINE void integral_images(const uint8_t *src, int32_t src_str
 
         /* Used in calc_ab and calc_ab_fast, when calc out of right border */
         for (int ln = 0; ln < 8; ++ln) {
-            _mm256_storeu_si256((__m256i *)(ct + x + ln * buf_stride), zero);
-            _mm256_storeu_si256((__m256i *)(dt + x + ln * buf_stride), zero);
+            _mm256_storeu_si256((__m256i*)(ct + x + ln * buf_stride), zero);
+            _mm256_storeu_si256((__m256i*)(dt + x + ln * buf_stride), zero);
         }
 
         src_t += 8 * src_stride;
@@ -145,11 +152,11 @@ static AOM_FORCE_INLINE void integral_images(const uint8_t *src, int32_t src_str
     } while (y < height);
 }
 
-static AOM_FORCE_INLINE void integral_images_highbd(const uint16_t *src, int32_t src_stride, int32_t width,
-                                                    int32_t height, int32_t *C, int32_t *D, int32_t buf_stride) {
-    const uint16_t *src_t = src;
-    int32_t        *ct    = C + buf_stride + 1;
-    int32_t        *dt    = D + buf_stride + 1;
+static AOM_FORCE_INLINE void integral_images_highbd(const uint16_t* src, int32_t src_stride, int32_t width,
+                                                    int32_t height, int32_t* C, int32_t* D, int32_t buf_stride) {
+    const uint16_t* src_t = src;
+    int32_t*        ct    = C + buf_stride + 1;
+    int32_t*        dt    = D + buf_stride + 1;
     const __m256i   zero  = _mm256_setzero_si256();
 
     memset(C, 0, sizeof(*C) * (width + 8));
@@ -175,14 +182,14 @@ static AOM_FORCE_INLINE void integral_images_highbd(const uint16_t *src, int32_t
             __m128i s[8];
             __m256i r32[8], a32[8];
 
-            s[0] = _mm_loadu_si128((__m128i *)(src_t + 0 * src_stride + x));
-            s[1] = _mm_loadu_si128((__m128i *)(src_t + 1 * src_stride + x));
-            s[2] = _mm_loadu_si128((__m128i *)(src_t + 2 * src_stride + x));
-            s[3] = _mm_loadu_si128((__m128i *)(src_t + 3 * src_stride + x));
-            s[4] = _mm_loadu_si128((__m128i *)(src_t + 4 * src_stride + x));
-            s[5] = _mm_loadu_si128((__m128i *)(src_t + 5 * src_stride + x));
-            s[6] = _mm_loadu_si128((__m128i *)(src_t + 6 * src_stride + x));
-            s[7] = _mm_loadu_si128((__m128i *)(src_t + 7 * src_stride + x));
+            s[0] = _mm_loadu_si128((__m128i*)(src_t + 0 * src_stride + x));
+            s[1] = _mm_loadu_si128((__m128i*)(src_t + 1 * src_stride + x));
+            s[2] = _mm_loadu_si128((__m128i*)(src_t + 2 * src_stride + x));
+            s[3] = _mm_loadu_si128((__m128i*)(src_t + 3 * src_stride + x));
+            s[4] = _mm_loadu_si128((__m128i*)(src_t + 4 * src_stride + x));
+            s[5] = _mm_loadu_si128((__m128i*)(src_t + 5 * src_stride + x));
+            s[6] = _mm_loadu_si128((__m128i*)(src_t + 6 * src_stride + x));
+            s[7] = _mm_loadu_si128((__m128i*)(src_t + 7 * src_stride + x));
 
             transpose_16bit_8x8(s, s);
 
@@ -202,7 +209,7 @@ static AOM_FORCE_INLINE void integral_images_highbd(const uint16_t *src, int32_t
 
             transpose_32bit_8x8_avx2(a32, a32);
 
-            const __m256i c_top = _mm256_loadu_si256((__m256i *)(ct - buf_stride + x));
+            const __m256i c_top = _mm256_loadu_si256((__m256i*)(ct - buf_stride + x));
             add_32bit_8x8(c_top, a32);
             store_32bit_8x8(a32, ct + x, buf_stride);
 
@@ -211,7 +218,7 @@ static AOM_FORCE_INLINE void integral_images_highbd(const uint16_t *src, int32_t
 
             transpose_32bit_8x8_avx2(r32, r32);
 
-            const __m256i d_top = _mm256_loadu_si256((__m256i *)(dt - buf_stride + x));
+            const __m256i d_top = _mm256_loadu_si256((__m256i*)(dt - buf_stride + x));
             add_32bit_8x8(d_top, r32);
             store_32bit_8x8(r32, dt + x, buf_stride);
             x += 8;
@@ -219,8 +226,8 @@ static AOM_FORCE_INLINE void integral_images_highbd(const uint16_t *src, int32_t
 
         /* Used in calc_ab and calc_ab_fast, when calc out of right border */
         for (int ln = 0; ln < 8; ++ln) {
-            _mm256_storeu_si256((__m256i *)(ct + x + ln * buf_stride), zero);
-            _mm256_storeu_si256((__m256i *)(dt + x + ln * buf_stride), zero);
+            _mm256_storeu_si256((__m256i*)(ct + x + ln * buf_stride), zero);
+            _mm256_storeu_si256((__m256i*)(dt + x + ln * buf_stride), zero);
         }
 
         src_t += 8 * src_stride;
@@ -232,7 +239,7 @@ static AOM_FORCE_INLINE void integral_images_highbd(const uint16_t *src, int32_t
 
 // Compute 8 values of boxsum from the given integral image. ii should point
 // at the middle of the box (for the first value). r is the box radius.
-static INLINE __m256i boxsum_from_ii(const int32_t *ii, int32_t stride, int32_t r) {
+static INLINE __m256i boxsum_from_ii(const int32_t* ii, int32_t stride, int32_t r) {
     const __m256i tl = yy_loadu_256(ii - (r + 1) - (r + 1) * stride);
     const __m256i tr = yy_loadu_256(ii + (r + 0) - (r + 1) * stride);
     const __m256i bl = yy_loadu_256(ii - (r + 1) + r * stride);
@@ -242,7 +249,9 @@ static INLINE __m256i boxsum_from_ii(const int32_t *ii, int32_t stride, int32_t 
     return _mm256_sub_epi32(v, u);
 }
 
-static INLINE __m256i round_for_shift(unsigned shift) { return _mm256_set1_epi32((1 << shift) >> 1); }
+static INLINE __m256i round_for_shift(unsigned shift) {
+    return _mm256_set1_epi32((1 << shift) >> 1);
+}
 
 static INLINE __m256i compute_p(__m256i sum1, __m256i sum2, int32_t n) {
     const __m256i bb = _mm256_madd_epi16(sum1, sum1);
@@ -267,10 +276,10 @@ static INLINE __m256i compute_p_highbd(__m256i sum1, __m256i sum2, int32_t bit_d
 // Assumes that C, D are integral images for the original buffer which has been
 // extended to have a padding of SGRPROJ_BORDER_VERT/SGRPROJ_BORDER_HORZ pixels
 // on the sides. A, b, C, D point at logical position (0, 0).
-static AOM_FORCE_INLINE void calc_ab(int32_t *A, int32_t *b, const int32_t *C, const int32_t *D, int32_t width,
+static AOM_FORCE_INLINE void calc_ab(int32_t* A, int32_t* b, const int32_t* C, const int32_t* D, int32_t width,
                                      int32_t height, int32_t buf_stride, int32_t bit_depth, int32_t sgr_params_idx,
                                      int32_t radius_idx) {
-    const SgrParamsType *const params = &svt_aom_eb_sgr_params[sgr_params_idx];
+    const SgrParamsType* const params = &svt_aom_eb_sgr_params[sgr_params_idx];
     const int32_t              r      = params->r[radius_idx];
     const int32_t              n      = (2 * r + 1) * (2 * r + 1);
     const __m256i              s      = _mm256_set1_epi32(params->s[radius_idx]);
@@ -296,7 +305,7 @@ static AOM_FORCE_INLINE void calc_ab(int32_t *A, int32_t *b, const int32_t *C, c
                 const __m256i z    = _mm256_min_epi32(
                     _mm256_srli_epi32(_mm256_add_epi32(_mm256_mullo_epi32(p, s), rnd_z), SGRPROJ_MTABLE_BITS),
                     _mm256_set1_epi32(255));
-                const __m256i a_res = _mm256_i32gather_epi32(svt_aom_eb_x_by_xplus1, z, 4);
+                const __m256i a_res = gatherless_x_by_xplus1(z);
                 yy_storeu_256(A + j, a_res);
 
                 const __m256i a_complement = _mm256_sub_epi32(_mm256_set1_epi32(SGRPROJ_SGR), a_res);
@@ -326,7 +335,7 @@ static AOM_FORCE_INLINE void calc_ab(int32_t *A, int32_t *b, const int32_t *C, c
                 const __m256i z    = _mm256_min_epi32(
                     _mm256_srli_epi32(_mm256_add_epi32(_mm256_mullo_epi32(p, s), rnd_z), SGRPROJ_MTABLE_BITS),
                     _mm256_set1_epi32(255));
-                const __m256i a_res = _mm256_i32gather_epi32(svt_aom_eb_x_by_xplus1, z, 4);
+                const __m256i a_res = gatherless_x_by_xplus1(z);
                 yy_storeu_256(A + j, a_res);
 
                 const __m256i a_complement = _mm256_sub_epi32(_mm256_set1_epi32(SGRPROJ_SGR), a_res);
@@ -365,7 +374,7 @@ static AOM_FORCE_INLINE void calc_ab(int32_t *A, int32_t *b, const int32_t *C, c
 // cross_sum = 4 * fours + 3 * threes
 //           = 4 * (fours + threes) - threes
 //           = (fours + threes) << 2 - threes
-static INLINE __m256i cross_sum(const int32_t *buf, int32_t stride) {
+static INLINE __m256i cross_sum(const int32_t* buf, int32_t stride) {
     const __m256i xtl = yy_loadu_256(buf - 1 - stride);
     const __m256i xt  = yy_loadu_256(buf - stride);
     const __m256i xtr = yy_loadu_256(buf + 1 - stride);
@@ -384,8 +393,8 @@ static INLINE __m256i cross_sum(const int32_t *buf, int32_t stride) {
 
 // The final filter for self-guided restoration. Computes a weighted average
 // across A, b with "cross sums" (see cross_sum implementation above).
-static AOM_FORCE_INLINE void final_filter(int32_t *dst, int32_t dst_stride, const int32_t *A, const int32_t *B,
-                                          int32_t buf_stride, const uint8_t *dgd8, int32_t dgd_stride, int32_t width,
+static AOM_FORCE_INLINE void final_filter(int32_t* dst, int32_t dst_stride, const int32_t* A, const int32_t* B,
+                                          int32_t buf_stride, const uint8_t* dgd8, int32_t dgd_stride, int32_t width,
                                           int32_t height, int32_t highbd) {
     const int32_t nb       = 5;
     const __m256i rounding = round_for_shift(SGRPROJ_SGR_BITS + nb - SGRPROJ_RST_BITS);
@@ -412,7 +421,7 @@ static AOM_FORCE_INLINE void final_filter(int32_t *dst, int32_t dst_stride, cons
             dst += dst_stride;
         } while (--i);
     } else {
-        const uint16_t *dgd_real = CONVERT_TO_SHORTPTR(dgd8);
+        const uint16_t* dgd_real = CONVERT_TO_SHORTPTR(dgd8);
 
         do {
             int32_t j = 0;
@@ -439,10 +448,10 @@ static AOM_FORCE_INLINE void final_filter(int32_t *dst, int32_t dst_stride, cons
 // Assumes that C, D are integral images for the original buffer which has been
 // extended to have a padding of SGRPROJ_BORDER_VERT/SGRPROJ_BORDER_HORZ pixels
 // on the sides. A, b, C, D point at logical position (0, 0).
-static AOM_FORCE_INLINE void calc_ab_fast(int32_t *A, int32_t *b, const int32_t *C, const int32_t *D, int32_t width,
+static AOM_FORCE_INLINE void calc_ab_fast(int32_t* A, int32_t* b, const int32_t* C, const int32_t* D, int32_t width,
                                           int32_t height, int32_t buf_stride, int32_t bit_depth, int32_t sgr_params_idx,
                                           int32_t radius_idx) {
-    const SgrParamsType *const params = &svt_aom_eb_sgr_params[sgr_params_idx];
+    const SgrParamsType* const params = &svt_aom_eb_sgr_params[sgr_params_idx];
     const int32_t              r      = params->r[radius_idx];
     const int32_t              n      = (2 * r + 1) * (2 * r + 1);
     const __m256i              s      = _mm256_set1_epi32(params->s[radius_idx]);
@@ -467,7 +476,7 @@ static AOM_FORCE_INLINE void calc_ab_fast(int32_t *A, int32_t *b, const int32_t 
                 const __m256i z    = _mm256_min_epi32(
                     _mm256_srli_epi32(_mm256_add_epi32(_mm256_mullo_epi32(p, s), rnd_z), SGRPROJ_MTABLE_BITS),
                     _mm256_set1_epi32(255));
-                const __m256i a_res = _mm256_i32gather_epi32(svt_aom_eb_x_by_xplus1, z, 4);
+                const __m256i a_res = gatherless_x_by_xplus1(z);
                 yy_storeu_256(A + j, a_res);
 
                 const __m256i a_complement = _mm256_sub_epi32(_mm256_set1_epi32(SGRPROJ_SGR), a_res);
@@ -498,7 +507,7 @@ static AOM_FORCE_INLINE void calc_ab_fast(int32_t *A, int32_t *b, const int32_t 
                 const __m256i z    = _mm256_min_epi32(
                     _mm256_srli_epi32(_mm256_add_epi32(_mm256_mullo_epi32(p, s), rnd_z), SGRPROJ_MTABLE_BITS),
                     _mm256_set1_epi32(255));
-                const __m256i a_res = _mm256_i32gather_epi32(svt_aom_eb_x_by_xplus1, z, 4);
+                const __m256i a_res = gatherless_x_by_xplus1(z);
                 yy_storeu_256(A + j, a_res);
 
                 const __m256i a_complement = _mm256_sub_epi32(_mm256_set1_epi32(SGRPROJ_SGR), a_res);
@@ -539,7 +548,7 @@ static AOM_FORCE_INLINE void calc_ab_fast(int32_t *A, int32_t *b, const int32_t 
 // cross_sum = 6 * sixes + 5 * fives
 //           = 5 * (fives + sixes) - sixes
 //           = (fives + sixes) << 2 + (fives + sixes) + sixes
-static INLINE __m256i cross_sum_fast_even_row(const int32_t *buf, int32_t stride) {
+static INLINE __m256i cross_sum_fast_even_row(const int32_t* buf, int32_t stride) {
     const __m256i xtl = yy_loadu_256(buf - 1 - stride);
     const __m256i xt  = yy_loadu_256(buf - stride);
     const __m256i xtr = yy_loadu_256(buf + 1 - stride);
@@ -569,7 +578,7 @@ static INLINE __m256i cross_sum_fast_even_row(const int32_t *buf, int32_t stride
 // cross_sum = 5 * fives + 6 * sixes
 //           = 4 * (fives + sixes) + (fives + sixes) + sixes
 //           = (fives + sixes) << 2 + (fives + sixes) + sixes
-static INLINE __m256i cross_sum_fast_odd_row(const int32_t *buf) {
+static INLINE __m256i cross_sum_fast_odd_row(const int32_t* buf) {
     const __m256i xl = yy_loadu_256(buf - 1);
     const __m256i x  = yy_loadu_256(buf);
     const __m256i xr = yy_loadu_256(buf + 1);
@@ -585,8 +594,8 @@ static INLINE __m256i cross_sum_fast_odd_row(const int32_t *buf) {
 // The final filter for the self-guided restoration. Computes a
 // weighted average across A, b with "cross sums" (see cross_sum_...
 // implementations above).
-static AOM_FORCE_INLINE void final_filter_fast(int32_t *dst, int32_t dst_stride, const int32_t *A, const int32_t *B,
-                                               int32_t buf_stride, const uint8_t *dgd8, int32_t dgd_stride,
+static AOM_FORCE_INLINE void final_filter_fast(int32_t* dst, int32_t dst_stride, const int32_t* A, const int32_t* B,
+                                               int32_t buf_stride, const uint8_t* dgd8, int32_t dgd_stride,
                                                int32_t width, int32_t height, int32_t highbd) {
     const int32_t nb0       = 5;
     const int32_t nb1       = 4;
@@ -630,7 +639,7 @@ static AOM_FORCE_INLINE void final_filter_fast(int32_t *dst, int32_t dst_stride,
             dst += dst_stride;
         } while (++i < height);
     } else {
-        const uint16_t *dgd_real = CONVERT_TO_SHORTPTR(dgd8);
+        const uint16_t* dgd_real = CONVERT_TO_SHORTPTR(dgd8);
 
         do {
             if (!(i & 1)) { // even row
@@ -669,8 +678,8 @@ static AOM_FORCE_INLINE void final_filter_fast(int32_t *dst, int32_t dst_stride,
     }
 }
 
-void svt_av1_selfguided_restoration_avx2(const uint8_t *dgd8, int32_t width, int32_t height, int32_t dgd_stride,
-                                         int32_t *flt0, int32_t *flt1, int32_t flt_stride, int32_t sgr_params_idx,
+void svt_av1_selfguided_restoration_avx2(const uint8_t* dgd8, int32_t width, int32_t height, int32_t dgd_stride,
+                                         int32_t* flt0, int32_t* flt1, int32_t flt_stride, int32_t sgr_params_idx,
                                          int32_t bit_depth, int32_t highbd) {
     // The ALIGN_POWER_OF_TWO macro here ensures that column 1 of atl, btl,
     // ctl and dtl is 32-byte aligned.
@@ -688,38 +697,39 @@ void svt_av1_selfguided_restoration_avx2(const uint8_t *dgd8, int32_t width, int
 
     // The "tl" pointers point at the top-left of the initialised data for the
     // array.
-    int32_t *atl = buf + 0 * buf_elts + 7;
-    int32_t *btl = buf + 1 * buf_elts + 7;
-    int32_t *ctl = buf + 2 * buf_elts + 7;
-    int32_t *dtl = buf + 3 * buf_elts + 7;
+    int32_t* atl = buf + 0 * buf_elts + 7;
+    int32_t* btl = buf + 1 * buf_elts + 7;
+    int32_t* ctl = buf + 2 * buf_elts + 7;
+    int32_t* dtl = buf + 3 * buf_elts + 7;
 
     // The "0" pointers are (- SGRPROJ_BORDER_VERT, -SGRPROJ_BORDER_HORZ). Note
     // there's a zero row and column in A, b (integral images), so we move down
     // and right one for them.
     const int32_t buf_diag_border = SGRPROJ_BORDER_HORZ + buf_stride * SGRPROJ_BORDER_VERT;
 
-    int32_t *a0 = atl + 1 + buf_stride;
-    int32_t *b0 = btl + 1 + buf_stride;
-    int32_t *c0 = ctl + 1 + buf_stride;
-    int32_t *d0 = dtl + 1 + buf_stride;
+    int32_t* a0 = atl + 1 + buf_stride;
+    int32_t* b0 = btl + 1 + buf_stride;
+    int32_t* c0 = ctl + 1 + buf_stride;
+    int32_t* d0 = dtl + 1 + buf_stride;
 
     // Finally, A, b, C, D point at position (0, 0).
-    int32_t *A = a0 + buf_diag_border;
-    int32_t *b = b0 + buf_diag_border;
-    int32_t *C = c0 + buf_diag_border;
-    int32_t *D = d0 + buf_diag_border;
+    int32_t* A = a0 + buf_diag_border;
+    int32_t* b = b0 + buf_diag_border;
+    int32_t* C = c0 + buf_diag_border;
+    int32_t* D = d0 + buf_diag_border;
 
     const int32_t  dgd_diag_border = SGRPROJ_BORDER_HORZ + dgd_stride * SGRPROJ_BORDER_VERT;
-    const uint8_t *dgd0            = dgd8 - dgd_diag_border;
+    const uint8_t* dgd0            = dgd8 - dgd_diag_border;
 
     // Generate integral images from the input. C will contain sums of squares; D
     // will contain just sums
-    if (highbd)
+    if (highbd) {
         integral_images_highbd(CONVERT_TO_SHORTPTR(dgd0), dgd_stride, width_ext, height_ext, ctl, dtl, buf_stride);
-    else
+    } else {
         integral_images(dgd0, dgd_stride, width_ext, height_ext, ctl, dtl, buf_stride);
+    }
 
-    const SgrParamsType *const params = &svt_aom_eb_sgr_params[sgr_params_idx];
+    const SgrParamsType* const params = &svt_aom_eb_sgr_params[sgr_params_idx];
     // Write to flt0 and flt1
     // If params->r == 0 we skip the corresponding filter. We only allow one of
     // the radii to be 0, as having both equal to 0 would be equivalent to
@@ -739,14 +749,14 @@ void svt_av1_selfguided_restoration_avx2(const uint8_t *dgd8, int32_t width, int
     }
 }
 
-void svt_apply_selfguided_restoration_avx2(const uint8_t *dat8, int32_t width, int32_t height, int32_t stride,
-                                           int32_t eps, const int32_t *xqd, uint8_t *dst8, int32_t dst_stride,
-                                           int32_t *tmpbuf, int32_t bit_depth, int32_t highbd) {
-    int32_t *flt0 = tmpbuf;
-    int32_t *flt1 = flt0 + RESTORATION_UNITPELS_MAX;
+void svt_apply_selfguided_restoration_avx2(const uint8_t* dat8, int32_t width, int32_t height, int32_t stride,
+                                           int32_t eps, const int32_t* xqd, uint8_t* dst8, int32_t dst_stride,
+                                           int32_t* tmpbuf, int32_t bit_depth, int32_t highbd) {
+    int32_t* flt0 = tmpbuf;
+    int32_t* flt1 = flt0 + RESTORATION_UNITPELS_MAX;
     assert(width * height <= RESTORATION_UNITPELS_MAX);
     svt_av1_selfguided_restoration_avx2(dat8, width, height, stride, flt0, flt1, width, eps, bit_depth, highbd);
-    const SgrParamsType *const params = &svt_aom_eb_sgr_params[eps];
+    const SgrParamsType* const params = &svt_aom_eb_sgr_params[eps];
     int32_t                    xq[2];
     svt_decode_xq(xqd, xq, params);
 
@@ -811,8 +821,8 @@ void svt_apply_selfguided_restoration_avx2(const uint8_t *dat8, int32_t width, i
         } while (--i);
     } else {
         const __m256i   max   = _mm256_set1_epi16((1 << bit_depth) - 1);
-        const uint16_t *dat16 = CONVERT_TO_SHORTPTR(dat8);
-        uint16_t       *dst16 = CONVERT_TO_SHORTPTR(dst8);
+        const uint16_t* dat16 = CONVERT_TO_SHORTPTR(dat8);
+        uint16_t*       dst16 = CONVERT_TO_SHORTPTR(dst8);
 
         do {
             // Calculate output in batches of 16 pixels
