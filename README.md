@@ -1,3 +1,9 @@
+![SVT-AV1](https://github.com/Patman86/SVT-AV1-Mod-by-Patman/assets/54327252/8cb2bf9f-7c0a-4eed-b3c5-b8a308500b50)
+
+I would like to express my sincere gratitude to 5fish for creating and maintaining this fork, and for their ongoing work to improve SVT-AV1-PSY. Their contributions are highly valued and have significantly advanced this project.
+
+-----------------------------------------------------------------------------------------------------------------
+
 ## 5fish/SVT-AV1-PSY
 
 This fork is based on the unreleased [SVT-AV1-PSY 2.3.0-C](https://github.com/psy-ex/svt-av1-psy/tree/testing-2.3.0-C), and includes backports of features, changes and improvements made in 3.x+ versions of SVT-AV1-PSY and its continuations by the original developers, [SVT-AV1-PSYEX](https://github.com/BlueSwordM/svt-av1-psyex) and [SVT-AV1-HDR](https://github.com/juliobbv-p/svt-av1-hdr).
