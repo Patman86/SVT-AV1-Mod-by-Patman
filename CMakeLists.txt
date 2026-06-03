@@ -185,11 +185,45 @@ include(GNUInstallDirs)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
-set(CMAKE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/Bin/${CMAKE_BUILD_TYPE}/" CACHE PATH "Location to write the resulting binaries to")
+# Dolby Vision / HDR10+ Integration (custom CMake Find-modules)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
+set(_compiler_dir "Unknown")
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(_compiler_dir "GNU")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    set(_compiler_dir "MSVC")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(_compiler_dir "Clang")
+endif()
+
+# Optional: differentiate between generators (Ninja vs. VS)
+set(_gen_dir "")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_GENERATOR MATCHES "Ninja")
+    set(_gen_dir "Ninja")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_GENERATOR MATCHES "Visual Studio")
+    set(_gen_dir "VS")
+endif()
+
+# Build type (for single-config generators)
+if (NOT CMAKE_CONFIGURATION_TYPES)
+    set(_cfg_dir "${CMAKE_BUILD_TYPE}")
+else()
+    set(_cfg_dir "$<CONFIG>")
+endif()
+
+set(CMAKE_OUTPUT_DIRECTORY
+    "${PROJECT_SOURCE_DIR}/Bin/${_compiler_dir}/${_gen_dir}/${_cfg_dir}"
+    CACHE PATH "Output directory" FORCE
+)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_OUTPUT_DIRECTORY})
+
+set(PC_LIBS_PRIVATE)
+set(PC_REQUIRES_PRIVATE)
 
 #Clang support, required to build static with LTO
 if(CMAKE_C_COMPILER_ID MATCHES "Clang" AND UNIX AND NOT APPLE)
@@ -406,7 +440,8 @@ macro(add_clike_and_ld_flags)
 endmacro()
 
 if((CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL "9.0") OR
-   (CMAKE_C_COMPILER_ID STREQUAL "Clang" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL "12.0"))
+   (CMAKE_C_COMPILER_ID STREQUAL "Clang" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL "12.0") OR
+   (CMAKE_C_COMPILER_ID STREQUAL "MSVC" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL "14.11"))
     option(SVT_AV1_LTO "Attempt to enable Link Time Optimization if available" ON)
 else()
     option(SVT_AV1_LTO "Attempt to enable Link Time Optimization if available" OFF)
