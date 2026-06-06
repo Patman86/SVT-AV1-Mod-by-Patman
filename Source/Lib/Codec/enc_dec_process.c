@@ -2922,6 +2922,13 @@ EbErrorType svt_aom_mode_decision_kernel_iter(void* context) {
                         }
                     }
 
+#if OPT_LPD1_GLOBALMV_BYPASS
+                    if (ed_ctx->md_ctx->lpd1_globalmv_bypass_th) {
+                        memset(ed_ctx->md_ctx->pd0_mds0_best_cost,
+                               0xFF,
+                               (size_t)scs->max_block_cnt * sizeof(ed_ctx->md_ctx->pd0_mds0_best_cost[0]));
+                    }
+#endif
                     // Initialize is_subres_safe
                     ed_ctx->md_ctx->is_subres_safe = (uint8_t)~0;
                     // Signal initialized here; if needed, will be set in md_encode_block before MDS3
@@ -2934,6 +2941,9 @@ EbErrorType svt_aom_mode_decision_kernel_iter(void* context) {
                         lpd0_detector_allintra(pcs, md_ctx);
                     } else {
                         // If LPD0 is used, a more conservative level can be set for complex SBs
+#if TUNE_RTC
+                        const bool use_lpd0_classifier = !scs->static_config.rtc;
+#else
 #if TUNE_SHIFT_PRESETS_RTC
                         const bool use_lpd0_classifier = !scs->static_config.rtc || pcs->enc_mode <= ENC_M8;
 #elif TUNE_SIMPLIFY_SETTINGS
@@ -2941,6 +2951,7 @@ EbErrorType svt_aom_mode_decision_kernel_iter(void* context) {
 #else
                         const bool use_lpd0_classifier = !scs->static_config.rtc || pcs->ppcs->sc_class1 ||
                             pcs->enc_mode <= ENC_M9;
+#endif
 #endif
                         if (use_lpd0_classifier && md_ctx->lpd0_ctrls.pd0_level > REGULAR_PD0) {
                             lpd0_detector(pcs, md_ctx, pic_width_in_sb);

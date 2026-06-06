@@ -98,6 +98,9 @@ static void mode_decision_context_dctor(EbPtr p) {
     EB_FREE_ARRAY(obj->tested_blk);
     obj->blocks_to_alloc = 0;
     EB_FREE_ARRAY(obj->md_blk_arr_nsq);
+#if OPT_LPD1_GLOBALMV_BYPASS
+    EB_FREE_ARRAY(obj->pd0_mds0_best_cost);
+#endif
     if (obj->rate_est_table) {
         EB_FREE_ARRAY(obj->rate_est_table);
     }
@@ -244,10 +247,14 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
         uint8_t nic_level  = svt_aom_get_nic_level_allintra(enc_mode);
         stage1_scaling_num = MD_STAGE_NICS_SCAL_NUM[svt_aom_set_nic_controls(NULL, nic_level)][MD_STAGE_1];
     } else if (rtc_tune) {
+#if TUNE_RTC
+        uint8_t nic_level = svt_aom_get_nic_level_rtc(enc_mode, scs->use_flat_ipp);
+#else
 #if TUNE_SIMPLIFY_SETTINGS
         uint8_t nic_level = svt_aom_get_nic_level_rtc(enc_mode);
 #else
         uint8_t nic_level = svt_aom_get_nic_level_rtc(enc_mode, scs->use_flat_ipp);
+#endif
 #endif
         stage1_scaling_num = MD_STAGE_NICS_SCAL_NUM[svt_aom_set_nic_controls(NULL, nic_level)][MD_STAGE_1];
     } else {
@@ -414,7 +421,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
             if (obmc_allowed) {
                 break;
             }
-#if TUNE_SHIFT_PRESETS_RTC
+#if TUNE_SHIFT_PRESETS_RTC && !TUNE_RTC
             obmc_allowed |= svt_aom_get_obmc_level(enc_mode, qp, seq_qp_mod, rtc_tune);
 #else
             obmc_allowed |= svt_aom_get_obmc_level(enc_mode, qp, seq_qp_mod);
@@ -429,8 +436,15 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
         EB_MALLOC(ctx->mask_buf, sb_size * sb_size * sizeof(ctx->mask_buf[0]));
     }
     EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq, block_max_count_sb);
+#if OPT_LPD1_GLOBALMV_BYPASS
+    EB_MALLOC_ARRAY(ctx->pd0_mds0_best_cost, block_max_count_sb);
+#endif
     // Fast Candidate Array
+#if OPT_MAX_CAN_COUNT_RTC
+    uint16_t max_can_count = svt_aom_get_max_can_count(enc_mode, rtc_tune) + ind_uv_cands;
+#else
     uint16_t max_can_count = svt_aom_get_max_can_count(enc_mode) + ind_uv_cands;
+#endif
     EB_MALLOC_ARRAY(ctx->fast_cand_array, max_can_count);
 
     for (cand_index = 0; cand_index < max_can_count; ++cand_index) {
@@ -750,8 +764,10 @@ static void av1_lambda_assign_md(PictureControlSet* pcs, ModeDecisionContext* ct
 
 void svt_aom_reset_mode_decision(SequenceControlSet* scs, ModeDecisionContext* ctx, PictureControlSet* pcs,
                                  uint16_t tile_group_idx, uint32_t segment_index) {
+#if !OPT_LPD1_FAST_SKIP
     const bool rtc_tune = scs->static_config.rtc;
-    ctx->hbd_md         = pcs->hbd_md;
+#endif
+    ctx->hbd_md = pcs->hbd_md;
     // Reset MD rate Estimation table to initial values by copying from md_rate_est_ctx
     ctx->md_rate_est_ctx = pcs->md_rate_est_ctx;
     // Reset CABAC Contexts
@@ -772,12 +788,13 @@ void svt_aom_reset_mode_decision(SequenceControlSet* scs, ModeDecisionContext* c
     }
     //each segment enherits the bypass encdec from the picture level
     ctx->bypass_encdec = pcs->pic_bypass_encdec;
-
+#if !OPT_LPD1_FAST_SKIP
     if (!rtc_tune && (pcs->enc_mode <= ENC_M11 || pcs->temporal_layer_index != 0)) {
         ctx->rtc_use_N4_dct_dct_shortcut = 1;
     } else {
         ctx->rtc_use_N4_dct_dct_shortcut = 0;
     }
+#endif
     return;
 }
 

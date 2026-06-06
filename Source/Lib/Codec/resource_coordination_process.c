@@ -821,14 +821,18 @@ static void update_frame_rate_info(ResourceCoordinationContext* ctx, EbBufferHea
 //    That is faster presets don't have any additional features of memory allocations
 //    comparing to slower presets.
 // 3. Some settings are fixed at init time, e.g. SB size.
-static void update_preset_info(ResourceCoordinationContext* ctx, EbBufferHeaderType* input_ptr) {
+static void update_preset_info(ResourceCoordinationContext* ctx, EbBufferHeaderType* input_ptr,
+                               SequenceControlSet* scs) {
     EbPrivDataNode* node = (EbPrivDataNode*)input_ptr->p_app_private;
     while (node) {
         if (node->node_type == PRESET_CHANGE_EVENT) {
             svt_aom_assert_err(node->size == sizeof(SvtAv1PresetInfo) && node->data,
                                "invalid private data of type PRESET_CHANGE_EVENT");
             SvtAv1PresetInfo* preset_info = (SvtAv1PresetInfo*)node->data;
-            ctx->runtime_enc_mode         = preset_info->enc_mode;
+            if (preset_info->enc_mode != ctx->runtime_enc_mode) {
+                ctx->runtime_enc_mode = preset_info->enc_mode;
+                svt_aom_clamp_mrp_ctrls_to_runtime_preset(scs, ctx->runtime_enc_mode);
+            }
         }
         node = node->next;
     }
@@ -837,6 +841,10 @@ static void update_preset_info(ResourceCoordinationContext* ctx, EbBufferHeaderT
 static void update_frame_event(PictureParentControlSet* pcs, uint64_t pic_num) {
     SequenceControlSet* scs  = pcs->scs;
     EbPrivDataNode*     node = (EbPrivDataNode*)pcs->input_ptr->p_app_private;
+    // Ref-frame management: default to "no event" each frame (0 is reserved).
+    pcs->ref_mgmt.store_id = 0;
+    pcs->ref_mgmt.clear_id = 0;
+    pcs->ref_mgmt.use_id   = 0;
     while (node) {
         if (node->node_type == REF_FRAME_SCALING_EVENT) {
             // update resize denominator by input event
@@ -856,6 +864,34 @@ static void update_frame_event(PictureParentControlSet* pcs, uint64_t pic_num) {
             SvtAv1ComputeQualityInfo* quality_info = (SvtAv1ComputeQualityInfo*)node->data;
             pcs->compute_psnr                      = pcs->compute_psnr || quality_info->compute_psnr;
             pcs->compute_ssim                      = pcs->compute_ssim || quality_info->compute_ssim;
+        } else if (node->node_type == REF_STORE_EVENT || node->node_type == REF_CLEAR_EVENT ||
+                   node->node_type == REF_USE_EVENT) {
+            // Ref-frame management: STORE / CLEAR / USE all share the same
+            // single-field payload. Public-entry validation already checked
+            // shape + pic_id != 0; defend in depth in case an internal
+            // repacking path delivers a malformed node.
+            if (node->size != sizeof(SvtAv1RefFrameCmd) || node->data == NULL) {
+                SVT_ERROR("ref-frame management event: invalid private-data size (%u) or NULL data; skipping\n",
+                          (unsigned)node->size);
+            } else {
+                const uint32_t pid    = ((const SvtAv1RefFrameCmd*)node->data)->pic_id;
+                uint32_t*      target = (node->node_type == REF_STORE_EVENT) ? &pcs->ref_mgmt.store_id
+                         : (node->node_type == REF_CLEAR_EVENT)              ? &pcs->ref_mgmt.clear_id
+                                                                             : &pcs->ref_mgmt.use_id;
+                if (*target != 0) {
+                    // Duplicate same-type events are caught synchronously
+                    // by validate_on_the_fly_settings (FAIL-HARD). If we
+                    // ever get here it means a bypass path; log loudly
+                    // and keep the FIRST as a defensive default.
+                    SVT_ERROR(
+                        "Ref-frame mgmt: duplicate event type reached pd-stage (existing pic_id=%u, new=%u); "
+                        "keeping existing — investigate validate_on_the_fly_settings\n",
+                        (unsigned)*target,
+                        (unsigned)pid);
+                } else {
+                    *target = pid;
+                }
+            }
         }
         node = node->next;
     }
@@ -974,7 +1010,7 @@ EbErrorType svt_aom_resource_coordination_kernel_iter(void* context) {
     // Update the frame rate
     update_frame_rate_info(context_ptr, eb_input_ptr, scs);
     // Update the encoder preset
-    update_preset_info(context_ptr, eb_input_ptr);
+    update_preset_info(context_ptr, eb_input_ptr, scs);
     // If config changes occurred since the last picture began encoding, then
     //   prepare a new scs containing the new changes and update the state
     //   of the previous Active scs

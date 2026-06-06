@@ -1020,6 +1020,32 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      *
      * Default is true. */
     bool enable_intrabc;
+
+    /**
+     * @brief Ref-frame management — number of simultaneously STOREd refs
+     * the application may hold.
+     *
+     * 0 (default): feature disabled; legacy reference selection and the
+     *              legacy buffer-pool size are preserved BIT-EXACTLY. No
+     *              extra memory is allocated.
+     * 1..4       : enable the STORE / CLEAR / USE event API. The
+     *              ref-buffer pool grows by this many entries (one full
+     *              picture buffer each) to hold the locked anchors.
+     *              The encoder still uses all 8 DPB slots dynamically;
+     *              STORE locks one slot at a time, and CLEAR releases.
+     *
+     * Validation (svt_av1_verify_settings):
+     *   - max_managed_refs <= 4
+     *   - if > 0: pred_structure must be LOW_DELAY.
+     *
+     * ABI note: this field was added in place of one padding byte. The
+     * library expects EbSvtAv1EncConfiguration to be zero-initialized
+     * before configuration (which svt_av1_enc_init_handle guarantees);
+     * applications building this struct manually with uninitialized
+     * memory could silently inherit a non-zero value here from prior
+     * stack contents and unexpectedly enable the feature.
+     */
+    uint8_t max_managed_refs;
 } EbSvtAv1EncConfiguration;
 
 /**
