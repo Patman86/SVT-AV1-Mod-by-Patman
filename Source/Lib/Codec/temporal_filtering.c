@@ -2937,7 +2937,9 @@ static EbErrorType produce_temporally_filtered_pic(PictureParentControlSet** pcs
 
                         if (scs->static_config.enable_tf == 2) {
                             uint8_t adaptive_tf_shift_factor = calculate_tf_shift_factor(ctx);
+                            assert(adaptive_tf_shift_factor <= 14);
                             const uint8_t kf_tf_shift_factor = CLIP3(0, 14, adaptive_tf_shift_factor + 1);
+                            assert(kf_tf_shift_factor <= 14);
 
                             if (frame_update_type == SVT_AV1_KF_UPDATE && kf_tf_shift_factor == 14) {
                                 ctx->tf_decay_factor_fp16[PLANE_Y] = 0;

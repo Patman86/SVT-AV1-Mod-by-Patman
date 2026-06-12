@@ -1344,6 +1344,7 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
                      config->auto_tiling,
                      config->tile_columns,
                      config->tile_rows);
+
         PRINT_CONFIG("max / min gop size / mini-gop size / type", "%d / %d / %d / %s",
             config->intra_period_length + 1,
             config->min_intra_period_length <= 1 ? config->min_intra_period_length 
