@@ -139,19 +139,25 @@ static void reset_segmentation_map(SegmentationNeighborMap* segmentation_map) {
  * Reset Mode Decision Neighbor Arrays
  *************************************************/
 static void reset_encode_pass_neighbor_arrays(PictureControlSet* pcs, uint16_t tile_idx) {
-    svt_aom_neighbor_array_unit_reset(pcs->ep_luma_recon_na[tile_idx]);
-    svt_aom_neighbor_array_unit_reset(pcs->ep_cb_recon_na[tile_idx]);
-    svt_aom_neighbor_array_unit_reset(pcs->ep_cr_recon_na[tile_idx]);
-    svt_aom_neighbor_array_unit_reset(pcs->ep_luma_dc_sign_level_coeff_na[tile_idx]);
-    svt_aom_neighbor_array_unit_reset(pcs->ep_cb_dc_sign_level_coeff_na[tile_idx]);
-    svt_aom_neighbor_array_unit_reset(pcs->ep_cr_dc_sign_level_coeff_na[tile_idx]);
+    if (!pcs->pic_bypass_encdec) {
+        // 8-bit recon + 8-bit DC-sign coeff NAs are only consumed by perform_intra/inter_coding_loop,
+        // which is skipped when bypass_encdec=1 (early-return in encode_b). Skip the dead reset.
+        svt_aom_neighbor_array_unit_reset(pcs->ep_luma_recon_na[tile_idx]);
+        svt_aom_neighbor_array_unit_reset(pcs->ep_cb_recon_na[tile_idx]);
+        svt_aom_neighbor_array_unit_reset(pcs->ep_cr_recon_na[tile_idx]);
+        svt_aom_neighbor_array_unit_reset(pcs->ep_luma_dc_sign_level_coeff_na[tile_idx]);
+        svt_aom_neighbor_array_unit_reset(pcs->ep_cb_dc_sign_level_coeff_na[tile_idx]);
+        svt_aom_neighbor_array_unit_reset(pcs->ep_cr_dc_sign_level_coeff_na[tile_idx]);
+    }
+    // _update / partition / txfm NAs are consumed under cdf_ctrl.update_coef/update_se
+    // independent of bypass_encdec; keep these resets unconditional.
     svt_aom_neighbor_array_unit_reset(pcs->ep_luma_dc_sign_level_coeff_na_update[tile_idx]);
     svt_aom_neighbor_array_unit_reset(pcs->ep_cb_dc_sign_level_coeff_na_update[tile_idx]);
     svt_aom_neighbor_array_unit_reset(pcs->ep_cr_dc_sign_level_coeff_na_update[tile_idx]);
     svt_aom_neighbor_array_unit_reset(pcs->ep_partition_context_na[tile_idx]);
     svt_aom_neighbor_array_unit_reset(pcs->ep_txfm_context_na[tile_idx]);
     // TODO(Joel): 8-bit ep_luma_recon_na (Cb,Cr) when is_16bit==0?
-    if (pcs->ppcs->scs->is_16bit_pipeline) {
+    if (pcs->ppcs->scs->is_16bit_pipeline && !pcs->pic_bypass_encdec) {
         svt_aom_neighbor_array_unit_reset(pcs->ep_luma_recon_na_16bit[tile_idx]);
         svt_aom_neighbor_array_unit_reset(pcs->ep_cb_recon_na_16bit[tile_idx]);
         svt_aom_neighbor_array_unit_reset(pcs->ep_cr_recon_na_16bit[tile_idx]);
@@ -636,8 +642,8 @@ static const int64_t cc2_10 = 3857925; // (64^2*(.03*1023)^2
 static const int64_t cc1_12 = 6868593; // (64^2*(.01*4095)^2
 static const int64_t cc2_12 = 61817334; // (64^2*(.03*4095)^2
 
-double similarity(uint32_t sum_s, uint32_t sum_r, uint32_t sum_sq_s, uint32_t sum_sq_r, uint32_t sum_sxr, int count,
-                  uint32_t bd) {
+double svt_aom_similarity(uint32_t sum_s, uint32_t sum_r, uint32_t sum_sq_s, uint32_t sum_sq_r, uint32_t sum_sxr,
+                          int count, uint32_t bd) {
     double  ssim_n, ssim_d;
     int64_t c1, c2;
 
@@ -667,20 +673,20 @@ double similarity(uint32_t sum_s, uint32_t sum_r, uint32_t sum_sq_s, uint32_t su
 static double ssim_8x8(const uint8_t* s, int sp, const uint8_t* r, int rp) {
     uint32_t sum_s = 0, sum_r = 0, sum_sq_s = 0, sum_sq_r = 0, sum_sxr = 0;
     svt_aom_ssim_parms_8x8_c(s, sp, r, rp, &sum_s, &sum_r, &sum_sq_s, &sum_sq_r, &sum_sxr);
-    return similarity(sum_s, sum_r, sum_sq_s, sum_sq_r, sum_sxr, 64, 8);
+    return svt_aom_similarity(sum_s, sum_r, sum_sq_s, sum_sq_r, sum_sxr, 64, 8);
 }
 
 static double highbd_ssim_8x8(const uint8_t* s, int sp, const uint8_t* sinc, int spinc, const uint16_t* r, int rp,
                               uint32_t bd, uint32_t shift) {
     uint32_t sum_s = 0, sum_r = 0, sum_sq_s = 0, sum_sq_r = 0, sum_sxr = 0;
     svt_aom_highbd_ssim_parms_8x8_c(s, sp, sinc, spinc, r, rp, &sum_s, &sum_r, &sum_sq_s, &sum_sq_r, &sum_sxr);
-    return similarity(sum_s >> shift,
-                      sum_r >> shift,
-                      sum_sq_s >> (2 * shift),
-                      sum_sq_r >> (2 * shift),
-                      sum_sxr >> (2 * shift),
-                      64,
-                      bd);
+    return svt_aom_similarity(sum_s >> shift,
+                              sum_r >> shift,
+                              sum_sq_s >> (2 * shift),
+                              sum_sq_r >> (2 * shift),
+                              sum_sxr >> (2 * shift),
+                              64,
+                              bd);
 }
 
 // We are using a 8x8 moving window with starting location of each 8x8 window

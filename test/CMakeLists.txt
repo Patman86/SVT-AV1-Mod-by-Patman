@@ -106,7 +106,9 @@ set(multi_arch_files
     SatdTest.cc
     SelfGuidedUtilTest.cc
     SpatialFullDistortionTest.cc
+    SubpelVariancePerfTest.cc
     TemporalFilterTestPlanewise.cc
+    VariancePerfTest.cc
     VarianceTest.cc
     WedgeUtilTest.cc
     av1_convolve_scale_test.cc
@@ -142,7 +144,8 @@ if(HAVE_X86_PLATFORM)
 endif()
 
 if(HAVE_ARM_PLATFORM)
-  set(arm_arch_files)
+  set(arm_arch_files
+      sad_neon_test.cc)
 endif()
 
 set(arch_neutral_lib_list
