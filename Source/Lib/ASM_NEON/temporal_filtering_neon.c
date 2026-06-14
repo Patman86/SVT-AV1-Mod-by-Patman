@@ -15,6 +15,7 @@
 #include "definitions.h"
 #include "mem_neon.h"
 #include "temporal_filtering.h"
+#include "temporal_filtering_neon.h"
 #include "utility.h"
 
 /* value [i:0-15] (sqrt((float)i)*65536.0 */
@@ -1353,3 +1354,189 @@ void svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_neon(
                                                                                  me_ctx->tf_decay_factor_fp16[PLANE_V]);
     }
 }
+
+#if OPT_TUNE_VMAF
+
+DECLARE_ALIGNED(16, static const uint8_t, mean_broadcast_tbl[16]) = {0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2};
+
+static inline uint16x8_t avg8x8x2_neon(uint8x16_t s[8]) {
+    uint16x8_t sum_u16 = vpaddlq_u8(s[0]);
+    sum_u16            = vpadalq_u8(sum_u16, s[1]);
+    sum_u16            = vpadalq_u8(sum_u16, s[2]);
+    sum_u16            = vpadalq_u8(sum_u16, s[3]);
+    sum_u16            = vpadalq_u8(sum_u16, s[4]);
+    sum_u16            = vpadalq_u8(sum_u16, s[5]);
+    sum_u16            = vpadalq_u8(sum_u16, s[6]);
+    sum_u16            = vpadalq_u8(sum_u16, s[7]);
+
+    sum_u16 = vpaddq_u16(sum_u16, sum_u16);
+    sum_u16 = vpaddq_u16(sum_u16, sum_u16);
+
+    return vshrq_n_u16(sum_u16, 6);
+}
+
+static inline uint32x4_t mad8x8x2_neon(const uint8x16_t s[8], const uint8x16_t mean) {
+    uint8x16_t abs0 = vabdq_u8(s[0], mean);
+    uint8x16_t abs1 = vabdq_u8(s[1], mean);
+    uint16x8_t sum0 = vpaddlq_u8(abs0);
+    uint16x8_t sum1 = vpaddlq_u8(abs1);
+
+    abs0 = vabdq_u8(s[2], mean);
+    abs1 = vabdq_u8(s[3], mean);
+    sum0 = vpadalq_u8(sum0, abs0);
+    sum1 = vpadalq_u8(sum1, abs1);
+
+    abs0 = vabdq_u8(s[4], mean);
+    abs1 = vabdq_u8(s[5], mean);
+    sum0 = vpadalq_u8(sum0, abs0);
+    sum1 = vpadalq_u8(sum1, abs1);
+
+    abs0 = vabdq_u8(s[6], mean);
+    abs1 = vabdq_u8(s[7], mean);
+    sum0 = vpadalq_u8(sum0, abs0);
+    sum1 = vpadalq_u8(sum1, abs1);
+
+    sum0 = vaddq_u16(sum0, sum1);
+
+    return vpaddlq_u16(sum0);
+}
+
+static inline uint32x4_t mad8x8_neon(const uint8x8_t s[8], const uint8x8_t mean) {
+    uint16x8_t sum0 = vabdl_u8(s[0], mean);
+    uint16x8_t sum1 = vabdl_u8(s[1], mean);
+    sum0            = vabal_u8(sum0, s[2], mean);
+    sum1            = vabal_u8(sum1, s[3], mean);
+    sum0            = vabal_u8(sum0, s[4], mean);
+    sum1            = vabal_u8(sum1, s[5], mean);
+    sum0            = vabal_u8(sum0, s[6], mean);
+    sum1            = vabal_u8(sum1, s[7], mean);
+
+    sum0 = vaddq_u16(sum0, sum1);
+
+    return vpaddlq_u16(sum0);
+}
+
+uint32_t svt_vmaf_compute_avg_mad_neon(const uint8_t* src, int width, int height, int stride) {
+    assert(width >= 8 && width % 8 == 0 && "width must be at least 8 and multiple of 8");
+    assert(height >= 8 && height % 8 == 0 && "height must be at least 8 and multiple of 8");
+
+    const uint64_t block_count = (height * width) >> 6;
+
+    const uint8x16_t broadcast_tbl = vld1q_u8(mean_broadcast_tbl);
+
+    uint64_t total_activity = 0;
+    int      by             = 0;
+    do {
+        uint32x4_t activity_vec = vdupq_n_u32(0);
+        int        bx           = 0;
+        for (; bx + 16 <= width; bx += 16) {
+            uint8x16_t s[8];
+            load_u8_16x8(src + by * stride + bx, stride, &s[0], &s[1], &s[2], &s[3], &s[4], &s[5], &s[6], &s[7]);
+
+            const uint8x16_t mean     = vreinterpretq_u8_u16(avg8x8x2_neon(s));
+            const uint8x16_t mean_vec = vqtbl1q_u8(mean, broadcast_tbl);
+
+            activity_vec = vaddq_u32(activity_vec, mad8x8x2_neon(s, mean_vec));
+        }
+        if (bx + 8 <= width) {
+            uint8x8_t s[8];
+            load_u8_8x8(src + by * stride + bx, stride, &s[0], &s[1], &s[2], &s[3], &s[4], &s[5], &s[6], &s[7]);
+
+            uint8x8_t mean = vdup_n_u8(avg8x8_neon(s));
+
+            activity_vec = vaddq_u32(activity_vec, mad8x8_neon(s, mean));
+        }
+
+        total_activity += vaddvq_u32(activity_vec);
+        by += 8;
+    } while (by + 8 <= height);
+
+    return (uint32_t)(total_activity / (block_count * 64));
+}
+
+void svt_vmaf_apply_unsharp_row_neon(const uint8_t* src, const int16_t* blur, uint8_t* dst, int width, int amount,
+                                     int32_t max_delta) {
+    assert(width % 8 == 0 && "width must be multiple of 8");
+
+    const int16_t amount_s16    = (int16_t)(amount > INT16_MAX ? INT16_MAX : amount);
+    const int16_t max_delta_s16 = (int16_t)(max_delta > INT16_MAX ? INT16_MAX : max_delta);
+
+    const int16x8_t clamp_max      = vdupq_n_s16(max_delta_s16);
+    const int16x8_t clamp_min      = vdupq_n_s16(-max_delta_s16);
+    const int16x8_t amount_neg_vec = vdupq_n_s16(-amount_s16);
+
+    int j = 0;
+    do {
+        uint16x8_t b_u16 = vreinterpretq_u16_s16(vld1q_s16(blur + j));
+        uint8x8_t  s_u8  = vld1_u8(src + j);
+        int16x8_t  s_s16 = vreinterpretq_s16_u16(vmovl_u8(s_u8));
+
+        int16x8_t detail = vreinterpretq_s16_u16(vsubw_u8(b_u16, s_u8));
+        detail           = vminq_s16(detail, clamp_max);
+        detail           = vmaxq_s16(detail, clamp_min);
+
+        int16x8_t res_s16 = vqdmulhq_s16(detail, amount_neg_vec);
+        res_s16           = vsraq_n_s16(s_s16, res_s16, 1);
+
+        vst1_u8(dst + j, vqmovun_s16(res_s16));
+
+        j += 8;
+    } while (j != width);
+}
+
+void svt_vmaf_vpass_row_neon(const uint32_t* hpass, uint32_t* sc0, uint32_t* sc1, uint32_t* sc2, uint32_t* sc3,
+                             int16_t* blur_row, int alloc_width, int width, int steps_x, int do_output) {
+    assert(width % 8 == 0 && "width must be multiple of 8");
+    assert(alloc_width % 4 == 0 && "alloc_width must be multiple of 4");
+    assert(steps_x == 2 && "steps_x must be 2");
+    (void)width;
+
+    const int blur_start     = 2 * steps_x;
+    int16_t*  blur_start_ptr = blur_row - blur_start;
+
+    int i = 0;
+    for (; i + 4 <= blur_start; i += 4) {
+        uint32x4_t hpass_vec = vld1q_u32(hpass + i);
+        uint32x4_t sc0_vec   = vld1q_u32(sc0 + i);
+        uint32x4_t sc1_vec   = vld1q_u32(sc1 + i);
+        uint32x4_t sc2_vec   = vld1q_u32(sc2 + i);
+
+        vst1q_u32(sc0 + i, hpass_vec);
+        uint32x4_t acc = vaddq_u32(sc0_vec, hpass_vec);
+
+        vst1q_u32(sc1 + i, acc);
+        acc = vaddq_u32(acc, sc1_vec);
+
+        vst1q_u32(sc2 + i, acc);
+        acc = vaddq_u32(acc, sc2_vec);
+
+        vst1q_u32(sc3 + i, acc);
+    }
+
+    for (; i + 4 <= alloc_width; i += 4) {
+        uint32x4_t hpass_vec = vld1q_u32(hpass + i);
+        uint32x4_t sc0_vec   = vld1q_u32(sc0 + i);
+        uint32x4_t sc1_vec   = vld1q_u32(sc1 + i);
+        uint32x4_t sc2_vec   = vld1q_u32(sc2 + i);
+        uint32x4_t sc3_vec   = vld1q_u32(sc3 + i);
+
+        vst1q_u32(sc0 + i, hpass_vec);
+        uint32x4_t acc = vaddq_u32(sc0_vec, hpass_vec);
+
+        vst1q_u32(sc1 + i, acc);
+        acc = vaddq_u32(acc, sc1_vec);
+
+        vst1q_u32(sc2 + i, acc);
+        acc = vaddq_u32(acc, sc2_vec);
+
+        vst1q_u32(sc3 + i, acc);
+        acc = vaddq_u32(acc, sc3_vec);
+
+        if (do_output) {
+            int16x4_t blur_out = vreinterpret_s16_u16(vrshrn_n_u32(acc, 8));
+            vst1_s16(blur_start_ptr + i, blur_out);
+        }
+    }
+}
+
+#endif // OPT_TUNE_VMAF

@@ -112,6 +112,7 @@ set(multi_arch_files
     TemporalFilterTestPlanewise.cc
     VariancePerfTest.cc
     VarianceTest.cc
+    VmafTest.cc
     WedgeUtilTest.cc
     av1_convolve_scale_test.cc
     compute_mean_test.cc
@@ -146,7 +147,8 @@ if(HAVE_X86_PLATFORM)
 endif()
 
 if(HAVE_ARM_PLATFORM)
-  set(arm_arch_files)
+  set(arm_arch_files
+      sad_neon_test.cc)
 endif()
 
 set(arch_neutral_lib_list

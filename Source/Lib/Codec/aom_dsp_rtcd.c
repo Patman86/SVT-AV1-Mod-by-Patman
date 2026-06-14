@@ -59,6 +59,12 @@
 #define SET_FUNCTION_NEON_DOTPROD(ptr, neon_dotprod)
 #endif // HAVE_NEON_DOTPROD
 
+#if HAVE_NEON_I8MM
+#define SET_FUNCTION_NEON_I8MM(ptr, neon_i8mm) SET_FUNCTION(ptr, neon_i8mm, EB_CPU_FLAGS_NEON_I8MM)
+#else
+#define SET_FUNCTION_NEON_I8MM(ptr, neon_i8mm)
+#endif // HAVE_NEON_I8MM
+
 #if HAVE_SVE
 #define SET_FUNCTION_SVE(ptr, sve) SET_FUNCTION(ptr, sve, EB_CPU_FLAGS_SVE)
 #define SET_FUNCTION_NEOVERSE_V2(ptr, neoverse_v2) SET_FUNCTION(ptr, neoverse_v2, EB_CPU_FLAGS_NEOVERSE_V2)
@@ -67,10 +73,18 @@
 #define SET_FUNCTION_NEOVERSE_V2(ptr, neoverse_v2)
 #endif // HAVE_SVE
 
-#define SET_FUNCTIONS_AARCH64(ptr, neon, neon_dotprod, sve, neoverse_v2) \
-    SET_FUNCTION(ptr, neon, EB_CPU_FLAGS_NEON)                           \
-    SET_FUNCTION_NEON_DOTPROD(ptr, neon_dotprod)                         \
-    SET_FUNCTION_SVE(ptr, sve)                                           \
+#if HAVE_SVE2
+#define SET_FUNCTION_SVE2(ptr, sve2) SET_FUNCTION(ptr, sve2, EB_CPU_FLAGS_SVE2)
+#else
+#define SET_FUNCTION_SVE2(ptr, sve2)
+#endif // HAVE_SVE2
+
+#define SET_FUNCTIONS_AARCH64(ptr, neon, neon_dotprod, neon_i8mm, sve, sve2, neoverse_v2) \
+    SET_FUNCTION(ptr, neon, EB_CPU_FLAGS_NEON)                                            \
+    SET_FUNCTION_NEON_DOTPROD(ptr, neon_dotprod)                                          \
+    SET_FUNCTION_NEON_I8MM(ptr, neon_i8mm)                                                \
+    SET_FUNCTION_SVE(ptr, sve)                                                            \
+    SET_FUNCTION_SVE2(ptr, sve2)                                                          \
     SET_FUNCTION_NEOVERSE_V2(ptr, neoverse_v2)
 #endif
 
@@ -122,27 +136,27 @@
 #elif defined ARCH_AARCH64
 
 // general function dispatcher
-#define SET_FUNCTIONS(ptr, c, neon, neon_dotprod, sve, neoverse_v2)      \
-    do {                                                                 \
-        CHECK_PTR_IS_NOT_SET(ptr)                                        \
-        SET_FUNCTION_C(ptr, c)                                           \
-        SET_FUNCTIONS_AARCH64(ptr, neon, neon_dotprod, sve, neoverse_v2) \
-        CHECK_PTR_IS_SET(ptr)                                            \
+#define SET_FUNCTIONS(ptr, c, neon, neon_dotprod, neon_i8mm, sve, sve2, neoverse_v2)      \
+    do {                                                                                  \
+        CHECK_PTR_IS_NOT_SET(ptr)                                                         \
+        SET_FUNCTION_C(ptr, c)                                                            \
+        SET_FUNCTIONS_AARCH64(ptr, neon, neon_dotprod, neon_i8mm, sve, sve2, neoverse_v2) \
+        CHECK_PTR_IS_SET(ptr)                                                             \
     } while (0)
 
 // special case when Neon optimization is available
 #if CONFIG_ARM_NEON_IS_GUARANTEED
 // when Neon is guaranteed to be available - we can skip C function assignment
 // and thus allow linker to strip C code from final binary to reduce size.
-#define SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, sve, neoverse_v2) \
-    do {                                                                 \
-        CHECK_PTR_IS_NOT_SET(ptr)                                        \
-        SET_FUNCTIONS_AARCH64(ptr, neon, neon_dotprod, sve, neoverse_v2) \
-        CHECK_PTR_IS_SET(ptr)                                            \
+#define SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, neon_i8mm, sve, sve2, neoverse_v2) \
+    do {                                                                                  \
+        CHECK_PTR_IS_NOT_SET(ptr)                                                         \
+        SET_FUNCTIONS_AARCH64(ptr, neon, neon_dotprod, neon_i8mm, sve, sve2, neoverse_v2) \
+        CHECK_PTR_IS_SET(ptr)                                                             \
     } while (0)
 #else
-#define SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, sve, neoverse_v2) \
-    SET_FUNCTIONS(ptr, c, neon, neon_dotprod, sve, neoverse_v2)
+#define SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, neon_i8mm, sve, sve2, neoverse_v2) \
+    SET_FUNCTIONS(ptr, c, neon, neon_dotprod, neon_i8mm, sve, sve2, neoverse_v2)
 #endif
 #endif
 
@@ -168,11 +182,13 @@
 #define SET_AVX2_AVX512(ptr, c, avx2, avx512)                         SET_FUNCTIONS_AVX2(ptr, c, 0, 0, 0, 0, 0, 0, 0, 0, avx2, avx512)
 #define SET_SSE2_AVX2_AVX512(ptr, c, sse2, avx2, avx512)              SET_FUNCTIONS_AVX2(ptr, c, 0, 0, sse2, 0, 0, 0, 0, 0, avx2, avx512)
 #elif defined ARCH_AARCH64
-#define SET_NEON(ptr, c, neon)                                        SET_FUNCTIONS_NEON(ptr, c, neon, 0, 0, 0)
-#define SET_NEON_NEON_DOTPROD(ptr, c, neon, neon_dotprod)             SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, 0, 0)
-#define SET_NEON_NEON_DOTPROD_SVE_NEOVERSE_V2(ptr, c, neon, neon_dotprod, sve, neoverse_v2)    SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, sve, neoverse_v2)
-#define SET_NEON_NEON_DOTPROD_SVE(ptr, c, neon, neon_dotprod, sve)    SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, sve, 0)
-#define SET_NEON_SVE(ptr, c, neon, sve)                               SET_FUNCTIONS_NEON(ptr, c, neon, 0, sve, 0)
+#define SET_NEON(ptr, c, neon)                                        SET_FUNCTIONS_NEON(ptr, c, neon, 0, 0, 0, 0, 0)
+#define SET_NEON_NEON_DOTPROD(ptr, c, neon, neon_dotprod)             SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, 0, 0, 0, 0)
+#define SET_NEON_NEON_DOTPROD_NEON_I8MM(ptr, c, neon, neon_dotprod, neon_i8mm) SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, neon_i8mm, 0, 0, 0)
+#define SET_NEON_NEON_DOTPROD_SVE_NEOVERSE_V2(ptr, c, neon, neon_dotprod, sve, neoverse_v2)    SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, 0, sve, 0, neoverse_v2)
+#define SET_NEON_NEON_DOTPROD_SVE(ptr, c, neon, neon_dotprod, sve)    SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, 0, sve, 0, 0)
+#define SET_NEON_SVE(ptr, c, neon, sve)                               SET_FUNCTIONS_NEON(ptr, c, neon, 0, 0, sve, 0, 0)
+#define SET_NEON_SVE2(ptr, c, neon, sve2)                             SET_FUNCTIONS_NEON(ptr, c, neon, 0, 0, 0, sve2, 0)
 #endif
 
 // Thread-safe RTCD initialization using lazily-initialized mutex
@@ -618,50 +634,50 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
 
     //SAD
     SET_NEON_NEON_DOTPROD(svt_aom_mse16x16, svt_aom_mse16x16_c, svt_aom_mse16x16_neon, svt_aom_mse16x16_neon_dotprod);
-    SET_ONLY_C(svt_aom_sad4x4, svt_aom_sad4x4_c);
-    SET_ONLY_C(svt_aom_sad4x4x4d, svt_aom_sad4x4x4d_c);
-    SET_ONLY_C(svt_aom_sad4x16, svt_aom_sad4x16_c);
-    SET_ONLY_C(svt_aom_sad4x16x4d, svt_aom_sad4x16x4d_c);
-    SET_ONLY_C(svt_aom_sad4x8, svt_aom_sad4x8_c);
-    SET_ONLY_C(svt_aom_sad4x8x4d, svt_aom_sad4x8x4d_c);
-    SET_ONLY_C(svt_aom_sad64x128x4d, svt_aom_sad64x128x4d_c);
-    SET_ONLY_C(svt_aom_sad64x16x4d, svt_aom_sad64x16x4d_c);
-    SET_ONLY_C(svt_aom_sad64x32x4d, svt_aom_sad64x32x4d_c);
-    SET_ONLY_C(svt_aom_sad64x64x4d, svt_aom_sad64x64x4d_c);
-    SET_ONLY_C(svt_aom_sad8x16, svt_aom_sad8x16_c);
-    SET_ONLY_C(svt_aom_sad8x16x4d, svt_aom_sad8x16x4d_c);
-    SET_ONLY_C(svt_aom_sad8x32, svt_aom_sad8x32_c);
-    SET_ONLY_C(svt_aom_sad8x32x4d, svt_aom_sad8x32x4d_c);
-    SET_ONLY_C(svt_aom_sad8x8, svt_aom_sad8x8_c);
-    SET_ONLY_C(svt_aom_sad8x8x4d, svt_aom_sad8x8x4d_c);
-    SET_ONLY_C(svt_aom_sad16x4, svt_aom_sad16x4_c);
-    SET_ONLY_C(svt_aom_sad16x4x4d, svt_aom_sad16x4x4d_c);
-    SET_ONLY_C(svt_aom_sad32x8, svt_aom_sad32x8_c);
-    SET_ONLY_C(svt_aom_sad32x8x4d, svt_aom_sad32x8x4d_c);
-    SET_ONLY_C(svt_aom_sad16x64, svt_aom_sad16x64_c);
-    SET_ONLY_C(svt_aom_sad16x64x4d, svt_aom_sad16x64x4d_c);
-    SET_ONLY_C(svt_aom_sad32x16, svt_aom_sad32x16_c);
-    SET_ONLY_C(svt_aom_sad32x16x4d, svt_aom_sad32x16x4d_c);
-    SET_ONLY_C(svt_aom_sad16x32, svt_aom_sad16x32_c);
-    SET_ONLY_C(svt_aom_sad16x32x4d, svt_aom_sad16x32x4d_c);
-    SET_ONLY_C(svt_aom_sad32x64, svt_aom_sad32x64_c);
-    SET_ONLY_C(svt_aom_sad32x64x4d, svt_aom_sad32x64x4d_c);
-    SET_ONLY_C(svt_aom_sad32x32, svt_aom_sad32x32_c);
-    SET_ONLY_C(svt_aom_sad32x32x4d, svt_aom_sad32x32x4d_c);
-    SET_ONLY_C(svt_aom_sad16x16, svt_aom_sad16x16_c);
-    SET_ONLY_C(svt_aom_sad16x16x4d, svt_aom_sad16x16x4d_c);
-    SET_ONLY_C(svt_aom_sad16x8, svt_aom_sad16x8_c);
-    SET_ONLY_C(svt_aom_sad16x8x4d, svt_aom_sad16x8x4d_c);
-    SET_ONLY_C(svt_aom_sad8x4, svt_aom_sad8x4_c);
-    SET_ONLY_C(svt_aom_sad8x4x4d, svt_aom_sad8x4x4d_c);
-    SET_ONLY_C(svt_aom_sad64x16, svt_aom_sad64x16_c);
-    SET_ONLY_C(svt_aom_sad64x32, svt_aom_sad64x32_c);
-    SET_ONLY_C(svt_aom_sad64x64, svt_aom_sad64x64_c);
-    SET_ONLY_C(svt_aom_sad64x128, svt_aom_sad64x128_c);
-    SET_ONLY_C(svt_aom_sad128x128, svt_aom_sad128x128_c);
-    SET_ONLY_C(svt_aom_sad128x128x4d, svt_aom_sad128x128x4d_c);
-    SET_ONLY_C(svt_aom_sad128x64, svt_aom_sad128x64_c);
-    SET_ONLY_C(svt_aom_sad128x64x4d, svt_aom_sad128x64x4d_c);
+    SET_NEON(svt_aom_sad4x4, svt_aom_sad4x4_c, svt_aom_sad4x4_neon);
+    SET_NEON(svt_aom_sad4x4x4d, svt_aom_sad4x4x4d_c, svt_aom_sad4x4x4d_neon);
+    SET_NEON(svt_aom_sad4x16, svt_aom_sad4x16_c, svt_aom_sad4x16_neon);
+    SET_NEON(svt_aom_sad4x16x4d, svt_aom_sad4x16x4d_c, svt_aom_sad4x16x4d_neon);
+    SET_NEON(svt_aom_sad4x8, svt_aom_sad4x8_c, svt_aom_sad4x8_neon);
+    SET_NEON(svt_aom_sad4x8x4d, svt_aom_sad4x8x4d_c, svt_aom_sad4x8x4d_neon);
+    SET_NEON(svt_aom_sad64x128x4d, svt_aom_sad64x128x4d_c, svt_aom_sad64x128x4d_neon);
+    SET_NEON(svt_aom_sad64x16x4d, svt_aom_sad64x16x4d_c, svt_aom_sad64x16x4d_neon);
+    SET_NEON(svt_aom_sad64x32x4d, svt_aom_sad64x32x4d_c, svt_aom_sad64x32x4d_neon);
+    SET_NEON(svt_aom_sad64x64x4d, svt_aom_sad64x64x4d_c, svt_aom_sad64x64x4d_neon);
+    SET_NEON(svt_aom_sad8x16, svt_aom_sad8x16_c, svt_aom_sad8x16_neon);
+    SET_NEON(svt_aom_sad8x16x4d, svt_aom_sad8x16x4d_c, svt_aom_sad8x16x4d_neon);
+    SET_NEON(svt_aom_sad8x32, svt_aom_sad8x32_c, svt_aom_sad8x32_neon);
+    SET_NEON(svt_aom_sad8x32x4d, svt_aom_sad8x32x4d_c, svt_aom_sad8x32x4d_neon);
+    SET_NEON(svt_aom_sad8x8, svt_aom_sad8x8_c, svt_aom_sad8x8_neon);
+    SET_NEON(svt_aom_sad8x8x4d, svt_aom_sad8x8x4d_c, svt_aom_sad8x8x4d_neon);
+    SET_NEON(svt_aom_sad16x4, svt_aom_sad16x4_c, svt_aom_sad16x4_neon);
+    SET_NEON(svt_aom_sad16x4x4d, svt_aom_sad16x4x4d_c, svt_aom_sad16x4x4d_neon);
+    SET_NEON(svt_aom_sad32x8, svt_aom_sad32x8_c, svt_aom_sad32x8_neon);
+    SET_NEON(svt_aom_sad32x8x4d, svt_aom_sad32x8x4d_c, svt_aom_sad32x8x4d_neon);
+    SET_NEON(svt_aom_sad16x64, svt_aom_sad16x64_c, svt_aom_sad16x64_neon);
+    SET_NEON(svt_aom_sad16x64x4d, svt_aom_sad16x64x4d_c, svt_aom_sad16x64x4d_neon);
+    SET_NEON(svt_aom_sad32x16, svt_aom_sad32x16_c, svt_aom_sad32x16_neon);
+    SET_NEON(svt_aom_sad32x16x4d, svt_aom_sad32x16x4d_c, svt_aom_sad32x16x4d_neon);
+    SET_NEON(svt_aom_sad16x32, svt_aom_sad16x32_c, svt_aom_sad16x32_neon);
+    SET_NEON(svt_aom_sad16x32x4d, svt_aom_sad16x32x4d_c, svt_aom_sad16x32x4d_neon);
+    SET_NEON(svt_aom_sad32x64, svt_aom_sad32x64_c, svt_aom_sad32x64_neon);
+    SET_NEON(svt_aom_sad32x64x4d, svt_aom_sad32x64x4d_c, svt_aom_sad32x64x4d_neon);
+    SET_NEON(svt_aom_sad32x32, svt_aom_sad32x32_c, svt_aom_sad32x32_neon);
+    SET_NEON(svt_aom_sad32x32x4d, svt_aom_sad32x32x4d_c, svt_aom_sad32x32x4d_neon);
+    SET_NEON(svt_aom_sad16x16, svt_aom_sad16x16_c, svt_aom_sad16x16_neon);
+    SET_NEON(svt_aom_sad16x16x4d, svt_aom_sad16x16x4d_c, svt_aom_sad16x16x4d_neon);
+    SET_NEON(svt_aom_sad16x8, svt_aom_sad16x8_c, svt_aom_sad16x8_neon);
+    SET_NEON(svt_aom_sad16x8x4d, svt_aom_sad16x8x4d_c, svt_aom_sad16x8x4d_neon);
+    SET_NEON(svt_aom_sad8x4, svt_aom_sad8x4_c, svt_aom_sad8x4_neon);
+    SET_NEON(svt_aom_sad8x4x4d, svt_aom_sad8x4x4d_c, svt_aom_sad8x4x4d_neon);
+    SET_NEON(svt_aom_sad64x16, svt_aom_sad64x16_c, svt_aom_sad64x16_neon);
+    SET_NEON(svt_aom_sad64x32, svt_aom_sad64x32_c, svt_aom_sad64x32_neon);
+    SET_NEON(svt_aom_sad64x64, svt_aom_sad64x64_c, svt_aom_sad64x64_neon);
+    SET_NEON(svt_aom_sad64x128, svt_aom_sad64x128_c, svt_aom_sad64x128_neon);
+    SET_NEON(svt_aom_sad128x128, svt_aom_sad128x128_c, svt_aom_sad128x128_neon);
+    SET_NEON(svt_aom_sad128x128x4d, svt_aom_sad128x128x4d_c, svt_aom_sad128x128x4d_neon);
+    SET_NEON(svt_aom_sad128x64, svt_aom_sad128x64_c, svt_aom_sad128x64_neon);
+    SET_NEON(svt_aom_sad128x64x4d, svt_aom_sad128x64x4d_c, svt_aom_sad128x64x4d_neon);
     SET_NEON(svt_av1_txb_init_levels, svt_av1_txb_init_levels_c, svt_av1_txb_init_levels_neon);
     SET_NEON(svt_aom_satd, svt_aom_satd_c, svt_aom_satd_neon);
     SET_NEON_SVE(svt_av1_block_error, svt_av1_block_error_c, svt_av1_block_error_neon, svt_av1_block_error_sve);
@@ -930,9 +946,9 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
     SET_NEON(svt_estimate_noise_highbd_fp16, svt_estimate_noise_highbd_fp16_c, svt_estimate_noise_highbd_fp16_neon);
 #endif
 #if OPT_TUNE_VMAF
-    SET_ONLY_C(svt_vmaf_compute_avg_mad, svt_vmaf_compute_avg_mad_c);
-    SET_ONLY_C(svt_vmaf_apply_unsharp_row, svt_vmaf_apply_unsharp_row_c);
-    SET_ONLY_C(svt_vmaf_vpass_row, svt_vmaf_vpass_row_c);
+    SET_NEON_NEON_DOTPROD_NEON_I8MM(svt_vmaf_compute_avg_mad, svt_vmaf_compute_avg_mad_c, svt_vmaf_compute_avg_mad_neon, svt_vmaf_compute_avg_mad_neon_dotprod, svt_vmaf_compute_avg_mad_neon_i8mm);
+    SET_NEON_SVE2(svt_vmaf_apply_unsharp_row, svt_vmaf_apply_unsharp_row_c, svt_vmaf_apply_unsharp_row_neon, svt_vmaf_apply_unsharp_row_sve2);
+    SET_NEON(svt_vmaf_vpass_row, svt_vmaf_vpass_row_c, svt_vmaf_vpass_row_neon);
 #endif
     SET_NEON(svt_copy_mi_map_grid, svt_copy_mi_map_grid_c, svt_copy_mi_map_grid_neon);
 #if CONFIG_ENABLE_FILM_GRAIN
