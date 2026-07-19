@@ -1181,7 +1181,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
 
 static const char* tier_to_str(unsigned in) {
     if (!in) {
-        return "(auto)";
+        return "auto";
     }
     static char ret[11];
     snprintf(ret, 11, "%u", in);
@@ -1190,7 +1190,7 @@ static const char* tier_to_str(unsigned in) {
 
 static const char* level_to_str(unsigned in) {
     if (!in) {
-        return "(auto)";
+        return "auto";
     }
     static char ret[313];
     snprintf(ret, 313, "%.1f", in / 10.0);
@@ -1396,7 +1396,7 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
         }
 
         if (config->enable_qm == 1) {
-            PRINT_CONFIG("quant. matrices min / max / chroma-min / chroma-max", "%d / %d / %d / %d",
+            PRINT_CONFIG("quant. matrices min / max / chroma min / max", "%d / %d / %d / %d",
                      config->min_qm_level,
                      config->max_qm_level,
                      config->min_chroma_qm_level,
