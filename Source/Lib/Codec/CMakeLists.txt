@@ -11,7 +11,7 @@
 
 # Codec Directory CMakeLists.txt
 
-if(EX
+if(EXCLUDE_HASH)
     set(PACKAGE_VERSION_STRING ${PROJECT_VERSION}${VERSION_TAG})
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/EbVersion.h.in EbVersion.h @ONLY)
     add_custom_target(EbVersionHeaderGen)
