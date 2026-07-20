@@ -30,10 +30,10 @@ endif()
 # ===============================================================
 # Dolby Vision (libdovi)
 # ===============================================================
-option(LIBDOVI_FOUND "Use the Dolby Vision (dovi) library" OFF)
+option(LIBDOVI_FOUND "Use the Dolby Vision library" OFF)
 if(LIBDOVI_FOUND)
-    find_package(dovi QUIET)
-    if(LIBDOVI_FOUND)
+    find_package(DoVi QUIET)
+    if(DoVi_FOUND)
         include_directories(${LIBDOVI_INCLUDE_DIR})
         set(LIBDOVI_LIBRARIES ${LIBDOVI_LIBRARY})
         add_definitions(-DLIBDOVI_FOUND=1)
@@ -48,8 +48,8 @@ endif()
 # ===============================================================
 option(LIBHDR10PLUS_RS_FOUND "Use the HDR10+ library" OFF)
 if(LIBHDR10PLUS_RS_FOUND)
-    find_package(hdr10plus QUIET)
-    if(LIBHDR10PLUS_RS_FOUND)
+    find_package(HDR10plus QUIET)
+    if(HDR10plus_FOUND)
         include_directories(${LIBHDR10PLUS_RS_INCLUDE_DIR})
         set(LIBHDR10PLUS_RS_LIBRARIES ${LIBHDR10PLUS_RS_LIBRARY})
         add_definitions(-DLIBHDR10PLUS_RS_FOUND=1)
@@ -114,8 +114,8 @@ endif()
 target_link_libraries(SvtAv1EncApp
     PRIVATE
         SvtAv1Enc
-        $<$<BOOL:${LIBDOVI_FOUND}>:dovi::dovi>
-        $<$<BOOL:${LIBHDR10PLUS_RS_FOUND}>:hdr10plus::hdr10plus>
+        $<$<BOOL:${LIBDOVI_FOUND}>:DoVi::DoVi>
+        $<$<BOOL:${LIBHDR10PLUS_RS_FOUND}>:HDR10plus::HDR10plus>
         $<$<OR:$<BOOL:${LIBDOVI_FOUND}>,$<BOOL:${LIBHDR10PLUS_RS_FOUND}>>:ws2_32>
         $<$<OR:$<BOOL:${LIBDOVI_FOUND}>,$<BOOL:${LIBHDR10PLUS_RS_FOUND}>>:userenv>
         $<$<OR:$<BOOL:${LIBDOVI_FOUND}>,$<BOOL:${LIBHDR10PLUS_RS_FOUND}>>:ntdll>
