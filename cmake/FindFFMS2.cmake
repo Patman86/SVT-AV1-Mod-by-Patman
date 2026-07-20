@@ -14,13 +14,54 @@ set(_FFMS2_ROOT_HINTS
     "${_SVT_ROOT}/third_party"
 )
 
+set(_FFMS2_DIR_CANDIDATES
+    "ffms2"
+    "FFMS2"
+    "libffms2"
+)
+
+function(_ffms2_is_valid_base_dir _dir _result_var)
+    set(_valid FALSE)
+
+    if(EXISTS "${_dir}/include/ffms.h"
+       OR EXISTS "${_dir}/include/ffms2/ffms.h"
+       OR EXISTS "${_dir}/ffms.h"
+       OR EXISTS "${_dir}/ffms2/ffms.h"
+       OR EXISTS "${_dir}/include"
+       OR EXISTS "${_dir}/lib"
+       OR EXISTS "${_dir}/msvc"
+       OR EXISTS "${_dir}/gnu")
+        set(_valid TRUE)
+    endif()
+
+    set(${_result_var} ${_valid} PARENT_SCOPE)
+endfunction()
+
+set(_FFMS2_BASE_DIR "")
 foreach(_ROOT ${_FFMS2_ROOT_HINTS})
-    list(APPEND _FFMS2_HINTS
-        "${_ROOT}/ffms2/${_FFMS2_COMP_DIR}"
-        "${_ROOT}/ffms2/${_FFMS2_COMP_DIR}/lib"
-        "${_ROOT}/ffms2"
-        "${_ROOT}/ffms2/lib")
+    foreach(_DIR ${_FFMS2_DIR_CANDIDATES})
+        set(_candidate "${_ROOT}/${_DIR}")
+        if(EXISTS "${_candidate}")
+            _ffms2_is_valid_base_dir("${_candidate}" _is_valid)
+            if(_is_valid)
+                set(_FFMS2_BASE_DIR "${_candidate}")
+                break()
+            endif()
+        endif()
+    endforeach()
+    if(_FFMS2_BASE_DIR)
+        break()
+    endif()
 endforeach()
+
+set(_FFMS2_HINTS)
+if(_FFMS2_BASE_DIR)
+    list(APPEND _FFMS2_HINTS
+        "${_FFMS2_BASE_DIR}/${_FFMS2_COMP_DIR}"
+        "${_FFMS2_BASE_DIR}/${_FFMS2_COMP_DIR}/lib"
+        "${_FFMS2_BASE_DIR}"
+        "${_FFMS2_BASE_DIR}/lib")
+endif()
 
 # Try classic CMake find first
 find_path(FFMS2_INCLUDE_DIR

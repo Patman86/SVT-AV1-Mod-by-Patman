@@ -14,13 +14,54 @@ set(_HDR_ROOT_HINTS
     "${_SVT_ROOT}/third_party"
 )
 
+set(_HDR_DIR_CANDIDATES
+    "hdr"
+    "hdr10plus"
+    "hdr10plus-rs"
+    "libhdr10plus"
+    "libhdr10plus-rs"
+)
+
+function(_hdr10plus_is_valid_base_dir _dir _result_var)
+    set(_valid FALSE)
+
+    if(EXISTS "${_dir}/include/libhdr10plus-rs/hdr10plus.h"
+       OR EXISTS "${_dir}/include/hdr10plus.h"
+       OR EXISTS "${_dir}/include"
+       OR EXISTS "${_dir}/lib"
+       OR EXISTS "${_dir}/msvc"
+       OR EXISTS "${_dir}/gnu")
+        set(_valid TRUE)
+    endif()
+
+    set(${_result_var} ${_valid} PARENT_SCOPE)
+endfunction()
+
+set(_HDR_BASE_DIR "")
 foreach(_ROOT ${_HDR_ROOT_HINTS})
-    list(APPEND _HDR_HINTS
-        "${_ROOT}/hdr/${_HDR_COMP_DIR}"
-        "${_ROOT}/hdr/${_HDR_COMP_DIR}/lib"
-        "${_ROOT}/hdr"
-        "${_ROOT}/hdr/lib")
+    foreach(_DIR ${_HDR_DIR_CANDIDATES})
+        set(_candidate "${_ROOT}/${_DIR}")
+        if(EXISTS "${_candidate}")
+            _hdr10plus_is_valid_base_dir("${_candidate}" _is_valid)
+            if(_is_valid)
+                set(_HDR_BASE_DIR "${_candidate}")
+                break()
+            endif()
+        endif()
+    endforeach()
+    if(_HDR_BASE_DIR)
+        break()
+    endif()
 endforeach()
+
+set(_HDR_HINTS)
+if(_HDR_BASE_DIR)
+    list(APPEND _HDR_HINTS
+        "${_HDR_BASE_DIR}/${_HDR_COMP_DIR}"
+        "${_HDR_BASE_DIR}/${_HDR_COMP_DIR}/lib"
+        "${_HDR_BASE_DIR}"
+        "${_HDR_BASE_DIR}/lib")
+endif()
 
 # Try classic CMake find first
 find_path(LIBHDR10PLUS_RS_INCLUDE_DIR
@@ -37,23 +78,23 @@ find_library(LIBHDR10PLUS_RS_LIBRARY
 
 # pkg-config fallback
 find_package(PkgConfig QUIET)
-if (PkgConfig_FOUND AND (NOT LIBHDR10PLUS_RS_INCLUDE_DIR OR NOT LIBHDR10PLUS_RS_LIBRARY))
+if(PkgConfig_FOUND AND (NOT LIBHDR10PLUS_RS_INCLUDE_DIR OR NOT LIBHDR10PLUS_RS_LIBRARY))
     foreach(_pc_name libhdr10plus-rs libhdr10plus hdr10plus hdr10plus-rs)
         pkg_check_modules(_HDR10PLUS_PKG QUIET ${_pc_name})
-        if (_HDR10PLUS_PKG_FOUND)
-            if (NOT LIBHDR10PLUS_RS_INCLUDE_DIR AND DEFINED _HDR10PLUS_PKG_INCLUDEDIR)
+        if(_HDR10PLUS_PKG_FOUND)
+            if(NOT LIBHDR10PLUS_RS_INCLUDE_DIR AND DEFINED _HDR10PLUS_PKG_INCLUDEDIR)
                 set(LIBHDR10PLUS_RS_INCLUDE_DIR "${_HDR10PLUS_PKG_INCLUDEDIR}" CACHE PATH "hdr10plus include dir" FORCE)
             endif()
 
-            if (NOT LIBHDR10PLUS_RS_LIBRARY AND DEFINED _HDR10PLUS_PKG_LIBRARIES)
+            if(NOT LIBHDR10PLUS_RS_LIBRARY AND DEFINED _HDR10PLUS_PKG_LIBRARIES)
                 set(_first_abs "")
                 foreach(_lib ${_HDR10PLUS_PKG_LIBRARIES})
-                    if (IS_ABSOLUTE "${_lib}")
+                    if(IS_ABSOLUTE "${_lib}")
                         set(_first_abs "${_lib}")
                         break()
                     endif()
                 endforeach()
-                if (_first_abs)
+                if(_first_abs)
                     set(LIBHDR10PLUS_RS_LIBRARY "${_first_abs}" CACHE FILEPATH "hdr10plus library" FORCE)
                 else()
                     set(_HDR10PLUS_PKG_LIBS_STR "${_HDR10PLUS_PKG_LIBRARIES}")
@@ -69,27 +110,27 @@ if (PkgConfig_FOUND AND (NOT LIBHDR10PLUS_RS_INCLUDE_DIR OR NOT LIBHDR10PLUS_RS_
 endif()
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(hdr10plus REQUIRED_VARS LIBHDR10PLUS_RS_LIBRARY LIBHDR10PLUS_RS_INCLUDE_DIR)
+find_package_handle_standard_args(HDR10plus REQUIRED_VARS LIBHDR10PLUS_RS_LIBRARY LIBHDR10PLUS_RS_INCLUDE_DIR)
 
-if(hdr10plus_FOUND AND NOT TARGET hdr10plus::hdr10plus)
-    add_library(hdr10plus::hdr10plus UNKNOWN IMPORTED)
-    if (LIBHDR10PLUS_RS_LIBRARY AND IS_ABSOLUTE "${LIBHDR10PLUS_RS_LIBRARY}")
-        set_target_properties(hdr10plus::hdr10plus PROPERTIES
+if(HDR10plus_FOUND AND NOT TARGET HDR10plus::HDR10plus)
+    add_library(HDR10plus::HDR10plus UNKNOWN IMPORTED)
+    if(LIBHDR10PLUS_RS_LIBRARY AND IS_ABSOLUTE "${LIBHDR10PLUS_RS_LIBRARY}")
+        set_target_properties(HDR10plus::HDR10plus PROPERTIES
             IMPORTED_LOCATION "${LIBHDR10PLUS_RS_LIBRARY}"
             INTERFACE_INCLUDE_DIRECTORIES "${LIBHDR10PLUS_RS_INCLUDE_DIR}"
         )
     else()
-        if (DEFINED _HDR10PLUS_PKG_LIBRARIES OR DEFINED _HDR10PLUS_PKG_LIBS_STR)
+        if(DEFINED _HDR10PLUS_PKG_LIBRARIES OR DEFINED _HDR10PLUS_PKG_LIBS_STR)
             set(_link_libs "${_HDR10PLUS_PKG_LIBRARIES}")
-            if (NOT _link_libs AND DEFINED _HDR10PLUS_PKG_LIBS_STR)
+            if(NOT _link_libs AND DEFINED _HDR10PLUS_PKG_LIBS_STR)
                 set(_link_libs "${_HDR10PLUS_PKG_LIBS_STR}")
             endif()
-            set_target_properties(hdr10plus::hdr10plus PROPERTIES
+            set_target_properties(HDR10plus::HDR10plus PROPERTIES
                 INTERFACE_LINK_LIBRARIES "${_link_libs}"
                 INTERFACE_INCLUDE_DIRECTORIES "${LIBHDR10PLUS_RS_INCLUDE_DIR}"
             )
         else()
-            set_target_properties(hdr10plus::hdr10plus PROPERTIES
+            set_target_properties(HDR10plus::HDR10plus PROPERTIES
                 INTERFACE_INCLUDE_DIRECTORIES "${LIBHDR10PLUS_RS_INCLUDE_DIR}"
             )
         endif()
