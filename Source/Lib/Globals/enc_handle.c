@@ -4086,10 +4086,28 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     }
 
     if (scs->static_config.psy_bias_qm_bias == UINT8_DEFAULT) {
-        if (scs->static_config.lineart_psy_bias >= 3.0 || scs->static_config.texture_psy_bias >= 3.0)
+        if (scs->static_config.lineart_psy_bias >= 2.0 || scs->static_config.texture_psy_bias >= 2.0)
             scs->static_config.psy_bias_qm_bias = 1;
         else
             scs->static_config.psy_bias_qm_bias = 0;
+    }
+
+    if (scs->static_config.psy_bias_optimize_b == INT8_DEFAULT) {
+        scs->static_config.psy_bias_optimize_b = 0;
+        if (scs->static_config.enc_mode <= ENC_M4 &&
+            !scs->static_config.high_fidelity_encode_psy_bias) {
+            if (scs->static_config.lineart_psy_bias >= 1.0 || scs->static_config.texture_psy_bias >= 1.0)
+                scs->static_config.psy_bias_optimize_b = 1;
+        }
+    }
+    if (scs->static_config.texture_psy_bias_optimize_b == INT8_DEFAULT) {
+        scs->static_config.texture_psy_bias_optimize_b = scs->static_config.psy_bias_optimize_b;
+        if (scs->static_config.enc_mode <= ENC_M4) {
+            if (scs->static_config.lineart_psy_bias >= 4.0)
+                scs->static_config.texture_psy_bias_optimize_b = 2;
+            else if (scs->static_config.texture_psy_bias >= 3.0)
+                scs->static_config.texture_psy_bias_optimize_b = 4;
+        }
     }
 
     if (scs->static_config.noise_norm_strength == UINT8_DEFAULT) {
@@ -4119,9 +4137,9 @@ static void set_param_based_on_input(SequenceControlSet *scs)
             scs->static_config.texture_ac_bias = 6.0;
         else if (scs->static_config.texture_psy_bias >= 4.0) {
             if (scs->static_config.high_fidelity_encode_psy_bias)
-                scs->static_config.texture_ac_bias = 3.0;
+                scs->static_config.texture_ac_bias = 3.75;
             else
-                scs->static_config.texture_ac_bias = 2.0;
+                scs->static_config.texture_ac_bias = 2.5;
         }
         else
             scs->static_config.texture_ac_bias = scs->static_config.ac_bias;
@@ -4812,6 +4830,7 @@ static void copy_api_from_app(
     scs->static_config.psy_bias_qm_bias = config_struct->psy_bias_qm_bias;
     scs->static_config.psy_bias_sharpness_rounding = config_struct->psy_bias_sharpness_rounding;
     scs->static_config.psy_bias_optimize_b = config_struct->psy_bias_optimize_b;
+    scs->static_config.texture_psy_bias_optimize_b = config_struct->texture_psy_bias_optimize_b;
 
     scs->static_config.high_quality_encode_psy_bias = config_struct->high_quality_encode_psy_bias;
     scs->static_config.high_fidelity_encode_psy_bias = config_struct->high_fidelity_encode_psy_bias;

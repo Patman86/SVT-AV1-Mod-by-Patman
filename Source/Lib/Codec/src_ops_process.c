@@ -1694,7 +1694,8 @@ void svt_aom_generate_r0beta(PictureParentControlSet *pcs) {
             }
 
             if (scs->static_config.balancing_q_bias) {
-                mc_dep_delta_sum = AOMMAX(mean_mc_dep_delta_base_sum, mc_dep_delta_sum);
+                mc_dep_delta_sum = AOMMAX(AOMMIN(mean_mc_dep_delta_base_sum, recrf_dist_sum << 15),
+                                          mc_dep_delta_sum);
                 if (mc_dep_delta_sum > recrf_dist_sum << 9)
                     mc_dep_delta_sum = ((mc_dep_delta_sum - (recrf_dist_sum << 9)) >> 1) +
                                        ((mc_dep_delta_sum - (recrf_dist_sum << 9)) >> 2) +

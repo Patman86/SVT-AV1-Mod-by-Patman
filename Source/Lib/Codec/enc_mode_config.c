@@ -5181,11 +5181,11 @@ void svt_aom_set_nsq_geom_ctrls(ModeDecisionContext *ctx, uint8_t nsq_geom_level
     NsqGeomCtrls *nsq_geom_ctrls = &nsq_geom_ctrls_struct;
 
     uint8_t psy_bias_disallow_HV4 = false;
-    if ((lineart_psy_bias >= 3.0 || texture_psy_bias >= 3.0) &&
-        enc_mode >= ENC_MR)
+    if ((lineart_psy_bias >= 4.0 || texture_psy_bias >= 4.0) &&
+        enc_mode >= ENC_M0)
         psy_bias_disallow_HV4 = true;
     uint8_t psy_bias_allow_HVA_HVB = false;
-    if (texture_psy_bias >= 4.0 && enc_mode <= ENC_M2)
+    if (texture_psy_bias >= 4.0 && enc_mode <= ENC_M3)
         psy_bias_allow_HVA_HVB = true;
 
     switch (nsq_geom_level) {
@@ -8512,12 +8512,12 @@ uint8_t svt_aom_get_inter_intra_level(EncMode enc_mode, uint8_t is_base, uint8_t
 uint8_t svt_aom_get_obmc_level(EncMode enc_mode, uint32_t qp, uint8_t is_base, uint8_t seq_qp_mod, double lineart_psy_bias) {
     uint8_t obmc_level = 0;
     if (enc_mode <= ENC_M0 ||
-        (lineart_psy_bias >= 3.0 && enc_mode <= ENC_M2))
+        (lineart_psy_bias >= 2.0 && enc_mode <= ENC_M2))
         obmc_level = 1;
-    else if (lineart_psy_bias >= 3.0 && enc_mode <= ENC_M4)
+    else if (lineart_psy_bias >= 2.0 && enc_mode <= ENC_M4)
         obmc_level = 2;
     else if (enc_mode <= ENC_M4 ||
-             (lineart_psy_bias >= 3.0 && enc_mode <= ENC_M6))
+             (lineart_psy_bias >= 2.0 && enc_mode <= ENC_M6))
         obmc_level = 3;
     else if (enc_mode <= ENC_M7)
         obmc_level = 4;

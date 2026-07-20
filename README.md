@@ -3,6 +3,15 @@
 I would like to express my sincere gratitude to 5fish for creating and maintaining this fork, and for their ongoing work to improve SVT-AV1-PSY. Their contributions are highly valued and have significantly advanced this project.
 
 -----------------------------------------------------------------------------------------------------------------
+# NOTICE
+
+**This repository has been relocated to [5fish/SVT-AV1](https://github.com/5fish/SVT-AV1). No further updates are planned here.**
+
+#
+#
+#
+#
+#
 
 ## 5fish/SVT-AV1-PSY
 

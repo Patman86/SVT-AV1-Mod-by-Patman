@@ -100,7 +100,7 @@ Do note however, that there is no error checking for duplicate keys and only for
 | **MaxChromaQmLevel**             | --chroma-qm-max             | [0-15]                         | 15          | Max chroma quant matrix flatness                                                                              |
 | **NoiseNormStrength**            | --noise-norm-strength       | [0-4]                          | 1           | Selectively boost AC coefficients to improve fine detail retention in certain circumstances                   |
 | **AcBias**                       | --ac-bias                   | [0.0-8.0]                      | 1.0         | Sets the strength of the internal RD metric to bias toward high-frequency error (helps with texture preservation and film grain retention) |
-| **TextureAcBias**                | --texture-ac-bias           | [0.0-64.0]                     | same as `--ac-bias` | `--ac-bias` strength in low variance regions. Application based on `--texture-variance-thr`, and protection based on `--lineart-variance-thr`. |
+| **TextureAcBias**                | --texture-ac-bias           | [0.0-64.0]                     | inherits `--ac-bias` | `--ac-bias` strength in low variance regions. Application based on `--texture-variance-thr`, and protection based on `--lineart-variance-thr`. |
 | **LineartEnergyBias**            | --lineart-energy-bias       | [0.667-1.5]                    | 1.0         | Prefer higher energy even if the encode will have higher energy than the source in high variance regions.     |
 | **TextureEnergyBias**            | --texture-energy-bias       | [0.667-1.5]                    | 1.0         | Prefer higher energy even if the encode will have higher energy than the source in low variance regions. Application based on `--texture-variance-thr`, and protection based on `--lineart-variance-thr`. |
 | **SATDBias**                     | --satd-bias                 | [0.0-16.0]                     | 0.0         | Add SATD calculation to distortion calculation.                                                               |
@@ -122,7 +122,8 @@ Do note however, that there is no error checking for duplicate keys and only for
 | **PsyBiasInterModeBias**         | --psy-bias-inter-mode-bias  | [0-5]                          | 0           | Bias against intra mode in non base layers                                                                    |
 | **PsyBiasQMBias**                | --psy-bias-qm-bias          | [0-1]                          | 0           | Increase QM level in frames of higher temporal layer                                                          |
 | **PsyBiasSharpnessRounding**     | --psy-bias-sharpness-rounding | [1-256]                      | -2          | Quantization rounding [-2: `64` in every `--tune` but `--tune 3`, which is `48`]                              |
-| **PsyBiasOptimizeB**             | --psy-bias-optimize-b       | [0-1]                          | 0           | Optimize quantization using full distortion calculation. Slow. [0: Disabled, 1: Use slow method to optimize eob, and then proceed with normal optimization] |
+| **PsyBiasOptimizeB**             | --psy-bias-optimize-b       | [-2,0-2,4]                     | 0           | Optimize quantization using full distortion calculation. Slow. [0: Disabled, 1: Use slow method to optimize eob, and then proceed with normal optimization, 4: Disable normal optimization, and only use slow method to optimize eob, 2: Disable normal optimization, and use slow method to optimize eob and adjust coefficients, -2: Disable normal optimization] |
+| **TexturePsyBiasOptimizeB**      | --texture-psy-bias-optimize-b | [-2,0-2,4]                   | inherits `--psy-bias-optimize-b` | Optimize quantization using full distortion calculation in low variance region. Using `--texture-variance-thr` |
 | **HighQualityEncodePsyBias**     | --high-quality-encode-psy-bias | [0-1]                       | 0           | Bias various features for high quality encoding. Check below for more description. [Default to `1` when `--crf [<= 24.00]`, and either `--lineart-psy-bias` or `--texture-psy-bias` are set; Default to `0` otherwise] |
 | **HighFidelityEncodePsyBias**    | --high-fidelity-encode-psy-bias | [0-1]                      | 0           | Bias various features for high fidelity encoding. Check below for more description. [Default to `1` when `--crf [<= 16.00]`, and either `--lineart-psy-bias` or `--texture-psy-bias` are set; Default to `0` otherwise] |
 
@@ -150,11 +151,13 @@ Try not to deviate too much from the default threshold, which is `16000` as of e
 | [rc] `chroma_qindex` bias | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | |
 | [md] alternative high freq dev thr | ◯ | ◯ | － | － | － | － | － | |
 | [md] disable detect high freq | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | |
-| [md] disallow HV4 at p0 or faster | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | |
+| [md] disallow HV4 | ✕ | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | Applied when `--preset [>= 0]` |
 | [md] `--chroma-qm-min 11` | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | Can be overridden |
-| [md] `--psy-bias-qm-bias 1` | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | Can be overridden |
+| [md] `--psy-bias-qm-bias 1` | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | Can be overridden |
+| [md] `--psy-bias-optimize-b 1` | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | Applied when `--preset [<= 4]`; Can be overridden |
+| [md] `--texture-psy-bias-optimize-b 2` | ✕ | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | Applied when `--preset [<= 4]`; `--lineart-psy-bias [>= 4.0]` overrides the setting of `--texture-psy-bias [>= 3.0]`; Can be overridden |
 | [md] `--noise-norm-strength 0` | ✕ | ✕ | ✕ | ✕ | ◯ | ◯ | ◯ | Only applied when `--texture-psy-bias [<= 3.0]`; Can be overridden |
-| [md] use better `pic_obmc_level` | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | |
+| [md] use better `pic_obmc_level` | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | |
 | [md] variance skip taper | ✕ | ✕ | ✕ | ✕ | ✕ | ◯ | ◯ | |
 | [md] alternative tx search grouping | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | |
 | [md] `NEARESTMV` rate adjustment | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | |
@@ -191,17 +194,19 @@ You should use `--lineart-variance-thr` to adjust the threshold above which a de
 | [rc] `--enable-variance-boost 0` | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | Can be overridden |
 | [rc] `chroma_qindex` bias | ✕ | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | |
 | [md] disable detect high freq | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | |
-| [md] disallow HV4 at p0 or faster | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | |
-| [md] allow HVA/HVB at p2 or slower | ✕ | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | |
+| [md] disallow HV4 | ✕ | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | Applied when `--preset [>= 0]` |
+| [md] allow HVA/HVB | ✕ | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | Applied when `--preset [<= 3]` |
 | [md] `--qm-min 9` | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | Can be overridden |
-| [md] `--psy-bias-qm-bias 1` | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | Can be overridden |
+| [md] `--psy-bias-qm-bias 1` | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | Can be overridden |
+| [md] `--psy-bias-optimize-b 1` | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | Applied when `--preset [<= 4]`; Can be overridden |
+| [md] `--texture-psy-bias-optimize-b 4` | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | Applied when `--preset [<= 4]`; Can be overridden |
 | [md] `--psy-bias-coeff-lvl-offset 2` | ✕ | ✕ | ✕ | ✕ | ◯ | ◯ | ◯ | Can be overridden |
 | [md] variance cand elimination | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | Using `--lineart-variance-thr` |
 | [md] no nic post mds1/2 `CAND_CLASS_1` class pruning | ✕ | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | |
 | [md] disable mds0 unipred bias | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | |
 | [md] `--noise-norm-strength 4` | ✕ | ✕ | ✕ | ✕ | ◯ | ◯ | ◯ | Can be overridden |
 | [md] `--ac-bias` | `1.0` | `1.0` | `1.0` | `1.0` | `2.5` | `2.5` | `2.5` | Can be overridden |
-| [md] `--texture-ac-bias` | － | － | － | `2.0` | `6.0` | `6.0` | `6.0` | Can be overridden |
+| [md] `--texture-ac-bias` | － | － | － | `2.5` | `6.0` | `6.0` | `6.0` | Can be overridden |
 | [md] `--texture-energy-bias` | `1.00` | `1.00` | `1.02` | `1.02` | `1.10` | `1.10` | `1.10` | Can be overridden |
 | [md] variance obmc decision | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | |
 | [md] alternative tx search grouping | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | |
@@ -273,6 +278,7 @@ In additional to features in `--high-quality-encode-psy-bias 1`:
 
 * `--noise-psy-bias`: Default changed to `4`. Can be overridden.  
 * `--psy-bias-disable-me-8x8`: Revert `--lineart-psy-bias [>= 2]` settings back to `0`. Can be overridden.  
+* `--psy-bias-optimize-b`: Reset `--lineart-psy-bias [>= 1]` and `--texture-psy-bias [>= 1]` settings back to `--psy-bias-optimize-b 0`. Does not reset `--texture-psy-bias-optimize-b`. Can be overridden.  
 * `--ac-bias` and `--texture-ac-bias`: Boost `--texture-psy-bias`'s default for `--ac-bias` and `--texture-ac-bias` by 1.5 times when `--texture-psy-bias [1 ~ 4]` is used. Does not apply to manually specified `--ac-bias` or `--texture-ac-bias` value.  
 * `--texture-energy-bias`: Boost `--texture-psy-bias`'s default by 2 times when `--texture-psy-bias [1 ~ 4]` is used. Does not apply to manually specified `--texture-energy-bias` value.  
 * `--dlf-bias-min-dlf`: Default changed to `0,0`. Can be overridden.  
@@ -501,9 +507,9 @@ SvtAv1EncApp -i in.y4m -b out.ivf --roi-map-file roi_map.txt
 | **CDEFBiasMaxCDEF**                | --cdef-bias-max-cdef   | any string       | `4,1,2,0`     | Max CDEF strength in the order of primary strength for Y, secondary strength for Y, primary strength for chroma, secondary strength for chroma. Primary strengths can be any value betwen `0` and `15`, and secondary strengths can be either `0`, `1`, `2`, or `4`. |
 | **CDEFBiasMinCDEF**                | --cdef-bias-min-cdef   | any string       | `0,0,0,0`     | Min CDEF strength in the order of primary strength for Y, secondary strength for Y, primary strength for chroma, secondary strength for chroma. Primary strengths can be any value betwen `0` and `15`, and secondary strengths can be either `0`, `1`, `2`, or `4`. CDEF strength of 0 will always be evaluated. |
 | **CDEFBiasMaxSecCDEFRel**          | --cdef-bias-max-sec-cdef-rel | [-12-4]    | 0             | Secondary CDEF strength of every filtering block should be smaller than or equal to primary CDEF strength plus this value.                                              |
-| **TextureCDEFBiasMaxCDEF**         | --texture-cdef-bias-max-cdef | any string | same as `--cdef-bias-max-cdef` | Max CDEF strength in low variance region. Using `--lineart-variance-thr`.                                                                              |
-| **TextureCDEFBiasMinCDEF**         | --texture-cdef-bias-min-cdef | any string | same as `--cdef-bias-min-cdef` | Min CDEF strength in low variance region. CDEF strength of 0 will always be evaluated. Using `--lineart-variance-thr`.                                 |
-| **TextureCDEFBiasMaxSecCDEFRel**   | --texture-cdef-bias-max-sec-cdef-rel | [-12-4] | same as `--cdef-bias-max-sec-cdef-rel` | Secondary CDEF strength of every filtering block should be smaller than or equal to primary CDEF strength plus this value in low variance region. Using `--lineart-variance-thr`. |
+| **TextureCDEFBiasMaxCDEF**         | --texture-cdef-bias-max-cdef | any string | inherits `--cdef-bias-max-cdef` | Max CDEF strength in low variance region. Using `--lineart-variance-thr`.                                                                             |
+| **TextureCDEFBiasMinCDEF**         | --texture-cdef-bias-min-cdef | any string | inherits `--cdef-bias-min-cdef` | Min CDEF strength in low variance region. CDEF strength of 0 will always be evaluated. Using `--lineart-variance-thr`.                                |
+| **TextureCDEFBiasMaxSecCDEFRel**   | --texture-cdef-bias-max-sec-cdef-rel | [-12-4] | inherits `--cdef-bias-max-sec-cdef-rel` | Secondary CDEF strength of every filtering block should be smaller than or equal to primary CDEF strength plus this value in low variance region. Using `--lineart-variance-thr`. |
 | **CDEFBiasDampingOffset**          | --cdef-bias-damping-offset | [-4-8]       | 0             | Use bigger or smaller CDEF damping. CDEF damping is a CDEF feature (not a `--cdef-bias` feature), normally derived from each frame's `base_q_idx`.                      |
 
 #### **Super-Resolution**

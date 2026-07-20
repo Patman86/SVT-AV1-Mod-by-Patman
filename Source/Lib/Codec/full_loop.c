@@ -1660,7 +1660,7 @@ static bool slow_optimize_b_compare_cost(uint32_t lambda,
     }
 }
 static void slow_optimize_b(PictureControlSet *pcs, ModeDecisionContext *ctx,
-                            uint8_t psy_bias_optimize_b,
+                            uint8_t slow_optimize_b_mode,
                             int32_t *quant_coeff, int32_t *recon_coeff,
                             TxSize txsize, TxType tx_type, int32_t plane, uint16_t *eob,
                             const ScanOrder *scan_order, const int16_t *zbin_ptr,
@@ -1689,7 +1689,7 @@ static void slow_optimize_b(PictureControlSet *pcs, ModeDecisionContext *ctx,
         if (quant_coeff[rc]) {
             const int         sign           = quant_coeff[rc] < 0 ? -1 : 0;
             const int64_t     abs_quant      = (quant_coeff[rc] ^ sign) - sign;
-            if (psy_bias_optimize_b == 2 || psy_bias_optimize_b == 3) {
+            if (slow_optimize_b_mode == 2 || slow_optimize_b_mode == 3) {
                 const TranLow pre_quant      = quant_coeff[rc];
                 const TranLow pre_recon      = recon_coeff[rc];
                 const int64_t abs_quant_low  = abs_quant - 1;
@@ -1792,7 +1792,7 @@ static void slow_optimize_b(PictureControlSet *pcs, ModeDecisionContext *ctx,
                     recon_coeff[rc] = pre_recon;
                 }
             }
-            if (psy_bias_optimize_b == 3 &&
+            if (slow_optimize_b_mode == 3 &&
                 quant_coeff[rc]) {
                 const TranLow  pre_quant       = quant_coeff[rc];
                 const TranLow  pre_recon       = recon_coeff[rc];
@@ -1869,9 +1869,30 @@ uint8_t svt_aom_quantize_inv_quantize(PictureControlSet *pcs, ModeDecisionContex
     SequenceControlSet *scs     = pcs->scs;
     EncodeContext      *enc_ctx = scs->enc_ctx;
     int32_t plane = component_type == COMPONENT_LUMA ? AOM_PLANE_Y : COMPONENT_CHROMA_CB ? AOM_PLANE_U : AOM_PLANE_V;
-    const uint8_t psy_bias_optimize_b = psy_bias_optimize_b_available ?
-                                        scs->static_config.psy_bias_optimize_b :
-                                        0;
+    uint8_t slow_optimize_b_mode = 0;
+    bool svt_av1_optimize_b_mode = 1;
+    if (psy_bias_optimize_b_available) {
+        switch (ctx->active_psy_bias_optimize_b) {
+            case -2:
+                svt_av1_optimize_b_mode = 0;
+                break;
+            case 1:
+                slow_optimize_b_mode = 1;
+                break;
+            case 2:
+                slow_optimize_b_mode = 2;
+                svt_av1_optimize_b_mode = 0;
+                break;
+            case 3:
+                slow_optimize_b_mode = 3;
+                svt_av1_optimize_b_mode = 0;
+                break;
+            case 4:
+                slow_optimize_b_mode = 1;
+                svt_av1_optimize_b_mode = 0;
+                break;
+        }
+    }
     int32_t qmatrix_level    = (IS_2D_TRANSFORM(tx_type) && pcs->ppcs->frm_hdr.quantization_params.using_qmatrix)
            ? pcs->ppcs->frm_hdr.quantization_params.qm[plane]
            : NUM_QM_LEVELS - 1;
@@ -2036,9 +2057,9 @@ uint8_t svt_aom_quantize_inv_quantize(PictureControlSet *pcs, ModeDecisionContex
         if (eob_perc >= ctx->rdoq_ctrls.eob_th) {
             perform_rdoq = 0;
         }
-        if (perform_rdoq && psy_bias_optimize_b == 1)
+        if (perform_rdoq && slow_optimize_b_mode == 1)
             slow_optimize_b(pcs, ctx,
-                            psy_bias_optimize_b,
+                            slow_optimize_b_mode,
                             quant_coeff, recon_coeff,
                             txsize, tx_type, plane, eob,
                             scan_order, candidate_plane.zbin_qtx,
@@ -2049,8 +2070,7 @@ uint8_t svt_aom_quantize_inv_quantize(PictureControlSet *pcs, ModeDecisionContex
                             area_width, area_height,
                             cand_bf, txb_skip_context, dc_sign_context,
                             lambda);
-        else if (perform_rdoq && (eob_perc >= ctx->rdoq_ctrls.eob_fast_th) &&
-                 psy_bias_optimize_b != 2 && psy_bias_optimize_b != 3)
+        else if (perform_rdoq && (eob_perc >= ctx->rdoq_ctrls.eob_fast_th) && svt_av1_optimize_b_mode)
             svt_fast_optimize_b(
                 (TranLow *)coeff, &candidate_plane, quant_coeff, (TranLow *)recon_coeff, eob, txsize, tx_type);
         if (perform_rdoq == 0) {
@@ -2076,9 +2096,9 @@ uint8_t svt_aom_quantize_inv_quantize(PictureControlSet *pcs, ModeDecisionContex
         }
     }
     if (perform_rdoq && *eob != 0) {
-        if (psy_bias_optimize_b == 2 || psy_bias_optimize_b == 3)
+        if (slow_optimize_b_mode == 2 || slow_optimize_b_mode == 3)
             slow_optimize_b(pcs, ctx,
-                            psy_bias_optimize_b,
+                            slow_optimize_b_mode,
                             quant_coeff, recon_coeff,
                             txsize, tx_type, plane, eob,
                             scan_order, candidate_plane.zbin_qtx,
@@ -2089,7 +2109,7 @@ uint8_t svt_aom_quantize_inv_quantize(PictureControlSet *pcs, ModeDecisionContex
                             area_width, area_height,
                             cand_bf, txb_skip_context, dc_sign_context,
                             lambda);
-        else {
+        else if (svt_av1_optimize_b_mode) {
             // Perform rdoq
             svt_av1_optimize_b(ctx,
                                txb_skip_context,

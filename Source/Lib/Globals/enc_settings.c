@@ -1222,8 +1222,12 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_ERROR("Instance %u: psy-bias-sharpness-rounding must be between 1 and 256\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
-    if (config->psy_bias_optimize_b > 3) {
-        SVT_ERROR("Instance %u: psy-bias-optimize-b must be between 0 and 1\n", channel_number + 1);
+    if (!((config->psy_bias_optimize_b <= 4 && config->psy_bias_optimize_b >= 0) || config->psy_bias_optimize_b == -2 || config->psy_bias_optimize_b == INT8_DEFAULT)) {
+        SVT_ERROR("Instance %u: psy-bias-optimize-b must be -2, between 0 and 2, or 4\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+    if (!((config->texture_psy_bias_optimize_b <= 4 && config->texture_psy_bias_optimize_b >= 0) || config->texture_psy_bias_optimize_b == -2 || config->texture_psy_bias_optimize_b == INT8_DEFAULT)) {
+        SVT_ERROR("Instance %u: texture-psy-bias-optimize-b must be -2, between 0 and 2, or 4\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -1502,7 +1506,8 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->psy_bias_inter_mode_bias          = UINT8_DEFAULT;
     config_ptr->psy_bias_qm_bias                  = UINT8_DEFAULT;
     config_ptr->psy_bias_sharpness_rounding       = DEFAULT;
-    config_ptr->psy_bias_optimize_b               = 0;
+    config_ptr->psy_bias_optimize_b               = INT8_DEFAULT;
+    config_ptr->texture_psy_bias_optimize_b       = INT8_DEFAULT;
     config_ptr->high_quality_encode_psy_bias      = DEFAULT;
     config_ptr->high_fidelity_encode_psy_bias     = DEFAULT;
     config_ptr->dlf_bias                          = 0;
@@ -1784,6 +1789,14 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
         if (config->noise_psy_bias >= 1.0)
             PRINT_CONFIG("noise PSY bias", "%.0f",
                      floor(config->noise_psy_bias));
+        if (config->psy_bias_optimize_b || config->texture_psy_bias_optimize_b) {
+            if (config->texture_psy_bias_optimize_b == config->psy_bias_optimize_b)
+                SVT_INFO("SVT [config]: PSY bias optimize B \t\t\t\t\t\t: %d\n",
+                         config->psy_bias_optimize_b);
+            else
+                SVT_INFO("SVT [config]: PSY bias optimize B / texture PSY bias optimize B \t\t: %d / %d\n",
+                         config->psy_bias_optimize_b, config->texture_psy_bias_optimize_b);
+        }
 
         // Motion Estimation
         if (config->enable_tf) {
@@ -3087,7 +3100,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"psy-bias-mds0-intra-inter-mode-bias", &config_struct->psy_bias_mds0_intra_inter_mode_bias},
         {"psy-bias-inter-mode-bias", &config_struct->psy_bias_inter_mode_bias},
         {"psy-bias-qm-bias", &config_struct->psy_bias_qm_bias},
-        {"psy-bias-optimize-b", &config_struct->psy_bias_optimize_b},
         {"dlf-bias", &config_struct->dlf_bias},
         {"dlf-sharpness", &config_struct->dlf_sharpness},
         {"cdef-bias", &config_struct->cdef_bias},
@@ -3198,6 +3210,8 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"sharpness", &config_struct->sharpness},
         {"balancing-r0-dampening-layer", &config_struct->balancing_r0_dampening_layer},
         {"psy-bias-coeff-lvl-offset", &config_struct->psy_bias_coeff_lvl_offset},
+        {"psy-bias-optimize-b", &config_struct->psy_bias_optimize_b},
+        {"texture-psy-bias-optimize-b", &config_struct->texture_psy_bias_optimize_b},
         {"cdef-bias-max-sec-cdef-rel", &config_struct->cdef_bias_max_sec_cdef_rel},
         {"texture-cdef-bias-max-sec-cdef-rel", &config_struct->texture_cdef_bias_max_sec_cdef_rel},
         {"cdef-bias-damping-offset", &config_struct->cdef_bias_damping_offset},
