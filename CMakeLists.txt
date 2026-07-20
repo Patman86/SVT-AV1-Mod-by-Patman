@@ -179,7 +179,7 @@ include(GNUInstallDirs)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
-# Dolby Vision / HDR10+ Integration (custom CMake Find-modules)
+# Dolby Vision / HDR10+ Integration / FFMS2 (custom CMake Find-modules)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 set(_compiler_dir "Unknown")
