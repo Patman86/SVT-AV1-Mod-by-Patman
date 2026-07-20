@@ -75,12 +75,12 @@ Do note however, that there is no error checking for duplicate keys and only for
 | **LevelOfParallelism**           | --lp                        | [0, 6]                         | 0           | Controls the number of threads to create and the number of picture buffers to allocate (higher level means more parallelism). 0 means choose level based on machine core count. Refer to Appendix A.1 |
 | **PinnedExecution**              | --pin                       | [0-core count of the machine]  | 0           | Pin the execution to the first N cores. [0: no pinning, N: number of cores to pin to]. Refer to Appendix A.1  |
 | **TargetSocket**                 | --ss                        | [-1,1]                         | -1          | Specifies which socket to run on, assumes a max of two equally-sized sockets. Refer to Appendix A.1           |
-| **FastDecode**                   | --fast-decode               | [0,2]                          | 0           | Tune settings to output bitstreams that can be decoded faster, [0 = OFF, 1,2 = levels for decode-targeted optimization (2 yields faster decoder speed)]. Defaults to 5 temporal layers structure but may override with --hierarchical-levels |
+| **FastDecode**                   | --fast-decode               | [0-2]                          | 0           | Tune settings to output bitstreams that can be decoded faster, [0 = OFF, 1,2 = levels for decode-targeted optimization (2 yields faster decoder speed)]. Defaults to 5 temporal layers structure but may override with --hierarchical-levels |
 | **Tune**                         | --tune                      | [0-4]                          | 0           | Optimize the encoding process for different desired outcomes [0 = VQ, 1 = PSNR, 2 = SSIM, 3 = Subjective SSIM, 4 = Still Picture] |
 | **Sharpness**                    | --sharpness                 | [-14-14]                       | 2           | Bias towards block sharpness in rate-distortion optimization of transform coefficients                        |
 | **FrameLumaBias**                | --frame-luma-bias           | [0-100]                        | 0           | Adjusts frame-level QP based on average luminance across each frame                                           |
 | **AltSSIMTuning**                | --alt-ssim-tuning           | [0-1]                          | 0           | Enables the usage of VQ optimizations and an alternative SSIM calculation pathway (Only operates with tunes 2 & 4) |
-| **AdaptiveFilmGrain**            | --adaptive-film-grain       | [0,1]                          | 1           | Allows film grain synthesis to be sourced from different block sizes depending on resolution                  |
+| **AdaptiveFilmGrain**            | --adaptive-film-grain       | [0-1]                          | 0           | Allows film grain synthesis to be sourced from different block sizes depending on resolution                  |
 | **TemporalFilteringStrength**    | --tf-strength               | [0-4]                          | 1           | Manually adjust temporal filtering strength. Higher values = stronger temporal filtering                      |
 | **KeyframeTemporalFilteringStrength** | --kf-tf-strength       | [0-4]                          | 1           | Manually adjust temporal filtering strength for keyframes. Higher values = stronger temporal filtering        |
 | **AltTFDecay**                   |  --alt-tf-decay             | [0-1]                          | 0           | Apply Tune 0/3 alt-ref TF decay tweak to any tune, default is 0 [0: off (follows tune defaults), 1: on]       |
@@ -141,7 +141,7 @@ Try not to deviate too much from the default threshold, which is `16000` as of e
 | `--lineart-psy-bias` level | `1` | `2` | `3` | `4` | `5` | `6` | `7` | Note |
 | :-- | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :-- |
 | [global] `--scm 0` | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | Can be overridden |
-| [global] `--noise-level-thr` default to `20000` | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | Applied when `--crf [> 30.00]`; Can be overridden |
+| [global] `--noise-level-thr` default to `22600` | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | ◯ | Applied when `--crf [> 30.00]`; Can be overridden |
 | [pd] `--startup-mg-size` adjustment | ✕ | ✕ | ✕ | ✕ | ◯ | ◯ | ◯ | Can be overridden |
 | [me] `--psy-bias-disable-warped-motion 1` | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | Can be overridden |
 | [me] `--psy-bias-disable-me-8x8 1` | ✕ | ✕ | ◯ | ◯ | ◯ | ◯ | ◯ | Can be overridden |
@@ -292,8 +292,8 @@ Additionally, `--satd-bias 0.5` could potentially encourage the encoder to keep 
 | **Configuration file parameter** | **Command line**                 | **Range**  | **Default** | **Description**                                                                                                                                      |
 |----------------------------------|----------------------------------|------------|-------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **RateControlMode**              | --rc                             | [0-2]      | 0           | Rate control mode [0: CRF or CQP (if `--aq-mode` is 0) [Default], 1: VBR, 2: CBR]                                                                    |
-| **QP**                           | --qp                             | [1-63]     | 35          | Initial QP level value                                                                                                                               |
-| **CRF**                          | --crf                            | [1-70]     | 35          | Constant Rate Factor value, setting this value is equal to `--rc 0 --aq-mode 2 --qp x`, and can be set up in quarter-step increments                 |
+| **QP**                           | --qp                             | [1-63]     | 28          | Initial QP level value                                                                                                                               |
+| **CRF**                          | --crf                            | [1-70]     | 28          | Constant Rate Factor value, setting this value is equal to `--rc 0 --aq-mode 2 --qp x`, and can be set up in quarter-step increments                 |
 | **TargetBitRate**                | --tbr                            | [1-100000] | 2000        | Target Bitrate (kbps), only applicable for VBR and CBR encoding, also accepts `b`, `k`, and `m` suffixes                                             |
 | **MaxBitRate**                   | --mbr                            | [1-100000] | 0           | Maximum Bitrate (kbps) only applicable for CRF encoding, also accepts `b`, `k`, and `m` suffixes                                                     |
 | **UseQpFile**                    | --use-q-file                     | [0-1]      | 0           | Overwrite the encoder default picture based QP assignments and use QP values from `--qp-file`                                                        |
@@ -306,7 +306,7 @@ Additionally, `--satd-bias 0.5` could potentially encourage the encoder to keep 
 | **AdaptiveQuantization**         | --aq-mode                        | [0-2]      | 2           | Set adaptive QP level [0: off, 1: variance base using AV1 segments, 2: deltaq pred efficiency]                                                       |
 | **EnableAltCurve**               | --enable-alt-curve               | [0-1]      | 0           | Enable alternative variance boost curve                                                                                                              |
 | **LowQTaper**                    | --low-q-taper                    | [0-1]      | 0           | Avoid boosting macroblocks to extremely low q levels.                                                                                                |
-| **QpScaleCompressStrength**      | --qp-scale-compress-strength     | [0.0-8.0]  | 1.0         | Sets the strength the QP scale algorithm compresses values across all temporal layers, which results in more consistent video quality (less quality variation across frames in a mini-gop) [0.0: SVT-AV1 default, 1.0: SVT-AV1-PSY default, 0.0-3.0: recommended range, 0.0: default when `--balancing-q-bias 1` is selected] |
+| **QpScaleCompressStrength**      | --qp-scale-compress-strength     | [0.0-8.0]  | 1.0         | Sets the strength the QP scale algorithm compresses values across all temporal layers, which results in more consistent video quality (less quality variation across frames in a mini-gop) [0.0: SVT-AV1 default, 1.0: 5fish/SVT-AV1 default, 0.0-3.0: recommended range, 0.0: default when `--balancing-q-bias 1` is selected] |
 | **FilteringNoiseDetection**      | --filtering-noise-detection      | [0-4]      | 0           | Controls noise detection which disables CDEF/restoration when noise level is high enough, enabled by default on tunes 0 and 3 [0: default tune behavior, 1: on, 2: off, 3: on (CDEF only), 4: on (restoration only)] |
 | **AutoTiling**                   | --auto-tiling                    | [0-1]      | 0           | Automatically sets tiles appropriate for the source input resolution [0: off (manual), 1: on (automatic)]                                            |
 | **UseFixedQIndexOffsets**        | --use-fixed-qindex-offsets       | [0-2]      | 0           | Overwrite the encoder default hierarchical layer based QP assignment and use fixed Q index offsets                                                   |
@@ -453,16 +453,25 @@ SvtAv1EncApp -i in.y4m -b out.ivf --roi-map-file roi_map.txt
 
 | **Configuration file parameter** | **Command line**      | **Range**       | **Default**       | **Description**                                                                                                                                              |
 |----------------------------------|-----------------------|-----------------|-------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Keyint**                       | --keyint              | [-2-`(2^31)-1`] | -2                | GOP size (frames), use `s` suffix for seconds (SvtAv1EncApp only) [-2: ~10 seconds (up to 305 frames), -1: "infinite" only for CRF, 0: == -1]                |
-| **MinKeyint**                    | --min-keyint          | [-1-`(2^31)-1`] | -1                | Min GOP size (frames) when using `--scd` [-1: auto, 0: no minimum]                                                                                           |
+| **SceneChangeDetection**         | --scd                 | [0-1]           | 1                 | Scene change detection control [`--balancing-q-bias` flavoured scd when `--balancing-q-bias 1` is used] [Check GOP parameters reference below]               |
+| **Keyint**                       | --keyint              | [-2-`(2^31)-1`] | -2                | GOP size (frames) [-2: 257 frames, or 321 frames when `--balancing-q-bias 1` is used, -1: "infinite" only for CRF and setting `--scd 0`, 0: "infinite" only for CRF] [Check GOP parameters reference below] |
+| **MinKeyint**                    | --min-keyint          | [-1-`(2^31)-1`] | -1                | Min GOP size (frames) [-1: 33 frames, or 129 frames when `--balancing-q-bias 1` is used, 0: = 1]                                                             |
 | **IntraRefreshType**             | --irefresh-type       | [1-2]           | 2                 | Intra refresh type [1: FWD Frame (Open GOP), 2: KEY Frame (Closed GOP)]                                                                                      |
-| **SceneChangeDetection**         | --scd                 | [0-1]           | 0                 | Scene change detection control                                                                                                                               |
 | **Lookahead**                    | --lookahead           | [-1,0-120]      | -1                | Number of frames in the future to look ahead, beyond minigop, temporal filtering, and rate control [-1: auto]                                                |
 | **HierarchicalLevels**           | --hierarchical-levels | [2-5]           | <=M12:5 , else: 4 | Set hierarchical levels beyond the base layer [2: 3 temporal layers, 3: 4 temporal layers, 5: 6 temporal layers]                                             |
 | **PredStructure**                | --pred-struct         | [1-2]           | 2                 | Set prediction structure [1: low delay, 2: random access]                                                                                                    |
 | **ForceKeyFrames**               | --force-key-frames    | any string      | None              | Force key frames at the comma separated specifiers. `#f` for frames, `#.#s` for seconds                                                                      |
 | **EnableDg**                     | --enable-dg           | [0-1]           | 1                 | Enable Dynamic GoP. The algorithm changes the hierarchical structure based on the content                                                                    |
 | **StartupMgSize**                | --startup-mg-size     | [0, 2, 3, 4]    | 0                 | Specify another mini-gop configuration for the first mini-gop after the key-frame [0: OFF, 2: 3 temporal layers, 3: 4 temporal layers, 4: 5 temporal layers] |
+
+#### GOP parameters reference  
+
+Assuming `--lineart-psy-bias` and `--texture-psy-bias` is used:  
+
+* Default: Scene change detection enabled with 321 maximum GOP length and 129 minimum GOP length.  
+* `--keyint 0`: Scene change detection enabled with infinite maximum GOP length and 129 minimum GOP length.  
+* `--scd 0 --keyint 0`: Scene change detection disabled. Using infinite maximum GOP length. Suitable when used with external scene detection.  
+* `--keyint -1`: Scene change detection disabled. Using infinite maximum GOP length. Suitable when used with external scene detection.  
 
 ### AV1 Specific Options
 

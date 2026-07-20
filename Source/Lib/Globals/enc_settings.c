@@ -34,6 +34,21 @@
 #endif
 
 #define PRINT_CONFIG(label, fmt, ...) SVT_INFO("SVT [config]: %-52s : " fmt "\n", label, ##__VA_ARGS__)
+EbErrorType svt_av1_verify_balancing_q_bias(EbSvtAv1EncConfiguration *source_config, EbSvtAv1EncConfiguration *target_config) {
+    EbErrorType return_error = EB_ErrorNone;
+
+    if (source_config != target_config)
+        target_config->balancing_q_bias = source_config->balancing_q_bias;
+
+    if (target_config->balancing_q_bias == UINT8_DEFAULT) {
+        if (source_config->lineart_psy_bias >= 1.0 || source_config->texture_psy_bias >= 1.0)
+            target_config->balancing_q_bias = 1;
+        else
+            target_config->balancing_q_bias = 0;
+    }
+
+    return return_error;
+}
 
 EbErrorType svt_av1_verify_dlf_bias_max_min_dlf(EbSvtAv1EncConfiguration *source_config, EbSvtAv1EncConfiguration *target_config) {
     EbErrorType return_error = EB_ErrorNone;
@@ -292,7 +307,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         ((config->rate_control_mode != SVT_AV1_RC_MODE_VBR) || config->intra_period_length < 119)) {
         SVT_ERROR(
             "Instance %u: Gop constraint rc is only supported with VBR mode when Gop size is "
-            "greater than 119 \n",
+            "greater than 120 \n",
             channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
@@ -417,9 +432,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_ERROR("Instance %u: Hierarchical Levels supported [0-5]\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
-    if ((config->intra_period_length < -2 || config->intra_period_length > 2 * ((1 << 30) - 1)) &&
-        config->rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF) {
-        SVT_ERROR("Instance %u: The intra period must be [-2, 2^31-2]  \n", channel_number + 1);
+    if (config->scene_change_detection > 1) {
+        SVT_ERROR("Instance %u: Scene change detection must be [0-1]\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
     if ((config->intra_period_length < 0) && config->rate_control_mode == SVT_AV1_RC_MODE_VBR) {
@@ -428,10 +442,26 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
                   config->rate_control_mode);
         return_error = EB_ErrorBadParameter;
     }
-    if (config->intra_period_length >= 0 && config->min_intra_period_length > config->intra_period_length) {
+    if (config->intra_period_length < -1 || config->intra_period_length > 2 * ((1 << 30) - 1)) {
+        SVT_ERROR("Instance %u: The intra period must be [-2, 2^31-2]  \n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+    if (config->min_intra_period_length < 0 || config->min_intra_period_length > 2 * ((1 << 30) - 1)) {
+        SVT_ERROR("Instance %u: The minimum intra period must be [-1, 2^31-2]  \n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+    if (config->min_intra_period_length > config->intra_period_length && config->intra_period_length != -1) {
         SVT_ERROR("Instance %u: The minimum intra period must be lower than the maximum intra period. \n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
+    if (config->balancing_q_bias) {
+        if (config->intra_period_length % (1 << config->hierarchical_levels) != 0 && config->intra_period_length != -1)
+            SVT_WARN("Instance %u: The currently set keyint is vulnerable to random bad frames. It is only recommended to use keyint that is (N * 32) + 1 where N is a positive integer.\n", channel_number + 1);
+        if (config->min_intra_period_length % (1 << config->hierarchical_levels) != 0)
+            SVT_WARN("Instance %u: The currently set min-keyint is vulnerable to random bad frames. It is only recommended to use min-keyint that is (N * 32) + 1 where N is a positive integer.\n", channel_number + 1);
+    }
+    if (config->min_intra_period_length < (1 << config->hierarchical_levels) && config->min_intra_period_length != 0)
+        SVT_WARN("Instance %u: The currently set min-keyint might result in excessive keyframes, which will result in worse efficiency. It is only recommended to use min-keyint that is (N * 32) + 1 where N is a positive integer.\n", channel_number + 1);
 
     if (config->intra_refresh_type > 2 || config->intra_refresh_type < 1) {
         SVT_ERROR("Instance %u: Invalid intra Refresh Type [1-2]\n", channel_number + 1);
@@ -838,13 +868,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     }
     if (config->hierarchical_levels < 2 || config->hierarchical_levels > 5) {
         SVT_ERROR("Instance %u: Only hierarchical levels 2-5 is currently supported.\n", channel_number + 1);
-        return_error = EB_ErrorBadParameter;
-    }
-    if (config->rate_control_mode == SVT_AV1_RC_MODE_VBR && config->intra_period_length == -1) {
-        SVT_ERROR(
-            "Instance %u: keyint = -1 is not supported for modes other than CRF rate control "
-            "encoding modes.\n",
-            channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
     // Limit 8K & 16K configurations (due to memory constraints)
@@ -1355,7 +1378,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
 
     for (int i = 0; i < SVT_AV1_FRAME_UPDATE_TYPES; i++) config_ptr->lambda_scale_factors[i] = 128;
 
-    config_ptr->scene_change_detection       = 0;
+    config_ptr->scene_change_detection       = SCD_MODE_1;
     config_ptr->rate_control_mode            = SVT_AV1_RC_MODE_CQP_OR_CRF;
     config_ptr->look_ahead_distance          = (uint32_t)~0;
     config_ptr->enable_tpl_la                = 1;
@@ -1367,7 +1390,6 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->enc_mode                     = ENC_M4;
     config_ptr->intra_period_length          = -2;
     config_ptr->min_intra_period_length      = -1;
-    config_ptr->multiply_keyint              = FALSE;
     config_ptr->intra_refresh_type           = 2;
     config_ptr->hierarchical_levels          = 0;
     config_ptr->pred_structure               = SVT_AV1_PRED_RANDOM_ACCESS;
@@ -1478,7 +1500,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->frame_luma_bias                   = 0;
     config_ptr->luminance_qp_bias                 = 0; // alias for frame luma bias
     config_ptr->max_32_tx_size                    = FALSE;
-    config_ptr->adaptive_film_grain               = TRUE;
+    config_ptr->adaptive_film_grain               = FALSE;
     config_ptr->tf_strength                       = 1;
     config_ptr->kf_tf_strength                    = 1;
     config_ptr->noise_norm_strength               = UINT8_DEFAULT;
@@ -1490,8 +1512,8 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->tx_bias                           = 0;
     config_ptr->low_q_taper                       = 0;
     config_ptr->noise_level_thr                   = DEFAULT;
-    config_ptr->lineart_psy_bias                  = 0.0;
-    config_ptr->texture_psy_bias                  = 0.0;
+    config_ptr->lineart_psy_bias                  = DEFAULT;
+    config_ptr->texture_psy_bias                  = DEFAULT;
     config_ptr->noise_psy_bias                    = DEFAULT;
     config_ptr->lineart_psy_bias_easter_egg       = 0;
     config_ptr->texture_psy_bias_easter_egg       = 0;
@@ -1603,7 +1625,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                 : config->encoder_color_format == EB_YUV444 ? "YUV444"
                                                             : "unknown color format");
 
-        PRINT_CONFIG("preset / tune / pred struct", "%d / %s / %s",
+        PRINT_CONFIG("preset / tune / mini-GOP size / pred struct", "%d / %s%s / %d / %s",
                  config->enc_mode,
                  config->tune == 0       ? "VQ"
                      : config->tune == 1 ? "PSNR"
@@ -1611,6 +1633,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                              : config->tune == 3 ? "subjective SSIM"
                                              : "still picture",
                 (config->tune == 2 || config->tune == 3 || config->tune == 4) && config->alt_ssim_tuning ? " (alt)" : "",
+                 1 << config->hierarchical_levels,
                  config->pred_structure == 1       ? "low delay"
                      : config->pred_structure == 2 ? "random access"
                                                    : "unknown");
@@ -1619,29 +1642,34 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                      config->auto_tiling,
                      config->tile_columns,
                      config->tile_rows);
-        if (config->scene_change_detection == 1)
-            PRINT_CONFIG("max / min GOP size / mini-GOP size / type", "%d / %d / %d / %s",
-                     config->intra_period_length < 0 ? config->intra_period_length
-                        : config->intra_period_length + 1,
-                     config->min_intra_period_length < 0 ? config->min_intra_period_length
-                        : config->min_intra_period_length + 1,
-                     (1 << config->hierarchical_levels),
-                     config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH   ? "open GOP"
-                        : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "closed GOP"
-                                                                           : "unknown");
-        else if (config->intra_period_length == -1)
-            PRINT_CONFIG("GOP size / mini-GOP size / type", "inf / %d / %s",
-                     (1 << config->hierarchical_levels),
-                     config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH   ? "open GOP"
-                        : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "closed GOP"
-                                                                           : "unknown");
-        else
-            PRINT_CONFIG("GOP size / mini-GOP size / type", "%d / %d / %s",
-                     config->intra_period_length + 1,
-                     (1 << config->hierarchical_levels),
-                     config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH   ? "open GOP"
-                        : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "closed GOP"
-                                                                           : "unknown");
+        if (config->scene_change_detection) {
+            if (config->intra_period_length != -1)
+                PRINT_CONFIG("scd / max / min GOP size / refresh type", "on / %d / %d / %s",
+                         config->intra_period_length + 1,
+                         config->min_intra_period_length + 1,
+                         config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH   ? "open GOP"
+                            : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "closed GOP"
+                                                                               : "unknown");
+            else
+                PRINT_CONFIG("scd / max / min GOP size / refresh type", "on / inf / %d / %s",
+                         config->min_intra_period_length + 1,
+                         config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH   ? "open GOP"
+                            : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "closed GOP"
+                                                                               : "unknown");
+        }
+        else {
+            if (config->intra_period_length != -1)
+                PRINT_CONFIG("scd / max GOP size / refresh type", "off / %d / %s",
+                         config->intra_period_length + 1,
+                         config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH   ? "open GOP"
+                            : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "closed GOP"
+                                                                               : "unknown");
+            else
+                PRINT_CONFIG("scd / max GOP size / refresh type", "off / inf / %s",
+                         config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH   ? "open GOP"
+                            : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "closed GOP"
+                                                                               : "unknown");
+        }
 
         // Rate control
         switch (config->rate_control_mode) {
@@ -2287,58 +2315,6 @@ static EbErrorType str_to_crf(const char *nptr, EbSvtAv1EncConfiguration *config
     return EB_ErrorNone;
 }
 
-static EbErrorType str_to_keyint(const char *nptr, int32_t *out, Bool *multi) {
-    char      *suff;
-    const long keyint = strtol(nptr, &suff, 0);
-
-    if (keyint > INT32_MAX || keyint < -2)
-        return EB_ErrorBadParameter;
-
-    switch (*suff) {
-    case 's':
-        // signal we need to multiply keyint * frame_rate
-        *multi = TRUE;
-        *out   = keyint;
-        break;
-    case '\0':
-        *multi = FALSE;
-        *out   = keyint < 0 ? keyint : keyint - 1;
-        break;
-    default:
-        // else leave as untouched, we have an invalid keyint
-        SVT_ERROR("Invalid keyint value: %s\n", nptr);
-        return EB_ErrorBadParameter;
-    }
-
-    return EB_ErrorNone;
-}
-
-static EbErrorType str_to_min_keyint(const char *nptr, int32_t *out, Bool *multi) {
-    char      *suff;
-    const long min_keyint = strtol(nptr, &suff, 0);
-
-    if (min_keyint > INT32_MAX || min_keyint < -1)
-        return EB_ErrorBadParameter;
-
-    switch (*suff) {
-    case 's':
-        // signal we need to multiply min_keyint * frame_rate
-        *multi = TRUE;
-        *out   = min_keyint;
-        break;
-    case '\0':
-        *multi = FALSE;
-        *out   = min_keyint < 1 ? min_keyint : min_keyint - 1;
-        break;
-    default:
-        // else leave as untouched, we have an invalid min_keyint
-        SVT_ERROR("Invalid min-keyint value: %s\n", nptr);
-        return EB_ErrorBadParameter;
-    }
-
-    return EB_ErrorNone;
-}
-
 static EbErrorType str_to_bitrate(const char *nptr, uint32_t *out) {
     char        *suff;
     const double bitrate = strtod(nptr, &suff);
@@ -2897,12 +2873,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
 
     EbErrorType return_error = EB_ErrorBadParameter;
 
-    if (!strcmp(name, "keyint"))
-        return str_to_keyint(value, &config_struct->intra_period_length, &config_struct->multiply_keyint);
-
-    if (!strcmp(name, "min-keyint"))
-        return str_to_min_keyint(value, &config_struct->min_intra_period_length, &config_struct->multiply_keyint);
-
     if (!strcmp(name, "tbr"))
         return str_to_bitrate(value, &config_struct->target_bit_rate);
 
@@ -3172,6 +3142,8 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         const char *name;
         int32_t    *out;
     } int_opts[] = {
+        {"keyint", &config_struct->intra_period_length},
+        {"min-keyint", &config_struct->min_intra_period_length},
         {"key-frame-chroma-qindex-offset", &config_struct->key_frame_chroma_qindex_offset},
         {"key-frame-qindex-offset", &config_struct->key_frame_qindex_offset},
         {"luma-y-dc-qindex-offset", &config_struct->luma_y_dc_qindex_offset},
@@ -3185,8 +3157,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"enable-restoration", &config_struct->enable_restoration_filtering},
         {"enable-mfmv", &config_struct->enable_mfmv},
         {"psy-bias-sharpness-rounding", &config_struct->psy_bias_sharpness_rounding},
-        {"intra-period", &config_struct->intra_period_length},
-        {"min-keyint", &config_struct->min_intra_period_length},
         {"tile-rows", &config_struct->tile_rows},
         {"tile-columns", &config_struct->tile_columns},
         {"ss", &config_struct->target_socket},

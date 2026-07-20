@@ -7075,7 +7075,7 @@ static void set_tx_shortcut_ctrls(PictureControlSet *pcs, ModeDecisionContext *c
                "artifacts.");
 }
 
-// The levels of mds0_level has been changed in 5fish/SVT-AV1-PSY compared to mainline.
+// The levels of mds0_level has been changed in 5fish/SVT-AV1 compared to mainline.
 // Be careful when backporting.
 static void set_mds0_controls(ModeDecisionContext *ctx, uint8_t mds0_level, double psy_bias_mds0_sad) {
     Mds0Ctrls *ctrls = &ctx->mds0_ctrls;

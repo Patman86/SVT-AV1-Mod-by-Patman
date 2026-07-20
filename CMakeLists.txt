@@ -16,10 +16,34 @@ if("${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_BINARY_DIR}")
                     "Please use the Build folder or create your own.")
 endif()
 
-project(svt-av1 VERSION 2.3.0
-    LANGUAGES C CXX)
+# Version
 
-set(VERSION_TAG "-C")
+find_package(Git QUIET)
+if(Git_FOUND AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/.git")
+    execute_process(COMMAND
+        ${GIT_EXECUTABLE} -C ${CMAKE_CURRENT_LIST_DIR}
+            log -1
+            "--date=format:%y%m%d" "--format=2.3.%ad"
+        RESULT_VARIABLE git_log_status
+        OUTPUT_VARIABLE git_log_output
+        ERROR_VARIABLE git_log_error
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_STRIP_TRAILING_WHITESPACE)
+
+    if (git_log_status)
+        message(WARNING "Failure to get version from Git: ${git_log_error}")
+        set(VERSION_STRING 2.3.0)
+    else()
+        set(VERSION_STRING ${git_log_output})
+    endif()
+else()
+    message(WARNING "Failure to get version from Git: git not found or .git directory not found")
+    set(VERSION_STRING 2.3.0)
+endif()
+message(STATUS "Configured version: v${VERSION_STRING}")
+
+project(svt-av1 VERSION ${VERSION_STRING}
+    LANGUAGES C CXX)
 
 if(POLICY CMP0063)
   cmake_policy(SET CMP0063 NEW)

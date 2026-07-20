@@ -4131,10 +4131,12 @@ void  inject_palette_candidates(
 }
 static INLINE void eliminate_candidate_based_on_pme_me_results(ModeDecisionContext *ctx,
     uint8_t is_used_as_ref,
-    uint8_t *dc_cand_only_flag)
+    uint8_t *dc_cand_only_flag,
+    bool is_islice)
 {
     uint32_t th = is_used_as_ref ? 10 : 200;
-    if (ctx->updated_enable_pme || ctx->md_subpel_me_ctrls.enabled) {
+    if ((ctx->updated_enable_pme || ctx->md_subpel_me_ctrls.enabled) &&
+        !is_islice) { // in I_SLICE `ctx->md_me_dist` is not available.
         th = th * ctx->blk_geom->bheight * ctx->blk_geom->bwidth;
         const uint32_t best_me_distotion = MIN(ctx->md_pme_dist, ctx->md_me_dist);
         if (best_me_distotion < th) {
@@ -4249,7 +4251,8 @@ EbErrorType generate_md_stage_0_cand(
         (ctx->cand_reduction_ctrls.cand_elimination_ctrls.enabled == 2 && ctx->cand_elimination_acceptable))
         eliminate_candidate_based_on_pme_me_results(ctx,
             !pcs->ppcs->is_highest_layer,
-            &dc_cand_only_flag);
+            &dc_cand_only_flag,
+            slice_type == I_SLICE);
     //----------------------
     // Intra
      if (ctx->intra_ctrls.enable_intra) {

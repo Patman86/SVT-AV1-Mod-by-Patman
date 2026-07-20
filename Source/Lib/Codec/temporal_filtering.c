@@ -693,6 +693,18 @@ void svt_av1_calculate_decay_factor(uint32_t *tf_decay_factor_fp16, int32_t *n_d
     }
 }
 
+// Calculate TF shift based on 64x64 block error
+static uint8_t calculate_tf_shift_factor(MeContext* ctx) {
+    const uint64_t block_err = ctx->tf_64x64_block_error >> 12;
+    // This conditional may benefit from further refinement
+    if (block_err < LOW_ERROR_THRESHOLD) {
+        return 14;
+    } else if (block_err < MED_ERROR_THRESHOLD) {
+        return 13;
+    }
+    return 12; // Default value
+}
+
 // T[X] =  exp(-(X)/16)  for x in [0..7], step 1/16 values in Fixed Points shift 16
 static const int32_t expf_tab_fp16[] = {
     65536, 61565, 57835, 54331, 51039, 47947, 45042, 42313, 39749, 37341, 35078, 32953, 30957,
@@ -2945,26 +2957,10 @@ static EbErrorType produce_temporally_filtered_pic(
         /*
          * TF STRENGTH CALCULATION
          */
-        // Adaptively adjust TF strength based on 64x64 block error
-        const uint64_t block_err = ctx->tf_64x64_block_error >> 12;
-        // printf("Current block error: %lu\n", block_err);
-        uint8_t adaptive_tf_shift_factor;
-        // This conditional is experimental, & may be refined in the future
-        if (block_err < 200) {
-            adaptive_tf_shift_factor = 14;
-        } else if (block_err < 600) {
-            adaptive_tf_shift_factor = 13;
-        } else if (block_err < 1000) {
-            adaptive_tf_shift_factor = 13;
-        } else if (block_err < 2000) {
-            adaptive_tf_shift_factor = 13;
-        } else {
-            adaptive_tf_shift_factor = 12;
-        }
-        if (scs->static_config.enable_tf > 1) {
-            svt_av1_calculate_decay_factor(ctx->tf_decay_factor_fp16, &n_decay_fp10, q_decay_fp8, decay_control[C_U],
-                decay_control[C_V], const_0dot7_fp16, noise_levels_log1p_fp16, adaptive_tf_shift_factor, ctx->tf_chroma);
-        } else {
+        // Get frame update type for the current frame
+        const uint32_t frame_update_type = svt_aom_get_frame_update_type(centre_pcs->scs, centre_pcs);
+
+        if (scs->static_config.enable_tf == 1) {
             // tf_shift_factor is manually adjusted by the user via --tf-strength
             // 10 + (4 - 0) = 14 (8x weaker)
             // 10 + (4 - 1) = 13 (4x weaker, PSY default)
@@ -2979,8 +2975,6 @@ static EbErrorType produce_temporally_filtered_pic(
             // 10 + (4 - 3) = 11 (mainline default)
             // 10 + (4 - 4) = 10 (2x stronger)
             const uint8_t kf_tf_shift_factor = 10 + (4 - scs->static_config.kf_tf_strength);
-            // Get frame update type for the current frame
-            const uint32_t frame_update_type = svt_aom_get_frame_update_type(centre_pcs->scs, centre_pcs);
             // If we encounter a keyframe while we're using Tune 3, set the decay factor to 0
             // This is to prevent temporal filtering on keyframes
             if ((frame_update_type == SVT_AV1_KF_UPDATE && kf_tf_shift_factor == 14) || scs->static_config.enable_tf == 0) {
@@ -3142,26 +3136,59 @@ static EbErrorType produce_temporally_filtered_pic(
                         ctx,
                         input_picture_ptr_central); // source picture
 
+                    // 64x64 Sub-Pel search
+                    tf_64x64_sub_pel_search(
+                        centre_pcs,
+                        ctx,
+                        pcs_list[frame_index],
+                        list_input_picture_ptr[frame_index],
+                        pred,
+                        pred_16bit,
+                        stride_pred,
+                        src_center_ptr,
+                        altref_buffer_highbd_ptr,
+                        stride,
+                        (uint32_t)blk_col * BW,
+                        (uint32_t)blk_row * BH,
+                        ss_x,
+                        (ctx->tf_ctrls.use_8bit_subpel) ? EB_EIGHT_BIT : encoder_bit_depth);
+
+                    if (scs->static_config.enable_tf == 2) {
+                        uint8_t adaptive_tf_shift_factor = calculate_tf_shift_factor(ctx);
+                        assert(adaptive_tf_shift_factor <= 14);
+                        const uint8_t kf_tf_shift_factor = CLIP3(0, 14, adaptive_tf_shift_factor + 1);
+                        assert(kf_tf_shift_factor <= 14);
+
+                        if (frame_update_type == SVT_AV1_KF_UPDATE && kf_tf_shift_factor == 14) {
+                            ctx->tf_decay_factor_fp16[C_Y] = 0;
+                            ctx->tf_decay_factor_fp16[C_U] = 0;
+                            ctx->tf_decay_factor_fp16[C_V] = 0;
+                        } else if (frame_update_type == SVT_AV1_KF_UPDATE) {
+                            svt_av1_calculate_decay_factor(ctx->tf_decay_factor_fp16,
+                                                            &n_decay_fp10,
+                                                            q_decay_fp8,
+                                                            decay_control[C_U],
+                                                            decay_control[C_V],
+                                                            const_0dot7_fp16,
+                                                            noise_levels_log1p_fp16,
+                                                            kf_tf_shift_factor,
+                                                            ctx->tf_chroma);
+                        } else {
+                            svt_av1_calculate_decay_factor(ctx->tf_decay_factor_fp16,
+                                                            &n_decay_fp10,
+                                                            q_decay_fp8,
+                                                            decay_control[C_U],
+                                                            decay_control[C_V],
+                                                            const_0dot7_fp16,
+                                                            noise_levels_log1p_fp16,
+                                                            adaptive_tf_shift_factor,
+                                                            ctx->tf_chroma);
+                        }
+                    }
 
                     if (ctx->tf_use_pred_64x64_only_th &&
                         (ctx->tf_use_pred_64x64_only_th == (uint8_t)~0 ||
                          tf_use_64x64_pred(ctx))) {
-                        tf_64x64_sub_pel_search(
-                            centre_pcs,
-                            ctx,
-                            pcs_list[frame_index],
-                            list_input_picture_ptr[frame_index],
-                            pred,
-                            pred_16bit,
-                            stride_pred,
-                            src_center_ptr,
-                            altref_buffer_highbd_ptr,
-                            stride,
-                            (uint32_t)blk_col * BW,
-                            (uint32_t)blk_row * BH,
-                            ss_x,
-                            (ctx->tf_ctrls.use_8bit_subpel) ? EB_EIGHT_BIT : encoder_bit_depth);
-
                         // Perform MC using the information acquired using the ME step
                         tf_64x64_inter_prediction(centre_pcs,
                                                   ctx,
@@ -3183,23 +3210,6 @@ static EbErrorType produce_temporally_filtered_pic(
                                 is_highbd);
                     }
                     else {
-                        // 64x64 Sub-Pel search
-                        tf_64x64_sub_pel_search(
-                            centre_pcs,
-                            ctx,
-                            pcs_list[frame_index],
-                            list_input_picture_ptr[frame_index],
-                            pred,
-                            pred_16bit,
-                            stride_pred,
-                            src_center_ptr,
-                            altref_buffer_highbd_ptr,
-                            stride,
-                            (uint32_t)blk_col* BW,
-                            (uint32_t)blk_row* BH,
-                            ss_x,
-                            (ctx->tf_ctrls.use_8bit_subpel) ? EB_EIGHT_BIT : encoder_bit_depth);
-
                         // 32x32 Sub-Pel search
                         for (int block_row = 0; block_row < 2; block_row++) {
                             for (int block_col = 0; block_col < 2; block_col++) {

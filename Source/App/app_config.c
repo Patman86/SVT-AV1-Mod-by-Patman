@@ -90,7 +90,6 @@
 #define HIERARCHICAL_LEVELS_TOKEN "--hierarchical-levels" // no Eval
 #define PRED_STRUCT_TOKEN "--pred-struct"
 #define PROFILE_TOKEN "--profile"
-#define INTRA_PERIOD_TOKEN "--intra-period"
 #define TIER_TOKEN "--tier"
 #define LEVEL_TOKEN "--level"
 #define FILM_GRAIN_TOKEN "--film-grain"
@@ -1068,13 +1067,11 @@ ConfigEntry config_entry_2p[] = {
 ConfigEntry config_entry_intra_refresh[] = {
     {SINGLE_INPUT,
      KEYINT_TOKEN,
-     "GOP size (frames), default is -2 [-2: ~10 seconds (up to 305 frames), -1: \"infinite\" and only applicable for "
-     "CRF, 0: same as -1]",
+     "GOP size (frames), default is -2 [-2: 257 frames, -1: \"infinite\" only for CRF and setting `--scd 0`, 0: \"infinite\" only for CRF]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
      MIN_KEYINT_TOKEN,
-     "Min GOP size (frames), default is -1 [-1: multiple of the mini-gop length (automatic), "
-     "0: no minimum]",
+     "Min GOP size (frames), default is -1 [-1: 33 frames, 0: no minimum]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
      INTRA_REFRESH_TYPE_TOKEN,
@@ -1379,7 +1376,7 @@ ConfigEntry config_entry_psy[] = {
     // Adaptive film grain
     {SINGLE_INPUT,
      ADAPTIVE_FILM_GRAIN_TOKEN,
-     "[PSY] Adapts film grain blocksize based on video resolution, default is 1 [0-1]",
+     "[PSY] Adapts film grain blocksize based on video resolution, default is 0 [0-1]",
      set_cfg_generic_token},
     // Temporal filtering strength
     {SINGLE_INPUT,
@@ -1715,7 +1712,6 @@ ConfigEntry config_entry[] = {
     {SINGLE_INPUT, PASSES_TOKEN, "Passes", set_passes},
 
     // GOP size and type Options
-    {SINGLE_INPUT, INTRA_PERIOD_TOKEN, "IntraPeriod", set_cfg_generic_token},
     {SINGLE_INPUT, KEYINT_TOKEN, "Keyint", set_cfg_generic_token},
     {SINGLE_INPUT, MIN_KEYINT_TOKEN, "MinKeyint", set_cfg_generic_token},
     {SINGLE_INPUT, INTRA_REFRESH_TYPE_TOKEN, "IntraRefreshType", set_cfg_generic_token},
@@ -2441,16 +2437,7 @@ int get_version(int argc, char *argv[]) {
 #endif
     if (find_token(argc, argv, VERSION_TOKEN, NULL))
         return 0;
-    printf("SVT-AV1-PSY [5fish:main] %s (%s)\n", svt_av1_get_version(), debug_build ? "release" : "debug");
-#if defined(_WIN64) || defined(_MSC_VER) || defined(_WIN32)
-    printf("PSY Release: %s\n", svt_psy_get_version());
-#else
-    if (strcmp(svt_psy_get_version(), "N/A")) {
-        printf("PSY Release: \x1b[32m%s\x1b[0m\n", svt_psy_get_version());
-    } else {
-        printf("PSY Release: \x1b[38;5;248m%s\x1b[0m\n", svt_psy_get_version());
-    }
-#endif
+    printf("SVT-AV1 [5fish] %s (%s)\n", svt_av1_get_version(), debug_build ? "release" : "debug");
     return 1;
 }
 
@@ -2860,36 +2847,6 @@ uint32_t get_passes(int32_t argc, char *const argv[], EncPass enc_pass[MAX_ENC_P
         }
     }
 
-    if (!find_token(argc, argv, INTRA_PERIOD_TOKEN, NULL) && !find_token(argc, argv, KEYINT_TOKEN, NULL)) {
-        fprintf(stderr,
-                "[SVT-Warning]: --keyint and --intra-period specified, --keyint will take "
-                "precedence!\n");
-    }
-
-    if (find_token(argc, argv, INTRA_PERIOD_TOKEN, config_string) == 0 ||
-        find_token(argc, argv, KEYINT_TOKEN, config_string) == 0) {
-        const bool               is_keyint  = find_token(argc, argv, KEYINT_TOKEN, NULL) == 0;
-        const int                max_keyint = 2 * ((1 << 30) - 1);
-        int                      ip         = -1;
-        EbSvtAv1EncConfiguration c;
-        c.multiply_keyint = false;
-
-        svt_av1_enc_parse_parameter(&c, is_keyint ? "keyint" : "intra-period", config_string);
-        // temporarily set intraperiod to the max if we are using seconds based keyint
-        // we don't know the fps at this point, so we can't get the actual keyint at this point
-        ip = c.multiply_keyint && c.intra_period_length > 0 ? max_keyint : c.intra_period_length;
-        if (!is_keyint)
-            fputs("[SVT-Warning]: --intra-period is deprecated for --keyint\n", stderr);
-        if ((ip < -2 || ip > max_keyint) && rc_mode == 0) {
-            fprintf(stderr, "[SVT-Error]: The intra period must be [-2, 2^31-2], input %d\n", ip);
-            return 0;
-        }
-        if ((ip < 0) && rc_mode == 1) {
-            fprintf(stderr, "[SVT-Error]: The intra period must be > 0 for RateControlMode %d \n", rc_mode);
-            return 0;
-        }
-    }
-
     if (find_token(argc, argv, PASSES_TOKEN, config_string) == 0) {
         if (str_to_int(PASSES_TOKEN, config_string, &passes))
             return 0;
@@ -3001,7 +2958,6 @@ static Bool warn_legacy_token(const char *const token) {
         {"-bit-depth", INPUT_DEPTH_TOKEN},
         {"-enc-mode", PRESET_TOKEN},
         {"-hdr", HDR_INPUT_NEW_TOKEN},
-        {"-intra-period", KEYINT_TOKEN},
         {"-lad", LOOKAHEAD_NEW_TOKEN},
         {"-mfmv", MFMV_ENABLE_NEW_TOKEN},
         {"-qp-file", QP_FILE_NEW_TOKEN},

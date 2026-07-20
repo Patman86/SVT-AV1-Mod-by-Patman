@@ -2468,63 +2468,78 @@ EB_API EbErrorType svt_av1_enc_deinit_handle(
     return EB_ErrorInvalidComponent;
 }
 
-// Sets the default intra period the closest possible to 10 seconds without breaking the minigop
+// Why so complex?
+// // Sets the default intra period the closest possible to 10 seconds without breaking the minigop
 static int32_t compute_default_intra_period(
-    SequenceControlSet       *scs){
-    int32_t intra_period               = 0;
-    EbSvtAv1EncConfiguration   *config = &scs->static_config;
-    double fps                         = (double)scs->frame_rate / (1 << 16);
-    int32_t mini_gop_size              = (1 << (config->hierarchical_levels));
+    SequenceControlSet       *scs,
+    uint8_t                   balancing_q_bias){
+    // int32_t intra_period               = 0;
+    // EbSvtAv1EncConfiguration   *config = &scs->static_config;
+    // double fps                         = (double)scs->frame_rate / (1 << 16);
+    // int32_t mini_gop_size              = (1 << (config->hierarchical_levels));
 
-    // If mini_gop_size = 32, pretend that the minigop size is 16 instead
-    // The calculated intra period will result in either one of these outcomes:
-    // - intra_period is mod 16: every minigop will be 32 except the very last one (i.e. 16)
-    // - intra_period is mod 32: every minigop will be 32 including the very last one
-    if (mini_gop_size == 32) {
-        mini_gop_size = 16;
-    }
+    // // If mini_gop_size = 32, pretend that the minigop size is 16 instead
+    // // The calculated intra period will result in either one of these outcomes:
+    // // - intra_period is mod 16: every minigop will be 32 except the very last one (i.e. 16)
+    // // - intra_period is mod 32: every minigop will be 32 including the very last one
+    // if (mini_gop_size == 32) {
+    //     mini_gop_size = 16;
+    // }
 
-    /* Use a 10-sec GOP by default (SVT-AV1-PSY) */
-    intra_period                       = (((int)(fps * 10 + mini_gop_size - 1) / mini_gop_size) * (mini_gop_size));
+    // /* Use a 10-sec GOP by default (inherited from -PSY) */
+    // intra_period                       = (((int)(fps * 10 + mini_gop_size - 1) / mini_gop_size) * (mini_gop_size));
 
-    // Cap intra period to the nearest one that has at least 300 frames that doesn't break the minigop
-    // (to avoid gops that are too big and could cause seeking issues with some players)
-    if (intra_period > 300) {
-        if (mini_gop_size >= 8) {
-            intra_period = 304;
-        } else {
-            // if mini_gop_size <= 4, 300 will result in complete minigops
-            intra_period = 300;
-        }
-    }
+    // // Cap intra period to the nearest one that has at least 300 frames that doesn't break the minigop
+    // // (to avoid gops that are too big and could cause seeking issues with some players)
+    // if (intra_period > 300) {
+    //     if (mini_gop_size >= 8) {
+    //         intra_period = 304;
+    //     } else {
+    //         // if mini_gop_size <= 4, 300 will result in complete minigops
+    //         intra_period = 300;
+    //     }
+    // }
 
-    if (config->intra_refresh_type == 1)
-        intra_period -= 1;
+    // if (config->intra_refresh_type == 1)
+    //     intra_period -= 1;
 
-    return intra_period;
+    // return intra_period;
+
+    UNUSED(scs);
+    if (balancing_q_bias)
+        return 320;
+    else
+        return 256;
 }
 
 static int32_t compute_default_min_intra_period(
-    SequenceControlSet       *scs){
-    int32_t min_intra_period           = 0;
-    EbSvtAv1EncConfiguration   *config = &scs->static_config;
-    double fps                         = (double)scs->frame_rate / (1 << 16);
-    int32_t mini_gop_size              = (1 << (config->hierarchical_levels));
+    SequenceControlSet       *scs,
+    uint8_t                   balancing_q_bias){
+    // int32_t min_intra_period           = 0;
+    // EbSvtAv1EncConfiguration   *config = &scs->static_config;
+    // double fps                         = (double)scs->frame_rate / (1 << 16);
+    // int32_t mini_gop_size              = (1 << (config->hierarchical_levels));
 
-    // If mini_gop_size = 32, pretend that the minigop size is 16 instead
-    // The calculated intra period will result in either one of these outcomes:
-    // - intra_period is mod 16: every minigop will be 32 except the very last one (i.e. 16)
-    // - intra_period is mod 32: every minigop will be 32 including the very last one
-    if (mini_gop_size == 32) {
-        mini_gop_size = 16;
-    }
+    // // If mini_gop_size = 32, pretend that the minigop size is 16 instead
+    // // The calculated intra period will result in either one of these outcomes:
+    // // - intra_period is mod 16: every minigop will be 32 except the very last one (i.e. 16)
+    // // - intra_period is mod 32: every minigop will be 32 including the very last one
+    // if (mini_gop_size == 32) {
+    //     mini_gop_size = 16;
+    // }
 
-    min_intra_period                   = (((int)(fps + mini_gop_size - 1) / mini_gop_size) * (mini_gop_size));
+    // min_intra_period                   = (((int)(fps + mini_gop_size - 1) / mini_gop_size) * (mini_gop_size));
 
-    if (config->intra_refresh_type == 1)
-        min_intra_period -= 1;
+    // if (config->intra_refresh_type == 1)
+    //     min_intra_period -= 1;
 
-    return min_intra_period;
+    // return min_intra_period;
+
+    UNUSED(scs);
+    if (balancing_q_bias)
+        return 128;
+    else
+        return 32;
 }
 
 /*
@@ -3973,22 +3988,14 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     }
 
     // `-psy-bias`s RC
-    if (scs->static_config.balancing_q_bias == UINT8_DEFAULT) {
-        if ((scs->static_config.lineart_psy_bias >= 1.0) || (scs->static_config.texture_psy_bias >= 1.0))
-            scs->static_config.balancing_q_bias = 1;
-    }
+    svt_av1_verify_balancing_q_bias(&scs->static_config, &scs->static_config);
 
-    if (scs->static_config.qp_scale_compress_strength == DEFAULT &&
-        scs->static_config.balancing_q_bias == UINT8_DEFAULT) {
-        scs->static_config.qp_scale_compress_strength = 1.0;
-        scs->static_config.balancing_q_bias = 0;
+    if (scs->static_config.qp_scale_compress_strength == DEFAULT) {
+        if (scs->static_config.balancing_q_bias)
+            scs->static_config.qp_scale_compress_strength = 0.0;
+        else
+            scs->static_config.qp_scale_compress_strength = 1.0;
     }
-    else if (scs->static_config.qp_scale_compress_strength != DEFAULT &&
-             scs->static_config.balancing_q_bias == UINT8_DEFAULT)
-        scs->static_config.balancing_q_bias = 0;
-    else if (scs->static_config.qp_scale_compress_strength == DEFAULT &&
-             scs->static_config.balancing_q_bias != UINT8_DEFAULT)
-        scs->static_config.qp_scale_compress_strength = 0.0;
 
     if (scs->static_config.balancing_q_bias && scs->static_config.qp_scale_compress_strength)
         SVT_WARN("balancing-q-bias is intended to replace qp-scale-compress-strength and not intended to be used together\n");
@@ -4532,10 +4539,6 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     if (scs->static_config.encoder_bit_depth < 10)
         scs->enable_hbd_mode_decision = 0;
 
-    // Throws a warning when scene change is on, as the feature is not optimal and may produce false detections
-    if (scs->static_config.scene_change_detection == 1)
-        SVT_WARN("SCD has been optimized on SVT-AV1-Essential defaults. Accuracy cannot be guaranteed on 5fish/SVT-AV1-PSY.\n");
-
     // MRP level
     uint8_t mrp_level;
 
@@ -4645,7 +4648,6 @@ static void copy_api_from_app(
     scs->b64_size = 64;
     scs->static_config.intra_period_length = ((EbSvtAv1EncConfiguration*)config_struct)->intra_period_length;
     scs->static_config.min_intra_period_length = ((EbSvtAv1EncConfiguration*)config_struct)->min_intra_period_length;
-    scs->static_config.multiply_keyint = config_struct->multiply_keyint;
     scs->static_config.intra_refresh_type = ((EbSvtAv1EncConfiguration*)config_struct)->intra_refresh_type;
     scs->static_config.enc_mode = ((EbSvtAv1EncConfiguration*)config_struct)->enc_mode;
     if (scs->static_config.enc_mode > ENC_M11) {
@@ -4774,19 +4776,16 @@ static void copy_api_from_app(
 
     // Rate Control
     scs->static_config.scene_change_detection = ((EbSvtAv1EncConfiguration*)config_struct)->scene_change_detection;
-    if (scs->static_config.scene_change_detection) {
-        if (config_struct->intra_period_length > 0 || config_struct->intra_period_length == -2)
-            scs->static_config.scene_change_detection = 1;
-        else {
-            scs->static_config.scene_change_detection = 0;
-            SVT_WARN("Keyint is too short or infinite! SCD has been disabled.\n");
-        }
-    }
-    if (!scs->static_config.scene_change_detection) {
-        if (config_struct->min_intra_period_length > 0)
-            SVT_WARN("Min keyint has been set to 0 as SCD is disabled.\n");
+    if (scs->static_config.intra_period_length == -1)
+        scs->static_config.scene_change_detection = SCD_MODE_0;
+    else if (scs->static_config.intra_period_length == 0)
+        scs->static_config.intra_period_length = -1;
+    else if (scs->static_config.intra_period_length > 0)
+        scs->static_config.intra_period_length--;
+    if (!scs->static_config.scene_change_detection)
         scs->static_config.min_intra_period_length = 0;
-    }
+    if (scs->static_config.min_intra_period_length > 0)
+        scs->static_config.min_intra_period_length--;
     scs->static_config.rate_control_mode = ((EbSvtAv1EncConfiguration*)config_struct)->rate_control_mode;
     if (scs->static_config.pass == ENC_SINGLE_PASS && scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) {
 
@@ -4814,6 +4813,14 @@ static void copy_api_from_app(
     // `-psy-bias`
     scs->static_config.lineart_psy_bias = config_struct->lineart_psy_bias;
     scs->static_config.texture_psy_bias = config_struct->texture_psy_bias;
+    if (scs->static_config.lineart_psy_bias == DEFAULT && scs->static_config.texture_psy_bias == DEFAULT) {
+        scs->static_config.lineart_psy_bias = 0.0;
+        scs->static_config.texture_psy_bias = 0.0;
+    }
+    else if (scs->static_config.lineart_psy_bias == DEFAULT)
+        scs->static_config.lineart_psy_bias = AOMMIN(scs->static_config.texture_psy_bias, 2);
+    else if (scs->static_config.texture_psy_bias == DEFAULT)
+        scs->static_config.texture_psy_bias = AOMMIN(scs->static_config.lineart_psy_bias, 2);
     scs->static_config.noise_psy_bias = config_struct->noise_psy_bias;
     scs->static_config.lineart_psy_bias_easter_egg = config_struct->lineart_psy_bias_easter_egg;
     scs->static_config.texture_psy_bias_easter_egg = config_struct->texture_psy_bias_easter_egg;
@@ -4963,18 +4970,12 @@ static void copy_api_from_app(
     if (scs->static_config.frame_rate_numerator != 0 && scs->static_config.frame_rate_denominator != 0)
         scs->frame_rate = ((scs->static_config.frame_rate_numerator << 8) / (scs->static_config.frame_rate_denominator)) << 8;
     // Get Default Intra Period if not specified
+    EbSvtAv1EncConfiguration balancing_q_bias_dummy;
+    svt_av1_verify_balancing_q_bias(&scs->static_config, &balancing_q_bias_dummy);
     if (scs->static_config.intra_period_length == -2)
-        scs->static_config.intra_period_length = compute_default_intra_period(scs);
-    else if (scs->static_config.multiply_keyint) {
-        const double fps = (double)scs->static_config.frame_rate_numerator /
-            scs->static_config.frame_rate_denominator;
-        scs->static_config.intra_period_length =
-            (int32_t)(fps * scs->static_config.intra_period_length);
-    }
+        scs->static_config.intra_period_length = compute_default_intra_period(scs, balancing_q_bias_dummy.balancing_q_bias);
     if (scs->static_config.min_intra_period_length == -1)
-        scs->static_config.min_intra_period_length = compute_default_min_intra_period(scs);
-    else if (scs->static_config.scene_change_detection && scs->static_config.min_intra_period_length < (1 << scs->static_config.hierarchical_levels))
-        SVT_WARN("A higher min-keyint is recommended to avoid excessive keyframe placement.\n");
+        scs->static_config.min_intra_period_length = compute_default_min_intra_period(scs, balancing_q_bias_dummy.balancing_q_bias);
     if (scs->static_config.look_ahead_distance == (uint32_t)~0)
         scs->static_config.look_ahead_distance = compute_default_look_ahead(&scs->static_config);
     scs->static_config.enable_tf = config_struct->enable_tf;
@@ -5183,6 +5184,32 @@ EB_API EbErrorType svt_av1_enc_set_parameter(
 
     if (return_error == EB_ErrorBadParameter)
         return EB_ErrorBadParameter;
+
+    // Signal initial_display_delay in the sequence header for hierarchical coding.
+    // With hierarchical B-frames, the encoder bundles multiple non-displayable reference
+    // frames into a single temporal unit (TU). The decoder must process all frames in a
+    // TU before displaying the first frame. Without this signal, players may start audio
+    // playback before video is ready after a seek, causing A/V desync — especially
+    // noticeable with hierarchical_levels >= 4 where the TU can contain 5-6 coded frames.
+    //
+    // Per AV1 spec section 6.4.1: initial_display_delay is "the number of decoded frames
+    // that should be present in the buffer pool before the first presentable frame is
+    // displayed." For the TU-based output of SVT-AV1, this equals hierarchical_levels + 1
+    // (the base layer frame + all intermediate reference frames that must be decoded
+    // before the first leaf frame is displayable).
+    if (!enc_handle->scs_instance_array[instance_index]->scs->seq_header.reduced_still_picture_header) {
+        uint8_t hierarchical_levels = enc_handle->scs_instance_array[instance_index]->scs->static_config.hierarchical_levels;
+        // The display delay equals the number of frames in the first non-keyframe TU:
+        // one frame per temporal layer (layers 0 through hierarchical_levels-1 are
+        // non-displayable, layer hierarchical_levels is displayable), so the decoder
+        // must buffer hierarchical_levels + 1 frames before first display.
+        // Capped at 10 per AV1 spec (4 bits, max value 10).
+        uint8_t display_delay = AOMMIN(hierarchical_levels + 1, 10);
+
+        enc_handle->scs_instance_array[instance_index]->scs->seq_header.initial_display_delay_present_flag                           = 1;
+        enc_handle->scs_instance_array[instance_index]->scs->seq_header.operating_point[0].initial_display_delay_present_for_this_op = 1;
+        enc_handle->scs_instance_array[instance_index]->scs->seq_header.operating_point[0].initial_display_delay                     = display_delay;
+    }
 
     set_param_based_on_input(
         enc_handle->scs_instance_array[instance_index]->scs);
@@ -6210,15 +6237,13 @@ EB_API const char *svt_av1_get_version(void) {
     return SVT_AV1_CVS_VERSION;
 }
 
-EB_API const char *svt_psy_get_version(void) {
-    return SVT_AV1_PSY_RELEASE;
-}
-
 EB_API void svt_av1_print_version(void) {
     SVT_INFO("-------------------------------------------\n");
-    SVT_INFO("SVT [version]: SVT-AV1-PSY [5fish:main] %s\n", SVT_AV1_CVS_VERSION);
+    SVT_INFO("SVT [version]: SVT-AV1 [5fish] %s\n", SVT_AV1_CVS_VERSION);
     const char *compiler =
 #if defined(__clang__) && defined(__apple_build_version__)
+    "Apple LLVM " CONVERT_TO_STR_COMPILE_TIME(__clang_major__) "." CONVERT_TO_STR_COMPILE_TIME(__clang_minor__) "." CONVERT_TO_STR_COMPILE_TIME(__clang_patchlevel__)
+#elif defined(__clang__) && defined(__INTEL_LLVM_COMPILER)
     __VERSION__
 #elif defined(__clang__)
     "Clang " CONVERT_TO_STR_COMPILE_TIME(__clang_major__) "." CONVERT_TO_STR_COMPILE_TIME(__clang_minor__) "." CONVERT_TO_STR_COMPILE_TIME(__clang_patchlevel__)
@@ -6239,10 +6264,9 @@ EB_API void svt_av1_print_version(void) {
 #endif
     ;
 #if !REPRODUCIBLE_BUILDS
-    SVT_INFO("SVT [build]  : %s %zu bit / %s %s\n", compiler, sizeof(void*) * 8,
-             __DATE__, __TIME__);
+    SVT_INFO("SVT [build]  : %s / %06d\n", compiler, PF_BUILD_DATE);
 #else
-    SVT_INFO("SVT [build]  : %s %zu bit\n", compiler, sizeof(void*) * 8);
+    SVT_INFO("SVT [build]  : %s\n", compiler);
 #endif
     SVT_INFO("-------------------------------------------\n");
 }

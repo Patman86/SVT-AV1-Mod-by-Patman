@@ -98,6 +98,9 @@
 #define THRES_DIFF_LOW 6000
 #define THRES_DIFF_HIGH 12000
 
+#define LOW_ERROR_THRESHOLD 200
+#define MED_ERROR_THRESHOLD 2000
+
 #define OD_DIVU_DMAX (1024)
 #ifdef __cplusplus
 extern "C" {

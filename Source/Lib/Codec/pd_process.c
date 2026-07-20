@@ -285,7 +285,24 @@ static Bool scene_transition_detector(
     uint32_t  is_abrupt_change_count = 0;
     uint32_t  is_scene_change_count = 0;
 
-    uint32_t  region_count_threshold = (uint32_t)(((float)((scs->picture_analysis_number_of_regions_per_width * scs->picture_analysis_number_of_regions_per_height) * 50) / 100) + 0.5);
+    uint8_t   region_count_threshold_base;
+    if (scs->static_config.balancing_q_bias) {
+        if (scs->enc_ctx->intra_period_position % 32 == 0)
+            region_count_threshold_base = 45;
+        else if (scs->enc_ctx->intra_period_position % 16 == 0)
+            region_count_threshold_base = 47;
+        else if (scs->enc_ctx->intra_period_position % 8 == 0)
+            region_count_threshold_base = 50;
+        else if (scs->enc_ctx->intra_period_position % 4 == 0)
+            region_count_threshold_base = 54;
+        else if (scs->enc_ctx->intra_period_position % 2 == 0)
+            region_count_threshold_base = 59;
+        else
+            region_count_threshold_base = 65;
+    }
+    else
+        region_count_threshold_base = 50;
+    uint32_t  region_count_threshold = (uint32_t)(((float)((scs->picture_analysis_number_of_regions_per_width * scs->picture_analysis_number_of_regions_per_height) * region_count_threshold_base) / 100) + 0.5);
 
     region_width = parent_pcs_window[1]->enhanced_pic->width / scs->picture_analysis_number_of_regions_per_width;
     region_height = parent_pcs_window[1]->enhanced_pic->height / scs->picture_analysis_number_of_regions_per_height;
@@ -361,6 +378,8 @@ static Bool scene_transition_detector(
     }
 
     pd_ctx->reset_running_avg = is_abrupt_change_count >= region_count_threshold;
+    // if (is_scene_change_count >= region_count_threshold)
+    //     fprintf(stderr, "%llu / base %u\n", current_pcs_ptr->picture_number, region_count_threshold_base);
     return is_scene_change_count >= region_count_threshold;
 }
 /***************************************************************************************************
@@ -2788,7 +2807,7 @@ static int32_t get_noise_level_thr(PictureParentControlSet *pcs, PictureDecision
     int32_t default_noise_level_thr;
     if ((pcs->scs->static_config.qp << 2) + pcs->scs->static_config.extended_crf_qindex_offset > 120 && // --crf 30.00
         pcs->scs->static_config.lineart_psy_bias >= 2.0)
-        default_noise_level_thr = 20000;
+        default_noise_level_thr = 22600;
     else
         default_noise_level_thr = VQ_NOISE_LVL_TH;
 
@@ -4650,37 +4669,35 @@ void* svt_aom_picture_decision_kernel(void *input_ptr) {
                 pcs->cra_flag = TRUE;
             // If an #IntraPeriodLength has passed since the last Intra, then introduce a CRA or IDR based on Intra Refresh type
             else if (scs->static_config.intra_period_length != -1) {
-
                 pcs->cra_flag =
                     (scs->static_config.intra_refresh_type != SVT_AV1_FWDKF_REFRESH) ?
                     pcs->cra_flag :
                     enc_ctx->intra_period_position == (uint32_t)scs->static_config.intra_period_length ?
                     TRUE :
                     pcs->cra_flag;
-
                 pcs->idr_flag =
                     (scs->static_config.intra_refresh_type != SVT_AV1_KF_REFRESH) ?
                     pcs->idr_flag :
                     enc_ctx->intra_period_position == (uint32_t)scs->static_config.intra_period_length ?
-
                     TRUE :
                     pcs->idr_flag;
             }
-            pcs->idr_flag =
-                (scs->static_config.intra_refresh_type != SVT_AV1_KF_REFRESH) ?
-                pcs->idr_flag :
-                (pcs->input_ptr->pic_type == EB_AV1_KEY_PICTURE) ?
-                TRUE :
-                pcs->idr_flag;
-            // Enforce minimum keyframe distance ctx->is_scene_change_detected  && enc_ctx->intra_period_position > 1
+            // Enforce minimum keyframe distance
             if (scs->static_config.min_intra_period_length > 0 && pcs->picture_number != 0) {
-                if ((pcs->idr_flag || pcs->cra_flag) && (enc_ctx->intra_period_position < (uint32_t)scs->static_config.min_intra_period_length)) {
+                if (enc_ctx->intra_period_position < (uint32_t)scs->static_config.min_intra_period_length) {
                     // Too soon to place another keyframe
                     pcs->idr_flag = FALSE;
                     pcs->cra_flag = FALSE;
                     // SVT_LOG("\nToo soon to place another idr keyframe at %d, ipp = %d\n", pcs->picture_number, enc_ctx->intra_period_position);
                 }
             }
+
+            pcs->idr_flag =
+                (scs->static_config.intra_refresh_type != SVT_AV1_KF_REFRESH) ?
+                pcs->idr_flag :
+                (pcs->input_ptr->pic_type == EB_AV1_KEY_PICTURE) ?
+                TRUE :
+                pcs->idr_flag;
             enc_ctx->pre_assignment_buffer_eos_flag = (pcs->end_of_sequence_flag) ? (uint32_t)TRUE : enc_ctx->pre_assignment_buffer_eos_flag;
             // if (pcs->idr_flag)
             //     SVT_LOG("\nKEYFRAME: Frame %d marked as keyframe (IDR)\n", pcs->picture_number);

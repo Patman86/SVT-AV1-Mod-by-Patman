@@ -338,7 +338,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * 8 = 8 bit.
      * 10 = 10 bit.
      *
-     * Default is 10 for SVT-AV1-PSY, mainline default is 8. */
+     * Default is 10 for 5fish/SVT-AV1 (inherited from -PSY), mainline default is 8. */
     uint32_t encoder_bit_depth;
 
     /**
@@ -632,7 +632,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     * @brief Determines how much denoising is used.
     * Only applicable when film grain is ON.
     *
-    * 0 is no denoising (default in SVT-AV1-PSY)
+    * 0 is no denoising (default in 5fish/SVT-AV1, inherited from -PSY)
     * 1 is full denoising
     *
     * Default is 0. */
@@ -658,7 +658,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
 
     /* Flag to enable the scene change detection algorithm.
      *
-     * Default is 0. */
+     * Default is 1. */
     uint32_t scene_change_detection;
 
     /**
@@ -720,7 +720,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     /**
      * @brief Tune for a particular metric; 0: VQ, 1: PSNR, 2: SSIM, 3: Subjective SSIM, 4: Still Picture.
      *
-     * Default is 0 for 5fish/SVT-AV1-PSY.
+     * Default is 0 for 5fish/SVT-AV1.
      * In original SVT-AV1-PSY v2.3.0-B it was 2. In mainline SVT-AV1 it is 1.
      */
     uint8_t tune;
@@ -824,12 +824,6 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      */
     Bool force_key_frames;
 
-    /**
-     * @brief Signal to the library to treat intra_period_length as seconds and
-     * multiply by fps_num/fps_den.
-     */
-    Bool multiply_keyint;
-
     // reference scaling parameters
     /**
      * @brief Reference scaling mode
@@ -851,7 +845,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
     /**
      * @brief Signal to the library to enable quantisation matrices
      *
-     * Default is true in SVT-AV1-PSY.
+     * Default is true in 5fish/SVT-AV1 (inherited from -PSY).
      */
     Bool enable_qm;
     /**
@@ -949,7 +943,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * @brief Variance boost
      * false = disable variance boost
      * true = enable variance boost
-     * Default is true in SVT-AV1-PSY.
+     * Default is true in 5fish/SVT-AV1 (inherited from -PSY).
      */
     uint8_t enable_variance_boost;
 
@@ -1031,7 +1025,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      *  - 8x8 for <4k
      *  - 16x16 for 4k
      *  - 32x32 for 8k+
-     * Default is 1.
+     * Default is 0 for 5fish/SVT-AV1.
      */
     Bool adaptive_film_grain;
 
@@ -1384,16 +1378,10 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
 // _Static_assert(sizeof(EbSvtAv1EncConfiguration) == 640, "Unexpected size of EbSvtAv1EncConfiguration");
 
 /**
- * Returns a string containing "v$tag-$commit_count-g$hash${dirty:+-dirty}"
+ * Returns a string containing "v2.3.YYMMDD"
  * @param[out] SVT_AV1_CVS_VERSION
  */
 EB_API const char *svt_av1_get_version(void);
-
-/**
- * Returns a string containing only the SVT-AV1-PSY micro-release letter
- * @param[out] SVT_AV1_PSY_RELEASE
- */
-EB_API const char *svt_psy_get_version(void);
 
 /**
  * Prints the version header and build information to the file

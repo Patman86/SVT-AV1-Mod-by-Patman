@@ -12,7 +12,7 @@ fi
 # set (in/ex)clusions using $@
 set -- \
     ':/' \
-    ':!Config/ExampleFilmGrainTable.tbl' \
+    ':!Docs/Config/ExampleFilmGrainTable.tbl' \
     ':!*.patch' \
     ':!third_party' \
     ':!test/e2e_test/test_vector_list.txt' \

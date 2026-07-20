@@ -71,7 +71,7 @@ The sample application typically takes the following command line parameters:
 `-c filename` **[Optional]**
 
 A text file that contains encoder parameters such as input file name,
-quantization parameter etc. Refer to the comments in the Config/Sample.cfg for
+quantization parameter etc. Refer to the comments in Docs/Config/Sample.cfg for
 specific details. The list of encoder parameters are also listed below. Note
 that command line parameters take precedence over the parameters included in
 the configuration file when there is a conflict.

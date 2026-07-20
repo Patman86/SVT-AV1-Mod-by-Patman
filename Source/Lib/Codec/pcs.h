@@ -376,7 +376,7 @@ typedef struct PictureControlSet {
     uint8_t md_sq_mv_search_level;
     uint8_t md_nsq_mv_search_level;
     uint8_t md_pme_level;
-    // The levels of mds0_level has been changed in 5fish/SVT-AV1-PSY compared to mainline.
+    // The levels of mds0_level has been changed in 5fish/SVT-AV1 compared to mainline.
     // Be careful when backporting.
     uint8_t mds0_level;
     uint8_t pic_disallow_4x4; // disallow 4x4 at pic level

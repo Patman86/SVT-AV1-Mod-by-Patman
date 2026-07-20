@@ -19,12 +19,13 @@
 /**************************************
  * Defines
  **************************************/
-#define DEFAULT_QP 35
+#define DEFAULT_QP 28
 // Have an unusual magic number to reduce probablity of user using them
 #define DEFAULT_TBR 2000513
 
 void svt_av1_print_lib_params(SequenceControlSet* scs);
 
+EbErrorType svt_av1_verify_balancing_q_bias(EbSvtAv1EncConfiguration *source_config, EbSvtAv1EncConfiguration *target_config);
 EbErrorType svt_av1_verify_dlf_bias_max_min_dlf(EbSvtAv1EncConfiguration *source_config, EbSvtAv1EncConfiguration *target_config);
 EbErrorType svt_av1_verify_cdef_bias_max_min_cdef(EbSvtAv1EncConfiguration *source_config, EbSvtAv1EncConfiguration *target_config);
 
