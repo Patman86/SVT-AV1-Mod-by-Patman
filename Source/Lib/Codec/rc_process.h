@@ -105,9 +105,6 @@ typedef struct {
     uint8_t      resize_denom;
 } ResizePendingParams;
 
-EbErrorType svt_aom_rate_control_coded_frames_stats_context_ctor(coded_frames_stats_entry* entry_ptr,
-                                                                 uint64_t                  picture_number);
-
 typedef struct RATE_CONTROL {
     int     last_boosted_qindex; // Last boosted GF/KF/ARF q
     int     gfu_boost;
@@ -117,6 +114,7 @@ typedef struct RATE_CONTROL {
     int     constrained_gf_group;
     int     frames_to_key;
     int     frames_since_key;
+    int     frames_since_cdf_update;
     int     this_key_frame_forced;
     int     avg_frame_bandwidth; // Average frame size target for clip
     int     max_frame_bandwidth; // Maximum burst rate allowed for a frame.
@@ -169,6 +167,7 @@ typedef struct RATE_CONTROL {
     int64_t gf_group_bits;
     // Rate Control stat Queue
     coded_frames_stats_entry** coded_frames_stat_queue;
+    coded_frames_stats_entry*  coded_frames_stat_pool; // backs coded_frames_stat_queue[] with one allocation
     uint32_t                   coded_frames_stat_queue_head_index;
 
 #if DEBUG_RC_CAP_LOG
@@ -192,11 +191,12 @@ typedef struct RATE_CONTROL {
     // RTC CBR
     int    mini_qop_size;
     int    min_ref_base_q_idx;
+    int    rc_mini_gop_pos; // RC virtual mini-GoP position (0..mini_qop_size-1)
+    int    rc_num_layers; // RC virtual layer count, independent of encoder pred structure
     double target_size_factors[1 + MAX_TEMPORAL_LAYERS];
 
-    // Rate correction factors for RTC CBR are tracked per pred_struct_index
-    // because besides layer index the position in minigop affect compression too
-    double rcf_values[1 + MAX_MINIGOP_SIZE]; // RCF per frame in mini-gop
+    // Rate correction factors for RTC CBR are tracked per RC virtual mini-GoP position
+    double rcf_values[1 + MAX_MINIGOP_SIZE]; // RCF per position in RC virtual mini-gop
     double rcf_kalman_P[1 + MAX_MINIGOP_SIZE]; // estimation variance per layer
     double rcf_kalman_R[1 + MAX_MINIGOP_SIZE]; // adaptive measurement noise per layer
 } RATE_CONTROL;
@@ -260,6 +260,11 @@ void svt_av1_rc_process_rate_allocation(struct PictureControlSet* pcs, struct Se
 void svt_av1_rc_calc_qindex_rate_control(struct PictureControlSet* pcs, struct SequenceControlSet* scs);
 void svt_av1_rc_postencode_update_gop_const(struct PictureParentControlSet* ppcs);
 void svt_av1_rc_postencode_update(struct PictureParentControlSet* ppcs);
+
+// Dynamic resolution resize decision; shared by the low-delay VBR/CBR path
+// (svt_aom_one_pass_rt_rate_alloc) and the RTC-CBR path (svt_av1_rc_calc_qindex_rtc_cbr).
+// Caller must have verified resize_mode==RESIZE_DYNAMIC && single-pass && LOW_DELAY.
+void svt_aom_dynamic_resize_decision(struct PictureParentControlSet* pcs);
 
 // RTC CBR
 void svt_av1_rc_calc_qindex_rtc_cbr(struct PictureControlSet* pcs);

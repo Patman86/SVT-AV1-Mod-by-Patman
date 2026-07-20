@@ -164,21 +164,8 @@ void svt_av1_setup_skip_mode_allowed(PictureParentControlSet* pcs) {
     }
 }
 
-uint8_t circ_inc(uint8_t max, uint8_t off, uint8_t input) {
-    input++;
-    if (input >= max) {
-        input = 0;
-    }
-
-    if (off == 2) {
-        input++;
-        if (input >= max) {
-            input = 0;
-        }
-    }
-
-    return input;
-}
+#define CIRC_INC(val, start, end) (((int)(val + 1) > (int)(end)) ? (start) : (val) + 1)
+#define CIRC_DEC(val, start, end) ((((int)val - 1) < (int)(start)) ? (end) : (val) - 1)
 
 #define FLASH_TH 5
 #define FADE_TH 3
@@ -499,7 +486,7 @@ static void early_hme_b64(uint8_t* sixteenth_b64_buffer, uint32_t sixteenth_b64_
 
     return;
 }
-#if OPT_MRP_HME_L0_DETECT
+
 // Compute the total HME-L0 SAD between ppcs (current frame, 1/16 DS) and ref_sixt_ds_pic.
 // Used to compare reference quality before deciding to prune weaker L0 refs.
 uint64_t mrp_detector_hme_level0(PictureParentControlSet* ppcs, EbPictureBufferDesc* ref_sixt_ds_pic) {
@@ -541,7 +528,6 @@ uint64_t mrp_detector_hme_level0(PictureParentControlSet* ppcs, EbPictureBufferD
 
     return tot_dist;
 }
-#endif
 
 void dg_detector_hme_level0(PictureParentControlSet* ppcs, uint32_t seg_idx) {
     EbPictureBufferDesc* src_sixt_ds_pic =
@@ -1279,7 +1265,7 @@ uint8_t svt_aom_ref_mgmt_storeable_slots_mask(const SequenceControlSet* scs) {
     // slot would let the Phase-3 guard freeze a slot the toggle still rotates
     // through, silently dropping a live ref out of the window. Restrict STORE to
     // the top 4 so it never interferes with the regular sliding-window refs.
-    if (scs->use_flat_ipp) {
+    if (scs->static_config.rtc && scs->static_config.hierarchical_levels == 0) {
         return 0xF0u;
     }
     if (scs->static_config.pred_structure == LOW_DELAY && scs->static_config.hierarchical_levels >= 1) {
@@ -1400,7 +1386,7 @@ static void apply_ref_mgmt_events(PictureParentControlSet* pcs, PictureDecisionC
                       (unsigned long)pcs->picture_number);
             events_ok = false;
         } else {
-            const bool is_base = pcs->scs->use_flat_ipp || pcs->temporal_layer_index == 0;
+            const bool is_base = pcs->temporal_layer_index == 0;
             if (!is_base) {
                 SVT_ERROR("Ref-frame mgmt: ignoring events on non-base frame poc=%lu temporal_layer=%u\n",
                           (unsigned long)pcs->picture_number,
@@ -1793,16 +1779,10 @@ bool svt_aom_is_pic_used_as_ref(uint32_t hierarchical_levels, uint32_t temporal_
     }
 
     switch (hierarchical_levels) {
-#if OPT_USE_HL0_FLAT
     case 0:
         return true;
     case 1:
         return referencing_scheme == 0 ? false : true;
-#else
-    case 0:
-    case 1:
-        return true;
-#endif
     case 2:
         return referencing_scheme == 0 ? false : referencing_scheme == 1 ? true : (picture_index == 0);
     case 3:
@@ -1830,10 +1810,7 @@ static void set_ref_list_counts(PictureParentControlSet* pcs, PictureDecisionCon
 
     Av1RpsNode*           av1_rps   = &pcs->av1_ref_signal;
     const MrpCtrls* const mrp_ctrls = &pcs->scs->mrp_ctrls;
-    const bool            is_base   = pcs->temporal_layer_index == 0;
-#if !TUNE_SIMPLIFY_SETTINGS
-    const bool is_sc = pcs->sc_class1;
-#endif
+    const bool            is_base   = frame_is_boosted(pcs);
 
     // Get list0 count
     uint8_t list0_count   = 1;
@@ -1866,15 +1843,8 @@ static void set_ref_list_counts(PictureParentControlSet* pcs, PictureDecisionCon
             list0_count++;
         }
     }
-#if TUNE_SIMPLIFY_SETTINGS
     pcs->ref_list0_count = MIN(list0_count,
                                (is_base ? mrp_ctrls->base_ref_list0_count : mrp_ctrls->non_base_ref_list0_count));
-#else
-    pcs->ref_list0_count = MIN(
-        list0_count,
-        is_sc ? (is_base ? mrp_ctrls->sc_base_ref_list0_count : mrp_ctrls->sc_non_base_ref_list0_count)
-              : (is_base ? mrp_ctrls->base_ref_list0_count : mrp_ctrls->non_base_ref_list0_count));
-#endif
     assert(pcs->ref_list0_count);
 
     if (svt_aom_is_incomp_mg_frame(pcs) || pcs->is_overlay) {
@@ -1924,19 +1894,8 @@ static void set_ref_list_counts(PictureParentControlSet* pcs, PictureDecisionCon
             list1_count++;
         }
     }
-#if TUNE_SIMPLIFY_SETTINGS
     pcs->ref_list1_count = MIN(list1_count,
                                (is_base ? mrp_ctrls->base_ref_list1_count : mrp_ctrls->non_base_ref_list1_count));
-#else
-    pcs->ref_list1_count = MIN(
-        list1_count,
-        is_sc ? (is_base ? mrp_ctrls->sc_base_ref_list1_count : mrp_ctrls->sc_non_base_ref_list1_count)
-              : (is_base ? mrp_ctrls->base_ref_list1_count : mrp_ctrls->non_base_ref_list1_count));
-#endif
-#if !OPT_USE_HL0_FLAT
-    // Old assert fails when M13 uses non-zero mrp
-    assert(!(pcs->ref_list1_count == 0 && pcs->scs->static_config.pred_structure == RANDOM_ACCESS));
-#endif
 }
 
 static INLINE void update_ref_poc_array(uint8_t* ref_dpb_idx, uint64_t* ref_poc_array, DpbEntry* dpb) {
@@ -1957,18 +1916,16 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
     const uint8_t       hierarchical_levels = pcs->hierarchical_levels;
     const uint8_t       temporal_layer      = pcs->temporal_layer_index;
     const uint8_t       more_5L_refs        = pcs->scs->mrp_ctrls.more_5L_refs;
+
     if (scs->allintra) {
         pcs->is_ref = false;
     } else {
-        pcs->is_ref = scs->use_flat_ipp
-            ? true
-            : svt_aom_is_pic_used_as_ref(
-                  hierarchical_levels, temporal_layer, pic_idx, scs->mrp_ctrls.referencing_scheme, pcs->is_overlay);
+        pcs->is_ref = svt_aom_is_pic_used_as_ref(
+            hierarchical_levels, temporal_layer, pic_idx, scs->mrp_ctrls.referencing_scheme, pcs->is_overlay);
     }
 
     //Set frame type
     if (pcs->slice_type == I_SLICE) {
-        frm_hdr->frame_type                    = pcs->idr_flag ? KEY_FRAME : INTRA_ONLY_FRAME;
         pcs->av1_ref_signal.refresh_frame_mask = 0xFF;
 #if DEBUG_SFRAME
         fprintf(stderr, "\nFrame %d - key frame\n", (int)pcs->picture_number);
@@ -1985,8 +1942,6 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
             return;
         }
     } else {
-        frm_hdr->frame_type = INTER_FRAME;
-
         // test s-frame on base layer inter frames
         if (enc_ctx->sf_cfg.sframe_dist > 0 || scs->static_config.sframe_posi.sframe_posis) {
             set_sframe_type(pcs, enc_ctx, ctx);
@@ -1996,16 +1951,16 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
     uint8_t*  ref_dpb_index = av1_rps->ref_dpb_index;
     uint64_t* ref_poc_array = av1_rps->ref_poc_array;
 
-    if (scs->use_flat_ipp) {
+    if (scs->static_config.rtc && hierarchical_levels == 0) {
         const uint8_t max_refs = scs->mrp_ctrls.flat_max_refs;
-        assert(max_refs <= 4);
+        assert(IMPLIES(scs->static_config.hierarchical_levels == 0, max_refs <= 4));
         uint8_t lay0_toggle = ctx->lay0_toggle;
 
         // Use up to 4 previous frames as refs
-        const uint8_t pic0_idx = QUEUE_GET_PREVIOUS_SPOT(lay0_toggle, max_refs); // newest pic
-        const uint8_t pic1_idx = QUEUE_GET_PREVIOUS_SPOT(pic0_idx, max_refs);
-        const uint8_t pic2_idx = QUEUE_GET_PREVIOUS_SPOT(pic1_idx, max_refs);
-        const uint8_t pic3_idx = QUEUE_GET_PREVIOUS_SPOT(pic2_idx, max_refs);
+        const uint8_t pic0_idx = lay0_toggle; // newest pic
+        const uint8_t pic1_idx = CIRC_DEC(pic0_idx, 0, max_refs - 1);
+        const uint8_t pic2_idx = CIRC_DEC(pic1_idx, 0, max_refs - 1);
+        const uint8_t pic3_idx = CIRC_DEC(pic2_idx, 0, max_refs - 1);
 
         // Only use the previous frames as ref
         ref_dpb_index[LAST]  = pic0_idx;
@@ -2017,13 +1972,13 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         ref_dpb_index[ALT2] = ref_dpb_index[LAST];
         ref_dpb_index[ALT]  = ref_dpb_index[LAST];
 
+        //Layer0 toggle 0->1->2->3
+        ctx->lay0_toggle = CIRC_INC(ctx->lay0_toggle, 0, max_refs - 1);
         // Only max_refs DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
         av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle | (0xf0);
         for (int i = 3; i >= max_refs; i--) {
             av1_rps->refresh_frame_mask |= 1 << i;
         }
-        //Layer0 toggle 0->1->2->3
-        ctx->lay0_toggle = circ_inc(max_refs, 1, ctx->lay0_toggle);
 
         update_ref_poc_array(ref_dpb_index, ref_poc_array, ctx->dpb);
         set_ref_list_counts(pcs, ctx);
@@ -2035,24 +1990,18 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         uint8_t lay1_toggle = ctx->lay1_toggle; // lay1 toggle is for all non-base pics in LD
 
         // For LD, the prediction structure is generally the previous 3 non-base frames + the previous 3 base frames + 1 long-term ref
-        const uint8_t base0_idx = lay0_toggle == 0 ? 0 : lay0_toggle == 1 ? 1 : 2; //the oldest L0 picture in the DPB
-        const uint8_t base1_idx = lay0_toggle == 0 ? 1 : lay0_toggle == 1 ? 2 : 0; //the middle L0 picture in the DPB
-        const uint8_t base2_idx = scs->mrp_ctrls.ld_reduce_ref_buffs ? 0
-            : lay0_toggle == 0                                       ? 2
-            : lay0_toggle == 1                                       ? 0
-                                                                     : 1; //the newest L0 picture in the DPB
+        const uint8_t base2_idx = lay0_toggle; // the newest L0 picture in the DPB
+        const uint8_t base1_idx = CIRC_DEC(base2_idx, 0, 2); // the middle L0 picture in the DPB
+        const uint8_t base0_idx = CIRC_DEC(base1_idx, 0, 2); // the oldest L0 picture in the DPB
 
-        const uint8_t  lay1_offset   = scs->mrp_ctrls.ld_reduce_ref_buffs == 0 ? LAY1_OFF : 1;
-        const uint8_t  lay1_0_idx    = lay1_toggle == 0 ? lay1_offset + 0
-                : lay1_toggle == 1                      ? lay1_offset + 1
-                                                        : lay1_offset + 2; //the oldest L1/2 picture in the DPB
-        const uint8_t  lay1_1_idx    = lay1_toggle == 0 ? lay1_offset + 1
-                : lay1_toggle == 1                      ? lay1_offset + 2
-                                                        : lay1_offset + 0; //the middle L1/2 picture in the DPB
-        const uint8_t  lay1_2_idx    = scs->mrp_ctrls.ld_reduce_ref_buffs == 2 ? 1
-                : lay1_toggle == 0                                             ? lay1_offset + 2
-                : lay1_toggle == 1                                             ? lay1_offset + 0
-                                   : lay1_offset + 1; //the newest L1/2 picture in the DPB
+        const uint8_t lay1_offset = scs->mrp_ctrls.ld_reduce_ref_buffs == 0 ? LAY1_OFF : 1;
+        const uint8_t lay1_2_idx  = scs->mrp_ctrls.ld_reduce_ref_buffs == 2
+             ? 1
+             : lay1_offset + lay1_toggle; // the newest L1/2 picture in the DPB
+        const uint8_t lay1_1_idx  = CIRC_DEC(
+            lay1_2_idx, lay1_offset, lay1_offset + 2); // the middle L1/2 picture in the DPB
+        const uint8_t lay1_0_idx = CIRC_DEC(
+            lay1_1_idx, lay1_offset, lay1_offset + 2); // the oldest L1/2 picture in the DPB
         const uint8_t  long_base_idx = 7;
         const uint16_t long_base_pic = 128;
 
@@ -2060,14 +2009,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
 
         const MrpCtrls* const mrp_ctrls = &pcs->scs->mrp_ctrls;
         const bool            is_base   = temporal_layer == 0;
-#if TUNE_SIMPLIFY_SETTINGS
         uint8_t ref_list1_count = is_base ? mrp_ctrls->base_ref_list1_count : mrp_ctrls->non_base_ref_list1_count;
-#else
-        const bool is_sc           = pcs->sc_class1;
-        uint8_t    ref_list1_count = is_sc
-               ? (is_base ? mrp_ctrls->sc_base_ref_list1_count : mrp_ctrls->sc_non_base_ref_list1_count)
-               : (is_base ? mrp_ctrls->base_ref_list1_count : mrp_ctrls->non_base_ref_list1_count);
-#endif
 
         const uint8_t lay1_pic_idx = (hierarchical_levels == 0) ? 0 : ((1 << (hierarchical_levels - 1)) - 1);
         // When list1 is not used, the pics after the layer 1 pic should use the layer 1 pic as ref instead of previous base
@@ -2088,18 +2030,18 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 // Only 4 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
                 av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle | (0xf0);
             } else {
-                av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
                 //Layer0 toggle 0->1->2
-                ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
+                ctx->lay0_toggle            = CIRC_INC(ctx->lay0_toggle, 0, 2);
+                av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
             }
         } else {
             if (pcs->is_ref) {
                 if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
                     av1_rps->refresh_frame_mask = 1 << 1;
                 } else {
-                    av1_rps->refresh_frame_mask = 1 << (lay1_offset + ctx->lay1_toggle);
                     //Layer1 toggle 0->1->2
-                    ctx->lay1_toggle = circ_inc(3, 1, ctx->lay1_toggle);
+                    ctx->lay1_toggle            = CIRC_INC(ctx->lay1_toggle, 0, 2);
+                    av1_rps->refresh_frame_mask = 1 << (lay1_offset + ctx->lay1_toggle);
                 }
             } else {
                 av1_rps->refresh_frame_mask = 0;
@@ -2126,23 +2068,18 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         uint8_t lay0_toggle = ctx->lay0_toggle;
         uint8_t lay1_toggle = ctx->lay1_toggle;
 
-        const uint8_t base0_idx = lay0_toggle == 0 ? 0 : lay0_toggle == 1 ? 1 : 2; //the oldest L0 picture in the DPB
-        const uint8_t base1_idx = lay0_toggle == 0 ? 1 : lay0_toggle == 1 ? 2 : 0; //the middle L0 picture in the DPB
-        const uint8_t base2_idx = scs->mrp_ctrls.ld_reduce_ref_buffs == 2 ? 0
-            : lay0_toggle == 0                                            ? 2
-            : lay0_toggle == 1                                            ? 0
-                                                                          : 1; //the newest L0 picture in the DPB
+        const uint8_t base2_idx = lay0_toggle; //the newest L0 picture in the DPB
+        const uint8_t base1_idx = CIRC_DEC(base2_idx, 0, 2); //the middle L0 picture in the DPB
+        const uint8_t base0_idx = CIRC_DEC(base1_idx, 0, 2); //the oldest L0 picture in the DPB
 
-        const uint8_t  lay1_0_idx = lay1_toggle == 0 ? LAY1_OFF + 0 : LAY1_OFF + 1; //the oldest L1 picture in the DPB
-        const uint8_t  lay1_1_idx = scs->mrp_ctrls.ld_reduce_ref_buffs == 2 ? 1
-             : scs->mrp_ctrls.ld_reduce_ref_buffs == 1                      ? LAY1_OFF
-             : lay1_toggle == 0                                             ? LAY1_OFF + 1
-                                : LAY1_OFF + 0; //the newest L1 picture in the DPB
-        const uint8_t  lay2_idx   = LAY2_OFF; //the newest L2 picture in the DPB
+        const uint8_t  lay1_1_idx    = scs->mrp_ctrls.ld_reduce_ref_buffs == 2 ? !lay0_toggle
+                : scs->mrp_ctrls.ld_reduce_ref_buffs == 1                      ? LAY1_OFF
+                                                          : LAY1_OFF + lay1_toggle; //the newest L1 picture in the DPB
+        const uint8_t  lay1_0_idx    = CIRC_DEC(lay1_1_idx, LAY1_OFF, LAY1_OFF + 1); //the oldest L1 picture in the DPB
+        const uint8_t  lay2_idx      = LAY2_OFF; //the newest L2 picture in the DPB
         const uint8_t  long_base_idx = 7;
         const uint16_t long_base_pic = 128;
 
-#if OPT_USE_HL0_FLAT
         if (hierarchical_levels == 1) {
             switch (temporal_layer) {
             case 0:
@@ -2159,14 +2096,14 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                     // Only 2 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
                     av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle | (0xfc);
                 } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
+                    //Layer0 toggle 0->1->2
+                    ctx->lay0_toggle = CIRC_INC(ctx->lay0_toggle, 0, 2);
                     // Only 5 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
                     av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle | (0xf0);
-                    //Layer0 toggle 0->1->2
-                    ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
                 } else {
-                    av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
                     //Layer0 toggle 0->1->2
-                    ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
+                    ctx->lay0_toggle            = CIRC_INC(ctx->lay0_toggle, 0, 2);
+                    av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
                 }
                 break;
             case 1:
@@ -2182,18 +2119,20 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 av1_rps->refresh_frame_mask = 0;
                 if (pcs->is_ref) {
                     if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
-                        av1_rps->refresh_frame_mask = 1 << 1;
+                        // Only 2 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
+                        av1_rps->refresh_frame_mask = 1 << (!ctx->lay0_toggle) | (0xfc);
                     } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
-                        av1_rps->refresh_frame_mask = 1 << LAY1_OFF;
+                        // Only 5 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
+                        av1_rps->refresh_frame_mask = 1 << LAY1_OFF | (0xf0);
                     } else {
+                        // Layer1 toggle 0->1
+                        ctx->lay1_toggle            = 1 - ctx->lay1_toggle;
                         av1_rps->refresh_frame_mask = 1 << (LAY1_OFF + ctx->lay1_toggle);
-                        // Layer1 toggle 3->4
-                        ctx->lay1_toggle = 1 - ctx->lay1_toggle;
                     }
                 }
                 break;
             default:
-                SVT_ERROR("unexpected picture mini Gop number\n");
+                SVT_ERROR("Unexpected temporal_layer - RPS for LD CBR HL1\n");
                 break;
             }
         } else {
@@ -2214,14 +2153,14 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                     // Only 2 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
                     av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle | (0xfc);
                 } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
+                    //Layer0 toggle 0->1->2
+                    ctx->lay0_toggle = CIRC_INC(ctx->lay0_toggle, 0, 2);
                     // Only 5 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
                     av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle | (0xf0);
-                    //Layer0 toggle 0->1->2
-                    ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
                 } else {
-                    av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
                     //Layer0 toggle 0->1->2
-                    ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
+                    ctx->lay0_toggle            = CIRC_INC(ctx->lay0_toggle, 0, 2);
+                    av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
                 }
                 break;
 
@@ -2236,13 +2175,15 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT]  = ref_dpb_index[LAST];
 
                 if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
-                    av1_rps->refresh_frame_mask = 1 << 1;
+                    // Only 2 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
+                    av1_rps->refresh_frame_mask = 1 << (!ctx->lay0_toggle) | (0xfc);
                 } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
-                    av1_rps->refresh_frame_mask = 1 << LAY1_OFF;
+                    // Only 5 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
+                    av1_rps->refresh_frame_mask = 1 << LAY1_OFF | (0xf0);
                 } else {
+                    // Layer1 toggle 0->1
+                    ctx->lay1_toggle            = 1 - ctx->lay1_toggle;
                     av1_rps->refresh_frame_mask = 1 << (LAY1_OFF + ctx->lay1_toggle);
-                    // Layer1 toggle 3->4
-                    ctx->lay1_toggle = 1 - ctx->lay1_toggle;
                 }
                 break;
 
@@ -2266,7 +2207,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                     ref_dpb_index[ALT2] = ref_dpb_index[LAST];
                     ref_dpb_index[ALT]  = ref_dpb_index[LAST];
                 } else {
-                    SVT_LOG("Error in GOp indexing\n");
+                    SVT_LOG("Error in MG indexing - LD CBR HL2\n");
                 }
 
                 assert(IMPLIES(scs->mrp_ctrls.ld_reduce_ref_buffs,
@@ -2278,93 +2219,10 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 }
                 break;
             default:
-                SVT_ERROR("unexpected picture mini Gop number\n");
+                SVT_ERROR("Unexpected temporal_layer - RPS for LD CBR HL2\n");
                 break;
             }
         }
-#else
-        switch (temporal_layer) {
-        case 0:
-            ref_dpb_index[LAST]  = base2_idx;
-            ref_dpb_index[LAST2] = base0_idx;
-            ref_dpb_index[LAST3] = long_base_idx;
-            ref_dpb_index[GOLD]  = ref_dpb_index[LAST];
-
-            ref_dpb_index[BWD]  = ref_dpb_index[LAST];
-            ref_dpb_index[ALT2] = ref_dpb_index[LAST];
-            ref_dpb_index[ALT]  = ref_dpb_index[LAST];
-
-            if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
-                // Only 2 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
-                av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle | (0xfc);
-            } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
-                // Only 5 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
-                av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle | (0xf0);
-                //Layer0 toggle 0->1->2
-                ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
-            } else {
-                av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
-                //Layer0 toggle 0->1->2
-                ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
-            }
-            break;
-
-        case 1: // Phoenix
-            ref_dpb_index[LAST]  = base2_idx;
-            ref_dpb_index[LAST2] = lay1_1_idx;
-            ref_dpb_index[LAST3] = base1_idx;
-            ref_dpb_index[GOLD]  = ref_dpb_index[LAST];
-
-            ref_dpb_index[BWD]  = ref_dpb_index[LAST];
-            ref_dpb_index[ALT2] = ref_dpb_index[LAST];
-            ref_dpb_index[ALT]  = ref_dpb_index[LAST];
-
-            if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
-                av1_rps->refresh_frame_mask = 1 << 1;
-            } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
-                av1_rps->refresh_frame_mask = 1 << LAY1_OFF;
-            } else {
-                av1_rps->refresh_frame_mask = 1 << (LAY1_OFF + ctx->lay1_toggle);
-                // Layer1 toggle 3->4
-                ctx->lay1_toggle = 1 - ctx->lay1_toggle;
-            }
-            break;
-
-        case 2:
-            if (pic_idx == 0) {
-                ref_dpb_index[LAST]  = base2_idx;
-                ref_dpb_index[LAST2] = lay1_1_idx;
-                ref_dpb_index[LAST3] = base1_idx;
-                ref_dpb_index[GOLD]  = ref_dpb_index[LAST];
-
-                ref_dpb_index[BWD]  = ref_dpb_index[LAST];
-                ref_dpb_index[ALT2] = ref_dpb_index[LAST];
-                ref_dpb_index[ALT]  = ref_dpb_index[LAST];
-            } else if (pic_idx == 2) {
-                ref_dpb_index[LAST]  = lay1_1_idx;
-                ref_dpb_index[LAST2] = base2_idx;
-                ref_dpb_index[LAST3] = lay1_0_idx;
-                ref_dpb_index[GOLD]  = ref_dpb_index[LAST];
-
-                ref_dpb_index[BWD]  = ref_dpb_index[LAST];
-                ref_dpb_index[ALT2] = ref_dpb_index[LAST];
-                ref_dpb_index[ALT]  = ref_dpb_index[LAST];
-            } else {
-                SVT_LOG("Error in GOp indexing\n");
-            }
-
-            assert(IMPLIES(scs->mrp_ctrls.ld_reduce_ref_buffs, !pcs->is_ref && scs->mrp_ctrls.referencing_scheme == 0));
-            av1_rps->refresh_frame_mask = (pcs->is_ref) ? 1 << (lay2_idx) : 0;
-            // This check should be redundant, but is added to avoid hangs if settings are not set correctly
-            if (scs->mrp_ctrls.ld_reduce_ref_buffs) {
-                av1_rps->refresh_frame_mask = 0;
-            }
-            break;
-        default:
-            SVT_ERROR("unexpected picture mini Gop number\n");
-            break;
-        }
-#endif
 
         update_ref_poc_array(ref_dpb_index, ref_poc_array, ctx->dpb);
 
@@ -2378,13 +2236,13 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         prune_refs(av1_rps, pcs->ref_list0_count, pcs->ref_list1_count);
         set_frame_display_params(pcs, ctx, mg_idx);
     } else if (hierarchical_levels == 0) {
-        const uint8_t base0_idx = (ctx->lay0_toggle + 8 - 1) % 8; // the newest L0 picture in the DPB
-        const uint8_t base1_idx = (ctx->lay0_toggle + 8 - 2) % 8; // the 2nd-newest L0 picture in the DPB
-        const uint8_t base2_idx = (ctx->lay0_toggle + 8 - 3) % 8; // the 3rd-newest L0 picture in the DPB
-        const uint8_t base3_idx = (ctx->lay0_toggle + 8 - 4) % 8; // the 4th-newest L0 picture in the DPB
-        const uint8_t base4_idx = (ctx->lay0_toggle + 8 - 5) % 8; // the 5th-newest L0 picture in the DPB
-        const uint8_t base5_idx = (ctx->lay0_toggle + 8 - 6) % 8; // the 6th-newest L0 picture in the DPB
-        const uint8_t base7_idx = (ctx->lay0_toggle + 8 - 7) % 8; // the oldest L0 picture in the DPB
+        const uint8_t base0_idx = ctx->lay0_toggle; // the newest L0 picture in the DPB
+        const uint8_t base1_idx = CIRC_DEC(base0_idx, 0, 7); // the 2nd-newest L0 picture in the DPB
+        const uint8_t base2_idx = CIRC_DEC(base1_idx, 0, 7); // the 3rd-newest L0 picture in the DPB
+        const uint8_t base3_idx = CIRC_DEC(base2_idx, 0, 7); // the 4th-newest L0 picture in the DPB
+        const uint8_t base4_idx = CIRC_DEC(base3_idx, 0, 7); // the 5th-newest L0 picture in the DPB
+        const uint8_t base5_idx = CIRC_DEC(base4_idx, 0, 7); // the 6th-newest L0 picture in the DPB
+        const uint8_t base7_idx = CIRC_DEC(base5_idx, 0, 7); // the oldest L0 picture in the DPB
 
         // {1, 3, 5, 7},   // GOP Index 0 - Ref List 0
         // { 2, 4, 6, 0 }  // GOP Index 0 - Ref List 1
@@ -2402,13 +2260,13 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         set_ref_list_counts(pcs, ctx);
         prune_refs(av1_rps, pcs->ref_list0_count, pcs->ref_list1_count);
 
+        ctx->lay0_toggle            = CIRC_INC(ctx->lay0_toggle, 0, 7);
         av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
 
         // Flat mode, output all frames
         set_frame_display_params(pcs, ctx, mg_idx);
         frm_hdr->show_frame    = true;
         pcs->has_show_existing = false;
-        ctx->lay0_toggle       = (1 + ctx->lay0_toggle) % 8;
     } else if (hierarchical_levels == 1) {
         uint8_t lay0_toggle = ctx->lay0_toggle;
         uint8_t lay1_toggle = ctx->lay1_toggle;
@@ -2423,20 +2281,16 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         the pictures. */
         if (pcs->pred_struct_ptr->pred_type != RANDOM_ACCESS && temporal_layer) {
             assert(IMPLIES(scs->static_config.pred_structure == RANDOM_ACCESS, ctx->cut_short_ra_mg));
-            lay0_toggle = circ_inc(3, 1, lay0_toggle);
+            lay0_toggle = CIRC_INC(lay0_toggle, 0, 2);
             // No layer 1 toggling needed because there's only one non-base frame
         }
 
-        const uint8_t base0_idx = lay0_toggle == 0 ? 0 : lay0_toggle == 1 ? 1 : 2; //the oldest L0 picture in the DPB
-        const uint8_t base1_idx = lay0_toggle == 0 ? 1 : lay0_toggle == 1 ? 2 : 0; //the middle L0 picture in the DPB
-        const uint8_t base2_idx = lay0_toggle == 0 ? 2 : lay0_toggle == 1 ? 0 : 1; //the newest L0 picture in the DPB
+        const uint8_t base2_idx = lay0_toggle; //the newest L0 picture in the DPB
+        const uint8_t base1_idx = CIRC_DEC(base2_idx, 0, 2); //the middle L0 picture in the DPB
+        const uint8_t base0_idx = CIRC_DEC(base1_idx, 0, 2); //the oldest L0 picture in the DPB
 
-#if OPT_USE_HL0_FLAT
-        const uint8_t lay1_0_idx = lay1_toggle == 0 ? LAY1_OFF + 0 : LAY1_OFF + 1; //the oldest L1 picture in the DPB
-#else
-        //const uint8_t  lay1_0_idx = lay1_toggle == 0 ? LAY1_OFF + 0 : LAY1_OFF + 1; //the oldest L1 picture in the DPB
-#endif
-        const uint8_t lay1_1_idx = lay1_toggle == 0 ? LAY1_OFF + 1 : LAY1_OFF + 0; //the newest L1 picture in the DPB
+        const uint8_t lay1_1_idx = LAY1_OFF + lay1_toggle; //the newest L1 picture in the DPB
+        const uint8_t lay1_0_idx = CIRC_DEC(lay1_1_idx, LAY1_OFF, LAY1_OFF + 1); //the oldest L1 picture in the DPB
         //const uint8_t  lay2_idx = LAY2_OFF; //the newest L2 picture in the DPB
 
         switch (temporal_layer) {
@@ -2452,9 +2306,9 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
             ref_dpb_index[ALT2] = base1_idx;
             ref_dpb_index[ALT]  = ref_dpb_index[BWD];
 
-            av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
             //Layer0 toggle 0->1->2
-            ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
+            ctx->lay0_toggle            = CIRC_INC(ctx->lay0_toggle, 0, 2);
+            av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
             break;
         case 1:
             if (pcs->is_overlay) {
@@ -2469,41 +2323,26 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2]  = base2_idx;
                 ref_dpb_index[ALT]   = base2_idx;
                 assert(!pcs->is_ref);
-#if OPT_USE_HL0_FLAT
                 av1_rps->refresh_frame_mask = 0;
-#endif
             } else {
                 //{ 1, 2, 3,  0},   // GOP Index 4 - Ref List 0
                 //{-1,  0, 0,  0}     // GOP Index 4 - Ref List 1
-                ref_dpb_index[LAST] = base1_idx;
-#if OPT_USE_HL0_FLAT
+                ref_dpb_index[LAST]  = base1_idx;
                 ref_dpb_index[LAST2] = scs->mrp_ctrls.referencing_scheme == 0 ? base0_idx : lay1_1_idx;
-#else
-                ref_dpb_index[LAST2] = lay1_1_idx;
-#endif
                 ref_dpb_index[LAST3] = base0_idx;
                 ref_dpb_index[GOLD]  = ref_dpb_index[LAST];
 
-                ref_dpb_index[BWD] = base2_idx;
-#if OPT_USE_HL0_FLAT
+                ref_dpb_index[BWD]  = base2_idx;
                 ref_dpb_index[ALT2] = scs->mrp_ctrls.referencing_scheme == 0 ? ref_dpb_index[BWD] : lay1_0_idx;
-#else
-                ref_dpb_index[ALT2] = ref_dpb_index[BWD];
-#endif
-                ref_dpb_index[ALT] = ref_dpb_index[BWD];
+                ref_dpb_index[ALT]  = ref_dpb_index[BWD];
 
-#if OPT_USE_HL0_FLAT
+                //Layer1 toggle 0->1
+                ctx->lay1_toggle            = 1 - ctx->lay1_toggle;
                 av1_rps->refresh_frame_mask = pcs->is_ref ? 1 << (LAY1_OFF + ctx->lay1_toggle) : 0;
-#endif
-                //Layer1 toggle 3->4
-                ctx->lay1_toggle = 1 - ctx->lay1_toggle;
             }
-#if !OPT_USE_HL0_FLAT
-            av1_rps->refresh_frame_mask = pcs->is_ref ? 1 << (LAY1_OFF + ctx->lay1_toggle) : 0;
-#endif
             break;
         default:
-            SVT_ERROR("unexpected picture mini Gop number\n");
+            SVT_ERROR("Unexpected temporal_layer - RPS for HL1\n");
             break;
         }
         update_ref_poc_array(ref_dpb_index, ref_poc_array, ctx->dpb);
@@ -2540,19 +2379,19 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         the pictures. */
         if (pcs->pred_struct_ptr->pred_type != RANDOM_ACCESS && temporal_layer) {
             assert(IMPLIES(scs->static_config.pred_structure == RANDOM_ACCESS, ctx->cut_short_ra_mg));
-            lay0_toggle = circ_inc(3, 1, lay0_toggle);
+            lay0_toggle = CIRC_INC(lay0_toggle, 0, 2);
             if (pic_idx == 0) {
                 lay1_toggle = 1 - lay1_toggle;
             }
         }
 
-        const uint8_t base0_idx = lay0_toggle == 0 ? 0 : lay0_toggle == 1 ? 1 : 2; //the oldest L0 picture in the DPB
-        const uint8_t base1_idx = lay0_toggle == 0 ? 1 : lay0_toggle == 1 ? 2 : 0; //the middle L0 picture in the DPB
-        const uint8_t base2_idx = lay0_toggle == 0 ? 2 : lay0_toggle == 1 ? 0 : 1; //the newest L0 picture in the DPB
+        const uint8_t base2_idx = lay0_toggle; //the newest L0 picture in the DPB
+        const uint8_t base1_idx = CIRC_DEC(base2_idx, 0, 2); //the middle L0 picture in the DPB
+        const uint8_t base0_idx = CIRC_DEC(base1_idx, 0, 2); //the oldest L0 picture in the DPB
 
-        const uint8_t  lay1_0_idx = lay1_toggle == 0 ? LAY1_OFF + 0 : LAY1_OFF + 1; //the oldest L1 picture in the DPB
-        const uint8_t  lay1_1_idx = lay1_toggle == 0 ? LAY1_OFF + 1 : LAY1_OFF + 0; //the newest L1 picture in the DPB
-        const uint8_t  lay2_idx   = LAY2_OFF; //the newest L2 picture in the DPB
+        const uint8_t  lay1_1_idx    = LAY1_OFF + lay1_toggle; //the newest L1 picture in the DPB
+        const uint8_t  lay1_0_idx    = CIRC_DEC(lay1_1_idx, LAY1_OFF, LAY1_OFF + 1); //the oldest L1 picture in the DPB
+        const uint8_t  lay2_idx      = LAY2_OFF; //the newest L2 picture in the DPB
         const uint8_t  long_base_idx = 7;
         const uint16_t long_base_pic = 128;
 
@@ -2573,9 +2412,9 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
             ref_dpb_index[ALT2] = base1_idx;
             ref_dpb_index[ALT]  = ref_dpb_index[BWD];
 
-            av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
             //Layer0 toggle 0->1->2
-            ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
+            ctx->lay0_toggle            = CIRC_INC(ctx->lay0_toggle, 0, 2);
+            av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
             break;
 
         case 1: // Phoenix
@@ -2590,9 +2429,9 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
             ref_dpb_index[ALT2] = ref_dpb_index[BWD];
             ref_dpb_index[ALT]  = ref_dpb_index[BWD];
 
+            //Layer1 toggle 0->1
+            ctx->lay1_toggle            = 1 - ctx->lay1_toggle;
             av1_rps->refresh_frame_mask = 1 << (LAY1_OFF + ctx->lay1_toggle);
-            //Layer1 toggle 3->4
-            ctx->lay1_toggle = 1 - ctx->lay1_toggle;
             break;
 
         case 2:
@@ -2630,13 +2469,13 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2] = ref_dpb_index[BWD];
                 ref_dpb_index[ALT]  = ref_dpb_index[BWD];
             } else {
-                SVT_LOG("Error in GOp indexing\n");
+                SVT_LOG("Error in MG indexing - HL2, temporal layer 2\n");
             }
 
             av1_rps->refresh_frame_mask = (pcs->is_ref) ? 1 << (lay2_idx) : 0;
             break;
         default:
-            SVT_ERROR("unexpected picture mini Gop number\n");
+            SVT_ERROR("Unexpected temporal_layer - RPS for HL2\n");
             break;
         }
 
@@ -2682,7 +2521,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         the pictures. */
         if (pcs->pred_struct_ptr->pred_type != RANDOM_ACCESS && temporal_layer) {
             assert(IMPLIES(scs->static_config.pred_structure == RANDOM_ACCESS, ctx->cut_short_ra_mg));
-            lay0_toggle = circ_inc(3, 1, lay0_toggle);
+            lay0_toggle = CIRC_INC(lay0_toggle, 0, 2);
             if (pic_idx < 3) {
                 lay1_toggle = 1 - lay1_toggle;
             }
@@ -2705,12 +2544,12 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         //                 4                        12
         //
         //base0:0                   base1:8                          base2:16
-        const uint8_t base0_idx = lay0_toggle == 0 ? 0 : lay0_toggle == 1 ? 1 : 2; //the oldest L0 picture in the DPB
-        const uint8_t base1_idx = lay0_toggle == 0 ? 1 : lay0_toggle == 1 ? 2 : 0; //the middle L0 picture in the DPB
-        const uint8_t base2_idx = lay0_toggle == 0 ? 2 : lay0_toggle == 1 ? 0 : 1; //the newest L0 picture in the DPB
+        const uint8_t base2_idx = lay0_toggle; //the newest L0 picture in the DPB
+        const uint8_t base1_idx = CIRC_DEC(base2_idx, 0, 2); //the middle L0 picture in the DPB
+        const uint8_t base0_idx = CIRC_DEC(base1_idx, 0, 2); //the oldest L0 picture in the DPB
 
-        const uint8_t lay1_0_idx = lay1_toggle == 0 ? LAY1_OFF + 0 : LAY1_OFF + 1; //the oldest L1 picture in the DPB
-        const uint8_t lay1_1_idx = lay1_toggle == 0 ? LAY1_OFF + 1 : LAY1_OFF + 0; //the newest L1 picture in the DPB
+        const uint8_t lay1_1_idx = LAY1_OFF + lay1_toggle; //the newest L1 picture in the DPB
+        const uint8_t lay1_0_idx = CIRC_DEC(lay1_1_idx, LAY1_OFF, LAY1_OFF + 1); //the oldest L1 picture in the DPB
         const uint8_t lay2_idx   = LAY2_OFF; //the newest L2 picture in the DPB
         const uint8_t lay3_idx   = LAY3_OFF; //the newest L3 picture in the DPB
 
@@ -2727,9 +2566,9 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
             ref_dpb_index[ALT2] = base1_idx;
             ref_dpb_index[ALT]  = ref_dpb_index[BWD];
 
-            av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
             //Layer0 toggle 0->1->2
-            ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
+            ctx->lay0_toggle            = CIRC_INC(ctx->lay0_toggle, 0, 2);
+            av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
             break;
         case 1:
             //{ 4, 8, 12,  0},   // GOP Index 4 - Ref List 0
@@ -2743,9 +2582,9 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
             ref_dpb_index[ALT2] = ref_dpb_index[BWD];
             ref_dpb_index[ALT]  = ref_dpb_index[BWD];
 
+            //Layer1 toggle 0->1
+            ctx->lay1_toggle            = 1 - ctx->lay1_toggle;
             av1_rps->refresh_frame_mask = 1 << (LAY1_OFF + ctx->lay1_toggle);
-            //Layer1 toggle 3->4
-            ctx->lay1_toggle = 1 - ctx->lay1_toggle;
             break;
         case 2:
             if (pic_idx == 1) {
@@ -2770,6 +2609,8 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[BWD]  = base2_idx;
                 ref_dpb_index[ALT2] = ref_dpb_index[BWD];
                 ref_dpb_index[ALT]  = ref_dpb_index[BWD];
+            } else {
+                SVT_LOG("Error in MG indexing - HL3, temporal layer 2\n");
             }
 
             av1_rps->refresh_frame_mask = 1 << (lay2_idx);
@@ -2831,14 +2672,14 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2] = ref_dpb_index[BWD];
                 ref_dpb_index[ALT]  = ref_dpb_index[BWD];
             } else {
-                SVT_LOG("Error in GOp indexing\n");
+                SVT_LOG("Error in MG indexing - HL3, temporal layer 3\n");
             }
 
             av1_rps->refresh_frame_mask = (pcs->is_ref) ? 1 << (lay3_idx) : 0;
             break;
 
         default:
-            SVT_ERROR("unexpected picture mini Gop number\n");
+            SVT_ERROR("Unexpected temporal_layer - RPS for HL3\n");
             break;
         }
 
@@ -2882,7 +2723,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         the pictures. */
         if (pcs->pred_struct_ptr->pred_type != RANDOM_ACCESS && temporal_layer) {
             assert(IMPLIES(scs->static_config.pred_structure == RANDOM_ACCESS, ctx->cut_short_ra_mg));
-            lay0_toggle = circ_inc(3, 1, lay0_toggle);
+            lay0_toggle = CIRC_INC(lay0_toggle, 0, 2);
             if (pic_idx < 7) {
                 lay1_toggle = 1 - lay1_toggle;
             }
@@ -2906,12 +2747,12 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         //                 4                        12:L2_0                         20:L2_1                 28
         //                              8:L1_0                                                       24:L1_1
         //base0:0                                               base1:16                                           base2:32
-        const uint8_t base0_idx = lay0_toggle == 0 ? 0 : lay0_toggle == 1 ? 1 : 2; //the oldest L0 picture in the DPB
-        const uint8_t base1_idx = lay0_toggle == 0 ? 1 : lay0_toggle == 1 ? 2 : 0; //the middle L0 picture in the DPB
-        const uint8_t base2_idx = lay0_toggle == 0 ? 2 : lay0_toggle == 1 ? 0 : 1; //the newest L0 picture in the DPB
+        const uint8_t base2_idx = lay0_toggle; //the newest L0 picture in the DPB
+        const uint8_t base1_idx = CIRC_DEC(base2_idx, 0, 2); //the middle L0 picture in the DPB
+        const uint8_t base0_idx = CIRC_DEC(base1_idx, 0, 2); //the oldest L0 picture in the DPB
 
-        const uint8_t lay1_0_idx = lay1_toggle == 0 ? LAY1_OFF + 0 : LAY1_OFF + 1; //the oldest L1 picture in the DPB
-        const uint8_t lay1_1_idx = lay1_toggle == 0 ? LAY1_OFF + 1 : LAY1_OFF + 0; //the newest L1 picture in the DPB
+        const uint8_t lay1_1_idx = LAY1_OFF + lay1_toggle; //the newest L1 picture in the DPB
+        const uint8_t lay1_0_idx = CIRC_DEC(lay1_1_idx, LAY1_OFF, LAY1_OFF + 1); //the oldest L1 picture in the DPB
         const uint8_t lay2_idx   = LAY2_OFF; //the newest L2 picture in the DPB
         const uint8_t lay3_idx   = LAY3_OFF; //the newest L3 picture in the DPB
         const uint8_t lay4_idx   = LAY4_OFF; //the newest L4 picture in the DPB
@@ -2930,9 +2771,9 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
             ref_dpb_index[ALT2] = base1_idx;
             ref_dpb_index[ALT]  = more_5L_refs ? lay1_0_idx : ref_dpb_index[BWD]; //48:p8
 
-            av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
             //Layer0 toggle 0->1->2
-            ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
+            ctx->lay0_toggle            = CIRC_INC(ctx->lay0_toggle, 0, 2);
+            av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
             break;
 
         case 1:
@@ -2947,9 +2788,9 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
             ref_dpb_index[ALT2] = lay2_idx;
             ref_dpb_index[ALT]  = ref_dpb_index[BWD]; //40:-30
 
+            //Layer1 toggle 0->1
+            ctx->lay1_toggle            = 1 - ctx->lay1_toggle;
             av1_rps->refresh_frame_mask = 1 << (LAY1_OFF + ctx->lay1_toggle);
-            //Layer1 toggle 3->4
-            ctx->lay1_toggle = 1 - ctx->lay1_toggle;
             break;
 
         case 2:
@@ -2975,6 +2816,8 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[BWD]  = base2_idx;
                 ref_dpb_index[ALT2] = lay4_idx;
                 ref_dpb_index[ALT]  = more_5L_refs ? lay1_0_idx : ref_dpb_index[BWD]; //44:+24
+            } else {
+                SVT_LOG("Error in MG indexing - HL4, temporal layer 2\n");
             }
 
             av1_rps->refresh_frame_mask = 1 << (LAY2_OFF);
@@ -3023,7 +2866,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2] = lay4_idx;
                 ref_dpb_index[ALT]  = ref_dpb_index[BWD];
             } else {
-                SVT_LOG("Error in GOp indexing\n");
+                SVT_LOG("Error in MG indexing - HL4, temporal layer 3\n");
             }
 
             av1_rps->refresh_frame_mask = 1 << (lay3_idx);
@@ -3122,14 +2965,14 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2]  = base1_idx;
                 ref_dpb_index[ALT]   = ref_dpb_index[BWD];
             } else {
-                SVT_LOG("Error in GOp indexing\n");
+                SVT_LOG("Error in MG indexing - HL4, temporal layer 4\n");
             }
 
             av1_rps->refresh_frame_mask = (pcs->is_ref) ? 1 << (lay4_idx) : 0;
             break;
 
         default:
-            SVT_ERROR("unexpected picture mini Gop number\n");
+            SVT_ERROR("Unexpected temporal_layer - RPS for HL4\n");
             break;
         }
 
@@ -3181,7 +3024,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         the pictures. */
         if (pcs->pred_struct_ptr->pred_type != RANDOM_ACCESS && temporal_layer) {
             assert(IMPLIES(scs->static_config.pred_structure == RANDOM_ACCESS, ctx->cut_short_ra_mg));
-            lay0_toggle = circ_inc(3, 1, lay0_toggle);
+            lay0_toggle = CIRC_INC(lay0_toggle, 0, 2);
             if (pic_idx < 15) {
                 lay1_toggle = 1 - lay1_toggle;
             }
@@ -3193,12 +3036,12 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         //Layer 2 : DPB Location 5
         //Layer 3 : DPB Location 6
         //Layer 4 : DPB Location 7
-        const uint8_t base0_idx = lay0_toggle == 0 ? 0 : lay0_toggle == 1 ? 1 : 2; //the oldest L0 picture in the DPB
-        const uint8_t base1_idx = lay0_toggle == 0 ? 1 : lay0_toggle == 1 ? 2 : 0; //the middle L0 picture in the DPB
-        const uint8_t base2_idx = lay0_toggle == 0 ? 2 : lay0_toggle == 1 ? 0 : 1; //the newest L0 picture in the DPB
+        const uint8_t base2_idx = lay0_toggle; //the newest L0 picture in the DPB
+        const uint8_t base1_idx = CIRC_DEC(base2_idx, 0, 2); //the middle L0 picture in the DPB
+        const uint8_t base0_idx = CIRC_DEC(base1_idx, 0, 2); //the oldest L0 picture in the DPB
 
-        const uint8_t lay1_0_idx = lay1_toggle == 0 ? LAY1_OFF + 0 : LAY1_OFF + 1; //the oldest L1 picture in the DPB
-        const uint8_t lay1_1_idx = lay1_toggle == 0 ? LAY1_OFF + 1 : LAY1_OFF + 0; //the newest L1 picture in the DPB
+        const uint8_t lay1_1_idx = LAY1_OFF + lay1_toggle; //the newest L1 picture in the DPB
+        const uint8_t lay1_0_idx = CIRC_DEC(lay1_1_idx, LAY1_OFF, LAY1_OFF + 1); //the oldest L1 picture in the DPB
         const uint8_t lay2_idx   = LAY2_OFF; //the newest L2 picture in the DPB
         const uint8_t lay3_idx   = LAY3_OFF; //the newest L3 picture in the DPB
         const uint8_t lay4_idx   = LAY4_OFF; //the newest L4 picture in the DPB
@@ -3215,9 +3058,9 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
             ref_dpb_index[ALT2]  = lay1_1_idx;
             ref_dpb_index[ALT]   = ref_dpb_index[BWD];
 
-            av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
             //Layer0 toggle 0->1->2
-            ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
+            ctx->lay0_toggle            = CIRC_INC(ctx->lay0_toggle, 0, 2);
+            av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
             break;
 
         case 1:
@@ -3232,9 +3075,9 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
             ref_dpb_index[ALT2] = lay2_idx;
             ref_dpb_index[ALT]  = lay3_idx;
 
+            //Layer1 toggle 0->1
+            ctx->lay1_toggle            = 1 - ctx->lay1_toggle;
             av1_rps->refresh_frame_mask = 1 << (LAY1_OFF + ctx->lay1_toggle);
-            //Layer1 toggle 2->3
-            ctx->lay1_toggle = 1 - ctx->lay1_toggle;
             break;
         case 2:
             if (pic_idx == 7) {
@@ -3259,6 +3102,8 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[BWD]  = base2_idx;
                 ref_dpb_index[ALT2] = lay4_idx;
                 ref_dpb_index[ALT]  = lay1_0_idx;
+            } else {
+                SVT_LOG("Error in MG indexing - HL5, temporal layer 2\n");
             }
 
             av1_rps->refresh_frame_mask = 1 << (LAY2_OFF);
@@ -3307,7 +3152,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2] = base0_idx;
                 ref_dpb_index[ALT]  = ref_dpb_index[BWD];
             } else {
-                SVT_LOG("Error in GOp indexing\n");
+                SVT_LOG("Error in MG indexing - HL5, temporal layer 3\n");
             }
 
             av1_rps->refresh_frame_mask = 1 << (LAY3_OFF);
@@ -3395,7 +3240,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2]  = base1_idx;
                 ref_dpb_index[ALT]   = base0_idx;
             } else {
-                SVT_LOG("Error in GOp indexing\n");
+                SVT_LOG("Error in MG indexing - HL5, temporal layer 4\n");
             }
 
             av1_rps->refresh_frame_mask = 1 << (LAY4_OFF);
@@ -3574,14 +3419,14 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2]  = lay1_1_idx;
                 ref_dpb_index[ALT]   = base0_idx;
             } else {
-                SVT_LOG("Error in GOp indexing\n");
+                SVT_LOG("Error in MG indexing - HL5, temporal layer 5\n");
             }
 
             av1_rps->refresh_frame_mask = 0;
             break;
 
         default:
-            SVT_ERROR("unexpected picture mini Gop number\n");
+            SVT_ERROR("Unexpected temporal_layer - RPS for HL5\n");
             break;
         }
 
@@ -3631,12 +3476,12 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 } else if (pic_idx == 30) {
                     frm_hdr->show_existing_frame = base2_idx;
                 } else {
-                    SVT_LOG("Error in GOP indexing for hierarchical level %d\n", pcs->hierarchical_levels);
+                    SVT_LOG("Error in MG indexing for hierarchical level %d\n", pcs->hierarchical_levels);
                 }
             }
         }
     } else {
-        SVT_ERROR("Not supported GOP structure!");
+        SVT_ERROR("Unsupported MG structure!");
         exit(0);
     }
 
@@ -4087,8 +3932,9 @@ static EbErrorType derive_tf_window_params(SequenceControlSet* scs, EncodeContex
             // Update the key frame pred structure;
             int32_t idx = search_this_pic(pd_ctx->mg_pictures_array, pd_ctx->mg_size, pcs->picture_number + 1);
 
-            if (centre_pcs->hierarchical_levels != pcs->temp_filt_pcs_list[0]->hierarchical_levels ||
-                centre_pcs->hierarchical_levels != pd_ctx->mg_pictures_array[idx]->hierarchical_levels) {
+            if (idx >= 0 &&
+                (centre_pcs->hierarchical_levels != pcs->temp_filt_pcs_list[0]->hierarchical_levels ||
+                 centre_pcs->hierarchical_levels != pd_ctx->mg_pictures_array[idx]->hierarchical_levels)) {
                 centre_pcs->hierarchical_levels = pcs->temp_filt_pcs_list[0]->hierarchical_levels =
                     pd_ctx->mg_pictures_array[idx]->hierarchical_levels;
             }
@@ -4427,9 +4273,8 @@ static void send_picture_out(SequenceControlSet* scs, PictureParentControlSet* p
     pcs->tf_motion_direction = ctx->tf_motion_direction;
     MrpCtrls* mrp_ctrl       = &(scs->mrp_ctrls);
 
-#if OPT_MRP_HME_L0_DETECT
     if (scs->static_config.rtc && mrp_ctrl->early_hme_l0_prune_th && pcs->ref_list0_count_try > 1) {
-        if (scs->use_flat_ipp) {
+        if (pcs->hierarchical_levels == 0) {
             EbPictureBufferDesc* ref_last_ds =
                 ((EbPaReferenceObject*)pcs->ref_pa_pic_ptr_array[0][0]->object_ptr)->sixteenth_downsampled_picture_ptr;
             EbPictureBufferDesc* ref_last2_ds =
@@ -4457,7 +4302,6 @@ static void send_picture_out(SequenceControlSet* scs, PictureParentControlSet* p
             }
         }
     }
-#endif
     pcs->similar_brightness_refs = get_similar_ref_brightness(pcs);
     if (scs->mrp_ctrls.safe_limit_nref == 2 && pcs->slice_type == B_SLICE && pcs->hierarchical_levels > 0 &&
         (pcs->temporal_layer_index >= pcs->hierarchical_levels - 1)) {
@@ -4475,19 +4319,8 @@ static void send_picture_out(SequenceControlSet* scs, PictureParentControlSet* p
         me_update_param(pcs->pa_me_data, scs);
     }
 
-#if TUNE_SIMPLIFY_SETTINGS
     uint8_t ref_count_used_list0 = MAX(mrp_ctrl->base_ref_list0_count, mrp_ctrl->non_base_ref_list0_count);
     uint8_t ref_count_used_list1 = MAX(mrp_ctrl->base_ref_list1_count, mrp_ctrl->non_base_ref_list1_count);
-#else
-    uint8_t ref_count_used_list0 = MAX(
-        mrp_ctrl->sc_base_ref_list0_count,
-        MAX(mrp_ctrl->base_ref_list0_count,
-            MAX(mrp_ctrl->sc_non_base_ref_list0_count, mrp_ctrl->non_base_ref_list0_count)));
-    uint8_t ref_count_used_list1 = MAX(
-        mrp_ctrl->sc_base_ref_list1_count,
-        MAX(mrp_ctrl->base_ref_list1_count,
-            MAX(mrp_ctrl->sc_non_base_ref_list1_count, mrp_ctrl->non_base_ref_list1_count)));
-#endif
 
     uint8_t max_ref_to_alloc, max_cand_to_alloc;
 
@@ -4666,39 +4499,20 @@ static void copy_tf_params(SequenceControlSet* scs, PictureParentControlSet* pcs
 
 void svt_aom_is_screen_content(PictureParentControlSet* pcs);
 void svt_aom_is_screen_content_antialiasing_aware(PictureParentControlSet* pcs);
+bool svt_aom_is_input_luma_dominant(const EbPictureBufferDesc* input_pic);
 
 /*
 * Update the list0 count try and the list1 count try based on the Enc-Mode, whether BASE or not, whether SC or not
 */
 void update_count_try(SequenceControlSet* scs, PictureParentControlSet* pcs) {
     MrpCtrls* mrp_ctrl = &scs->mrp_ctrls;
-#if TUNE_SIMPLIFY_SETTINGS
-    if (pcs->temporal_layer_index == 0) {
+    if (frame_is_boosted(pcs)) {
         pcs->ref_list0_count_try = MIN(pcs->ref_list0_count, mrp_ctrl->base_ref_list0_count);
         pcs->ref_list1_count_try = MIN(pcs->ref_list1_count, mrp_ctrl->base_ref_list1_count);
     } else {
         pcs->ref_list0_count_try = MIN(pcs->ref_list0_count, mrp_ctrl->non_base_ref_list0_count);
         pcs->ref_list1_count_try = MIN(pcs->ref_list1_count, mrp_ctrl->non_base_ref_list1_count);
     }
-#else
-    if (pcs->sc_class1) {
-        if (pcs->temporal_layer_index == 0) {
-            pcs->ref_list0_count_try = MIN(pcs->ref_list0_count, mrp_ctrl->sc_base_ref_list0_count);
-            pcs->ref_list1_count_try = MIN(pcs->ref_list1_count, mrp_ctrl->sc_base_ref_list1_count);
-        } else {
-            pcs->ref_list0_count_try = MIN(pcs->ref_list0_count, mrp_ctrl->sc_non_base_ref_list0_count);
-            pcs->ref_list1_count_try = MIN(pcs->ref_list1_count, mrp_ctrl->sc_non_base_ref_list1_count);
-        }
-    } else {
-        if (pcs->temporal_layer_index == 0) {
-            pcs->ref_list0_count_try = MIN(pcs->ref_list0_count, mrp_ctrl->base_ref_list0_count);
-            pcs->ref_list1_count_try = MIN(pcs->ref_list1_count, mrp_ctrl->base_ref_list1_count);
-        } else {
-            pcs->ref_list0_count_try = MIN(pcs->ref_list0_count, mrp_ctrl->non_base_ref_list0_count);
-            pcs->ref_list1_count_try = MIN(pcs->ref_list1_count, mrp_ctrl->non_base_ref_list1_count);
-        }
-    }
-#endif
 }
 
 /*
@@ -4775,10 +4589,9 @@ static void set_layer_depth(PictureParentControlSet* ppcs) {
 * Every MAX_GF_INTERVAL frames, update type is set to GF_UPDATE
 ****************************************************************************************/
 static void set_frame_update_type(PictureParentControlSet* ppcs) {
-    SequenceControlSet* scs = ppcs->scs;
     if (ppcs->frm_hdr.frame_type == KEY_FRAME) {
         ppcs->update_type = SVT_AV1_KF_UPDATE;
-    } else if (scs->max_temporal_layers > 0 && ppcs->pred_structure != LOW_DELAY) {
+    } else if (ppcs->hierarchical_levels > 0) {
         if (ppcs->temporal_layer_index == 0) {
             ppcs->update_type = SVT_AV1_ARF_UPDATE;
         } else if (ppcs->temporal_layer_index == ppcs->hierarchical_levels) {
@@ -4786,10 +4599,13 @@ static void set_frame_update_type(PictureParentControlSet* ppcs) {
         } else {
             ppcs->update_type = SVT_AV1_INTNL_ARF_UPDATE;
         }
-    } else if (ppcs->pred_structure == LOW_DELAY && (ppcs->frame_offset % MAX_GF_INTERVAL) == 0) {
+    } else if ((ppcs->frame_offset % MAX(4, 1 << ppcs->hierarchical_levels)) == 0) {
         ppcs->update_type = SVT_AV1_GF_UPDATE;
-    } else {
+    } else if (ppcs->frame_offset & 0x1) {
+        // frames with odd offset correspond to leaf layer pics in RA structures
         ppcs->update_type = SVT_AV1_LF_UPDATE;
+    } else {
+        ppcs->update_type = SVT_AV1_INTNL_ARF_UPDATE;
     }
 }
 
@@ -4911,6 +4727,13 @@ static void set_mini_gop_structure(SequenceControlSet* scs, EncodeContext* enc_c
     if (ctx->enable_startup_mg) {
         next_mg_hierarchical_levels = scs->static_config.startup_mg_size;
     }
+    // For RTC mode (implies LOW_DELAY + CBR), support on-the-fly hierarchical_levels changes.
+    // pcs->hierarchical_levels holds the value requested by resource_coordination for this picture.
+    if (scs->static_config.pred_structure == LOW_DELAY && scs->static_config.rtc &&
+        scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR) {
+        // If incoming pic signals change in GOP structure, update the active GOP structure immediately
+        next_mg_hierarchical_levels = pcs->hierarchical_levels;
+    }
     // Initialize Picture Block Params
     ctx->mini_gop_start_index[0] = 0;
     ctx->mini_gop_end_index[0]   = enc_ctx->pre_assignment_buffer_count - 1;
@@ -4926,28 +4749,11 @@ static void set_mini_gop_structure(SequenceControlSet* scs, EncodeContext* enc_c
     enc_ctx->mini_gop_cnt_per_gop = (enc_ctx->pre_assignment_buffer_idr_count) ? 0 : enc_ctx->mini_gop_cnt_per_gop + 1;
     assert(IMPLIES(enc_ctx->pre_assignment_buffer_intra_count == enc_ctx->pre_assignment_buffer_count,
                    enc_ctx->pre_assignment_buffer_count == 1));
-#if OPT_USE_HL0_FLAT
     // In RA, if the only picture is an I_SLICE, use default settings (set above). If treat the solo I_SLICE
     // as a regular MG, you will change the hierarchical_levels to the minimum.
     // For low-delay pred strucutres, pre_assignment_buffer_count will be 1, but no need to change the default
     // hierarchical levels.
     if (enc_ctx->pre_assignment_buffer_count > 1 ||
-#else
-    // TODO: Why special case? Why no check on enc_ctx->pre_assignment_buffer_count > 1
-    if (next_mg_hierarchical_levels == 1) {
-        //minigop 2 case
-        ctx->mini_gop_start_index[ctx->total_number_of_mini_gops] = 0;
-        ctx->mini_gop_end_index[ctx->total_number_of_mini_gops]   = enc_ctx->pre_assignment_buffer_count - 1;
-        ctx->mini_gop_length[ctx->total_number_of_mini_gops]      = enc_ctx->pre_assignment_buffer_count -
-            ctx->mini_gop_start_index[ctx->total_number_of_mini_gops];
-        ctx->mini_gop_hierarchical_levels[ctx->total_number_of_mini_gops] = 2;
-    }
-    // In RA, if the only picture is an I_SLICE, use default settings (set above). If treat the solo I_SLICE
-    // as a regular MG, you will change the hierarchical_levels to the minimum.
-    // For low-delay pred strucutres, pre_assignment_buffer_count will be 1, but no need to change the default
-    // hierarchical levels.
-    else if (enc_ctx->pre_assignment_buffer_count > 1 ||
-#endif
         (!enc_ctx->pre_assignment_buffer_intra_count && scs->static_config.pred_structure == RANDOM_ACCESS)) {
         initialize_mini_gop_activity_array(scs, pcs, enc_ctx, ctx);
 
@@ -4965,21 +4771,12 @@ static void perform_sc_detection(SequenceControlSet* scs, PictureParentControlSe
         // If running multi-threaded mode, perform SC detection in svt_aom_picture_analysis_kernel, else in svt_aom_picture_decision_kernel
         if (scs->static_config.level_of_parallelism == 1) {
             switch (scs->static_config.screen_content_mode) {
-#if OPT_SC_STILL_IMAGE
             case 0:
                 pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = pcs->sc_class5 = 0;
                 break;
             case 1:
                 pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = pcs->sc_class5 = 1;
                 break;
-#else
-            case 0:
-                pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = 0;
-                break;
-            case 1:
-                pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = 1;
-                break;
-#endif
             case 2:
                 // SC Detection is OFF for 4K and higher
                 if (scs->input_resolution <= INPUT_SIZE_1080p_RANGE) {
@@ -4990,25 +4787,26 @@ static void perform_sc_detection(SequenceControlSet* scs, PictureParentControlSe
                 svt_aom_is_screen_content_antialiasing_aware(pcs);
                 break;
             }
+            // Luma-dominant detection in ST mode
+            if (scs->detect_luma_dominant_input) {
+                pcs->is_luma_dominant_input = svt_aom_is_input_luma_dominant(pcs->chroma_downsampled_pic);
+            }
         }
-        ctx->last_i_picture_sc_class0 = pcs->sc_class0;
-        ctx->last_i_picture_sc_class1 = pcs->sc_class1;
-        ctx->last_i_picture_sc_class2 = pcs->sc_class2;
-        ctx->last_i_picture_sc_class3 = pcs->sc_class3;
-        ctx->last_i_picture_sc_class4 = pcs->sc_class4;
-#if TUNE_SIMPLIFY_SETTINGS
-        ctx->last_i_picture_sc_class5 = pcs->sc_class5;
-#endif
-
+        ctx->last_i_picture_sc_class0      = pcs->sc_class0;
+        ctx->last_i_picture_sc_class1      = pcs->sc_class1;
+        ctx->last_i_picture_sc_class2      = pcs->sc_class2;
+        ctx->last_i_picture_sc_class3      = pcs->sc_class3;
+        ctx->last_i_picture_sc_class4      = pcs->sc_class4;
+        ctx->last_i_picture_sc_class5      = pcs->sc_class5;
+        ctx->last_i_is_luma_dominant_input = pcs->is_luma_dominant_input;
     } else {
-        pcs->sc_class0 = ctx->last_i_picture_sc_class0;
-        pcs->sc_class1 = ctx->last_i_picture_sc_class1;
-        pcs->sc_class2 = ctx->last_i_picture_sc_class2;
-        pcs->sc_class3 = ctx->last_i_picture_sc_class3;
-        pcs->sc_class4 = ctx->last_i_picture_sc_class4;
-#if TUNE_SIMPLIFY_SETTINGS
-        pcs->sc_class5 = ctx->last_i_picture_sc_class5;
-#endif
+        pcs->sc_class0              = ctx->last_i_picture_sc_class0;
+        pcs->sc_class1              = ctx->last_i_picture_sc_class1;
+        pcs->sc_class2              = ctx->last_i_picture_sc_class2;
+        pcs->sc_class3              = ctx->last_i_picture_sc_class3;
+        pcs->sc_class4              = ctx->last_i_picture_sc_class4;
+        pcs->sc_class5              = ctx->last_i_picture_sc_class5;
+        pcs->is_luma_dominant_input = ctx->last_i_is_luma_dominant_input;
     }
 }
 
@@ -5071,25 +4869,15 @@ static void update_pred_struct_and_pic_type(SequenceControlSet* scs, EncodeConte
     *pred_position_ptr = pcs->pred_struct_ptr->pred_struct_entry_ptr_array[enc_ctx->pred_struct_position];
 }
 
-static uint32_t get_pic_idx_in_mg(SequenceControlSet* scs, PictureParentControlSet* pcs, PictureDecisionContext* ctx,
-                                  uint32_t pic_idx, uint32_t mini_gop_index) {
+static uint32_t get_pic_idx_in_mg(SequenceControlSet* scs, EncodeContext* enc_ctx, PictureParentControlSet* pcs,
+                                  PictureDecisionContext* ctx, uint32_t pic_idx, uint32_t mini_gop_index) {
     uint32_t pic_idx_in_mg = 0;
     if (scs->static_config.pred_structure == RANDOM_ACCESS) {
         pic_idx_in_mg = pic_idx - ctx->mini_gop_start_index[mini_gop_index];
     } else if (scs->static_config.pred_structure == LOW_DELAY) {
+        uint64_t mg_pos = enc_ctx->pred_struct_position;
+        pic_idx_in_mg   = (mg_pos == 0) ? 0 : (uint32_t)((mg_pos - 1) % pcs->pred_struct_ptr->pred_struct_entry_count);
         uint64_t distance_to_last_idr = pcs->picture_number - scs->enc_ctx->last_idr_picture;
-        // For low delay P or low delay b case, get the the picture_index by mini_gop size
-        if (scs->static_config.intra_period_length >= 0) {
-            pic_idx_in_mg = (distance_to_last_idr == 0)
-                ? 0
-                : (uint32_t)(((distance_to_last_idr - 1) % (scs->static_config.intra_period_length + 1)) %
-                             pcs->pred_struct_ptr->pred_struct_entry_count);
-        } else {
-            // intra-period=-1 case, no gop
-            pic_idx_in_mg = (distance_to_last_idr == 0)
-                ? 0
-                : (uint32_t)((distance_to_last_idr - 1) % pcs->pred_struct_ptr->pred_struct_entry_count);
-        }
         // In S-Frame flexible insertion mode, hierarchical levels are adjusted based on the S-Frame position.
         // Picture indices in the low-delay mini-GOP are calculated from the last saved ARF.
         if (IS_SFRAME_FLEXIBLE_INSERT(scs->static_config.sframe_mode)) {
@@ -5757,7 +5545,7 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
                         }
                     }
 
-                    pcs->pic_idx_in_mg = get_pic_idx_in_mg(scs, pcs, ctx, pic_idx, mini_gop_index);
+                    pcs->pic_idx_in_mg = get_pic_idx_in_mg(scs, enc_ctx, pcs, ctx, pic_idx, mini_gop_index);
 
                     for (uint8_t loop_index = 0; loop_index <= pcs->is_alt_ref; loop_index++) {
                         // Init pred strucutre info - different for overlay/non-overlay
@@ -5768,13 +5556,9 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
                             assert(!pcs->is_overlay);
                             pcs->pred_struct_index    = (uint8_t)enc_ctx->pred_struct_position;
                             pcs->temporal_layer_index = (uint8_t)pred_position_ptr->temporal_layer_index;
-#if OPT_USE_HL0_FLAT
                             // For flat, set is_highest_layer to false to avoid using aggressive settings for all pictures
                             pcs->is_highest_layer = (pcs->temporal_layer_index == pcs->hierarchical_levels) &&
                                 pcs->hierarchical_levels != 0;
-#else
-                            pcs->is_highest_layer = (pcs->temporal_layer_index == pcs->hierarchical_levels);
-#endif
                             switch (pcs->slice_type) {
                             case I_SLICE:
 
@@ -5888,6 +5672,12 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
                 for (uint32_t pic_i = 0; pic_i < mg_size; ++pic_i) {
                     // Loop over pics in decode order
                     pcs = ctx->mg_pictures_array[pic_i];
+                    if (pcs->slice_type == I_SLICE) {
+                        pcs->frm_hdr.frame_type = pcs->idr_flag ? KEY_FRAME : INTRA_ONLY_FRAME;
+                    } else {
+                        pcs->frm_hdr.frame_type = INTER_FRAME;
+                    }
+                    set_gf_group_param(pcs);
                     av1_generate_rps_info(pcs, enc_ctx, ctx, pcs->pic_idx_in_mg, mini_gop_index);
 
                     if (scs->static_config.sframe_dist != 0 || !pcs->is_not_scaled ||
@@ -5904,7 +5694,6 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
                 for (uint32_t pic_i = 0; pic_i < mg_size; ++pic_i) {
                     PictureParentControlSet* pcs_1 = ctx->mg_pictures_array_disp_order[pic_i];
                     pcs_1->first_frame_in_minigop  = !pic_i;
-                    set_gf_group_param(pcs_1);
                     if (pcs_1->is_alt_ref) {
                         ctx->mg_pictures_array_disp_order[pic_i - 1]->has_show_existing = false;
                     }

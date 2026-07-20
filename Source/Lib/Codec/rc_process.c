@@ -159,14 +159,6 @@ typedef struct RateControlContext {
     EbFifo* picture_decision_results_output_fifo_ptr;
 } RateControlContext;
 
-EbErrorType svt_aom_rate_control_coded_frames_stats_context_ctor(coded_frames_stats_entry* entry_ptr,
-                                                                 uint64_t                  picture_number) {
-    entry_ptr->picture_number         = picture_number;
-    entry_ptr->frame_total_bit_actual = -1;
-
-    return EB_ErrorNone;
-}
-
 static void rate_control_context_dctor(EbPtr p) {
     EbThreadContext*    thread_ctx = (EbThreadContext*)p;
     RateControlContext* obj        = (RateControlContext*)thread_ctx->priv;
@@ -229,8 +221,14 @@ int32_t svt_av1_compute_qdelta(double qstart, double qtarget, EbBitDepth bit_dep
     return target_index - start_index;
 }
 
+// r0 (TPL rate ratio) is normally in (0, 1] but can be exactly 0 for a zero-distortion (flat/static)
+// frame. Floor the divisor so factor/r0 stays finite: casting +inf to int is undefined behavior
+// (UBSan: float-cast-overflow). 1e-6 keeps the largest boost well under INT_MAX.
+#define R0_MIN_DIVISOR 1e-6
+
 int svt_av1_get_cqp_kf_boost_from_r0(double r0, int frames_to_key, ResolutionRange input_resolution) {
     double factor;
+    r0 = AOMMAX(r0, R0_MIN_DIVISOR);
     // when frames_to_key not available, it is set to -1. In this case the factor is set to average of min and max
     if (frames_to_key == -1) {
         factor = (10.0 + 4.0) / 2;
@@ -245,6 +243,7 @@ int svt_av1_get_cqp_kf_boost_from_r0(double r0, int frames_to_key, ResolutionRan
 }
 
 int svt_av1_get_gfu_boost_from_r0_lap(double min_factor, double max_factor, double r0, int frames_to_key) {
+    r0            = AOMMAX(r0, R0_MIN_DIVISOR);
     double factor = sqrt((double)frames_to_key);
     factor        = AOMMIN(factor, max_factor);
     factor        = AOMMAX(factor, min_factor);
@@ -401,8 +400,8 @@ static uint32_t update_lambda(PictureControlSet* pcs, uint8_t q_index, uint8_t m
     PictureParentControlSet* ppcs       = pcs->ppcs;
     FrameType                frame_type = ppcs->frm_hdr.frame_type;
     // To set gf_update_type based on current TL vs. the max TL (e.g. for 5L, max TL is 4)
-    uint8_t temporal_layer_index = pcs->scs->use_flat_ipp ? 0 : ppcs->temporal_layer_index;
-    uint8_t max_temporal_layer   = pcs->scs->use_flat_ipp ? 0 : ppcs->hierarchical_levels;
+    uint8_t temporal_layer_index = ppcs->temporal_layer_index;
+    uint8_t max_temporal_layer   = ppcs->hierarchical_levels;
 
     // Update rdmult based on the frame's position in the miniGOP
     uint8_t gf_update_type = frame_type == KEY_FRAME ? SVT_AV1_KF_UPDATE
@@ -509,8 +508,9 @@ void svt_av1_rc_init(SequenceControlSet* scs) {
     rc->total_actual_bits   = 0;
     rc->total_target_bits   = 0;
 
-    rc->frames_since_key      = 8; // Sensible default for first frame.
-    rc->this_key_frame_forced = 0;
+    rc->frames_since_key        = 8; // Sensible default for first frame.
+    rc->frames_since_cdf_update = 0;
+    rc->this_key_frame_forced   = 0;
     for (i = 0; i < MAX_TEMPORAL_LAYERS + 1; ++i) {
         rc->rate_correction_factors[i] = 0.7;
     }
@@ -564,6 +564,13 @@ void svt_aom_update_rc_counts(PictureParentControlSet* ppcs) {
         // counters were incremented when it was originally encoded.
         rc->frames_since_key++;
         rc->frames_to_key--;
+        // Reset whenever the CDF is updated for the current frame,
+        // covering keyframes, warmup, scene changes, and periodic updates.
+        if (ppcs->frm_hdr.disable_cdf_update == 0) {
+            rc->frames_since_cdf_update = 0;
+        } else {
+            rc->frames_since_cdf_update++;
+        }
     }
 }
 
@@ -810,13 +817,17 @@ EbErrorType svt_aom_rate_control_kernel_iter(void* context) {
     // Modify these for different temporal layers later
     switch (task_type) {
     case RC_INPUT_SUPERRES_RECODE:
-        assert(scs->static_config.superres_mode == SUPERRES_QTHRESH ||
-               scs->static_config.superres_mode == SUPERRES_AUTO);
         // intentionally reuse code in RC_INPUT
     case RC_INPUT:
         pcs  = (PictureControlSet*)rc_tasks->pcs_wrapper->object_ptr;
         ppcs = pcs->ppcs;
         scs  = pcs->scs;
+
+        // A superres recode task is only generated for the modes that run the
+        // recode loop. Checked here (not in the RC_INPUT_SUPERRES_RECODE label)
+        // because scs is not resolved until this point.
+        assert(!is_superres_recode_task || scs->static_config.superres_mode == SUPERRES_QTHRESH ||
+               scs->static_config.superres_mode == SUPERRES_AUTO);
 
         rc_init_frame_stats(pcs, scs);
 

@@ -340,7 +340,7 @@ static inline void unpack_and_2bcompress_32_neon(uint16_t* in16b_buffer, uint8_t
 
         const uint32_t ext0123_packed32 = vget_lane_u32(
             vreinterpret_u32_u8(vqmovn_u16(vcombine_u16(vqmovn_u32(ext0123), vdup_n_u16(0)))), 0);
-        *((uint32_t*)(out2b_buffer + w * 4)) = ext0123_packed32;
+        memcpy(out2b_buffer + w * 4, &ext0123_packed32, sizeof(ext0123_packed32));
 
         const uint8x16_t out8_u8 = vcombine_u8(vqmovn_u16(vandq_u16(vshrq_n_u16(in1, 2), ymm_00ff)),
                                                vqmovn_u16(vandq_u16(vshrq_n_u16(in2, 2), ymm_00ff)));
@@ -697,15 +697,13 @@ void svt_enc_msb_pack2d_neon(uint8_t* in8_bit_buffer, uint32_t in8_stride, uint8
 
     if (width == 4) {
         for (count_height = 0; count_height < height; count_height += 2) {
-            vst1_u16(
-                out16_bit_buffer,
-                vshr_n_u16(vreinterpret_u16_u8(vzip1_u8(vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(inn_bit_buffer))),
-                                                        vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(in8_bit_buffer))))),
-                           6));
+            vst1_u16(out16_bit_buffer,
+                     vshr_n_u16(vreinterpret_u16_u8(vzip1_u8(load_unaligned_u8_4x1(inn_bit_buffer),
+                                                             load_unaligned_u8_4x1(in8_bit_buffer))),
+                                6));
             vst1_u16(out16_bit_buffer + out_stride,
-                     vshr_n_u16(vreinterpret_u16_u8(vzip1_u8(
-                                    vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(inn_bit_buffer + inn_stride))),
-                                    vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(in8_bit_buffer + in8_stride))))),
+                     vshr_n_u16(vreinterpret_u16_u8(vzip1_u8(load_unaligned_u8_4x1(inn_bit_buffer + inn_stride),
+                                                             load_unaligned_u8_4x1(in8_bit_buffer + in8_stride))),
                                 6));
 
             out16_bit_buffer += (out_stride << 1);
@@ -879,15 +877,13 @@ void svt_enc_msb_pack2d_neon(uint8_t* in8_bit_buffer, uint32_t in8_stride, uint8
             for (count_height = 0; count_height < height; count_height += 2) {
                 for (count_width = 0; count_width < width; count_width += 4) {
                     vst1_u16(out16_bit_buffer,
-                             vshr_n_u16(vreinterpret_u16_u8(
-                                            vzip1_u8(vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(inn_bit_buffer))),
-                                                     vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(in8_bit_buffer))))),
+                             vshr_n_u16(vreinterpret_u16_u8(vzip1_u8(load_unaligned_u8_4x1(inn_bit_buffer),
+                                                                     load_unaligned_u8_4x1(in8_bit_buffer))),
                                         6));
                     vst1_u16(
                         out16_bit_buffer + out_stride,
-                        vshr_n_u16(vreinterpret_u16_u8(vzip1_u8(
-                                       vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(inn_bit_buffer + inn_stride))),
-                                       vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(in8_bit_buffer + in8_stride))))),
+                        vshr_n_u16(vreinterpret_u16_u8(vzip1_u8(load_unaligned_u8_4x1(inn_bit_buffer + inn_stride),
+                                                                load_unaligned_u8_4x1(in8_bit_buffer + in8_stride))),
                                    6));
 
                     out16_bit_buffer += 4;
@@ -1093,4 +1089,59 @@ void svt_residual_kernel16bit_neon(uint16_t* input, uint32_t input_stride, uint1
             }
         }
     }
+}
+
+void svt_convert_8bit_to_16bit_neon(uint8_t* src, uint32_t src_stride, uint16_t* dst, uint32_t dst_stride,
+                                    uint32_t width, uint32_t height) {
+    do {
+        uint32_t       w       = width;
+        const uint8_t* src_ptr = src;
+        uint16_t*      dst_ptr = dst;
+        while (w >= 16) {
+            const uint8x16_t s = vld1q_u8(src_ptr);
+            vst1q_u16(dst_ptr, vmovl_u8(vget_low_u8(s)));
+            vst1q_u16(dst_ptr + 8, vmovl_high_u8(s));
+            src_ptr += 16;
+            dst_ptr += 16;
+            w -= 16;
+        }
+        if (w >= 8) {
+            vst1q_u16(dst_ptr, vmovl_u8(vld1_u8(src_ptr)));
+            src_ptr += 8;
+            dst_ptr += 8;
+            w -= 8;
+        }
+        for (uint32_t i = 0; i < w; i++) {
+            dst_ptr[i] = src_ptr[i];
+        }
+        src += src_stride;
+        dst += dst_stride;
+    } while (--height != 0);
+}
+
+// Function is created with assumption that src buffer stores values in range [0..255]
+void svt_convert_16bit_to_8bit_neon(uint16_t* src, uint32_t src_stride, uint8_t* dst, uint32_t dst_stride,
+                                    uint32_t width, uint32_t height) {
+    do {
+        uint32_t        w       = width;
+        const uint16_t* src_ptr = src;
+        uint8_t*        dst_ptr = dst;
+        while (w >= 16) {
+            vst1q_u8(dst_ptr, vmovn_high_u16(vmovn_u16(vld1q_u16(src_ptr)), vld1q_u16(src_ptr + 8)));
+            src_ptr += 16;
+            dst_ptr += 16;
+            w -= 16;
+        }
+        if (w >= 8) {
+            vst1_u8(dst_ptr, vmovn_u16(vld1q_u16(src_ptr)));
+            src_ptr += 8;
+            dst_ptr += 8;
+            w -= 8;
+        }
+        for (uint32_t i = 0; i < w; i++) {
+            dst_ptr[i] = (uint8_t)src_ptr[i];
+        }
+        src += src_stride;
+        dst += dst_stride;
+    } while (--height != 0);
 }

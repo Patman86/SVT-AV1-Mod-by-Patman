@@ -97,8 +97,8 @@ typedef struct WedgeParamsType {
     WedgeMasksType*      masks;
 } WedgeParamsType;
 
-void svt_inter_predictor_light_pd0(const uint8_t* src, int32_t src_stride, uint8_t* dst, int32_t dst_stride, int32_t w,
-                                   int32_t h, SubpelParams* subpel_params, ConvolveParams* conv_params);
+void svt_inter_predictor_pd0(const uint8_t* src, int32_t src_stride, uint8_t* dst, int32_t dst_stride, int32_t w,
+                             int32_t h, SubpelParams* subpel_params, ConvolveParams* conv_params);
 void svt_inter_predictor_light_pd1(uint8_t* src, uint8_t* src_2b, int32_t src_stride, uint8_t* dst, int32_t dst_stride,
                                    int32_t w, int32_t h, InterpFilters interp_filters, SubpelParams* subpel_params,
                                    ConvolveParams* conv_params, int32_t bd);

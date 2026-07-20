@@ -24,8 +24,8 @@ extern "C" {
      * ModeDecisionSb
      *   performs CL (SB)
      *******************************************/
-bool svt_aom_pick_partition_lpd0(SequenceControlSet* scs, PictureControlSet* pcs, ModeDecisionContext* ctx, MdScan* mds,
-                                 PC_TREE* pc_tree, int mi_row, int mi_col);
+bool svt_aom_pick_partition_pd0(SequenceControlSet* scs, PictureControlSet* pcs, ModeDecisionContext* ctx, MdScan* mds,
+                                PC_TREE* pc_tree, int mi_row, int mi_col);
 void svt_aom_init_sb_data(SequenceControlSet* scs, PictureControlSet* pcs, ModeDecisionContext* ctx);
 bool svt_aom_pick_partition(SequenceControlSet* scs, PictureControlSet* pcs, ModeDecisionContext* ctx, MdScan* mds,
                             PC_TREE* pc_tree, int mi_row, int mi_col);

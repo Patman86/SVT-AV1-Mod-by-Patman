@@ -500,9 +500,6 @@ static void tpl_subpel_search(SequenceControlSet* scs, PictureParentControlSet* 
     ms_params->round_dev_th                     = MAX_SIGNED_VALUE;
     ms_params->skip_diag_refinement             = pcs->tpl_ctrls.subpel_diag_refinement;
     ms_params->var_params.bias_fp               = 0;
-#if !OPT_SUBPEL_CTRL
-    uint8_t early_exit = 0;
-#endif
     subpel_search_method(NULL,
                          xd,
                          (const struct AV1Common* const)cm,
@@ -511,13 +508,7 @@ static void tpl_subpel_search(SequenceControlSet* scs, PictureParentControlSet* 
                          &best_sp_mv,
                          &not_used,
                          &pred_sse,
-#if OPT_SUBPEL_CTRL
                          block_size);
-#else
-                         qIndex,
-                         block_size,
-                         early_exit);
-#endif
 
     // Update the MV to the new best
     best_mv->as_int = best_sp_mv.as_int;
@@ -812,7 +803,7 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext* enc_ctx, SequenceCon
                     DECLARE_ALIGNED(32, uint16_t, tmp_dst_y[MAX_TPL_SAMPLES_PER_BLOCK]);
                     DECLARE_ALIGNED(16, uint8_t, seg_mask[2 * MAX_TPL_SAMPLES_PER_BLOCK]);
                     ConvolveParams conv_params_y = get_conv_params_no_round(
-                        0, 0, 0, tmp_dst_y, MAX_TPL_SIZE, 0 /*is_compound*/, 8 /*bit_depth*/);
+                        0, tmp_dst_y, MAX_TPL_SIZE, 0 /*is_compound*/, 8 /*bit_depth*/);
 
                     svt_aom_enc_make_inter_predictor(scs,
                                                      ref_pic_ptr->y_buffer,
@@ -900,7 +891,7 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext* enc_ctx, SequenceCon
                         DECLARE_ALIGNED(32, uint16_t, tmp_dst_y[MAX_TPL_SAMPLES_PER_BLOCK]);
                         DECLARE_ALIGNED(16, uint8_t, seg_mask[2 * MAX_TPL_SAMPLES_PER_BLOCK]);
                         ConvolveParams conv_params_y = get_conv_params_no_round(
-                            0, 0, 0, tmp_dst_y, MAX_TPL_SIZE, 0 /*is_compound*/, 8 /*bit_depth*/);
+                            0, tmp_dst_y, MAX_TPL_SIZE, 0 /*is_compound*/, 8 /*bit_depth*/);
 
                         svt_aom_enc_make_inter_predictor(scs,
                                                          ref_pic_ptr->y_buffer,
@@ -1002,7 +993,7 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext* enc_ctx, SequenceCon
                 DECLARE_ALIGNED(32, uint16_t, tmp_dst_y[MAX_TPL_SAMPLES_PER_BLOCK]);
                 DECLARE_ALIGNED(16, uint8_t, seg_mask[2 * MAX_TPL_SAMPLES_PER_BLOCK]);
                 ConvolveParams conv_params_y = get_conv_params_no_round(
-                    0, 0, 0, tmp_dst_y, MAX_TPL_SIZE, 0 /*is_compound*/, 8 /*bit_depth*/);
+                    0, tmp_dst_y, MAX_TPL_SIZE, 0 /*is_compound*/, 8 /*bit_depth*/);
 
                 svt_aom_enc_make_inter_predictor(scs,
                                                  ref_pic_ptr->y_buffer,

@@ -14,6 +14,7 @@
 #include "entropy_coding.h"
 
 #include "rc_process.h"
+#include "enc_mode_config.h"
 
 // Binary search evaluation function type
 typedef double (*arg_eval_fn)(void* ctx, int arg);
@@ -158,7 +159,7 @@ static int av1_estimate_frame_size(PictureControlSet* pcs, int qindex, double rc
 
     // scale to resolution
     FrameSize* frm_size = &pcs->ppcs->av1_cm->frm_size;
-    return AOMMAX(estimated_size * frm_size->frame_width * frm_size->frame_height / 512, 1);
+    return (int)AOMMAX(estimated_size * frm_size->frame_width * frm_size->frame_height / 512, 1);
 }
 
 typedef struct {
@@ -191,12 +192,12 @@ static int calc_pframe_target_size(PictureParentControlSet* ppcs) {
     RATE_CONTROL*       rc     = &scs->enc_ctx->rc;
     RateControlCfg*     rc_cfg = &scs->enc_ctx->rc_cfg;
 
-    if (ppcs->temporal_layer_index == 0 && rc->mini_qop_size > 1) {
+    if (rc->rc_mini_gop_pos == (rc->mini_qop_size - 1)) {
         double weights[1 + MAX_TEMPORAL_LAYERS] = {0};
         double rcf_tlx[1 + MAX_TEMPORAL_LAYERS] = {0};
 
         // prepare weighted RCFs - core components of layer weights
-        int num_layers = scs->static_config.hierarchical_levels + 1;
+        int num_layers = rc->rc_num_layers;
         svt_block_on_mutex(rc->rc_mutex);
         for (int k = 1; k < rc->mini_qop_size + 1; k++) {
             int k_tl = index2tl(k - 1, num_layers - 1);
@@ -204,7 +205,7 @@ static int calc_pframe_target_size(PictureParentControlSet* ppcs) {
         }
         svt_release_mutex(rc->rc_mutex);
 
-        if (scs->use_flat_ipp) {
+        if (ppcs->hierarchical_levels == 0) {
             for (int k = 1; k < num_layers + 1; k++) {
                 weights[k] = rcf_tlx[k];
             }
@@ -245,11 +246,12 @@ static int calc_pframe_target_size(PictureParentControlSet* ppcs) {
     }
 
     double frame_target = rc->avg_frame_bandwidth;
-    double buffer_diff  = rc->buffer_level - rc->optimal_buffer_level;
+    double buffer_diff  = (double)rc->buffer_level - rc->optimal_buffer_level;
     double one_pct_bits = 1.0 + rc->optimal_buffer_level / 100.0;
 
     // temporal dependency and mode decision modulation
-    frame_target *= rc->target_size_factors[ppcs->temporal_layer_index + 1];
+    int virtual_tl = index2tl(rc->rc_mini_gop_pos + 1, rc->rc_num_layers - 1);
+    frame_target *= rc->target_size_factors[virtual_tl + 1];
 
     // buffer adjustment, estimate buffer level after this frame
     buffer_diff += frame_target - rc->avg_frame_bandwidth;
@@ -263,11 +265,9 @@ static int calc_pframe_target_size(PictureParentControlSet* ppcs) {
         frame_target *= 1.0 + pct / 400;
     }
 
-    double min_frame_target = AOMMAX(rc->avg_frame_bandwidth >> 4, FRAME_OVERHEAD_BITS);
-    return AOMMAX(min_frame_target, frame_target);
+    return (int)frame_target;
 }
 
-#if FIX_CR_BAND_WRAPPING
 // Select SBs for cyclic refresh by advancing the persisted cycling index (with wrapping).
 static void cr_select_sbs(PictureParentControlSet* ppcs) {
     SequenceControlSet* scs     = ppcs->scs;
@@ -296,26 +296,19 @@ static void cr_select_sbs(PictureParentControlSet* ppcs) {
 
     enc_ctx->cr_sb_index = sb_end;
 }
-#endif
 
 static void rtc_cyclic_refresh_init(PictureParentControlSet* ppcs) {
     SequenceControlSet* scs = ppcs->scs;
     RATE_CONTROL*       rc  = &scs->enc_ctx->rc;
     CyclicRefresh*      cr  = &ppcs->cyclic_refresh;
 
-    bool is_inter_base_layer = ppcs->slice_type != I_SLICE && (scs->use_flat_ipp || ppcs->temporal_layer_index == 0);
+    bool is_inter_base_layer = ppcs->slice_type != I_SLICE && ppcs->temporal_layer_index == 0 && !frame_is_leaf(ppcs);
     // Technically it could be used in VBR too, but difference in goals for between CBR and VBR is unclear.
     // Right now VBR forces enormous buffer, which essentially makes it unbounded to set bitrate,
     // while CBR follows set buffer limitation and follows bitrate closely.
     cr->apply_cyclic_refresh = scs->enc_ctx->rc_cfg.mode == AOM_CBR && is_inter_base_layer;
 
     if (scs->super_block_size != 64) {
-        cr->apply_cyclic_refresh = 0;
-    }
-
-    // TODO: this must be adaptive!
-    int cr_num_layers = 2;
-    if (ppcs->temporal_layer_index >= cr_num_layers) {
         cr->apply_cyclic_refresh = 0;
     }
 
@@ -344,19 +337,12 @@ static void rtc_cyclic_refresh_init(PictureParentControlSet* ppcs) {
         return;
     }
 
-#if FIX_CR_BAND_WRAPPING
     // Select SBs for refresh by cycling through the frame
     cr_select_sbs(ppcs);
     if (cr->sb_start == 0 && cr->sb_end == 0) {
         cr->apply_cyclic_refresh = 0;
         return;
     }
-#else
-    uint16_t sb_cnt         = scs->sb_total_count;
-    cr->sb_start            = scs->enc_ctx->cr_sb_end;
-    cr->sb_end              = AOMMIN(cr->sb_start + sb_cnt * cr->percent_refresh / 100, sb_cnt);
-    scs->enc_ctx->cr_sb_end = cr->sb_end >= sb_cnt ? 0 : cr->sb_end;
-#endif
 
     // Quantizer-based multiplicative adjustment
     double avg_q = svt_av1_convert_qindex_to_q(rc->avg_frame_qindex[INTER_FRAME], scs->encoder_bit_depth);
@@ -374,7 +360,11 @@ static void rtc_cyclic_refresh_init(PictureParentControlSet* ppcs) {
 }
 
 static int get_rcf_index(PictureParentControlSet* ppcs) {
-    return ppcs->frm_hdr.frame_type == KEY_FRAME ? 0 : ppcs->pred_struct_index + 1;
+    if (ppcs->frm_hdr.frame_type == KEY_FRAME) {
+        return 0;
+    }
+    RATE_CONTROL* rc = &ppcs->scs->enc_ctx->rc;
+    return ((rc->rc_mini_gop_pos + 1) % rc->mini_qop_size) + 1;
 }
 
 static double rtc_get_rate_correction_factor(PictureParentControlSet* ppcs, int width, int height) {
@@ -409,14 +399,16 @@ static void rtc_set_rate_correction_factor(PictureParentControlSet* ppcs, double
     svt_release_mutex(rc->rc_mutex);
 }
 
-static double calculate_qindex(PictureControlSet* pcs, SequenceControlSet* scs) {
+static uint8_t calculate_qindex(PictureControlSet* pcs, SequenceControlSet* scs) {
     PictureParentControlSet* ppcs   = pcs->ppcs;
     RATE_CONTROL*            rc     = &scs->enc_ctx->rc;
     RateControlCfg*          rc_cfg = &scs->enc_ctx->rc_cfg;
 
     int min_qindex = rc->best_quality;
     int max_qindex = rc->worst_quality;
-    int max_size   = rc->max_frame_bandwidth;
+    int vbv_budget = (int)(rc->maximum_buffer_size - rc->buffer_level + rc->avg_frame_bandwidth);
+    int max_size   = AOMMIN(rc->max_frame_bandwidth, vbv_budget);
+    int min_size   = AOMMAX(rc->avg_frame_bandwidth >> 4, FRAME_OVERHEAD_BITS);
 
     if (frame_is_intra_only(ppcs)) {
         rc->frames_to_key = scs->static_config.intra_period_length + 1;
@@ -433,12 +425,13 @@ static double calculate_qindex(PictureControlSet* pcs, SequenceControlSet* scs) 
         if (pcs->ref_slice_type[REF_LIST_0][0] == I_SLICE) {
             min_qindex = MAX(min_qindex, rc->min_ref_base_q_idx - 1 * 4);
         } else {
-            EbReferenceObject* ref_obj = get_ref_obj(pcs, REF_LIST_0, 0);
-            bool is_higher_layer       = ref_obj->tmp_layer_idx < pcs->temporal_layer_index && !scs->use_flat_ipp;
-            int  min_limit             = is_higher_layer ? 0 : 4;
-            int  max_limit             = is_higher_layer ? 32 : 16;
-            min_qindex                 = MAX(min_qindex, rc->min_ref_base_q_idx - min_limit * 4);
-            max_qindex                 = MIN(max_qindex, rc->min_ref_base_q_idx + max_limit * 4);
+            EbReferenceObject* ref_obj         = get_ref_obj(pcs, REF_LIST_0, 0);
+            bool               is_higher_layer = ref_obj->tmp_layer_idx < pcs->temporal_layer_index &&
+                (pcs->ppcs->hierarchical_levels != 0);
+            int min_limit = is_higher_layer ? 0 : 4;
+            int max_limit = is_higher_layer ? 32 : 16;
+            min_qindex    = MAX(min_qindex, rc->min_ref_base_q_idx - min_limit * 4);
+            max_qindex    = MIN(max_qindex, rc->min_ref_base_q_idx + max_limit * 4);
         }
         ppcs->base_frame_target = calc_pframe_target_size(ppcs);
 
@@ -447,7 +440,7 @@ static double calculate_qindex(PictureControlSet* pcs, SequenceControlSet* scs) 
             max_size = AOMMIN(max_size, maxp);
         }
     }
-    ppcs->base_frame_target = AOMMIN(ppcs->base_frame_target, max_size);
+    ppcs->base_frame_target = AOMMAX(AOMMIN(ppcs->base_frame_target, max_size), min_size);
     ppcs->this_frame_target = ppcs->base_frame_target;
 
     rtc_cyclic_refresh_init(ppcs);
@@ -500,7 +493,11 @@ void svt_av1_rc_calc_qindex_rtc_cbr(PictureControlSet* pcs) {
             // d) invert current buffer level
             rc->buffer_level = (maximum - starting) * bandwidth / 1000;
 
-            int num_layers = scs->static_config.hierarchical_levels + 1;
+            // flat uses virtual 3-layer RC model for adaptive bit distribution
+            rc->rc_num_layers =
+                pcs->ppcs->hierarchical_levels == 0 ? 3 /*3-layer*/ : pcs->ppcs->hierarchical_levels + 1;
+            rc->rc_mini_gop_pos = 0;
+            int num_layers      = rc->rc_num_layers;
             for (int k = 0; k < num_layers + 1; k++) {
                 rc->target_size_factors[k] = 1.0; // flat at start
             }
@@ -527,6 +524,14 @@ void svt_av1_rc_calc_qindex_rtc_cbr(PictureControlSet* pcs) {
             rc->avg_frame_bandwidth = (int)(bandwidth / framerate);
             rc->max_frame_bandwidth = AOMMAX(rc->avg_frame_bandwidth, rc->max_frame_bandwidth);
         }
+    }
+
+    // Dynamic resolution resize (parity with libaom RT, which runs the resize decision in
+    // its realtime RC path): the dedicated RTC-CBR controller must run the same decision as
+    // the generic low-delay path, otherwise --rtc + --resize-mode DYNAMIC is a silent no-op.
+    if (scs->static_config.resize_mode == RESIZE_DYNAMIC && scs->static_config.pass == ENC_SINGLE_PASS &&
+        scs->static_config.pred_structure == LOW_DELAY) {
+        svt_aom_dynamic_resize_decision(ppcs);
     }
 
     int qindex = calculate_qindex(pcs, scs);
@@ -623,13 +628,9 @@ static void rtc_update_buffer_level(PictureParentControlSet* ppcs, int encoded_f
 // Post-encode VBV recode decision for RTC CBR.
 // After EncDec finishes, evaluates whether the frame would overflow the VBV buffer.
 bool svt_av1_rc_recode_decision_rtc_cbr(PictureControlSet* pcs) {
-    PictureParentControlSet* ppcs = pcs->ppcs;
-    RATE_CONTROL*            rc   = &ppcs->scs->enc_ctx->rc;
-
-    // Do not recode keyframes yet
-    if (frame_is_intra_only(ppcs)) {
-        return false;
-    }
+    PictureParentControlSet* ppcs   = pcs->ppcs;
+    RATE_CONTROL*            rc     = &ppcs->scs->enc_ctx->rc;
+    RateControlCfg*          rc_cfg = &ppcs->scs->enc_ctx->rc_cfg;
 
     // Prevent re-entry: only one recode pass
     if (ppcs->loop_count > 0) {
@@ -639,16 +640,22 @@ bool svt_av1_rc_recode_decision_rtc_cbr(PictureControlSet* pcs) {
     int projected_frame_size = (int)ROUND_POWER_OF_TWO(ppcs->pcs_total_rate, AV1_PROB_COST_SHIFT);
     projected_frame_size += (ppcs->frm_hdr.frame_type == KEY_FRAME) ? 13 : 0;
 
+    int64_t max_frame_size = INT64_MAX;
+    int     max_pct        = frame_is_intra_only(ppcs) ? rc_cfg->max_intra_bitrate_pct : rc_cfg->max_inter_bitrate_pct;
+    if (rc_cfg->mode == AOM_CBR && max_pct > 0) {
+        max_frame_size = (int64_t)rc->avg_frame_bandwidth * max_pct / 100;
+    }
+
     // Project VBV buffer after this frame
     int64_t projected_buffer = rc->buffer_level + projected_frame_size - rc->avg_frame_bandwidth;
-    if (projected_buffer <= rc->maximum_buffer_size) {
+    if (projected_buffer <= rc->maximum_buffer_size && projected_frame_size <= max_frame_size) {
         return false;
     }
 
     int new_q_idx = rc->worst_quality;
 
-    // Frame would overflow VBV. Compute target size that fits.
-    int target_size = (int)(rc->maximum_buffer_size - rc->buffer_level + rc->avg_frame_bandwidth);
+    // Frame would overflow the VBV and/or the frame cap. Compute target size that fits.
+    int target_size = (int)AOMMIN(max_frame_size, rc->maximum_buffer_size - rc->buffer_level + rc->avg_frame_bandwidth);
     if (target_size >= FRAME_OVERHEAD_BITS) {
         // Use R-Q model to find the qindex that produces target_size
         int    width  = ppcs->av1_cm->frm_size.frame_width;
@@ -693,9 +700,18 @@ void svt_av1_rc_postencode_update_rtc_cbr(PictureParentControlSet* ppcs) {
     if (frm_hdr->frame_type == KEY_FRAME) {
         rc->avg_frame_qindex[KEY_FRAME] = ROUND_POWER_OF_TWO(3 * rc->avg_frame_qindex[KEY_FRAME] + qindex, 2);
 
-        rc->frames_since_key = 0;
+        rc->frames_since_key        = 0;
+        rc->frames_since_cdf_update = 0;
+        rc->rc_mini_gop_pos         = 0;
     } else if (!ppcs->is_overlay) {
         rc->avg_frame_qindex[INTER_FRAME] = ROUND_POWER_OF_TWO(3 * rc->avg_frame_qindex[INTER_FRAME] + qindex, 2);
+        // Maintain last_q for the dynamic-resize decision (its only consumer); the RTC path
+        // otherwise leaves it stale. Store the raw qindex: the resize UP test compares against
+        // worst_quality and svt_av1_resize_reset_rc against a regulated qindex, both qindex-domain.
+        // Gated so the default (resize-off) RTC path is bit-identical.
+        if (ppcs->scs->static_config.resize_mode == RESIZE_DYNAMIC) {
+            rc->last_q[INTER_FRAME] = qindex;
+        }
 
         int avg_cnt_zeromv = (int)ppcs->child_pcs->avg_cnt_zeromv;
         if (rc->avg_frame_low_motion == 0) {
@@ -703,5 +719,6 @@ void svt_av1_rc_postencode_update_rtc_cbr(PictureParentControlSet* ppcs) {
         } else {
             rc->avg_frame_low_motion = ROUND_POWER_OF_TWO(3 * rc->avg_frame_low_motion + avg_cnt_zeromv, 2);
         }
+        rc->rc_mini_gop_pos = (rc->rc_mini_gop_pos + 1) % rc->mini_qop_size;
     }
 }

@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 #include "temporal_filtering.h"
 #include "compute_sad.h"
 #include "motion_estimation.h"
@@ -80,7 +81,7 @@ static const uint32_t idx_32x32_to_idx_8x8[4][4][4] = {
 };
 // clang-format on
 
-int32_t svt_aom_get_frame_update_type(SequenceControlSet* scs, PictureParentControlSet* pcs);
+int32_t svt_aom_get_frame_update_type(PictureParentControlSet* pcs);
 #if DEBUG_SCALING
 // save YUV to file - auxiliary function for debug
 void save_YUV_to_file(char* filename, EbByte y_buffer, EbByte buffer_u, EbByte buffer_v, uint16_t width,
@@ -161,6 +162,7 @@ static void derive_tf_32x32_block_split_flag(MeContext* me_ctx) {
         memset(&me_ctx->tf_16x16_block_split_flag[idx_32x32][0],
                0,
                sizeof(me_ctx->tf_16x16_block_split_flag[idx_32x32][0]) * 4);
+        return;
     }
 
     int min_subblock_error = INT_MAX;
@@ -1335,9 +1337,9 @@ static void apply_filtering_block_plane_wise(MeContext* me_ctx, int block_row, i
                                                                     count_ptr[PLANE_V]);
         } else {
             uint8_t* src_ptr[MAX_PLANES] = {
-                src[PLANE_Y] + offset_src_buffer_Y,
-                src[PLANE_U] + offset_src_buffer_U,
-                src[PLANE_V] + offset_src_buffer_V,
+                ADD_OFFSET_OR_NULL(src[PLANE_Y], offset_src_buffer_Y),
+                ADD_OFFSET_OR_NULL(src[PLANE_U], offset_src_buffer_U),
+                ADD_OFFSET_OR_NULL(src[PLANE_V], offset_src_buffer_V),
             };
             svt_av1_apply_temporal_filter_planewise_medium(me_ctx,
                                                            src_ptr[PLANE_Y],
@@ -1390,9 +1392,9 @@ static void apply_filtering_block_plane_wise(MeContext* me_ctx, int block_row, i
                                                                         encoder_bit_depth);
         } else {
             uint16_t* src_ptr_16bit[MAX_PLANES] = {
-                src_16bit[PLANE_Y] + offset_src_buffer_Y,
-                src_16bit[PLANE_U] + offset_src_buffer_U,
-                src_16bit[PLANE_V] + offset_src_buffer_V,
+                ADD_OFFSET_OR_NULL(src_16bit[PLANE_Y], offset_src_buffer_Y),
+                ADD_OFFSET_OR_NULL(src_16bit[PLANE_U], offset_src_buffer_U),
+                ADD_OFFSET_OR_NULL(src_16bit[PLANE_V], offset_src_buffer_V),
             };
 
             svt_av1_apply_temporal_filter_planewise_medium_hbd(me_ctx,
@@ -1691,18 +1693,21 @@ static void tf_64x64_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
         prediction_ptr.y_buffer = (uint8_t*)pred_16bit[PLANE_Y];
         prediction_ptr.u_buffer = (uint8_t*)pred_16bit[PLANE_U];
         prediction_ptr.v_buffer = (uint8_t*)pred_16bit[PLANE_V];
-        reference_ptr.y_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_Y] + pic_ptr_ref->border +
-                                            (pic_ptr_ref->y_stride * pic_ptr_ref->border));
-        reference_ptr.u_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_U] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.v_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_V] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.border    = pic_ptr_ref->border;
-        reference_ptr.y_stride  = pic_ptr_ref->y_stride;
-        reference_ptr.u_stride  = pic_ptr_ref->u_stride;
-        reference_ptr.v_stride  = pic_ptr_ref->v_stride;
-        reference_ptr.width     = pic_ptr_ref->width;
-        reference_ptr.height    = pic_ptr_ref->height;
+        reference_ptr.y_buffer  = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_Y],
+            pic_ptr_ref->border + (pic_ptr_ref->y_stride * pic_ptr_ref->border));
+        reference_ptr.u_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_U],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.v_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_V],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.border           = pic_ptr_ref->border;
+        reference_ptr.y_stride         = pic_ptr_ref->y_stride;
+        reference_ptr.u_stride         = pic_ptr_ref->u_stride;
+        reference_ptr.v_stride         = pic_ptr_ref->v_stride;
+        reference_ptr.width            = pic_ptr_ref->width;
+        reference_ptr.height           = pic_ptr_ref->height;
         reference_ptr.y_buffer_bit_inc = NULL;
         reference_ptr.u_buffer_bit_inc = NULL;
         reference_ptr.v_buffer_bit_inc = NULL;
@@ -1716,12 +1721,10 @@ static void tf_64x64_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
     int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
     int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-    const int32_t bw                    = mi_size_wide[BLOCK_64X64];
-    const int32_t bh                    = mi_size_high[BLOCK_64X64];
     blk_struct.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-    blk_struct.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
+    blk_struct.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_64X64] - mirow) * MI_SIZE) * 8;
     blk_struct.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-    blk_struct.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+    blk_struct.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_64X64] - micol) * MI_SIZE) * 8;
     BlkStruct* blk_ptr                  = &blk_struct;
 
     // Set the starting MV and distortion
@@ -1800,18 +1803,21 @@ static void tf_32x32_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
         prediction_ptr.y_buffer = (uint8_t*)pred_16bit[PLANE_Y];
         prediction_ptr.u_buffer = (uint8_t*)pred_16bit[PLANE_U];
         prediction_ptr.v_buffer = (uint8_t*)pred_16bit[PLANE_V];
-        reference_ptr.y_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_Y] + pic_ptr_ref->border +
-                                            (pic_ptr_ref->y_stride * pic_ptr_ref->border));
-        reference_ptr.u_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_U] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.v_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_V] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.border    = pic_ptr_ref->border;
-        reference_ptr.y_stride  = pic_ptr_ref->y_stride;
-        reference_ptr.u_stride  = pic_ptr_ref->u_stride;
-        reference_ptr.v_stride  = pic_ptr_ref->v_stride;
-        reference_ptr.width     = pic_ptr_ref->width;
-        reference_ptr.height    = pic_ptr_ref->height;
+        reference_ptr.y_buffer  = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_Y],
+            pic_ptr_ref->border + (pic_ptr_ref->y_stride * pic_ptr_ref->border));
+        reference_ptr.u_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_U],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.v_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_V],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.border           = pic_ptr_ref->border;
+        reference_ptr.y_stride         = pic_ptr_ref->y_stride;
+        reference_ptr.u_stride         = pic_ptr_ref->u_stride;
+        reference_ptr.v_stride         = pic_ptr_ref->v_stride;
+        reference_ptr.width            = pic_ptr_ref->width;
+        reference_ptr.height           = pic_ptr_ref->height;
         reference_ptr.y_buffer_bit_inc = NULL;
         reference_ptr.u_buffer_bit_inc = NULL;
         reference_ptr.v_buffer_bit_inc = NULL;
@@ -1827,12 +1833,10 @@ static void tf_32x32_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
     int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
     int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-    const int32_t bw                    = mi_size_wide[BLOCK_32X32];
-    const int32_t bh                    = mi_size_high[BLOCK_32X32];
     blk_struct.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-    blk_struct.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
+    blk_struct.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_32X32] - mirow) * MI_SIZE) * 8;
     blk_struct.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-    blk_struct.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+    blk_struct.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_32X32] - micol) * MI_SIZE) * 8;
     BlkStruct* blk_ptr                  = &blk_struct;
 
     const uint32_t mv_index = idx_32x32;
@@ -1939,12 +1943,10 @@ static void tf_16x16_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
         int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
         int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-        const int32_t bw                 = mi_size_wide[BLOCK_16X16];
-        const int32_t bh                 = mi_size_high[BLOCK_16X16];
         blk_ptr.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-        blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
+        blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_16X16] - mirow) * MI_SIZE) * 8;
         blk_ptr.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-        blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+        blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_16X16] - micol) * MI_SIZE) * 8;
 
         TF_SUBPEL_SEARCH_PARAMS tf_sp_param;
         tf_sp_param.subsampling_shift = pcs->tf_ctrls.sub_sampling_shift;
@@ -2052,12 +2054,10 @@ static void tf_8x8_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_ct
             int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
             int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-            const int32_t bw                 = mi_size_wide[BLOCK_8X8];
-            const int32_t bh                 = mi_size_high[BLOCK_8X8];
             blk_ptr.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-            blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
+            blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_8X8] - mirow) * MI_SIZE) * 8;
             blk_ptr.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-            blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+            blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_8X8] - micol) * MI_SIZE) * 8;
 
             TF_SUBPEL_SEARCH_PARAMS tf_sp_param;
             tf_sp_param.subsampling_shift = pcs->tf_ctrls.sub_sampling_shift;
@@ -2128,18 +2128,21 @@ static void tf_64x64_inter_prediction(PictureParentControlSet* pcs, MeContext* m
         prediction_ptr.y_buffer = (uint8_t*)pred_16bit[PLANE_Y];
         prediction_ptr.u_buffer = (uint8_t*)pred_16bit[PLANE_U];
         prediction_ptr.v_buffer = (uint8_t*)pred_16bit[PLANE_V];
-        reference_ptr.y_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_Y] + pic_ptr_ref->border +
-                                            (pic_ptr_ref->y_stride * pic_ptr_ref->border));
-        reference_ptr.u_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_U] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.v_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_V] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.border    = pic_ptr_ref->border;
-        reference_ptr.y_stride  = pic_ptr_ref->y_stride;
-        reference_ptr.u_stride  = pic_ptr_ref->u_stride;
-        reference_ptr.v_stride  = pic_ptr_ref->v_stride;
-        reference_ptr.width     = pic_ptr_ref->width;
-        reference_ptr.height    = pic_ptr_ref->height;
+        reference_ptr.y_buffer  = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_Y],
+            pic_ptr_ref->border + (pic_ptr_ref->y_stride * pic_ptr_ref->border));
+        reference_ptr.u_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_U],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.v_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_V],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.border           = pic_ptr_ref->border;
+        reference_ptr.y_stride         = pic_ptr_ref->y_stride;
+        reference_ptr.u_stride         = pic_ptr_ref->u_stride;
+        reference_ptr.v_stride         = pic_ptr_ref->v_stride;
+        reference_ptr.width            = pic_ptr_ref->width;
+        reference_ptr.height           = pic_ptr_ref->height;
         reference_ptr.y_buffer_bit_inc = NULL;
         reference_ptr.u_buffer_bit_inc = NULL;
         reference_ptr.v_buffer_bit_inc = NULL;
@@ -2152,12 +2155,10 @@ static void tf_64x64_inter_prediction(PictureParentControlSet* pcs, MeContext* m
     int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
     int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-    const int32_t bw                 = mi_size_wide[BLOCK_64X64];
-    const int32_t bh                 = mi_size_high[BLOCK_64X64];
     blk_ptr.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-    blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
+    blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_64X64] - mirow) * MI_SIZE) * 8;
     blk_ptr.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-    blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+    blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_64X64] - micol) * MI_SIZE) * 8;
 
     // Perform final pass using the 1/8 MV
     // AV1 MVs are always in 1/8th pel precision.
@@ -2224,18 +2225,21 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
         prediction_ptr.y_buffer = (uint8_t*)pred_16bit[PLANE_Y];
         prediction_ptr.u_buffer = (uint8_t*)pred_16bit[PLANE_U];
         prediction_ptr.v_buffer = (uint8_t*)pred_16bit[PLANE_V];
-        reference_ptr.y_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_Y] + pic_ptr_ref->border +
-                                            (pic_ptr_ref->y_stride * pic_ptr_ref->border));
-        reference_ptr.u_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_U] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.v_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_V] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.border    = pic_ptr_ref->border;
-        reference_ptr.y_stride  = pic_ptr_ref->y_stride;
-        reference_ptr.u_stride  = pic_ptr_ref->u_stride;
-        reference_ptr.v_stride  = pic_ptr_ref->v_stride;
-        reference_ptr.width     = pic_ptr_ref->width;
-        reference_ptr.height    = pic_ptr_ref->height;
+        reference_ptr.y_buffer  = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_Y],
+            pic_ptr_ref->border + (pic_ptr_ref->y_stride * pic_ptr_ref->border));
+        reference_ptr.u_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_U],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.v_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_V],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.border           = pic_ptr_ref->border;
+        reference_ptr.y_stride         = pic_ptr_ref->y_stride;
+        reference_ptr.u_stride         = pic_ptr_ref->u_stride;
+        reference_ptr.v_stride         = pic_ptr_ref->v_stride;
+        reference_ptr.width            = pic_ptr_ref->width;
+        reference_ptr.height           = pic_ptr_ref->height;
         reference_ptr.y_buffer_bit_inc = NULL;
         reference_ptr.u_buffer_bit_inc = NULL;
         reference_ptr.v_buffer_bit_inc = NULL;
@@ -2259,12 +2263,14 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
                     int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
                     int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-                    const int32_t bw                 = mi_size_wide[BLOCK_8X8];
-                    const int32_t bh                 = mi_size_high[BLOCK_8X8];
                     blk_ptr.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-                    blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
-                    blk_ptr.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-                    blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+                    blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_8X8] - mirow) *
+                                                        MI_SIZE) *
+                        8;
+                    blk_ptr.av1xd->mb_to_left_edge  = -(int32_t)((micol * MI_SIZE) * 8);
+                    blk_ptr.av1xd->mb_to_right_edge = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_8X8] - micol) *
+                                                       MI_SIZE) *
+                        8;
                     // Perform final pass using the 1/8 MV
                     //AV1 MVs are always in 1/8th pel precision.
                     BlockModeInfo block_mi = {
@@ -2316,12 +2322,14 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
                 int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
                 int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-                const int32_t bw                 = mi_size_wide[BLOCK_16X16];
-                const int32_t bh                 = mi_size_high[BLOCK_16X16];
                 blk_ptr.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-                blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
-                blk_ptr.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-                blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+                blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_16X16] - mirow) *
+                                                    MI_SIZE) *
+                    8;
+                blk_ptr.av1xd->mb_to_left_edge  = -(int32_t)((micol * MI_SIZE) * 8);
+                blk_ptr.av1xd->mb_to_right_edge = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_16X16] - micol) *
+                                                   MI_SIZE) *
+                    8;
                 // Perform final pass using the 1/8 MV
                 //AV1 MVs are always in 1/8th pel precision.
                 BlockModeInfo block_mi = {.mv[0]              = {{me_ctx->tf_16x16_mv_x[idx_32x32 * 4 + idx_16x16],
@@ -2373,12 +2381,10 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
         int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
         int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-        const int32_t bw                 = mi_size_wide[BLOCK_32X32];
-        const int32_t bh                 = mi_size_high[BLOCK_32X32];
         blk_ptr.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-        blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
+        blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_32X32] - mirow) * MI_SIZE) * 8;
         blk_ptr.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-        blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+        blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_32X32] - micol) * MI_SIZE) * 8;
 
         // Perform final pass using the 1/8 MV
         //AV1 MVs are always in 1/8th pel precision.
@@ -2610,8 +2616,11 @@ static EbErrorType produce_temporally_filtered_pic(PictureParentControlSet** pcs
     if (is_highbd) {
         EB_MALLOC_ALIGNED_ARRAY(predictor_16bit, BLK_PELS * MAX_PLANES);
     }
-    EbByte    pred[MAX_PLANES]       = {predictor, predictor + BLK_PELS, predictor + (BLK_PELS << 1)};
-    uint16_t* pred_16bit[MAX_PLANES] = {predictor_16bit, predictor_16bit + BLK_PELS, predictor_16bit + (BLK_PELS << 1)};
+    EbByte pred[MAX_PLANES] = {
+        predictor, ADD_OFFSET_OR_NULL(predictor, BLK_PELS), ADD_OFFSET_OR_NULL(predictor, BLK_PELS << 1)};
+    uint16_t* pred_16bit[MAX_PLANES] = {predictor_16bit,
+                                        ADD_OFFSET_OR_NULL(predictor_16bit, BLK_PELS),
+                                        ADD_OFFSET_OR_NULL(predictor_16bit, BLK_PELS << 1)};
     int       encoder_bit_depth      = scs->static_config.encoder_bit_depth;
 
     // chroma subsampling
@@ -2643,14 +2652,15 @@ static EbErrorType produce_temporally_filtered_pic(PictureParentControlSet** pcs
         input_picture_ptr_central->y_buffer, input_picture_ptr_central->u_buffer, input_picture_ptr_central->v_buffer};
 
     uint16_t* altref_buffer_highbd_start[MAX_PLANES] = {
-        centre_pcs->altref_buffer_highbd[PLANE_Y] +
-            input_picture_ptr_central->border * input_picture_ptr_central->y_stride + input_picture_ptr_central->border,
-        centre_pcs->altref_buffer_highbd[PLANE_U] +
-            (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->u_stride +
-            (input_picture_ptr_central->border >> ss_x),
-        centre_pcs->altref_buffer_highbd[PLANE_V] +
-            (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->v_stride +
-            (input_picture_ptr_central->border >> ss_x),
+        ADD_OFFSET_OR_NULL(centre_pcs->altref_buffer_highbd[PLANE_Y],
+                           input_picture_ptr_central->border * input_picture_ptr_central->y_stride +
+                               input_picture_ptr_central->border),
+        ADD_OFFSET_OR_NULL(centre_pcs->altref_buffer_highbd[PLANE_U],
+                           (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->u_stride +
+                               (input_picture_ptr_central->border >> ss_x)),
+        ADD_OFFSET_OR_NULL(centre_pcs->altref_buffer_highbd[PLANE_V],
+                           (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->v_stride +
+                               (input_picture_ptr_central->border >> ss_x)),
     };
     int decay_control[MAX_PLANES];
 
@@ -2726,7 +2736,7 @@ static EbErrorType produce_temporally_filtered_pic(PictureParentControlSet** pcs
          * TF STRENGTH CALCULATION
          */
     // Get the frame update type for the current frame
-    const uint32_t frame_update_type = svt_aom_get_frame_update_type(centre_pcs->scs, centre_pcs);
+    const uint32_t frame_update_type = svt_aom_get_frame_update_type(centre_pcs);
 
     if (scs->static_config.enable_tf > 1) {
         uint8_t adaptive_tf_shift_factor = calculate_tf_shift_factor(ctx);
@@ -3182,8 +3192,11 @@ static EbErrorType produce_temporally_filtered_pic_ld(PictureParentControlSet** 
     if (is_highbd) {
         EB_MALLOC_ALIGNED_ARRAY(predictor_16bit, BLK_PELS * MAX_PLANES);
     }
-    EbByte    pred[MAX_PLANES]       = {predictor, predictor + BLK_PELS, predictor + (BLK_PELS << 1)};
-    uint16_t* pred_16bit[MAX_PLANES] = {predictor_16bit, predictor_16bit + BLK_PELS, predictor_16bit + (BLK_PELS << 1)};
+    EbByte pred[MAX_PLANES] = {
+        predictor, ADD_OFFSET_OR_NULL(predictor, BLK_PELS), ADD_OFFSET_OR_NULL(predictor, BLK_PELS << 1)};
+    uint16_t* pred_16bit[MAX_PLANES] = {predictor_16bit,
+                                        ADD_OFFSET_OR_NULL(predictor_16bit, BLK_PELS),
+                                        ADD_OFFSET_OR_NULL(predictor_16bit, BLK_PELS << 1)};
     int       encoder_bit_depth      = scs->static_config.encoder_bit_depth;
 
     // chroma subsampling
@@ -3215,14 +3228,15 @@ static EbErrorType produce_temporally_filtered_pic_ld(PictureParentControlSet** 
         input_picture_ptr_central->y_buffer, input_picture_ptr_central->u_buffer, input_picture_ptr_central->v_buffer};
 
     uint16_t* altref_buffer_highbd_start[MAX_PLANES] = {
-        centre_pcs->altref_buffer_highbd[PLANE_Y] +
-            input_picture_ptr_central->border * input_picture_ptr_central->y_stride + input_picture_ptr_central->border,
-        centre_pcs->altref_buffer_highbd[PLANE_U] +
-            (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->u_stride +
-            (input_picture_ptr_central->border >> ss_x),
-        centre_pcs->altref_buffer_highbd[PLANE_V] +
-            (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->v_stride +
-            (input_picture_ptr_central->border >> ss_x),
+        ADD_OFFSET_OR_NULL(centre_pcs->altref_buffer_highbd[PLANE_Y],
+                           input_picture_ptr_central->border * input_picture_ptr_central->y_stride +
+                               input_picture_ptr_central->border),
+        ADD_OFFSET_OR_NULL(centre_pcs->altref_buffer_highbd[PLANE_U],
+                           (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->u_stride +
+                               (input_picture_ptr_central->border >> ss_x)),
+        ADD_OFFSET_OR_NULL(centre_pcs->altref_buffer_highbd[PLANE_V],
+                           (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->v_stride +
+                               (input_picture_ptr_central->border >> ss_x)),
     };
     int decay_control;
 
@@ -3250,7 +3264,7 @@ static EbErrorType produce_temporally_filtered_pic_ld(PictureParentControlSet** 
      * TF STRENGTH CALCULATION (2)
      */
     // Get the frame update type for the current frame
-    const uint32_t frame_update_type = svt_aom_get_frame_update_type(centre_pcs->scs, centre_pcs);
+    const uint32_t frame_update_type = svt_aom_get_frame_update_type(centre_pcs);
 
     if (scs->static_config.enable_tf > 1) {
         uint8_t adaptive_tf_shift_factor = calculate_tf_shift_factor(ctx);
@@ -3605,7 +3619,6 @@ int32_t svt_estimate_noise_highbd_fp16_c(const uint16_t* src, int width, int hei
 }
 #endif
 
-#if OPT_TUNE_VMAF
 uint32_t svt_vmaf_compute_avg_mad_c(const uint8_t* src, int width, int height, int stride) {
     uint64_t total_activity = 0;
     int      block_count    = 0;
@@ -3634,36 +3647,90 @@ uint32_t svt_vmaf_compute_avg_mad_c(const uint8_t* src, int width, int height, i
     return (uint32_t)(total_activity / ((uint64_t)block_count * 64));
 }
 
-void svt_vmaf_apply_unsharp_row_c(const uint8_t* src, const int16_t* blur, uint8_t* dst, int width, int amount,
+void svt_vmaf_apply_unsharp_row_c(const uint8_t* src, const uint8_t* blur, uint8_t* dst, int width, int amount,
                                   int32_t max_delta) {
     for (int j = 0; j < width; j++) {
         int32_t detail = (int32_t)src[j] - (int32_t)blur[j];
         detail         = detail > max_delta ? max_delta : detail < -max_delta ? -max_delta : detail;
-        int32_t result = (int32_t)src[j] + ((detail * amount) >> 16);
+        int32_t result = (int32_t)src[j] + ((detail * amount) >> 15);
         dst[j]         = (uint8_t)(result < 0 ? 0 : result > 255 ? 255 : result);
     }
 }
 
-void svt_vmaf_vpass_row_c(const uint32_t* hpass, uint32_t* sc0, uint32_t* sc1, uint32_t* sc2, uint32_t* sc3,
-                          int16_t* blur_row, int alloc_width, int width, int steps_x, int do_output) {
-    (void)width;
+void svt_vmaf_vpass_row_c(const int16_t* r0, const int16_t* r1, const int16_t* r2, const int16_t* r3, const int16_t* r4,
+                          uint8_t* blur_row, int width, int steps_x) {
     const int blur_start = 2 * steps_x;
-    for (int i = 0; i < alloc_width; i++) {
-        uint32_t tmp1 = hpass[i];
-        uint32_t tmp2 = sc0[i] + tmp1;
-        sc0[i]        = tmp1;
-        tmp1          = sc1[i] + tmp2;
-        sc1[i]        = tmp2;
-        tmp2          = sc2[i] + tmp1;
-        sc2[i]        = tmp1;
-        tmp1          = sc3[i] + tmp2;
-        sc3[i]        = tmp2;
-        if (do_output && i >= blur_start) {
-            blur_row[i - blur_start] = (int16_t)((tmp1 + 128u) >> 8);
-        }
+    for (int x = 0; x < width; x++) {
+        const int j = x + blur_start;
+        uint32_t  v = (uint32_t)r0[j] + (uint32_t)r4[j] + 4u * ((uint32_t)r1[j] + (uint32_t)r3[j]) +
+            6u * (uint32_t)r2[j];
+        blur_row[x] = (uint8_t)((v + 128u) >> 8);
     }
 }
-#endif
+
+float svt_vmaf_compute_gradient_coherence_c(const uint8_t* src, int width, int height, int stride) {
+    double weighted_coh = 0.0;
+    double weight_sum   = 0.0;
+    for (int by = 1; by < height - 1; by += 16) {
+        for (int bx = 1; bx < width - 1; bx += 16) {
+            int64_t sum_xx = 0, sum_yy = 0, sum_xy = 0;
+            int     y_end = (by + 16 < height - 1) ? by + 16 : height - 1;
+            int     x_end = (bx + 16 < width - 1) ? bx + 16 : width - 1;
+            for (int y = by; y < y_end; y++) {
+                const uint8_t* row  = src + y * stride;
+                const uint8_t* up   = src + (y - 1) * stride;
+                const uint8_t* down = src + (y + 1) * stride;
+                for (int x = bx; x < x_end; x++) {
+                    int32_t grad_x = (int32_t)row[x + 1] - (int32_t)row[x - 1];
+                    int32_t grad_y = (int32_t)down[x] - (int32_t)up[x];
+                    sum_xx += (int64_t)grad_x * grad_x;
+                    sum_yy += (int64_t)grad_y * grad_y;
+                    sum_xy += (int64_t)grad_x * grad_y;
+                }
+            }
+            double xx = (double)sum_xx;
+            double yy = (double)sum_yy;
+            double xy = (double)sum_xy;
+            weighted_coh += (double)sqrtf((float)((xx - yy) * (xx - yy) + 4.0 * xy * xy));
+            weight_sum += xx + yy;
+        }
+    }
+    if (weight_sum <= 0.0) {
+        return 1.0f;
+    }
+    return (float)(weighted_coh / weight_sum);
+}
+
+uint32_t svt_vmaf_count_detail_le_c(const uint8_t* src, const uint8_t* blur, int width, int height, int src_stride,
+                                    int thresh) {
+    uint32_t match_count = 0;
+    for (int y = 0; y < height; y++) {
+        const uint8_t* src_row  = src + (size_t)y * src_stride;
+        const uint8_t* blur_row = blur + (size_t)y * width;
+        for (int x = 0; x < width; x++) {
+            int32_t detail = abs((int32_t)src_row[x] - (int32_t)blur_row[x]);
+            if (detail <= thresh) {
+                match_count++;
+            }
+        }
+    }
+    return match_count;
+}
+
+void svt_vmaf_hpass_row_c(const uint8_t* src_row, int width, int16_t* h_row) {
+    const int steps_x  = 2;
+    uint32_t  h_acc[4] = {0};
+    for (int x = -steps_x; x < width + steps_x; x++) {
+        uint32_t tmp1 = x <= 0 ? src_row[0] : x >= width ? src_row[width - 1] : (uint32_t)src_row[x];
+        for (int s = 0; s < steps_x * 2; s += 2) {
+            uint32_t tmp2 = h_acc[s] + tmp1;
+            h_acc[s]      = tmp1;
+            tmp1          = h_acc[s + 1] + tmp2;
+            h_acc[s + 1]  = tmp2;
+        }
+        h_row[x + steps_x] = (int16_t)tmp1;
+    }
+}
 
 void pad_and_decimate_filtered_pic(PictureParentControlSet* centre_pcs) {
     // reference structures (padded pictures + downsampled versions)
@@ -3924,7 +3991,7 @@ EbErrorType svt_av1_init_temporal_filtering(PictureParentControlSet** pcs_list, 
         // if PSNR or SSIM computation needed or if superres recode is enabled
         SUPERRES_MODE             superres_mode           = centre_pcs->scs->static_config.superres_mode;
         SUPERRES_AUTO_SEARCH_TYPE search_type             = centre_pcs->scs->static_config.superres_auto_search_type;
-        uint32_t                  frame_update_type       = svt_aom_get_frame_update_type(centre_pcs->scs, centre_pcs);
+        uint32_t                  frame_update_type       = svt_aom_get_frame_update_type(centre_pcs);
         bool                      superres_recode_enabled = (superres_mode == SUPERRES_AUTO) &&
             ((search_type == SUPERRES_AUTO_DUAL) || (search_type == SUPERRES_AUTO_ALL)) // auto-dual or auto-all
             && ((frame_update_type == SVT_AV1_KF_UPDATE) ||

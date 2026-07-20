@@ -618,27 +618,22 @@ void svt_av1_highbd_quantize_b_qm_neon(const TranLow* coeff_ptr, intptr_t n_coef
 }
 
 static inline uint16x8_t quantize_b_logscale0_8(int16x8_t coeff, int16x8_t abs, uint16x8_t cond, int16x8_t round,
-                                                int16x8_t dequant, int16x8_t quant, int16x8_t quant_shift,
+                                                int16x8_t dequant, int16x8_t quant, int16x8_t neg_shift,
                                                 TranLow* qcoeff_ptr, TranLow* dqcoeff_ptr) {
-    const int16x8_t zero = vdupq_n_s16(0);
-
     int16x8_t coeff_sign = vreinterpretq_s16_u16(vcltzq_s16(coeff));
 
     int16x8_t tmp = vqaddq_s16(abs, round);
     tmp           = vsraq_n_s16(tmp, vqdmulhq_s16(tmp, quant), 1);
-    tmp           = vqdmulhq_s16(tmp, quant_shift);
+    tmp           = vshlq_s16(tmp, neg_shift);
+    tmp           = vandq_s16(tmp, vreinterpretq_s16_u16(cond));
 
     int16x8_t qcoeff = vsubq_s16(veorq_s16(tmp, coeff_sign), coeff_sign);
-    qcoeff           = vbslq_s16(cond, qcoeff, zero);
     store_s16q_to_tran_low(qcoeff_ptr, qcoeff);
 
-    int16x8_t dqcoeff = vmulq_s16(tmp, dequant);
-    dqcoeff           = vsubq_s16(veorq_s16(dqcoeff, coeff_sign), coeff_sign);
-    dqcoeff           = vbslq_s16(cond, dqcoeff, zero);
+    int16x8_t dqcoeff = vmulq_s16(qcoeff, dequant);
     store_s16q_to_tran_low(dqcoeff_ptr, dqcoeff);
 
-    uint16x8_t tmp_mask = vcgtzq_s16(tmp);
-    uint16x8_t nz_mask  = vandq_u16(tmp_mask, cond);
+    uint16x8_t nz_mask = vtstq_s16(qcoeff, qcoeff);
 
     return nz_mask;
 }
@@ -655,24 +650,26 @@ static inline void aom_quantize_b_helper_16x16_neon(const TranLow* coeff_ptr, in
     int16x8_t v_round   = vdupq_n_s16(round_ptr[1]);
     int16x8_t v_dequant = vdupq_n_s16(dequant_ptr[1]);
     int16x8_t v_quant   = vdupq_n_s16(quant_ptr[1]);
-    // Shift by 1 in order to save one shift in the kernel function.
-    int16x8_t v_quant_shift = vdupq_n_s16(quant_shift_ptr[1] >> 1);
+
+    // The shift path is valid only because quant_shift is a power of two.
+    assert(quant_shift_ptr[0] == (1 << svt_ctz((unsigned)quant_shift_ptr[0])));
+    assert(quant_shift_ptr[1] == (1 << svt_ctz((unsigned)quant_shift_ptr[1])));
+    int16x8_t v_neg_shift = vdupq_n_s16((int16_t)(svt_ctz((unsigned)quant_shift_ptr[1]) - 16));
 
     int16x8_t  v_zbins0 = vsetq_lane_s16(zbin_ptr[0], v_zbins, 0);
     int16x8_t  v_coeff  = load_tran_low_to_s16q(coeff_ptr);
     int16x8_t  v_abs    = vabsq_s16(v_coeff);
     uint16x8_t v_cond   = vcgeq_s16(v_abs, v_zbins0);
 
-    uint64_t nz_check = vget_lane_u64(vreinterpret_u64_u8(vmovn_u16(v_cond)), 0);
+    uint16_t nz_check = vmaxvq_u16(v_cond);
     if (nz_check) {
-        int16x8_t v_round0   = vsetq_lane_s16(round_ptr[0], v_round, 0);
-        int16x8_t v_quant0   = vsetq_lane_s16(quant_ptr[0], v_quant, 0);
-        int16x8_t v_dequant0 = vsetq_lane_s16(dequant_ptr[0], v_dequant, 0);
-        // Shift by 1 in order to save one shift in the kernel function.
-        int16x8_t v_quant_shift0 = vsetq_lane_s16(quant_shift_ptr[0] >> 1, v_quant_shift, 0);
+        int16x8_t v_round0     = vsetq_lane_s16(round_ptr[0], v_round, 0);
+        int16x8_t v_quant0     = vsetq_lane_s16(quant_ptr[0], v_quant, 0);
+        int16x8_t v_dequant0   = vsetq_lane_s16(dequant_ptr[0], v_dequant, 0);
+        int16x8_t v_neg_shift0 = vsetq_lane_s16((int16_t)(svt_ctz((unsigned)quant_shift_ptr[0]) - 16), v_neg_shift, 0);
 
         const uint16x8_t v_nz_mask = quantize_b_logscale0_8(
-            v_coeff, v_abs, v_cond, v_round0, v_dequant0, v_quant0, v_quant_shift0, qcoeff_ptr, dqcoeff_ptr);
+            v_coeff, v_abs, v_cond, v_round0, v_dequant0, v_quant0, v_neg_shift0, qcoeff_ptr, dqcoeff_ptr);
 
         int16x8_t v_iscan  = vld1q_s16(iscan);
         int16x8_t v_eobmax = vmaxq_s16(v_iscan, v_eobmax_76543210);
@@ -687,10 +684,10 @@ static inline void aom_quantize_b_helper_16x16_neon(const TranLow* coeff_ptr, in
         v_abs   = vabsq_s16(v_coeff);
         v_cond  = vcgeq_s16(v_abs, v_zbins);
 
-        nz_check = vget_lane_u64(vreinterpret_u64_u8(vmovn_u16(v_cond)), 0);
+        nz_check = vmaxvq_u16(v_cond);
         if (nz_check) {
             const uint16x8_t v_nz_mask = quantize_b_logscale0_8(
-                v_coeff, v_abs, v_cond, v_round, v_dequant, v_quant, v_quant_shift, qcoeff_ptr + i, dqcoeff_ptr + i);
+                v_coeff, v_abs, v_cond, v_round, v_dequant, v_quant, v_neg_shift, qcoeff_ptr + i, dqcoeff_ptr + i);
 
             int16x8_t v_iscan  = vld1q_s16(iscan + i);
             int16x8_t v_eobmax = vmaxq_s16(v_iscan, v_eobmax_76543210);
@@ -704,29 +701,24 @@ static inline void aom_quantize_b_helper_16x16_neon(const TranLow* coeff_ptr, in
 }
 
 static inline uint16x8_t quantize_b_logscale1_8(int16x8_t coeff, int16x8_t abs, uint16x8_t cond, int16x8_t round,
-                                                int16x8_t dequant, int16x8_t quant, int16x8_t quant_shift,
+                                                int16x8_t dequant, int16x8_t quant, int16x8_t neg_shift,
                                                 TranLow* qcoeff_ptr, TranLow* dqcoeff_ptr) {
-    const int16x8_t zero = vdupq_n_s16(0);
-
     int16x8_t coeff_sign = vreinterpretq_s16_u16(vcltzq_s16(coeff));
 
     int16x8_t tmp = vqaddq_s16(abs, round);
     tmp           = vsraq_n_s16(tmp, vqdmulhq_s16(tmp, quant), 1);
-    tmp           = vqdmulhq_s16(tmp, quant_shift);
+    tmp           = vshlq_s16(tmp, neg_shift);
+    tmp           = vandq_s16(tmp, vreinterpretq_s16_u16(cond));
 
     int16x8_t qcoeff = vsubq_s16(veorq_s16(tmp, coeff_sign), coeff_sign);
-    qcoeff           = vbslq_s16(cond, qcoeff, zero);
     store_s16q_to_tran_low(qcoeff_ptr, qcoeff);
 
     // Shift by log_scale = 1.
-    int16x8_t dqcoeff = vreinterpretq_s16_u16(
-        vhaddq_u16(vreinterpretq_u16_s16(vmulq_s16(tmp, dequant)), vdupq_n_u16(0)));
-    dqcoeff = vsubq_s16(veorq_s16(dqcoeff, coeff_sign), coeff_sign);
-    dqcoeff = vbslq_s16(cond, dqcoeff, zero);
+    int16x8_t dqcoeff = vreinterpretq_s16_u16(vshrq_n_u16(vreinterpretq_u16_s16(vmulq_s16(tmp, dequant)), 1));
+    dqcoeff           = vsubq_s16(veorq_s16(dqcoeff, coeff_sign), coeff_sign);
     store_s16q_to_tran_low(dqcoeff_ptr, dqcoeff);
 
-    uint16x8_t       tmp_mask = vcgtzq_s16(tmp);
-    const uint16x8_t nz_mask  = vandq_u16(tmp_mask, cond);
+    uint16x8_t nz_mask = vtstq_s16(qcoeff, qcoeff);
 
     return nz_mask;
 }
@@ -747,22 +739,27 @@ static inline void aom_quantize_b_helper_32x32_neon(const TranLow* coeff_ptr, in
     int16x8_t v_round       = vdupq_n_s16(rounds[1]);
     int16x8_t v_dequant     = vdupq_n_s16(dequant_ptr[1]);
     int16x8_t v_quant       = vdupq_n_s16(quant_ptr[1]);
-    int16x8_t v_quant_shift = vdupq_n_s16(quant_shift_ptr[1]);
+
+    // The shift path is valid only because quant_shift is a power of two.
+    assert(quant_shift_ptr[0] == (1 << svt_ctz((unsigned)quant_shift_ptr[0])));
+    assert(quant_shift_ptr[1] == (1 << svt_ctz((unsigned)quant_shift_ptr[1])));
+    int16x8_t v_neg_shift = vdupq_n_s16((int16_t)(svt_ctz((unsigned)quant_shift_ptr[1]) - (16 - log_scale)));
 
     int16x8_t  v_zbins0 = vsetq_lane_s16(zbins[0], v_zbins, 0);
     int16x8_t  v_coeff  = load_tran_low_to_s16q(coeff_ptr);
     int16x8_t  v_abs    = vabsq_s16(v_coeff);
     uint16x8_t v_cond   = vcgeq_s16(v_abs, v_zbins0);
 
-    uint64_t nz_check = vget_lane_u64(vreinterpret_u64_u8(vmovn_u16(v_cond)), 0);
+    uint16_t nz_check = vmaxvq_u16(v_cond);
     if (nz_check) {
-        int16x8_t v_round0       = vsetq_lane_s16(rounds[0], v_round, 0);
-        int16x8_t v_quant0       = vsetq_lane_s16(quant_ptr[0], v_quant, 0);
-        int16x8_t v_dequant0     = vsetq_lane_s16(dequant_ptr[0], v_dequant, 0);
-        int16x8_t v_quant_shift0 = vsetq_lane_s16(quant_shift_ptr[0], v_quant_shift, 0);
+        int16x8_t v_round0     = vsetq_lane_s16(rounds[0], v_round, 0);
+        int16x8_t v_quant0     = vsetq_lane_s16(quant_ptr[0], v_quant, 0);
+        int16x8_t v_dequant0   = vsetq_lane_s16(dequant_ptr[0], v_dequant, 0);
+        int16x8_t v_neg_shift0 = vsetq_lane_s16(
+            (int16_t)(svt_ctz((unsigned)quant_shift_ptr[0]) - (16 - log_scale)), v_neg_shift, 0);
 
         const uint16x8_t v_nz_mask = quantize_b_logscale1_8(
-            v_coeff, v_abs, v_cond, v_round0, v_dequant0, v_quant0, v_quant_shift0, qcoeff_ptr, dqcoeff_ptr);
+            v_coeff, v_abs, v_cond, v_round0, v_dequant0, v_quant0, v_neg_shift0, qcoeff_ptr, dqcoeff_ptr);
 
         int16x8_t v_iscan  = vld1q_s16(iscan);
         int16x8_t v_eobmax = vmaxq_s16(v_iscan, v_eobmax_76543210);
@@ -777,10 +774,10 @@ static inline void aom_quantize_b_helper_32x32_neon(const TranLow* coeff_ptr, in
         v_abs   = vabsq_s16(v_coeff);
         v_cond  = vcgeq_s16(v_abs, v_zbins);
 
-        nz_check = vget_lane_u64(vreinterpret_u64_u8(vmovn_u16(v_cond)), 0);
+        nz_check = vmaxvq_u16(v_cond);
         if (nz_check) {
             const uint16x8_t v_nz_mask = quantize_b_logscale1_8(
-                v_coeff, v_abs, v_cond, v_round, v_dequant, v_quant, v_quant_shift, qcoeff_ptr + i, dqcoeff_ptr + i);
+                v_coeff, v_abs, v_cond, v_round, v_dequant, v_quant, v_neg_shift, qcoeff_ptr + i, dqcoeff_ptr + i);
 
             int16x8_t v_iscan  = vld1q_s16(iscan + i);
             int16x8_t v_eobmax = vmaxq_s16(v_iscan, v_eobmax_76543210);
@@ -794,32 +791,25 @@ static inline void aom_quantize_b_helper_32x32_neon(const TranLow* coeff_ptr, in
 }
 
 static inline uint16x8_t quantize_b_logscale2_8(int16x8_t coeff, int16x8_t abs, uint16x8_t cond, int16x8_t round,
-                                                int16x8_t dequant, int16x8_t quant, int16x8_t quant_shift,
+                                                int16x8_t dequant, int16x8_t quant, int16x8_t neg_shift,
                                                 TranLow* qcoeff_ptr, TranLow* dqcoeff_ptr) {
-    const int16x8_t zero = vdupq_n_s16(0);
-    const int16x8_t one  = vdupq_n_s16(1);
-
     int16x8_t coeff_sign = vreinterpretq_s16_u16(vcltzq_s16(coeff));
 
-    int16x8_t tmp  = vqaddq_s16(abs, round);
-    tmp            = vsraq_n_s16(tmp, vqdmulhq_s16(tmp, quant), 1);
-    int16x8_t ones = vandq_s16(vshrq_n_s16(vmulq_s16(tmp, quant_shift), 14), one);
-    tmp            = vqdmulhq_s16(tmp, quant_shift);
-    tmp            = vaddq_s16(vshlq_s16(tmp, one), ones);
+    int16x8_t tmp = vqaddq_s16(abs, round);
+    tmp           = vsraq_n_s16(tmp, vqdmulhq_s16(tmp, quant), 1);
+    tmp           = vshlq_s16(tmp, neg_shift);
+    tmp           = vandq_s16(tmp, vreinterpretq_s16_u16(cond));
 
     int16x8_t qcoeff = vsubq_s16(veorq_s16(tmp, coeff_sign), coeff_sign);
-    qcoeff           = vbslq_s16(cond, qcoeff, zero);
     store_s16q_to_tran_low(qcoeff_ptr, qcoeff);
 
     // Shift right by log_scale = 2.
     int16x8_t dqcoeff = vreinterpretq_s16_u16(vshrq_n_u16(vreinterpretq_u16_s16(vmulq_s16(tmp, dequant)), 2));
     dqcoeff           = vorrq_s16(vshlq_n_s16(vqdmulhq_s16(tmp, dequant), 13), dqcoeff);
     dqcoeff           = vsubq_s16(veorq_s16(dqcoeff, coeff_sign), coeff_sign);
-    dqcoeff           = vbslq_s16(cond, dqcoeff, zero);
     store_s16q_to_tran_low(dqcoeff_ptr, dqcoeff);
 
-    uint16x8_t       tmp_mask = vcgtzq_s16(tmp);
-    const uint16x8_t nz_mask  = vandq_u16(tmp_mask, cond);
+    uint16x8_t nz_mask = vtstq_s16(qcoeff, qcoeff);
 
     return nz_mask;
 }
@@ -840,22 +830,27 @@ static inline void aom_quantize_b_helper_64x64_neon(const TranLow* coeff_ptr, in
     int16x8_t v_round       = vdupq_n_s16(rounds[1]);
     int16x8_t v_dequant     = vdupq_n_s16(dequant_ptr[1]);
     int16x8_t v_quant       = vdupq_n_s16(quant_ptr[1]);
-    int16x8_t v_quant_shift = vdupq_n_s16(quant_shift_ptr[1]);
+
+    // The shift path is valid only because quant_shift is a power of two.
+    assert(quant_shift_ptr[0] == (1 << svt_ctz((unsigned)quant_shift_ptr[0])));
+    assert(quant_shift_ptr[1] == (1 << svt_ctz((unsigned)quant_shift_ptr[1])));
+    int16x8_t v_neg_shift = vdupq_n_s16((int16_t)(svt_ctz((unsigned)quant_shift_ptr[1]) - (16 - log_scale)));
 
     int16x8_t  v_zbins0 = vsetq_lane_s16(zbins[0], v_zbins, 0);
     int16x8_t  v_coeff  = load_tran_low_to_s16q(coeff_ptr);
     int16x8_t  v_abs    = vabsq_s16(v_coeff);
     uint16x8_t v_cond   = vcgeq_s16(v_abs, v_zbins0);
 
-    uint64_t nz_check = vget_lane_u64(vreinterpret_u64_u8(vmovn_u16(v_cond)), 0);
+    uint16_t nz_check = vmaxvq_u16(v_cond);
     if (nz_check) {
-        int16x8_t v_round0       = vsetq_lane_s16(rounds[0], v_round, 0);
-        int16x8_t v_quant0       = vsetq_lane_s16(quant_ptr[0], v_quant, 0);
-        int16x8_t v_dequant0     = vsetq_lane_s16(dequant_ptr[0], v_dequant, 0);
-        int16x8_t v_quant_shift0 = vsetq_lane_s16(quant_shift_ptr[0], v_quant_shift, 0);
+        int16x8_t v_round0     = vsetq_lane_s16(rounds[0], v_round, 0);
+        int16x8_t v_quant0     = vsetq_lane_s16(quant_ptr[0], v_quant, 0);
+        int16x8_t v_dequant0   = vsetq_lane_s16(dequant_ptr[0], v_dequant, 0);
+        int16x8_t v_neg_shift0 = vsetq_lane_s16(
+            (int16_t)(svt_ctz((unsigned)quant_shift_ptr[0]) - (16 - log_scale)), v_neg_shift, 0);
 
         const uint16x8_t v_nz_mask = quantize_b_logscale2_8(
-            v_coeff, v_abs, v_cond, v_round0, v_dequant0, v_quant0, v_quant_shift0, qcoeff_ptr, dqcoeff_ptr);
+            v_coeff, v_abs, v_cond, v_round0, v_dequant0, v_quant0, v_neg_shift0, qcoeff_ptr, dqcoeff_ptr);
 
         int16x8_t v_iscan  = vld1q_s16(iscan);
         int16x8_t v_eobmax = vmaxq_s16(v_iscan, v_eobmax_76543210);
@@ -870,10 +865,10 @@ static inline void aom_quantize_b_helper_64x64_neon(const TranLow* coeff_ptr, in
         v_abs   = vabsq_s16(v_coeff);
         v_cond  = vcgeq_s16(v_abs, v_zbins);
 
-        nz_check = vget_lane_u64(vreinterpret_u64_u8(vmovn_u16(v_cond)), 0);
+        nz_check = vmaxvq_u16(v_cond);
         if (nz_check) {
             const uint16x8_t v_nz_mask = quantize_b_logscale2_8(
-                v_coeff, v_abs, v_cond, v_round, v_dequant, v_quant, v_quant_shift, qcoeff_ptr + i, dqcoeff_ptr + i);
+                v_coeff, v_abs, v_cond, v_round, v_dequant, v_quant, v_neg_shift, qcoeff_ptr + i, dqcoeff_ptr + i);
 
             int16x8_t v_iscan  = vld1q_s16(iscan + i);
             int16x8_t v_eobmax = vmaxq_s16(v_iscan, v_eobmax_76543210);

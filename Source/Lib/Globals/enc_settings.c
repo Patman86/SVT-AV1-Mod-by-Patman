@@ -274,12 +274,28 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
     }
 
     if (config->hierarchical_levels > 5) {
-#if OPT_USE_HL0_FLAT
         SVT_ERROR("Hierarchical Levels supported: [0-5]\n");
-#else
-        SVT_ERROR("Hierarchical Levels supported [0-5]\n");
-#endif
         return_error = EB_ErrorBadParameter;
+    } else {
+        for (uint8_t i = 0; i < config->hierarchical_levels + 1; ++i) {
+            if (config->qindex_offsets[i] < -64 || config->qindex_offsets[i] > 63) {
+                SVT_ERROR(
+                    "Invalid qindex_offsets for hierarchical level %d. Found %d, qindex_offsets must be [-64 - 63]\n",
+                    i,
+                    config->qindex_offsets[i]);
+                return_error = EB_ErrorBadParameter;
+            }
+        }
+        for (uint8_t i = 0; i < config->hierarchical_levels + 1; ++i) {
+            if (config->chroma_qindex_offsets[i] < -64 || config->chroma_qindex_offsets[i] > 63) {
+                SVT_ERROR(
+                    "Invalid chroma_qindex_offsets for hierarchical level %d. Found %d, chroma_qindex_offsets must be "
+                    "[-64 - 63]\n",
+                    i,
+                    config->chroma_qindex_offsets[i]);
+                return_error = EB_ErrorBadParameter;
+            }
+        }
     }
     if ((config->intra_period_length < -2 || config->intra_period_length > 2 * ((1 << 30) - 1)) &&
         config->rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF) {
@@ -377,12 +393,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    for (uint8_t i = 0; i < config->hierarchical_levels + 1; ++i) {
-        if (config->qindex_offsets[i] < -64 || config->qindex_offsets[i] > 63) {
-            SVT_ERROR("Invalid qindex_offsets. qindex_offsets must be [-64 - 63]\n");
-            return_error = EB_ErrorBadParameter;
-        }
-    }
     if (config->key_frame_chroma_qindex_offset < -64 || config->key_frame_chroma_qindex_offset > 63) {
         SVT_ERROR(
             "Invalid key_frame_chroma_qindex_offset. key_frame_chroma_qindex_offset "
@@ -420,12 +430,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    for (uint8_t i = 0; i < config->hierarchical_levels + 1; ++i) {
-        if (config->chroma_qindex_offsets[i] < -64 || config->chroma_qindex_offsets[i] > 63) {
-            SVT_ERROR("Invalid chroma_qindex_offsets. chroma_qindex_offsets must be [-64 - 63]\n");
-            return_error = EB_ErrorBadParameter;
-        }
-    }
     if (config->startup_qp_offset < -63 || config->startup_qp_offset > 63) {
         SVT_ERROR("Invalid startup_qp_offset. startup_qp_offset must be [-63 - 63]\n");
         return_error = EB_ErrorBadParameter;
@@ -499,8 +503,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
     }
 
     // CDEF
-    if (config->cdef_level > 4 || config->cdef_level < -1) {
-        SVT_ERROR("Invalid CDEF level [0 - 4, -1 for auto], your input: %d\n", config->cdef_level);
+    if (config->cdef_level > 10 || config->cdef_level < -1) {
+        SVT_ERROR("Invalid CDEF level [0 - 10, -1 for auto], your input: %d\n", config->cdef_level);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -526,7 +530,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
             config->fast_decode);
         return_error = EB_ErrorBadParameter;
     }
-#if FTR_TUNE_VMAF
     if (config->tune > TUNE_VMAF) {
         SVT_ERROR(
             "Invalid tune flag [0 - 5, 0 for VQ, 1 for PSNR, 2 for SSIM, 3 for IQ, 4 for MS_SSIM, and 5 for VMAF], "
@@ -571,24 +574,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
     if (config->tune == TUNE_IQ && config->pred_structure == LOW_DELAY) {
         SVT_WARN("Tune IQ with low delay prediction structure is experimental\n");
     }
-#else
-    if (config->tune > TUNE_MS_SSIM) {
-        SVT_ERROR(
-            "Invalid tune flag [0 - 4, 0 for VQ, 1 for PSNR, 2 for SSIM, 3 for IQ, and 4 for MS_SSIM], your input: "
-            "%d\n",
-            config->tune);
-        return_error = EB_ErrorBadParameter;
-    }
-    if (config->tune == TUNE_SSIM || config->tune == TUNE_IQ || config->tune == TUNE_MS_SSIM) {
-        if (config->rate_control_mode != 0 || config->pred_structure == LOW_DELAY) {
-            SVT_ERROR("tune %s only supports CRF rate control mode currently\n",
-                      config->tune == TUNE_SSIM     ? "SSIM"
-                          : config->tune == TUNE_IQ ? "IQ"
-                                                    : "MS_SSIM");
-            return_error = EB_ErrorBadParameter;
-        }
-    }
-#endif
 
     if (config->superres_mode > SUPERRES_AUTO) {
         SVT_ERROR("invalid superres-mode %d, should be in the range [%d - %d]\n",
@@ -664,12 +649,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
             "color format.\n");
         return_error = EB_ErrorBadParameter;
     }
-#if !OPT_USE_HL0_FLAT
-    if (config->hierarchical_levels < 2 || config->hierarchical_levels > 5) {
-        SVT_ERROR("Only hierarchical levels 2-5 is currently supported.\n");
-        return_error = EB_ErrorBadParameter;
-    }
-#endif
 
     if (config->rate_control_mode == SVT_AV1_RC_MODE_VBR && config->intra_period_length == -1) {
         SVT_ERROR(
@@ -1147,7 +1126,6 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                 : config->encoder_color_format == EB_YUV444 ? "YUV444"
                                                             : "Unknown color format");
 
-#if FTR_TUNE_VMAF
         PRINT_CONFIG("preset / tune / pred struct", "%d / %s / %s",
                  config->enc_mode,
                  config->tune == TUNE_VQ            ? "VQ"
@@ -1160,19 +1138,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                      : config->pred_structure == RANDOM_ACCESS ? "random access"
                      : config->pred_structure == ALL_INTRA     ? "all intra"
                                                                : "Unknown pred structure");
-#else
-        PRINT_CONFIG("preset / tune / pred struct", "%d / %s / %s",
-                 config->enc_mode,
-                 config->tune == TUNE_VQ            ? "VQ"
-                     : config->tune == TUNE_PSNR    ? "PSNR"
-                     : config->tune == TUNE_SSIM    ? "SSIM"
-                     : config->tune == TUNE_MS_SSIM ? "MS_SSIM"
-                                                    : "IQ",
-                 config->pred_structure == LOW_DELAY           ? "low delay"
-                     : config->pred_structure == RANDOM_ACCESS ? "random access"
-                     : config->pred_structure == ALL_INTRA     ? "all intra"
-                                                               : "Unknown pred structure");
-#endif
+
         PRINT_CONFIG("gop size / mini-gop size / key-frame type", "%d / %d / %s",
             config->intra_period_length + 1,
             (1 << config->hierarchical_levels),
@@ -1249,7 +1215,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
             PRINT_CONFIG("AC Bias Strength", "%.2f", config->ac_bias);
         }
 
-        if (config->hbd_mds) {
+        if (config->hbd_mds != DEFAULT) {
             SVT_INFO("SVT [config]: High Bit Depth Mode Decision setting \t\t\t\t\t: %d\n", config->hbd_mds);
         }
     }

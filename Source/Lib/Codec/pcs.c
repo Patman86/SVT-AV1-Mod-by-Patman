@@ -77,10 +77,9 @@ EbErrorType segmentation_map_ctor(SegmentationNeighborMap* seg_neighbor_map, uin
 }
 
 static void me_sb_results_dctor(EbPtr p) {
-    MeSbResults* obj = (MeSbResults*)p;
-    EB_FREE_ARRAY(obj->me_candidate_array);
-    EB_FREE_ARRAY(obj->me_mv_array);
-    EB_FREE_ARRAY(obj->total_me_candidate_index);
+    // me_mv_array / me_candidate_array / total_me_candidate_index are borrowed from per-parent-PCS
+    // pools (freed in the parent-PCS dctor).
+    (void)p;
 }
 
 /*
@@ -93,7 +92,8 @@ void svt_aom_get_max_allocated_me_refs(uint8_t ref_count_used_list0, uint8_t ref
         (ref_count_used_list0 - 1) + (ref_count_used_list1 == 3 ? 1 : 0);
 }
 
-EbErrorType svt_aom_me_sb_results_ctor(MeSbResults* obj_ptr, PictureControlSetInitData* init_data_ptr) {
+EbErrorType svt_aom_me_sb_results_ctor(MeSbResults* obj_ptr, PictureControlSetInitData* init_data_ptr,
+                                       MotionEstimationData* me_data, uint16_t sb_index, uint16_t all_sb) {
     obj_ptr->dctor = me_sb_results_dctor;
 
     uint8_t max_ref_to_alloc, max_cand_to_alloc;
@@ -104,32 +104,32 @@ EbErrorType svt_aom_me_sb_results_ctor(MeSbResults* obj_ptr, PictureControlSetIn
     ResolutionRange resolution;
     svt_aom_derive_input_resolution(&resolution, init_data_ptr->picture_width * init_data_ptr->picture_height);
     uint8_t number_of_pus = svt_aom_get_enable_me_16x16(init_data_ptr->enc_mode)
-#if TUNE_SIMPLIFY_SETTINGS
         ? svt_aom_get_enable_me_8x8(init_data_ptr->enc_mode, resolution, init_data_ptr->static_config.rtc)
-#else
-        ? svt_aom_get_enable_me_8x8(
-              init_data_ptr->enc_mode, resolution, init_data_ptr->static_config.rtc, init_data_ptr->use_flat_ipp)
-#endif
             ? SQUARE_PU_COUNT
             : MAX_SB64_PU_COUNT_NO_8X8
         : MAX_SB64_PU_COUNT_WO_16X16;
 
-    EB_MALLOC_ARRAY(obj_ptr->me_mv_array, number_of_pus * max_ref_to_alloc);
-    EB_MALLOC_ARRAY(obj_ptr->me_candidate_array, number_of_pus * max_cand_to_alloc);
-
-    EB_MALLOC_ARRAY(obj_ptr->total_me_candidate_index, number_of_pus);
+    // All SBs resolve to identical number_of_pus, so back the whole me_results array with one
+    // allocation each (created on the first SB) and hand each SB a slice.
+    if (sb_index == 0) {
+        EB_MALLOC_ARRAY(me_data->me_sb_mv_pool, (size_t)all_sb * number_of_pus * max_ref_to_alloc);
+        EB_MALLOC_ARRAY(me_data->me_sb_cand_pool, (size_t)all_sb * number_of_pus * max_cand_to_alloc);
+        EB_MALLOC_ARRAY(me_data->me_sb_totidx_pool, (size_t)all_sb * number_of_pus);
+    }
+    obj_ptr->me_mv_array              = me_data->me_sb_mv_pool + (size_t)sb_index * number_of_pus * max_ref_to_alloc;
+    obj_ptr->me_candidate_array       = me_data->me_sb_cand_pool + (size_t)sb_index * number_of_pus * max_cand_to_alloc;
+    obj_ptr->total_me_candidate_index = me_data->me_sb_totidx_pool + (size_t)sb_index * number_of_pus;
     return EB_ErrorNone;
 }
 
 void recon_coef_dctor(EbPtr p) {
     EncDecSet* obj = (EncDecSet*)p;
-
     EB_DELETE(obj->recon_pic_16bit);
     EB_DELETE(obj->recon_pic);
-    for (uint16_t sb_index = 0; sb_index < obj->init_b64_total_count; ++sb_index) {
-        EB_DELETE(obj->quantized_coeff[sb_index]); // OMK2
-    }
-    EB_DELETE_PTR_ARRAY(obj->quantized_coeff, obj->init_b64_total_count);
+    // quantized_coeff[] descriptors are borrowed from the pool; free the pool backing +
+    // descriptor storage once, then the (alias) pointer array.
+    svt_aom_pic_buf_desc_pool_dctor(&obj->quantized_coeff_pool);
+    EB_FREE_ARRAY(obj->quantized_coeff);
 }
 
 static void picture_control_set_dctor(EbPtr p) {
@@ -183,6 +183,10 @@ static void picture_control_set_dctor(EbPtr p) {
         EB_DELETE_PTR_ARRAY(obj->md_txfm_context_array[depth], tile_cnt);
     }
     EB_DELETE_PTR_ARRAY(obj->sb_ptr_array, obj->sb_total_count_unscaled);
+    // Per-SB pools backing the SuperBlock final_blk_arr / av1xd / ptree (borrowed by each SB).
+    EB_FREE_ARRAY(obj->sb_final_blk_arr_pool);
+    EB_FREE_ARRAY(obj->sb_av1xd_pool);
+    EB_FREE_ARRAY(obj->sb_ptree_pool);
     EB_FREE_ARRAY(obj->sb_intra);
     EB_FREE_ARRAY(obj->sb_skip);
     EB_FREE_ARRAY(obj->sb_64x64_mvp);
@@ -209,6 +213,15 @@ static void picture_control_set_dctor(EbPtr p) {
     EB_FREE_ARRAY(obj->mse_seg[1]);
     EB_FREE_ARRAY(obj->skip_cdef_seg);
     EB_FREE_ARRAY(obj->cdef_dir_data);
+    EB_FREE_ARRAY(obj->cdef_fb_list);
+    EB_FREE_ARRAY(obj->cdef_sb_index);
+    EB_FREE_ARRAY(obj->cdef_mse_ptr[0]);
+    EB_FREE_ARRAY(obj->cdef_mse_ptr[1]);
+    svt_aom_free(obj->cdef_row_cdef);
+    for (int cdef_p = 0; cdef_p < 3; cdef_p++) {
+        svt_aom_free(obj->cdef_linebuf[cdef_p]);
+        svt_aom_free(obj->cdef_colbuf[cdef_p]);
+    }
     EB_FREE_ARRAY(obj->mi_grid_base);
     EB_FREE_ARRAY(obj->mip);
     EB_FREE_ARRAY(obj->md_rate_est_ctx);
@@ -345,22 +358,24 @@ static EbErrorType recon_coef_ctor(EncDecSet* object_ptr, EbPtr object_init_data
     coeff_init_data.border             = 0;
     coeff_init_data.split_mode         = false;
     coeff_init_data.is_16bit_pipeline  = init_data_ptr->is_16bit_pipeline;
+    // One backing allocation for all per-SB coeff descriptors (was one alloc per SB).
+    EbErrorType pool_err = svt_aom_pic_buf_desc_pool_ctor(
+        &object_ptr->quantized_coeff_pool, &coeff_init_data, object_ptr->init_b64_total_count);
+    if (pool_err != EB_ErrorNone) {
+        return pool_err;
+    }
     for (sb_index = 0; sb_index < object_ptr->init_b64_total_count; ++sb_index) {
-        EB_NEW(object_ptr->quantized_coeff[sb_index], //OMK2
-               svt_picture_buffer_desc_ctor,
-               (EbPtr)&coeff_init_data);
+        object_ptr->quantized_coeff[sb_index] = &object_ptr->quantized_coeff_pool.descs[sb_index];
     }
 
     return EB_ErrorNone;
 }
 
 uint32_t svt_aom_get_out_buffer_size(uint32_t picture_width, uint32_t picture_height) {
-    uint32_t frame_size = picture_width * picture_height * 3 / 2; //assuming 4:2:0;
-    if (frame_size > INPUT_SIZE_4K_TH) {
-        return frame_size;
-    } else {
-        return BITSTREAM_BUFFER_SIZE(picture_width * picture_height);
-    }
+    // Compressed frames are far smaller than the raw 4:2:0 frame, so start the bitstream
+    // capacity at raw/4. The entropy writer grows on demand if a (pathological, very low-QP)
+    // frame ever exceeds it, so this stays correct while cutting the previous over-provisioning.
+    return picture_width * picture_height * 3 / 2 / 4; // raw 4:2:0 frame size / 4
 }
 
 /*
@@ -395,14 +410,9 @@ EbErrorType pcs_update_param(PictureControlSet* pcs, int8_t enc_mode) {
         svt_picture_buffer_desc_update(pcs->input_frame16bit, (EbPtr)&coeff_buffer_desc_init_data);
     }
     if (allintra ? svt_aom_get_enable_restoration_allintra(enc_mode, scs->static_config.enable_restoration_filtering)
-#if TUNE_SIMPLIFY_SETTINGS
-            : rtc_tune ? svt_aom_get_enable_restoration_rtc(
-#else
-            : rtc_tune ? svt_aom_get_enable_restoration_rtc(enc_mode,
-#endif
-                             scs->static_config.enable_restoration_filtering,
-                             scs->input_resolution,
-                             scs->static_config.fast_decode)
+            : rtc_tune ? svt_aom_get_enable_restoration_rtc(scs->static_config.enable_restoration_filtering,
+                                                            scs->input_resolution,
+                                                            scs->static_config.fast_decode)
                        : svt_aom_get_enable_restoration_default(enc_mode,
                                                                 scs->static_config.enable_restoration_filtering,
                                                                 scs->input_resolution,
@@ -496,15 +506,10 @@ static EbErrorType picture_control_set_ctor(PictureControlSet* object_ptr, EbPtr
     bool enable_restoration                       = allintra
                               ? svt_aom_get_enable_restoration_allintra(init_data_ptr->enc_mode,
                                                   init_data_ptr->static_config.enable_restoration_filtering)
-#if TUNE_SIMPLIFY_SETTINGS
-        : rtc_tune ? svt_aom_get_enable_restoration_rtc(
-#else
-        : rtc_tune ? svt_aom_get_enable_restoration_rtc(init_data_ptr->enc_mode,
-#endif
-                         init_data_ptr->static_config.enable_restoration_filtering,
-                         init_data_ptr->input_resolution,
-                         init_data_ptr->static_config.fast_decode)
-                   : svt_aom_get_enable_restoration_default(init_data_ptr->enc_mode,
+                              : rtc_tune ? svt_aom_get_enable_restoration_rtc(init_data_ptr->static_config.enable_restoration_filtering,
+                                                        init_data_ptr->input_resolution,
+                                                        init_data_ptr->static_config.fast_decode)
+                                         : svt_aom_get_enable_restoration_default(init_data_ptr->enc_mode,
                                                             init_data_ptr->static_config.enable_restoration_filtering,
                                                             init_data_ptr->input_resolution,
                                                             init_data_ptr->static_config.fast_decode);
@@ -1015,6 +1020,10 @@ static EbErrorType picture_control_set_ctor(PictureControlSet* object_ptr, EbPtr
     EB_MALLOC_ARRAY(object_ptr->mse_seg[1], object_ptr->b64_total_count);
     EB_MALLOC_ARRAY(object_ptr->skip_cdef_seg, object_ptr->b64_total_count);
     EB_MALLOC_ARRAY(object_ptr->cdef_dir_data, object_ptr->b64_total_count);
+    EB_MALLOC_ARRAY(object_ptr->cdef_fb_list, object_ptr->b64_total_count);
+    EB_MALLOC_ARRAY(object_ptr->cdef_sb_index, object_ptr->b64_total_count);
+    EB_MALLOC_ARRAY(object_ptr->cdef_mse_ptr[0], object_ptr->b64_total_count);
+    EB_MALLOC_ARRAY(object_ptr->cdef_mse_ptr[1], object_ptr->b64_total_count);
     EB_CREATE_MUTEX(object_ptr->rest_search_mutex);
 
     //the granularity is 4x4
@@ -1029,12 +1038,8 @@ static EbErrorType picture_control_set_ctor(PictureControlSet* object_ptr, EbPtr
             break;
         }
         uint8_t nsq_geom_lvl = allintra ? svt_aom_get_nsq_geom_level_allintra(init_data_ptr->enc_mode)
-#if TUNE_SIMPLIFY_SETTINGS
-            : rtc_tune ? svt_aom_get_nsq_geom_level_rtc()
-#else
-            : rtc_tune ? svt_aom_get_nsq_geom_level_rtc(init_data_ptr->enc_mode)
-#endif
-                       : svt_aom_get_nsq_geom_level_default(init_data_ptr->enc_mode, coeff_lvl);
+            : rtc_tune                  ? svt_aom_get_nsq_geom_level_rtc()
+                                        : svt_aom_get_nsq_geom_level_default(init_data_ptr->enc_mode, coeff_lvl);
         // nsq_geom_lvl level 0 means NSQ shapes are disallowed so don't adjust based on the level
         if (nsq_geom_lvl) {
             uint8_t allow_HVA_HVB, allow_HV4, min_nsq_bsize;
@@ -1049,12 +1054,8 @@ static EbErrorType picture_control_set_ctor(PictureControlSet* object_ptr, EbPtr
     }
 
     disallow_4x4 = allintra ? MIN(disallow_4x4, svt_aom_get_disallow_4x4_allintra(init_data_ptr->enc_mode))
-#if TUNE_SIMPLIFY_SETTINGS
-        : rtc_tune ? MIN(disallow_4x4, svt_aom_get_disallow_4x4_rtc())
-#else
-        : rtc_tune ? MIN(disallow_4x4, svt_aom_get_disallow_4x4_rtc(init_data_ptr->enc_mode))
-#endif
-                   : MIN(disallow_4x4, svt_aom_get_disallow_4x4_default(init_data_ptr->enc_mode));
+        : rtc_tune          ? MIN(disallow_4x4, svt_aom_get_disallow_4x4_rtc())
+                            : MIN(disallow_4x4, svt_aom_get_disallow_4x4_default(init_data_ptr->enc_mode));
 
     object_ptr->disallow_4x4_all_frames = disallow_4x4;
     disallow_8x8                        = allintra ? MIN(disallow_8x8, svt_aom_get_disallow_8x8_allintra())
@@ -1294,7 +1295,7 @@ static EbErrorType picture_parent_control_set_ctor(PictureParentControlSet* obje
 
     EB_MALLOC_ARRAY(object_ptr->rc_me_distortion, object_ptr->b64_total_count);
     EB_MALLOC_ARRAY(object_ptr->rc_me_allow_gm, object_ptr->b64_total_count);
-    EB_MALLOC_ARRAY(object_ptr->me_64x64_distortion, object_ptr->b64_total_count);
+    EB_CALLOC_ARRAY(object_ptr->me_64x64_distortion, object_ptr->b64_total_count);
     EB_MALLOC_ARRAY(object_ptr->me_32x32_distortion, object_ptr->b64_total_count);
     EB_MALLOC_ARRAY(object_ptr->me_16x16_distortion, object_ptr->b64_total_count);
     EB_MALLOC_ARRAY(object_ptr->me_8x8_distortion, object_ptr->b64_total_count);
@@ -1381,6 +1382,10 @@ static EbErrorType picture_parent_control_set_ctor(PictureParentControlSet* obje
 static void me_dctor(EbPtr p) {
     MotionEstimationData* obj = (MotionEstimationData*)p;
     EB_DELETE_PTR_ARRAY(obj->me_results, obj->init_b64_total_count);
+    // Per-SB ME pools backing the MeSbResults arrays (borrowed by each SB).
+    EB_FREE_ARRAY(obj->me_sb_mv_pool);
+    EB_FREE_ARRAY(obj->me_sb_cand_pool);
+    EB_FREE_ARRAY(obj->me_sb_totidx_pool);
     if (obj->tpl_stats) {
         EB_FREE_2D(obj->tpl_stats);
     }
@@ -1428,7 +1433,12 @@ static EbErrorType me_ctor(MotionEstimationData* object_ptr, EbPtr object_init_d
         EB_ALLOC_PTR_ARRAY(object_ptr->me_results, sb_total_count);
 
         for (uint16_t sb_index = 0; sb_index < sb_total_count; ++sb_index) {
-            EB_NEW(object_ptr->me_results[sb_index], svt_aom_me_sb_results_ctor, init_data_ptr);
+            EB_NEW(object_ptr->me_results[sb_index],
+                   svt_aom_me_sb_results_ctor,
+                   init_data_ptr,
+                   object_ptr,
+                   sb_index,
+                   sb_total_count);
         }
     }
     uint16_t adaptive_picture_width_in_mb  = (uint16_t)((init_data_ptr->picture_width + 15) / 16);

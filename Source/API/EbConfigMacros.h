@@ -49,7 +49,7 @@
 // so it is guaranteed for deployment builds, however tests use C functions,
 // and hence for unit-test builds (SVT_AV1_UNIT_TEST_BUILD, set by CMake when
 // BUILD_TESTING is ON) this must stay at 0.
-#if (defined(__aarch64__) || defined(_M_ARM64)) && !defined(SVT_AV1_UNIT_TEST_BUILD)
+#if defined(ARCH_AARCH64) && !defined(SVT_AV1_UNIT_TEST_BUILD)
 #define CONFIG_ARM_NEON_IS_GUARANTEED       1
 #endif
 
@@ -90,11 +90,26 @@
 #define CONFIG_ENABLE_HIGH_BIT_DEPTH        1
 #endif
 
+// Fast (non-bit-exact) all-int16 forward transforms for the LBD path: every
+// two-product cospi butterfly uses per-product vqrdmulhq_s16 instead of the
+// widening multiply. ~3x fewer instructions; tiny rounding error vs the
+// bit-exact int16 path. Guarded so a build picks exactly one path.
+#ifndef CONFIG_ENABLE_FAST_LBD_TXFM
+#define CONFIG_ENABLE_FAST_LBD_TXFM         0
+#endif
+
 // Single-thread kernel dispatch: at lp=1, bypass thread creation and run all
 // pipeline kernels cooperatively on one thread. Eliminates 15 context switches
 // per frame and all inter-stage semaphore/mutex overhead.
 #ifndef CONFIG_SINGLE_THREAD_KERNEL
 #define CONFIG_SINGLE_THREAD_KERNEL         1
+#endif
+
+// Native 8-bit CDEF NEON path (interior blocks in uint8 lanes). ARM-only.
+#if defined(ARCH_AARCH64)
+#define CDEF_8BITS_PATH 1
+#else
+#define CDEF_8BITS_PATH 0
 #endif
 
 // clang-format on

@@ -26,7 +26,7 @@ struct SvtMetadataArray;
 
 // API Version
 #define SVT_AV1_VERSION_MAJOR 4
-#define SVT_AV1_VERSION_MINOR 1
+#define SVT_AV1_VERSION_MINOR 2
 #define SVT_AV1_VERSION_PATCHLEVEL 0
 
 #define SVT_AV1_CHECK_VERSION(major, minor, patch)                                                               \
@@ -248,6 +248,7 @@ typedef enum {
     REF_STORE_EVENT, // Ref-frame management: STORE current frame in DPB with pic_id (payload: SvtAv1RefFrameCmd)
     REF_CLEAR_EVENT, // Ref-frame management: release a previously STOREd pic_id (payload: SvtAv1RefFrameCmd)
     REF_USE_EVENT, // Ref-frame management: predict current frame from a STOREd ref (payload: SvtAv1RefFrameCmd)
+    MG_SIZE_CHANGE_EVENT, //MG size change data per picture
     PRIVATE_DATA_TYPES // end of private data types
 } PrivDataType;
 
@@ -336,6 +337,11 @@ typedef struct SvtAv1PresetInfo {
     // New encoder preset (enc_mode) to apply from this frame onwards.
     int8_t enc_mode;
 } SvtAv1PresetInfo;
+
+typedef struct SvtAv1MgSizeInfo {
+    // New hierarchical levels to apply from this frame onwards.
+    uint32_t hierarchical_levels;
+} SvtAv1MgSizeInfo;
 
 typedef struct SvtAv1ComputeQualityInfo {
     bool compute_psnr;

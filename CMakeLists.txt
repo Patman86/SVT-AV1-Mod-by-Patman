@@ -16,7 +16,7 @@ if("${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_BINARY_DIR}")
                     "Please use the Build folder or create your own.")
 endif()
 
-project(svt-av1 VERSION 4.1.0
+project(svt-av1 VERSION 4.2.0
     LANGUAGES C CXX)
 
 set(VERSION_TAG "")
@@ -462,7 +462,10 @@ else()
     if(MINGW)
         check_flags_add(C -mxsave -fno-asynchronous-unwind-tables)
     else()
-        check_both_flags_add(-fstack-protector-strong)
+        option(ENABLE_STACK_PROTECTOR "Build with -fstack-protector-strong" ON)
+        if(ENABLE_STACK_PROTECTOR)
+            check_both_flags_add(-fstack-protector-strong)
+        endif()
         if(NOT EMSCRIPTEN)
             check_both_flags_add(PREPEND -fno-stack-clash-protection)
         endif()

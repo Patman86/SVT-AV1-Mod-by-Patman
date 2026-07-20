@@ -321,10 +321,9 @@ static void init_frame_rate_tables(PictureControlSet* pcs) {
     // Initial Rate Estimation of the Motion vectors
     svt_aom_estimate_mv_rate(pcs, md_rate_est_ctx, &pcs->md_frame_context);
     // Initial Rate Estimation of the quantized coefficients
-#if OPT_APPROX_COEFF_RATE
-    if (pcs->rdoq_level || pcs->rate_est_level)
-#endif
+    if (pcs->rdoq_level || pcs->rate_est_level) {
         svt_aom_estimate_coefficients_rate(md_rate_est_ctx, &pcs->md_frame_context);
+    }
 }
 
 // Perform initializations needed for MD
@@ -596,14 +595,12 @@ static void generate_ibc_data(PictureControlSet* pcs) {
     svt_aom_rtime_alloc_svt_av1_hash_table_create(&pcs->hash_table);
     Yv12BufferConfig cpi_source;
     svt_aom_link_eb_to_aom_buffer_desc_8bit(pcs->ppcs->enhanced_pic, &cpi_source);
-    svt_av1_crc32c_calculator_init(&pcs->crc_calculator);
-    svt_av1_generate_block_2x2_hash_value(&cpi_source, block_hash_values[0], pcs);
+    svt_av1_generate_block_2x2_hash_value(&cpi_source, block_hash_values[0]);
     uint8_t       src_idx     = 0;
     const uint8_t max_sb_size = pcs->ppcs->intrabc_ctrls.max_block_size_hash;
     for (int size = 4; size <= max_sb_size; size <<= 1, src_idx = !src_idx) {
         const uint8_t dst_idx = !src_idx;
-        svt_av1_generate_block_hash_value(
-            &cpi_source, size, block_hash_values[src_idx], block_hash_values[dst_idx], pcs);
+        svt_av1_generate_block_hash_value(&cpi_source, size, block_hash_values[src_idx], block_hash_values[dst_idx]);
         if (size != 4 || !pcs->pic_disallow_4x4) {
             svt_aom_rtime_alloc_svt_av1_add_to_hash_map_by_row_with_precal_data(
                 &pcs->hash_table,
@@ -651,19 +648,6 @@ static void derive_intra_coeff_level(PictureControlSet* pcs) {
 }
 
 static void derive_inter_coeff_level(PictureControlSet* pcs) {
-#if !OPT_COEFF_LEVEL
-    // Derive the input nois level
-    EbPictureBufferDesc* input_pic = pcs->ppcs->enhanced_pic;
-
-    EbByte y_buffer = input_pic->y_buffer;
-
-    int32_t noise_level_fp16 = svt_estimate_noise_fp16(y_buffer, // Y
-                                                       input_pic->width,
-                                                       input_pic->height,
-                                                       input_pic->y_stride);
-
-    noise_level_fp16 = svt_aom_noise_log1p_fp16(noise_level_fp16);
-#endif
     uint64_t cmplx               = pcs->ppcs->norm_me_dist / MAX(1, pcs->scs->static_config.qp);
     uint64_t coeff_vlow_level_th = COEFF_LVL_INTER_TH_0;
     uint64_t coeff_low_level_th  = COEFF_LVL_INTER_TH_1;
@@ -681,18 +665,6 @@ static void derive_inter_coeff_level(PictureControlSet* pcs) {
         coeff_low_level_th  = (uint64_t)((double)coeff_low_level_th * 1.2);
         coeff_high_level_th = (uint64_t)((double)coeff_high_level_th * 1.2);
     }
-
-#if !OPT_COEFF_LEVEL
-    if (noise_level_fp16 < 26572 /*FLOAT2FP(log1p(0.5), 16, int32_t)*/) {
-        coeff_vlow_level_th = (uint64_t)((double)coeff_vlow_level_th * 0.7);
-        coeff_low_level_th  = (uint64_t)((double)coeff_low_level_th * 0.7);
-        coeff_high_level_th = (uint64_t)((double)coeff_high_level_th * 0.7);
-    } else if (noise_level_fp16 > 45426 /*FLOAT2FP(log1p(1.0), 16, int32_t)*/) {
-        coeff_vlow_level_th = (uint64_t)((double)coeff_vlow_level_th * 1.05);
-        coeff_low_level_th  = (uint64_t)((double)coeff_low_level_th * 1.05);
-        coeff_high_level_th = (uint64_t)((double)coeff_high_level_th * 1.05);
-    }
-#endif
 
     pcs->coeff_lvl = NORMAL_LVL;
     if (cmplx < coeff_vlow_level_th) {
@@ -811,9 +783,14 @@ static bool me_based_cdef_skip(PictureControlSet* pcs) {
         return false;
     }
 
-    const uint8_t  in_res = pcs->ppcs->input_resolution;
+    const uint8_t in_res = pcs->ppcs->input_resolution;
+    // For flat, mult should be based on update_type since all pics are temporal layer 0
+    const int      mult = pcs->ppcs->hierarchical_levels ? (pcs->temporal_layer_index + 1)
+             : frame_is_boosted(pcs->ppcs)               ? 1
+             : frame_is_leaf(pcs->ppcs)                  ? 3
+                                                         : 2;
     const uint32_t use_zero_strength_th =
-        disable_cdef_th[pcs->ppcs->cdef_recon_ctrls.zero_filter_strength_lvl][in_res] * (pcs->temporal_layer_index + 1);
+        disable_cdef_th[pcs->ppcs->cdef_recon_ctrls.zero_filter_strength_lvl][in_res] * mult;
     if (!use_zero_strength_th) {
         return false;
     }
@@ -849,7 +826,7 @@ static bool me_based_cdef_skip(PictureControlSet* pcs) {
         }
     }
 
-    if (!prev_cdef_dist_th || (prev_cdef_dist < prev_cdef_dist_th * (pcs->temporal_layer_index + 1))) {
+    if (!prev_cdef_dist_th || (prev_cdef_dist < (prev_cdef_dist_th * mult))) {
         if (average_me_sad < use_zero_strength_th) {
             return true;
         }
@@ -921,11 +898,7 @@ EbErrorType svt_aom_mode_decision_configuration_kernel_iter(void* context) {
     pcs->coeff_lvl = INVALID_LVL;
     if (scs->allintra) {
         derive_intra_coeff_level(pcs);
-#if TUNE_SIMPLIFY_SETTINGS
     } else if (!scs->static_config.rtc && pcs->slice_type != I_SLICE) {
-#else
-    } else if (!scs->static_config.rtc && pcs->slice_type != I_SLICE && !pcs->ppcs->sc_class1) {
-#endif
         derive_inter_coeff_level(pcs);
     }
     // -------
@@ -997,7 +970,6 @@ EbErrorType svt_aom_mode_decision_configuration_kernel_iter(void* context) {
     }
     CdefSearchControls* cdef_ctrls = &pcs->ppcs->cdef_search_ctrls;
     const uint8_t       skip_perc  = pcs->ref_skip_percentage;
-#if OPT_CDEF_SKIP_TH
     // Adjust skip_th by QP: at low QP lower the threshold (skip CDEF more — picture already clean),
     // at high QP raise it (keep CDEF — it helps with compression artifacts)
     uint8_t cdef_skip_th = 0;
@@ -1007,10 +979,6 @@ EbErrorType svt_aom_mode_decision_configuration_kernel_iter(void* context) {
     }
     if (me_based_cdef_skip(pcs) || (cdef_ctrls->skip_th && skip_perc >= cdef_skip_th) ||
         (scs->vq_ctrls.sharpness_ctrls.cdef && pcs->ppcs->is_noise_level)) {
-#else
-    if (me_based_cdef_skip(pcs) || (skip_perc > 75 && cdef_ctrls->use_skip_detector) ||
-        (scs->vq_ctrls.sharpness_ctrls.cdef && pcs->ppcs->is_noise_level)) {
-#endif
         pcs->ppcs->cdef_level = 0;
     } else if (cdef_ctrls->use_reference_cdef_fs || cdef_ctrls->search_best_ref_fs) {
         update_cdef_filters_on_ref_info(pcs);
@@ -1073,7 +1041,7 @@ EbErrorType svt_aom_mode_decision_configuration_kernel_iter(void* context) {
         frm_hdr->tx_mode                            = TX_MODE_SELECT;
         pcs->pic_depth_removal_level                = 0;
         pcs->pic_block_based_depth_refinement_level = 0;
-        pcs->pic_lpd0_lvl                           = 0;
+        pcs->pic_pd0_lvl                            = 0;
         pcs->pic_lpd1_lvl                           = 0;
         pcs->pic_bypass_encdec = scs->static_config.encoder_bit_depth != EB_EIGHT_BIT ? 0 : pcs->pic_bypass_encdec;
     }

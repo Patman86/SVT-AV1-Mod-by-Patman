@@ -21,6 +21,7 @@
 #include "app_context.h"
 #include "app_config.h"
 #include "EbSvtAv1ErrorCodes.h"
+#include "EbSvtAv1Metadata.h"
 #include "app_input_y4m.h"
 #include "svt_time.h"
 
@@ -578,6 +579,54 @@ static EbErrorType test_update_input_pic_def(uint64_t pic_num, EbBufferHeaderTyp
     return EB_ErrorNone;
 }
 #endif
+#if FTR_MG_SIZE_ON_FLY_SAMPLE
+// test_update_mg_size_info: sample test case for updating the MG size on the fly
+static EbErrorType test_update_mg_size_info(uint64_t pic_num, EbBufferHeaderType* header_ptr) {
+    SvtAv1MgSizeInfo* data;
+    int               interval = 20;
+    if (pic_num == 0) {
+        return EB_ErrorNone;
+    } else if (pic_num % (6 * interval) == 0) {
+        data                      = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+        data->hierarchical_levels = 2;
+    } else if (pic_num % (5 * interval) == 0) {
+        data                      = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+        data->hierarchical_levels = 0;
+    } else if (pic_num % (4 * interval) == 0) {
+        data                      = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+        data->hierarchical_levels = 1;
+    } else if (pic_num % (3 * interval) == 0) {
+        data                      = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+        data->hierarchical_levels = 0;
+    } else if (pic_num % (2 * interval) == 0) {
+        data                      = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+        data->hierarchical_levels = 2;
+    } else if (pic_num % interval == 0) {
+        data                      = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+        data->hierarchical_levels = 1;
+    } else {
+        return EB_ErrorNone;
+    }
+    EbPrivDataNode* new_node = (EbPrivDataNode*)malloc(sizeof(EbPrivDataNode));
+    new_node->size           = sizeof(SvtAv1MgSizeInfo);
+    new_node->node_type      = MG_SIZE_CHANGE_EVENT;
+    new_node->data           = data;
+    new_node->next           = NULL;
+
+    // append to tail
+    if (header_ptr->p_app_private == NULL) {
+        header_ptr->p_app_private = new_node;
+    } else {
+        EbPrivDataNode* last = header_ptr->p_app_private;
+        while (last->next != NULL) {
+            last = last->next;
+        }
+        last->next = new_node;
+    }
+
+    return EB_ErrorNone;
+}
+#endif
 
 static EbErrorType retrieve_roi_map_event(SvtAv1RoiMap* roi_map, uint64_t pic_num, EbBufferHeaderType* header_ptr) {
     if (roi_map == NULL || roi_map->evt_list == NULL) {
@@ -701,6 +750,9 @@ void process_input_buffer(EncChannel* channel) {
 #endif
 #if FTR_PER_FRAME_QUALITY_SAMPLE
             test_update_psnr_per_frame_info(header_ptr->pts, header_ptr);
+#endif
+#if FTR_MG_SIZE_ON_FLY_SAMPLE
+            test_update_mg_size_info(header_ptr->pts, header_ptr);
 #endif
             retrieve_roi_map_event(app_cfg->roi_map, header_ptr->pts, header_ptr);
             // Send the picture
@@ -1202,21 +1254,70 @@ void process_output_recon_buffer(EncChannel* channel) {
         channel->exit_cond_recon = APP_ExitConditionError;
         return;
     } else if (recon_status != EB_NoErrorEmptyQueue) {
+        uint8_t* write_ptr = header_ptr->p_buffer;
+        size_t   write_len = header_ptr->n_filled_len;
+        uint8_t* packed    = NULL;
+
+        // A resized frame is reconstructed at its coded size in the top-left of a full-resolution
+        // buffer; FRAME_SIZE metadata holds the true coded dimensions. Repack it tightly so the recon
+        // file is the coded picture rather than a corner of a full-resolution canvas.
+        const SvtMetadataFrameSizeT* fs = NULL;
+        if (header_ptr->metadata) {
+            for (size_t mi = 0; mi < header_ptr->metadata->sz; ++mi) {
+                const SvtMetadataT* md = header_ptr->metadata->metadata_array[mi];
+                if (md && md->type == EB_AV1_METADATA_TYPE_FRAME_SIZE) {
+                    fs = (const SvtMetadataFrameSizeT*)md->payload;
+                    break;
+                }
+            }
+        }
+        if (fs && (fs->disp_width != fs->width || fs->disp_height != fs->height)) {
+            const uint32_t bps           = (app_cfg->config.encoder_bit_depth > 8) ? 2 : 1;
+            const uint32_t luma_stride   = (uint32_t)fs->stride * bps;
+            const uint32_t chroma_stride = (uint32_t)((fs->stride + fs->subsampling_x) >> fs->subsampling_x) * bps;
+            const uint32_t cw            = ((uint32_t)fs->disp_width + fs->subsampling_x) >> fs->subsampling_x;
+            const uint32_t ch            = ((uint32_t)fs->disp_height + fs->subsampling_y) >> fs->subsampling_y;
+            const uint32_t y_row         = (uint32_t)fs->disp_width * bps;
+            const uint32_t c_row         = cw * bps;
+            const size_t   packed_len    = (size_t)y_row * fs->disp_height + 2 * (size_t)c_row * ch;
+            packed                       = (uint8_t*)malloc(packed_len);
+            if (packed) {
+                const uint8_t* y_src = header_ptr->p_buffer;
+                const uint8_t* u_src = y_src + (size_t)luma_stride * fs->height;
+                const uint8_t* v_src = u_src +
+                    (size_t)chroma_stride * (((uint32_t)fs->height + fs->subsampling_y) >> fs->subsampling_y);
+                uint8_t* dst = packed;
+                for (uint32_t r = 0; r < fs->disp_height; ++r, dst += y_row) {
+                    memcpy(dst, y_src + (size_t)r * luma_stride, y_row);
+                }
+                for (uint32_t r = 0; r < ch; ++r, dst += c_row) {
+                    memcpy(dst, u_src + (size_t)r * chroma_stride, c_row);
+                }
+                for (uint32_t r = 0; r < ch; ++r, dst += c_row) {
+                    memcpy(dst, v_src + (size_t)r * chroma_stride, c_row);
+                }
+                write_ptr = packed;
+                write_len = packed_len;
+            }
+        }
+
         //Sets the File position to the beginning of the file.
         rewind(app_cfg->recon_file);
         uint64_t frame_num = header_ptr->pts;
         while (frame_num > 0) {
-            fseek_return_val = fseeko(app_cfg->recon_file, header_ptr->n_filled_len, SEEK_CUR);
+            fseek_return_val = fseeko(app_cfg->recon_file, write_len, SEEK_CUR);
 
             if (fseek_return_val != 0) {
                 fprintf(stderr, "Error in fseeko  returnVal %i\n", fseek_return_val);
+                free(packed);
                 channel->exit_cond_recon = APP_ExitConditionError;
                 return;
             }
             frame_num = frame_num - 1;
         }
 
-        fwrite(header_ptr->p_buffer, 1, header_ptr->n_filled_len, app_cfg->recon_file);
+        fwrite(write_ptr, 1, write_len, app_cfg->recon_file);
+        free(packed);
 
         // Update Output Port Activity State
         return_value = (header_ptr->flags & EB_BUFFERFLAG_EOS) ? APP_ExitConditionFinished : APP_ExitConditionNone;

@@ -141,8 +141,10 @@ RTCD_EXTERN void(*svt_av1_inv_txfm_add)(const TranLow *dqcoeff, uint8_t *dst_r, 
 RTCD_EXTERN void(*svt_compressed_packmsb)(uint8_t *in8_bit_buffer, uint32_t in8_stride, uint8_t *inn_bit_buffer, uint32_t inn_stride, uint16_t *out16_bit_buffer, uint32_t out_stride, uint32_t width, uint32_t height);
 RTCD_EXTERN void(*svt_convert_8bit_to_16bit)(uint8_t *src, uint32_t src_stride, uint16_t *dst, uint32_t dst_stride, uint32_t width, uint32_t height);
 void svt_convert_8bit_to_16bit_avx2(uint8_t* src, uint32_t src_stride, uint16_t* dst,uint32_t dst_stride, uint32_t width, uint32_t height);
+void svt_convert_8bit_to_16bit_neon(uint8_t* src, uint32_t src_stride, uint16_t* dst, uint32_t dst_stride, uint32_t width, uint32_t height);
 RTCD_EXTERN void(*svt_convert_16bit_to_8bit)(uint16_t *src, uint32_t src_stride, uint8_t *dst, uint32_t dst_stride, uint32_t width, uint32_t height);
 void svt_convert_16bit_to_8bit_avx2(uint16_t *src, uint32_t src_stride, uint8_t *dst, uint32_t dst_stride, uint32_t width, uint32_t height);
+void svt_convert_16bit_to_8bit_neon(uint16_t* src, uint32_t src_stride, uint8_t* dst, uint32_t dst_stride, uint32_t width, uint32_t height);
 RTCD_EXTERN void(*svt_pack2d_16_bit_src_mul4)(uint8_t *in8_bit_buffer, uint32_t in8_stride, uint8_t *inn_bit_buffer, uint16_t *out16_bit_buffer, uint32_t inn_stride, uint32_t out_stride, uint32_t width, uint32_t height);
 RTCD_EXTERN void(*svt_aom_un_pack2d_16_bit_src_mul4)(uint16_t *in16_bit_buffer, uint32_t in_stride, uint8_t *out8_bit_buffer, uint8_t *outn_bit_buffer, uint32_t out8_stride, uint32_t outn_stride, uint32_t width, uint32_t height);
 void svt_residual_kernel8bit_c(uint8_t *input, uint32_t input_stride, uint8_t *pred, uint32_t pred_stride, int16_t *residual, uint32_t residual_stride, uint32_t area_width, uint32_t area_height);
@@ -1025,6 +1027,16 @@ void svt_cdef_filter_block_c(uint8_t *dst8, uint16_t *dst16, int32_t dstride, co
 RTCD_EXTERN void(*svt_cdef_filter_block)(uint8_t *dst8, uint16_t *dst16, int32_t dstride, const uint16_t *in, int32_t pri_strength, int32_t sec_strength, int32_t dir, int32_t pri_damping, int32_t sec_damping, int32_t bsize, int32_t coeff_shift, uint8_t subsampling_factor);
 RTCD_EXTERN void(*svt_cdef_filter_block_8xn_16)(const uint16_t *const in, const int32_t pri_strength, const int32_t sec_strength, const int32_t dir, int32_t pri_damping, int32_t sec_damping, const int32_t coeff_shift, uint16_t *const dst, const int32_t dstride, uint8_t height, uint8_t subsampling_factor);
 
+// Native 8-bit interior CDEF (ARM 8-bit path; C fallback elsewhere).
+void svt_cdef_filter_block_8bit_c(uint8_t *dst, int32_t dstride, const uint8_t *in, int32_t pri_strength, int32_t sec_strength, int32_t dir, int32_t damping, int32_t bsize, int32_t coeff_shift, uint8_t subsampling_factor);
+RTCD_EXTERN void(*svt_cdef_filter_block_8bit)(uint8_t *dst, int32_t dstride, const uint8_t *in, int32_t pri_strength, int32_t sec_strength, int32_t dir, int32_t damping, int32_t bsize, int32_t coeff_shift, uint8_t subsampling_factor);
+void svt_cdef_filter_block_8bit_bounded_c(uint8_t *dst, int32_t dstride, const uint8_t *in, int32_t pri_strength, int32_t sec_strength, int32_t dir, int32_t damping, int32_t bsize, int32_t coeff_shift, uint8_t subsampling_factor, int edge_top, int edge_left, int edge_bottom, int edge_right);
+RTCD_EXTERN void(*svt_cdef_filter_block_8bit_bounded)(uint8_t *dst, int32_t dstride, const uint8_t *in, int32_t pri_strength, int32_t sec_strength, int32_t dir, int32_t damping, int32_t bsize, int32_t coeff_shift, uint8_t subsampling_factor, int edge_top, int edge_left, int edge_bottom, int edge_right);
+uint8_t svt_aom_cdef_find_dir_8bit_c(const uint8_t *img, int32_t stride, int32_t *var, int32_t coeff_shift);
+RTCD_EXTERN uint8_t (*svt_aom_cdef_find_dir_8bit)(const uint8_t *img, int32_t stride, int32_t *var, int32_t coeff_shift);
+void svt_aom_cdef_find_dir_dual_8bit_c(const uint8_t *img1, const uint8_t *img2, int stride, int32_t *var1, int32_t *var2, int32_t coeff_shift, uint8_t *out1, uint8_t *out2);
+RTCD_EXTERN void (*svt_aom_cdef_find_dir_dual_8bit)(const uint8_t *img1, const uint8_t *img2, int stride, int32_t *var1, int32_t *var2, int32_t coeff_shift, uint8_t *out1, uint8_t *out2);
+
 void svt_aom_copy_rect8_8bit_to_16bit_c(uint16_t *dst, int32_t dstride, const uint8_t *src, int32_t sstride, int32_t v, int32_t h);
 void svt_aom_copy_rect8_8bit_to_16bit_sse4_1(uint16_t *dst, int32_t dstride, const uint8_t *src, int32_t sstride, int32_t v, int32_t h);
 void svt_aom_copy_rect8_8bit_to_16bit_avx2(uint16_t *dst, int32_t dstride, const uint8_t *src, int32_t sstride, int32_t v, int32_t h);
@@ -1217,6 +1229,10 @@ void svt_residual_kernel8bit_neon(uint8_t *input, uint32_t input_stride, uint8_t
 void svt_residual_kernel16bit_neon(uint16_t *input, uint32_t input_stride, uint16_t *pred, uint32_t pred_stride, int16_t *residual, uint32_t residual_stride, uint32_t area_width, uint32_t area_height);
 
 void svt_cdef_filter_block_neon(uint8_t *dst8, uint16_t *dst16, int32_t dstride, const uint16_t *in, int32_t pri_strength, int32_t sec_strength, int32_t dir, int32_t pri_damping, int32_t sec_damping, int32_t bsize, int32_t coeff_shift, uint8_t subsampling_factor);
+void svt_cdef_filter_block_8bit_neon(uint8_t *dst, int32_t dstride, const uint8_t *in, int32_t pri_strength, int32_t sec_strength, int32_t dir, int32_t damping, int32_t bsize, int32_t coeff_shift, uint8_t subsampling_factor);
+void svt_cdef_filter_block_8bit_bounded_neon(uint8_t *dst, int32_t dstride, const uint8_t *in, int32_t pri_strength, int32_t sec_strength, int32_t dir, int32_t damping, int32_t bsize, int32_t coeff_shift, uint8_t subsampling_factor, int edge_top, int edge_left, int edge_bottom, int edge_right);
+uint8_t svt_aom_cdef_find_dir_8bit_neon(const uint8_t *img, int32_t stride, int32_t *var, int32_t coeff_shift);
+void svt_aom_cdef_find_dir_dual_8bit_neon(const uint8_t *img1, const uint8_t *img2, int stride, int32_t *var1, int32_t *var2, int32_t coeff_shift, uint8_t *out1, uint8_t *out2);
 uint8_t svt_aom_cdef_find_dir_neon(const uint16_t *img, int32_t stride, int32_t *var, int32_t coeff_shift);
 void svt_aom_cdef_find_dir_dual_neon(const uint16_t *img1, const uint16_t *img2, int stride, int32_t *var1, int32_t *var2, int32_t coeff_shift, uint8_t *out1, uint8_t *out2);
 

@@ -60,10 +60,11 @@ typedef struct ResourceCoordinationContext {
     bool     start_flag;
 
     // Sequence Parameter Change Flags
-    bool seq_param_change;
-    bool video_res_change;
-    bool bitrate_changed;
-    bool frame_rate_changed;
+    bool     seq_param_change;
+    bool     video_res_change;
+    bool     bitrate_changed;
+    bool     frame_rate_changed;
+    uint32_t new_hierarchical_layers;
 
     // Runtime bitrate and frame rate, updated by RATE_CHANGE_EVENT /
     // FRAME_RATE_CHANGE_EVENT and stamped onto each PCS for thread-safe access.
@@ -139,6 +140,7 @@ EbErrorType svt_aom_resource_coordination_context_ctor(EbThreadContext* thread_c
     context_ptr->runtime_target_bit_rate        = init_scs->static_config.target_bit_rate;
     context_ptr->runtime_frame_rate_numerator   = init_scs->static_config.frame_rate_numerator;
     context_ptr->runtime_frame_rate_denominator = init_scs->static_config.frame_rate_denominator;
+    context_ptr->new_hierarchical_layers        = init_scs->static_config.hierarchical_levels;
 
     return EB_ErrorNone;
 }
@@ -813,6 +815,20 @@ static void update_frame_rate_info(ResourceCoordinationContext* ctx, EbBufferHea
     }
 }
 
+// Update the MG size...
+static void update_mg_size_info(ResourceCoordinationContext* ctx, EbBufferHeaderType* input_ptr) {
+    EbPrivDataNode* node = (EbPrivDataNode*)input_ptr->p_app_private;
+    while (node) {
+        if (node->node_type == MG_SIZE_CHANGE_EVENT) {
+            svt_aom_assert_err(node->size == sizeof(SvtAv1MgSizeInfo) && node->data,
+                               "invalid private data of type MG_SIZE_CHANGE_EVENT");
+            SvtAv1MgSizeInfo* info       = (SvtAv1MgSizeInfo*)node->data;
+            ctx->new_hierarchical_layers = info->hierarchical_levels;
+        }
+        node = node->next;
+    }
+}
+
 // Update the encoder preset (enc_mode) from PRESET_CHANGE_EVENT
 // NOTE:
 // 1. Value must be within [EbSvtAv1EncConfiguration.enc_mode, MAX_ENC_PRESET],
@@ -1011,6 +1027,8 @@ EbErrorType svt_aom_resource_coordination_kernel_iter(void* context) {
     update_frame_rate_info(context_ptr, eb_input_ptr, scs);
     // Update the encoder preset
     update_preset_info(context_ptr, eb_input_ptr, scs);
+    // Update the minigop size
+    update_mg_size_info(context_ptr, eb_input_ptr);
     // If config changes occurred since the last picture began encoding, then
     //   prepare a new scs containing the new changes and update the state
     //   of the previous Active scs
@@ -1192,6 +1210,8 @@ EbErrorType svt_aom_resource_coordination_kernel_iter(void* context) {
         pcs->frame_rate_denominator = context_ptr->runtime_frame_rate_denominator;
         // set the scs wrapper to be released after the picture is done
         pcs->scs_wrapper = context_ptr->scs_active;
+        // Set the hierarchical layers
+        pcs->hierarchical_levels = context_ptr->new_hierarchical_layers;
         // Reset seq_param_change and video_res_change to false
         context_ptr->seq_param_change   = false;
         context_ptr->video_res_change   = false;
