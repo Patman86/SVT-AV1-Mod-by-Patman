@@ -602,6 +602,25 @@ else()
             HAVE_BUILTIN_EXPECT=0)
 endif()
 
+# try to see if __builtin_assume is available (Clang, GCC 13+)
+check_c_source_compiles("
+    int main() {
+        int x = 42;
+        __builtin_assume(x > 0);
+        return 0;
+    }" HAVE_BUILTIN_ASSUME)
+if(HAVE_BUILTIN_ASSUME)
+    set_property(DIRECTORY .
+        APPEND
+        PROPERTY COMPILE_DEFINITIONS
+            HAVE_BUILTIN_ASSUME=1)
+else()
+    set_property(DIRECTORY .
+        APPEND
+        PROPERTY COMPILE_DEFINITIONS
+            HAVE_BUILTIN_ASSUME=0)
+endif()
+
 include_directories(.)
 
 # Find out if we have threading available
@@ -667,67 +686,19 @@ if(BUILD_APPS)
     add_subdirectory(Source/App)
 endif()
 
-option(USE_FFMS2 "Enable FFMS2 support (Install FFMS2 first)" OFF)
-if(USE_FFMS2)
-    unset(FFMS2_LIBRARY CACHE)
-    unset(FFMS2_INCLUDE_DIR CACHE)
-    unset(FFMS2_LIBRARY)
-    unset(FFMS2_INCLUDE_DIR)
-
-    find_path(FFMS2_INCLUDE_DIR
-        NAMES ffms.h
-        PATHS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/ffms2/include
-    )
-    find_library(FFMS2_LIBRARY
-        NAMES ffms2 libffms2
-        PATHS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/ffms2/lib
-    )
-
-    if(FFMS2_INCLUDE_DIR AND FFMS2_LIBRARY)
-        set_target_properties(SvtAv1EncApp PROPERTIES LINKER_LANGUAGE CXX)
-        message(STATUS "Found FFMS2: ${FFMS2_LIBRARY}")
-        target_include_directories(SvtAv1EncApp PRIVATE ${FFMS2_INCLUDE_DIR})
-        target_link_libraries(SvtAv1EncApp PRIVATE ${FFMS2_LIBRARY})
-        target_compile_definitions(SvtAv1EncApp PRIVATE HAVE_FFMS2=1)
+# ===============================================================
+# FFMS2
+# ===============================================================
+option(FFMS2_FOUND "Use the FFMS2 library" OFF)
+if(FFMS2_FOUND)
+    find_package(FFMS2 QUIET)
+    if(FFMS2_FOUND)
+        include_directories(${FFMS2_INCLUDE_DIR})
+        set(FFMS2_LIBRARIES ${FFMS2_LIBRARY})
+        add_definitions(-DHAVE_FFMS2=1)
+        message(STATUS "Building with FFMS2 support - Yes")
     else()
-        find_package(PkgConfig)
-        if(PkgConfig_FOUND)
-            pkg_check_modules(PC_FFMS2 ffms2 QUIET)
-        endif()
-
-        if(PC_FFMS2_FOUND)
-            set_target_properties(SvtAv1EncApp PROPERTIES LINKER_LANGUAGE CXX)
-            set(FFMS2_LIBRARY_DIR ${PC_FFMS2_LIBRARY_DIRS})
-            set(FFMS2_INCLUDE_DIR ${PC_FFMS2_INCLUDE_DIRS})
-
-            if (WIN32 AND NOT MINGW)
-                message(WARNING "FFMS2 static and shared building is not guaranteed here.")
-            endif()
-
-            if(EXT_LIB_STATIC)
-                # need this for static build
-                target_compile_definitions(SvtAv1EncApp PRIVATE FFMS_STATIC)
-                set(FFMS2_REQUIRED_LIBRARIES ${PC_FFMS2_STATIC_LIBRARIES})
-                
-                foreach(BASE ${FFMS2_REQUIRED_LIBRARIES})
-                    list(APPEND FFMS2_LIBRARY "${BASE}${SUFFIX}")
-                endforeach()
-            else()
-                set(FFMS2_REQUIRED_LIBRARIES ${PC_FFMS2_LIBRARIES})
-                foreach(BASE ${FFMS2_REQUIRED_LIBRARIES})
-                    list(APPEND FFMS2_LIBRARY "${BASE}${SUFFIX}")
-                endforeach()
-            endif()
-
-            message(STATUS "Found FFMS2: ${FFMS2_LIBRARY}")
-            target_include_directories(SvtAv1EncApp PRIVATE ${FFMS2_INCLUDE_DIR})
-            target_link_libraries(SvtAv1EncApp PRIVATE ${FFMS2_LIBRARY})
-            target_compile_definitions(SvtAv1EncApp PRIVATE HAVE_FFMS2=1)
-            target_link_directories(SvtAv1EncApp PRIVATE ${FFMS2_LIBRARY_DIR})
-        else()
-            message(WARNING "FFMS2 not found, building without FFMS2 support")
-            target_compile_definitions(SvtAv1EncApp PRIVATE HAVE_FFMS2=0)
-        endif()
+        message(STATUS "Building with FFMS2 support - No (library not found)")
     endif()
 endif()
 

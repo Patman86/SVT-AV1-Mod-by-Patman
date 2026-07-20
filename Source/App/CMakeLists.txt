@@ -116,6 +116,7 @@ target_link_libraries(SvtAv1EncApp
         SvtAv1Enc
         $<$<BOOL:${LIBDOVI_FOUND}>:dovi::dovi>
         $<$<BOOL:${LIBHDR10PLUS_RS_FOUND}>:hdr10plus::hdr10plus>
+        $<$<BOOL:${FFMS2_FOUND}>:FFMS2::FFMS2>
         $<$<OR:$<BOOL:${LIBDOVI_FOUND}>,$<BOOL:${LIBHDR10PLUS_RS_FOUND}>>:ws2_32>
         $<$<OR:$<BOOL:${LIBDOVI_FOUND}>,$<BOOL:${LIBHDR10PLUS_RS_FOUND}>>:userenv>
         $<$<OR:$<BOOL:${LIBDOVI_FOUND}>,$<BOOL:${LIBHDR10PLUS_RS_FOUND}>>:ntdll>

@@ -250,6 +250,7 @@ typedef struct ALIGNED(128) EbSvtAv1EncConfiguration {
      * Default is -2. */
     int32_t intra_period_length;
 
+
     /* Random access.
      *
      * 1 = CRA, open GOP.
