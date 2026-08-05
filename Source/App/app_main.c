@@ -32,6 +32,8 @@
 #include <fcntl.h>
 #ifdef _WIN32
 #include <windows.h>
+#include <shellapi.h>
+#include <fcntl.h>
 #include <io.h> /* _setmode() */
 #else
 #include <pthread.h>
@@ -54,6 +56,41 @@
 #if LOG_ENC_DONE
 int tot_frames_done = 0;
 #endif
+
+#ifdef _WIN32
+static char *wide_to_utf8(const wchar_t *src) {
+    if (!src) {
+        return NULL;
+    }
+
+    int len = WideCharToMultiByte(CP_UTF8, 0, src, -1, NULL, 0, NULL, NULL);
+    if (len <= 0) {
+        return NULL;
+    }
+
+    char *dst = (char *)malloc((size_t)len);
+    if (!dst) {
+        return NULL;
+    }
+
+    if (!WideCharToMultiByte(CP_UTF8, 0, src, -1, dst, len, NULL, NULL)) {
+        free(dst);
+        return NULL;
+    }
+
+    return dst;
+}
+
+static void free_utf8_argv(int argc, char **argv) {
+    if (!argv) {
+        return;
+    }
+    for (int i = 0; i < argc; ++i) {
+        free(argv[i]);
+    }
+    free(argv);
+}
+#endif
 /***************************************
  * External Functions
  ***************************************/
@@ -64,6 +101,8 @@ void process_output_recon_buffer(EncChannel* c);
 void process_output_stream_buffer(EncChannel* c, EncApp* enc_app, int32_t* frame_count);
 
 void init_reader(EbConfig* app_cfg);
+
+static int svt_app_main(int argc, char* argv[]);
 
 volatile int32_t keep_running = 1;
 
@@ -410,51 +449,93 @@ void enc_app_dctor(EncApp* enc_app) { free(enc_app->rc_twopasses_stats.buf); }
 /***************************************
  * Encoder App Main
  ***************************************/
-int main(int argc, char* argv[]) {
 #ifdef _WIN32
+int wmain(void) {
+    int argc = 0;
+    wchar_t **wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    char **argv = NULL;
+    int ret = 1;
+
+    if (!wargv || argc <= 0) {
+        return 1;
+    }
+
+    argv = (char **)calloc((size_t)argc + 1, sizeof(*argv));
+    if (!argv) {
+        LocalFree(wargv);
+        return 1;
+    }
+
+    for (int i = 0; i < argc; ++i) {
+        argv[i] = wide_to_utf8(wargv[i]);
+        if (!argv[i]) {
+            free_utf8_argv(argc, argv);
+            LocalFree(wargv);
+            return 1;
+        }
+    }
+    argv[argc] = NULL;
+    LocalFree(wargv);
+
     _setmode(_fileno(stdin), _O_BINARY);
     _setmode(_fileno(stdout), _O_BINARY);
+
+    ret = svt_app_main(argc, argv);
+    free_utf8_argv(argc, argv);
+    return ret;
+}
+#else
+int main(int argc, char *argv[]) {
+    return svt_app_main(argc, argv);
+}
 #endif
+
+static int svt_app_main(int argc, char *argv[]) {
     // GLOBAL VARIABLES
     EbErrorType return_error = EB_ErrorNone; // Error Handling
-    uint32_t    passes;
-    EncPass     enc_pass[MAX_ENC_PASS];
-    EncApp      enc_app;
-    EncContext  enc_context;
+    uint32_t passes;
+    EncPass enc_pass[MAX_ENC_PASS];
+    EncApp enc_app;
+    EncContext enc_context;
 
     // Read NO_COLOR hint (https://no-color.org/)
-    char* no_color = getenv("NO_COLOR");
-    bool  color    = true;
+    char *no_color = getenv("NO_COLOR");
+    bool color = true;
 
-    if (no_color != NULL && no_color[0] != '\0')
+    if (no_color != NULL && no_color[0] != '\0') {
         color = false;
-#ifdef _WIN32
-    color = false;
-#endif
+    }
+
     signal(SIGINT, event_handler);
-    if (get_version(argc, argv))
+    if (get_version(argc, argv)) {
         return 0;
+    }
 
-    if (get_help(argc, argv))
+    if (get_help(argc, argv)) {
         return 0;
+    }
 
-    if (get_fhelp(argc, argv))
+    if (get_fhelp(argc, argv)) {
         return 0;
+    }
 
-    if (get_color_help(argc, argv))
+    if (get_color_help(argc, argv)) {
         return 0;
+    }
 
     enc_app_ctor(&enc_app);
     passes = get_passes(argc, argv, enc_pass);
     for (uint8_t pass_idx = 0; pass_idx < passes; pass_idx++) {
         return_error = enc_context_ctor(&enc_app, &enc_context, argc, argv, enc_pass[pass_idx], passes, color);
 
-        if (return_error == EB_ErrorNone)
+        if (return_error == EB_ErrorNone) {
             return_error = encode(&enc_app, &enc_context);
+        }
 
         enc_context_dctor(&enc_context);
-        if (return_error != EB_ErrorNone)
+        if (return_error != EB_ErrorNone) {
             break;
+        }
 
 #ifdef __GLIBC__
         malloc_trim(0);

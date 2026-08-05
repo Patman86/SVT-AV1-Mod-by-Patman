@@ -14,6 +14,7 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdint.h>
 #ifdef LIBDOVI_FOUND
 #include <libdovi/rpu_parser.h>
 #endif
@@ -28,6 +29,13 @@
 #include <windows.h>
 #define fseeko _fseeki64
 #define ftello _ftelli64
+#endif
+
+#ifdef _WIN32
+int fopen_utf8(FILE **f, const char *path_utf8, const char *mode_utf8);
+#define FOPEN(f, s, m) fopen_utf8(&(f), (s), (m))
+#else
+#define FOPEN(f, s, m) (((f) = fopen((s), (m))) == NULL)
 #endif
 
 #ifdef CONFIG_WEBM_IO
@@ -58,12 +66,6 @@ typedef enum EncPass {
 #define WARNING_LENGTH 100
 
 #define MAX_NUM_TOKENS 210
-
-#ifdef _WIN32
-#define FOPEN(f, s, m) fopen_s(&f, s, m)
-#else
-#define FOPEN(f, s, m) f = fopen(s, m)
-#endif
 
 typedef struct EbPerformanceContext {
     /****************************************
