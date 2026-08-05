@@ -27,7 +27,9 @@
 #include "../Lib/Codec/svt_log.h"
 #ifdef _WIN32
 #include <windows.h>
+#include <fcntl.h>
 #include <io.h>
+#include <wchar.h>
 #else
 #include <unistd.h>
 #include <sys/file.h>
@@ -40,6 +42,50 @@
 
 #ifndef _MSC_VER
 #define fscanf_s  fscanf
+#endif
+
+#ifdef _WIN32
+static wchar_t *svt_utf8_to_wide(const char *src) {
+    if (!src)
+        return NULL;
+
+    int len = MultiByteToWideChar(CP_UTF8, 0, src, -1, NULL, 0);
+    if (len <= 0)
+        return NULL;
+
+    wchar_t *dst = (wchar_t *)malloc((size_t)len * sizeof(*dst));
+    if (!dst)
+        return NULL;
+
+    if (!MultiByteToWideChar(CP_UTF8, 0, src, -1, dst, len)) {
+        free(dst);
+        return NULL;
+    }
+
+    return dst;
+}
+
+int fopen_utf8(FILE **f, const char *path_utf8, const char *mode_utf8) {
+    if (!f || !path_utf8 || !mode_utf8) {
+        if (f)
+            *f = NULL;
+        return -1;
+    }
+
+    wchar_t *wpath = svt_utf8_to_wide(path_utf8);
+    wchar_t *wmode = svt_utf8_to_wide(mode_utf8);
+    if (!wpath || !wmode) {
+        free(wpath);
+        free(wmode);
+        *f = NULL;
+        return -1;
+    }
+
+    int err = _wfopen_s(f, wpath, wmode);
+    free(wpath);
+    free(wmode);
+    return err;
+}
 #endif
 
 /**********************************
@@ -2158,10 +2204,14 @@ uint32_t get_passes(int32_t argc, char* const argv[], EncPass enc_pass[MAX_ENC_P
             using_fifo = 1;
         } else {
 #ifdef _WIN32
-            HANDLE in_file = CreateFile(config_string, 0, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
-            if (in_file != INVALID_HANDLE_VALUE) {
-                using_fifo = GetFileType(in_file) == FILE_TYPE_PIPE;
-                CloseHandle(in_file);
+            wchar_t *wpath = svt_utf8_to_wide(config_string);
+            if (wpath) {
+                HANDLE in_file = CreateFileW(wpath, 0, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+                if (in_file != INVALID_HANDLE_VALUE) {
+                    using_fifo = GetFileType(in_file) == FILE_TYPE_PIPE;
+                    CloseHandle(in_file);
+                }
+                free(wpath);
             }
 #else
             struct stat st;
