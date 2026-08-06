@@ -209,7 +209,18 @@ EbHandle svt_create_thread(void* thread_function(void*), void* thread_context, c
         strncpy_s(truncated, sizeof(truncated), name, sizeof(truncated) - 1);
         truncated[sizeof(truncated) - 1] = '\0';
         if (MultiByteToWideChar(CP_UTF8, 0, truncated, -1, wname, (int)(sizeof(wname) / sizeof(wname[0]))) > 0) {
-            (void)SetThreadDescription((HANDLE)thread_handle, wname);
+            // On Windows Server 2016, Windows 10 LTSB 2016 and Windows 10
+            // version 1607, SetThreadDescription is only available via Run Time
+            // Dynamic Linking in KernelBase.dll.
+            HMODULE kernel_base_handle = GetModuleHandle("KernelBase.dll");
+            if (kernel_base_handle != NULL) {
+                typedef HRESULT (*set_thread_description_t)(HANDLE hThread, PCWSTR lpThreadDescription);
+                set_thread_description_t set_thread_description = (set_thread_description_t)GetProcAddress(
+                    kernel_base_handle, "SetThreadDescription");
+                if (set_thread_description != NULL) {
+                    set_thread_description((HANDLE)thread_handle, wname);
+                }
+            }
         }
     }
 

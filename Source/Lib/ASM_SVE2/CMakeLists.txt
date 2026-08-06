@@ -19,8 +19,7 @@ check_both_flags_add(-march=armv9-a+i8mm+sve2)
 target_sources(
   ASM_SVE2
   PUBLIC highbd_convolve_sve2.c
-  PUBLIC highbd_jnt_convolve_sve2.c
-  PUBLIC temporal_filtering_sve2.c)
+  PUBLIC highbd_jnt_convolve_sve2.c)
 
 target_include_directories(
   ASM_SVE2
@@ -30,4 +29,3 @@ target_include_directories(
   PRIVATE ${PROJECT_SOURCE_DIR}/Source/Lib/ASM_NEON/
   PRIVATE ${PROJECT_SOURCE_DIR}/Source/Lib/ASM_SVE/
   PRIVATE ${PROJECT_SOURCE_DIR}/Source/Lib/ASM_SVE2/)
-

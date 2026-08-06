@@ -69,12 +69,18 @@ void calc_target_weighted_pred(PictureControlSet* pcs, ModeDecisionContext* ctx,
 #define SUPERRES_INVALID_STATE 0x7fffffff
 
 bool svt_av1_is_lossless_segment(PictureControlSet* pcs, int8_t segment_id) {
+#if !CONFIG_ENABLE_LOSSLESS
+    (void)pcs;
+    (void)segment_id;
+    return false;
+#else
     FrameHeader* frm_hdr = &pcs->ppcs->frm_hdr;
     if (frm_hdr->segmentation_params.segmentation_enabled) {
         return pcs->lossless[segment_id];
     } else {
         return pcs->lossless[0];
     }
+#endif
 }
 
 static bool check_mv_validity(int16_t x_mv, int16_t y_mv, uint8_t need_shift) {
@@ -100,17 +106,25 @@ int svt_is_interintra_allowed(uint8_t enable_inter_intra, BlockSize bsize, Predi
 }
 
 int svt_aom_filter_intra_allowed_bsize(BlockSize bs) {
+    if (!CONFIG_ENABLE_FILTER_INTRA) {
+        return 0; // filter_intra off -> const-folds, cascades DCE
+    }
     return block_size_wide[bs] <= 32 && block_size_high[bs] <= 32;
 }
 
 int svt_aom_filter_intra_allowed(uint8_t enable_filter_intra, BlockSize bsize, uint8_t palette_size, uint32_t mode) {
+    if (!CONFIG_ENABLE_FILTER_INTRA) {
+        return 0; // filter_intra off
+    }
     return enable_filter_intra && mode == DC_PRED && palette_size == 0 && svt_aom_filter_intra_allowed_bsize(bsize);
 }
 
+#if CONFIG_ENABLE_INTER_COMPOUND
 // returns the max inter-inter compound type based on settings and block size
 static MD_COMP_TYPE get_tot_comp_types_bsize(MD_COMP_TYPE tot_comp_types, BlockSize bsize) {
     return (svt_aom_get_wedge_params_bits(bsize) == 0) ? MIN(tot_comp_types, MD_COMP_WEDGE) : tot_comp_types;
 }
+#endif
 
 /*
 Get the ME offset for a given block (the offset used to locate the PA MVs from the parent PCS).
@@ -215,6 +229,9 @@ MotionMode svt_aom_obmc_motion_mode_allowed(
     const PictureControlSet* pcs, ModeDecisionContext* ctx, const BlockSize bsize,
     uint8_t          situation, // 0: candidate(s) preparation, 1: data preparation, 2: simple translation face-off
     MvReferenceFrame rf0, MvReferenceFrame rf1, PredictionMode mode) {
+    if (!CONFIG_ENABLE_OBMC && !CONFIG_ENABLE_WARP) {
+        return SIMPLE_TRANSLATION; // OBMC/warp off -> const-folds, cascades DCE
+    }
     if (ctx->obmc_ctrls.trans_face_off && !situation) {
         return SIMPLE_TRANSLATION;
     }
@@ -305,7 +322,7 @@ static int64_t pick_interintra_wedge(PictureControlSet* pcs, ModeDecisionContext
     DECLARE_ALIGNED(32, int16_t, residual1[MAX_INTERINTRA_SB_SQUARE]); // src - pred1
     DECLARE_ALIGNED(32, int16_t, diff10[MAX_INTERINTRA_SB_SQUARE]); // pred1 - pred0
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
-    if (ctx->hbd_md) {
+    if (SVT_EFFECTIVE_HBD_MD(ctx->hbd_md)) {
         svt_aom_highbd_subtract_block(bh, bw, residual1, bw, src_buf, src_stride, p1, bw, EB_TEN_BIT);
         svt_aom_highbd_subtract_block(bh, bw, diff10, bw, p1, bw, p0, bw, EB_TEN_BIT);
 
@@ -328,12 +345,13 @@ static void inter_intra_search(PictureControlSet* pcs, ModeDecisionContext* ctx,
     DECLARE_ALIGNED(16, uint8_t, tmp_buf[2 * MAX_INTERINTRA_SB_SQUARE]);
     DECLARE_ALIGNED(16, uint8_t, ii_pred_buf[2 * MAX_INTERINTRA_SB_SQUARE]);
     // get inter pred for ref0
-    EbPictureBufferDesc* src_pic = ctx->hbd_md ? pcs->input_frame16bit : pcs->ppcs->enhanced_pic;
+    EbPictureBufferDesc* src_pic = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? pcs->input_frame16bit : pcs->ppcs->enhanced_pic;
     uint16_t* src_buf_hbd = (uint16_t*)src_pic->y_buffer + (ctx->blk_org_x) + (ctx->blk_org_y) * src_pic->y_stride;
     uint8_t*  src_buf     = src_pic->y_buffer + (ctx->blk_org_x) + (ctx->blk_org_y) * src_pic->y_stride;
 
-    uint8_t  bit_depth   = ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT;
-    uint32_t full_lambda = ctx->hbd_md ? ctx->full_lambda_md[EB_10_BIT_MD] : ctx->full_lambda_md[EB_8_BIT_MD];
+    uint8_t  bit_depth   = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? EB_TEN_BIT : EB_EIGHT_BIT;
+    uint32_t full_lambda = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? ctx->full_lambda_md[EB_10_BIT_MD]
+                                                             : ctx->full_lambda_md[EB_8_BIT_MD];
 
     uint32_t            bwidth  = ctx->blk_geom->bwidth;
     uint32_t            bheight = ctx->blk_geom->bheight;
@@ -354,7 +372,7 @@ static void inter_intra_search(PictureControlSet* pcs, ModeDecisionContext* ctx,
             pcs->ppcs->enhanced_pic,
             (EbReferenceObject*)pcs->ref_pic_ptr_array[list_idx0][ref_idx_l0]->object_ptr,
             &ref_pic_list0,
-            ctx->hbd_md);
+            SVT_EFFECTIVE_HBD_MD(ctx->hbd_md));
     }
     pred_desc.y_buffer = tmp_buf;
 
@@ -383,7 +401,7 @@ static void inter_intra_search(PictureControlSet* pcs, ModeDecisionContext* ctx,
                              0, //output org_x,
                              0, //output org_y,
                              PICTURE_BUFFER_DESC_LUMA_MASK,
-                             ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
+                             SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? EB_TEN_BIT : EB_EIGHT_BIT,
                              0); // is_16bit_pipeline
 
     assert(svt_aom_is_interintra_wedge_used(ctx->blk_geom->bsize)); //if not I need to add nowedge path!!
@@ -399,7 +417,7 @@ static void inter_intra_search(PictureControlSet* pcs, ModeDecisionContext* ctx,
         const int bsize_group = eb_size_group_lookup[ctx->blk_geom->bsize];
         const int rmode       = ctx->md_rate_est_ctx->inter_intra_mode_fac_bits[bsize_group][interintra_mode];
         // av1_combine_interintra(xd, bsize, 0, tmp_buf, bw, intrapred, bw);
-        if (ctx->hbd_md) {
+        if (SVT_EFFECTIVE_HBD_MD(ctx->hbd_md)) {
             svt_aom_combine_interintra_highbd(interintra_mode, // mode,
                                               0, // use_wedge_interintra,
                                               0, // cand->interintra_wedge_index,
@@ -436,7 +454,7 @@ static void inter_intra_search(PictureControlSet* pcs, ModeDecisionContext* ctx,
                                          ctx->blk_geom->bsize,
                                          bwidth,
                                          bheight,
-                                         ctx->hbd_md ? (uint8_t*)src_buf_hbd : src_buf,
+                                         SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? (uint8_t*)src_buf_hbd : src_buf,
                                          src_pic->y_stride,
                                          ii_pred_buf,
                                          bwidth,
@@ -453,7 +471,7 @@ static void inter_intra_search(PictureControlSet* pcs, ModeDecisionContext* ctx,
             rd = RDCOST(full_lambda, rate_sum + rmode, dist_sum);
         } else {
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
-            if (ctx->hbd_md) {
+            if (SVT_EFFECTIVE_HBD_MD(ctx->hbd_md)) {
                 rd = svt_aom_highbd_sse((uint8_t*)src_buf_hbd, src_pic->y_stride, ii_pred_buf, bwidth, bwidth, bheight);
             } else
 #endif
@@ -472,14 +490,15 @@ static void inter_intra_search(PictureControlSet* pcs, ModeDecisionContext* ctx,
     const uint8_t ii_wedge_mode            = ctx->shape == PART_N ? ctx->inter_intra_comp_ctrls.wedge_mode_sq
                                                                   : ctx->inter_intra_comp_ctrls.wedge_mode_nsq;
     if (ii_wedge_mode) {
-        best_interintra_rd_wedge = pick_interintra_wedge(pcs,
-                                                         ctx,
-                                                         ctx->blk_geom->bsize,
-                                                         ctx->intrapred_buf[best_interintra_mode],
-                                                         tmp_buf,
-                                                         ctx->hbd_md ? (uint8_t*)src_buf_hbd : src_buf,
-                                                         src_pic->y_stride,
-                                                         &cand->block_mi.interintra_wedge_index);
+        best_interintra_rd_wedge = pick_interintra_wedge(
+            pcs,
+            ctx,
+            ctx->blk_geom->bsize,
+            ctx->intrapred_buf[best_interintra_mode],
+            tmp_buf,
+            SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? (uint8_t*)src_buf_hbd : src_buf,
+            src_pic->y_stride,
+            &cand->block_mi.interintra_wedge_index);
     }
 
     // for ii_wedge_mode 1, always inject wedge as a separate candidate; for wedge mode 2 only inject
@@ -495,6 +514,10 @@ static COMPOUND_TYPE to_av1_compound_lut[] = {COMPOUND_AVERAGE, COMPOUND_DISTWTD
 
 static void determine_compound_mode(PictureControlSet* pcs, ModeDecisionContext* ctx, ModeDecisionCandidate* cand,
                                     MD_COMP_TYPE cur_type) {
+#if !CONFIG_ENABLE_INTER_COMPOUND
+    (void)pcs;
+    (void)ctx;
+#endif
     BlockModeInfo* block_mi        = &cand->block_mi;
     block_mi->interinter_comp.type = to_av1_compound_lut[cur_type];
     switch (cur_type) {
@@ -510,12 +533,16 @@ static void determine_compound_mode(PictureControlSet* pcs, ModeDecisionContext*
         block_mi->comp_group_idx            = 1;
         block_mi->compound_idx              = 1;
         block_mi->interinter_comp.mask_type = 55;
+#if CONFIG_ENABLE_INTER_COMPOUND
         svt_aom_search_compound_diff_wedge(pcs, ctx, cand);
+#endif
         break;
     case MD_COMP_WEDGE:
         block_mi->comp_group_idx = 1;
         block_mi->compound_idx   = 1;
+#if CONFIG_ENABLE_INTER_COMPOUND
         svt_aom_search_compound_diff_wedge(pcs, ctx, cand);
+#endif
         break;
     default:
         SVT_ERROR("not used comp type\n");
@@ -976,6 +1003,7 @@ static void inj_non_simple_modes(PictureControlSet* pcs, ModeDecisionContext* ct
     *total_cand_count = cand_count;
 }
 
+#if CONFIG_ENABLE_INTER_COMPOUND
 // Determines if inter MVP compound modes should be skipped based on info from neighbouring blocks/ref frame types.
 static bool skip_compound_on_ref_types(ModeDecisionContext* ctx, MvReferenceFrame rf[2]) {
     if (!ctx->inter_comp_ctrls.skip_on_ref_info) {
@@ -1018,6 +1046,7 @@ static bool skip_compound_on_ref_types(ModeDecisionContext* ctx, MvReferenceFram
 
     return skip_comp;
 }
+#endif
 
 // Inject inter-inter compound types (DIST, DIFF, WEDGE) for a bipred AVG candidate
 //
@@ -1025,6 +1054,13 @@ static bool skip_compound_on_ref_types(ModeDecisionContext* ctx, MvReferenceFram
 // same as the number of candidates injected so far).  It is assumed the AVG candidate to base
 // the other candidtes on is the previously injected candidate (at index total_cand_count - 1).
 static void inj_comp_modes(PictureControlSet* pcs, ModeDecisionContext* ctx, uint32_t* total_cand_count) {
+#if !CONFIG_ENABLE_INTER_COMPOUND
+    // Inter compound disabled (RTC / MINIMAL): nothing to inject here. Compiling the body out lets LTO
+    // cascade-DCE svt_aom_calc_pred_masked_compound + the wedge/diff mask builders.
+    (void)pcs;
+    (void)ctx;
+    (void)total_cand_count;
+#else
     // index of MD_COMP_AVG candidate (to be used to copy cand info for other modes)
     // assumes the avg cand is the previously injected candidate
     const uint32_t         avg_cand_idx = *total_cand_count - 1;
@@ -1079,6 +1115,7 @@ static void inj_comp_modes(PictureControlSet* pcs, ModeDecisionContext* ctx, uin
         INC_MD_CAND_CNT(cand_count, pcs->ppcs->max_can_count);
     }
     *total_cand_count = cand_count;
+#endif // !CONFIG_ENABLE_INTER_COMPOUND
 }
 
 static void unipred_3x3_candidates_injection(PictureControlSet* pcs, ModeDecisionContext* ctx,
@@ -1192,13 +1229,14 @@ static void bipred_3x3_candidates_injection(PictureControlSet* pcs, ModeDecision
         }
 
         int8_t best_list = -1;
-        int    diff      = ((int)ctx->post_subpel_me_mv_cost[ref0_list][list0_ref_index] -
-                    (int)ctx->post_subpel_me_mv_cost[ref1_list][list1_ref_index]) *
+        // 64-bit: (cost0 - cost1) * 100 can overflow int
+        int64_t diff = ((int64_t)ctx->post_subpel_me_mv_cost[ref0_list][list0_ref_index] -
+                        (int64_t)ctx->post_subpel_me_mv_cost[ref1_list][list1_ref_index]) *
             100;
 
         if (ctx->bipred3x3_ctrls.use_l0_l1_dev != (uint8_t)~0) {
-            if (abs(diff) >
-                (ctx->bipred3x3_ctrls.use_l0_l1_dev * (int)ctx->post_subpel_me_mv_cost[ref0_list][list0_ref_index])) {
+            if (llabs(diff) > ((int64_t)ctx->bipred3x3_ctrls.use_l0_l1_dev *
+                               (int)ctx->post_subpel_me_mv_cost[ref0_list][list0_ref_index])) {
                 return;
             }
         }
@@ -1224,8 +1262,8 @@ static void bipred_3x3_candidates_injection(PictureControlSet* pcs, ModeDecision
                 }
                 Mv to_inj_mv0 = ctx->sb_me_mv[ref0_list][list0_ref_index];
                 Mv to_inj_mv1 = ctx->sb_me_mv[ref1_list][list1_ref_index];
-                to_inj_mv1.x += (bipred_3x3_x_pos[bipred_index] << !allow_high_precision_mv);
-                to_inj_mv1.y += (bipred_3x3_y_pos[bipred_index] << !allow_high_precision_mv);
+                to_inj_mv1.x += (bipred_3x3_x_pos[bipred_index] * (1 << !allow_high_precision_mv));
+                to_inj_mv1.y += (bipred_3x3_y_pos[bipred_index] * (1 << !allow_high_precision_mv));
                 if ((ctx->injected_mv_count == 0 ||
                      mv_is_already_injected(ctx, to_inj_mv0, to_inj_mv1, to_inject_ref_type) == false)) {
                     uint8_t drl_index = 0;
@@ -1270,8 +1308,8 @@ static void bipred_3x3_candidates_injection(PictureControlSet* pcs, ModeDecision
                     }
                 }
                 Mv to_inj_mv0 = ctx->sb_me_mv[ref0_list][list0_ref_index];
-                to_inj_mv0.x += (bipred_3x3_x_pos[bipred_index] << !allow_high_precision_mv);
-                to_inj_mv0.y += (bipred_3x3_y_pos[bipred_index] << !allow_high_precision_mv);
+                to_inj_mv0.x += (bipred_3x3_x_pos[bipred_index] * (1 << !allow_high_precision_mv));
+                to_inj_mv0.y += (bipred_3x3_y_pos[bipred_index] * (1 << !allow_high_precision_mv));
                 Mv to_inj_mv1 = ctx->sb_me_mv[ref1_list][list1_ref_index];
                 if ((ctx->injected_mv_count == 0 ||
                      mv_is_already_injected(ctx, to_inj_mv0, to_inj_mv1, to_inject_ref_type) == false)) {
@@ -2825,10 +2863,9 @@ static void inject_inter_candidates_pd0(PictureControlSet* pcs, ModeDecisionCont
     FrameHeader* frm_hdr = &pcs->ppcs->frm_hdr;
     // Bipred prediction is only allowed when both dimensions are > 4 and the frame-header reference mode allows it.
     // See AV1 spec 5.11.25
-    const bool allow_bipred = (frm_hdr->reference_mode == SINGLE_REFERENCE || ctx->blk_geom->bwidth == 4 ||
-                               ctx->blk_geom->bheight == 4)
-        ? false
-        : true;
+    // RTC low-delay is single-reference (no compound / 2nd ref): CONFIG_ENABLE_INTER_COMPOUND folds this to false.
+    const bool allow_bipred = CONFIG_ENABLE_INTER_COMPOUND && frm_hdr->reference_mode != SINGLE_REFERENCE &&
+        ctx->blk_geom->bwidth != 4 && ctx->blk_geom->bheight != 4;
 
     inject_new_candidates_pd0(pcs, ctx, candidate_total_cnt, allow_bipred);
 }
@@ -2838,10 +2875,9 @@ static void inject_inter_candidates_light_pd1(PictureControlSet* pcs, ModeDecisi
     FrameHeader* frm_hdr = &pcs->ppcs->frm_hdr;
     // Bipred prediction is only allowed when both dimensions are > 4 and the frame-header reference mode allows it.
     // See AV1 spec 5.11.25
-    const bool allow_bipred = (frm_hdr->reference_mode == SINGLE_REFERENCE || ctx->blk_geom->bwidth == 4 ||
-                               ctx->blk_geom->bheight == 4)
-        ? false
-        : true;
+    // RTC low-delay is single-reference (no compound / 2nd ref): CONFIG_ENABLE_INTER_COMPOUND folds this to false.
+    const bool allow_bipred = CONFIG_ENABLE_INTER_COMPOUND && frm_hdr->reference_mode != SINGLE_REFERENCE &&
+        ctx->blk_geom->bwidth != 4 && ctx->blk_geom->bheight != 4;
     // Needed in case WM/OBMC is on at the frame level (even though not used in light-PD1 path)
     if (frm_hdr->is_motion_mode_switchable) {
         const uint16_t mi_row = ctx->blk_org_y >> MI_SIZE_LOG2;
@@ -2869,10 +2905,9 @@ static void svt_aom_inject_inter_candidates(PictureControlSet* pcs, ModeDecision
     FrameHeader* frm_hdr = &pcs->ppcs->frm_hdr;
     // Bipred prediction is only allowed when both dimensions are > 4 and the frame-header reference mode allows it.
     // See AV1 spec 5.11.25
-    const bool allow_bipred = (frm_hdr->reference_mode == SINGLE_REFERENCE || ctx->blk_geom->bwidth == 4 ||
-                               ctx->blk_geom->bheight == 4)
-        ? false
-        : true;
+    // RTC low-delay is single-reference (no compound / 2nd ref): CONFIG_ENABLE_INTER_COMPOUND folds this to false.
+    const bool allow_bipred = CONFIG_ENABLE_INTER_COMPOUND && frm_hdr->reference_mode != SINGLE_REFERENCE &&
+        ctx->blk_geom->bwidth != 4 && ctx->blk_geom->bheight != 4;
 
     const uint32_t mi_row = ctx->blk_org_y >> MI_SIZE_LOG2;
     const uint32_t mi_col = ctx->blk_org_x >> MI_SIZE_LOG2;
@@ -2977,7 +3012,8 @@ static void intra_bc_search(PictureControlSet* pcs, ModeDecisionContext* ctx, co
                             BlkStruct* blk_ptr, Mv* dv_cand, uint8_t* num_dv_cand) {
     IntraBcContext  x_st;
     IntraBcContext* x           = &x_st;
-    uint32_t        full_lambda = ctx->hbd_md ? ctx->full_lambda_md[EB_10_BIT_MD] : ctx->full_lambda_md[EB_8_BIT_MD];
+    uint32_t        full_lambda = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? ctx->full_lambda_md[EB_10_BIT_MD]
+                                                                    : ctx->full_lambda_md[EB_8_BIT_MD];
 
     x->approx_inter_rate = ctx->approx_inter_rate;
     x->xd                = blk_ptr->av1xd;
@@ -3016,7 +3052,7 @@ static void intra_bc_search(PictureControlSet* pcs, ModeDecisionContext* ctx, co
     }
 
     Mv nearestmv, nearmv;
-    svt_av1_find_best_ref_mvs_from_stack(0, ctx->ref_mv_stack /*mbmi_ext*/, xd, ref_frame, &nearestmv, &nearmv, 0);
+    svt_av1_find_best_ref_mvs_from_stack(ctx->ref_mv_stack /*mbmi_ext*/, xd, ref_frame, &nearestmv, &nearmv);
     if (nearestmv.as_int == INVALID_MV) {
         nearestmv.as_int = 0;
     }
@@ -3346,8 +3382,14 @@ static void inject_zz_backup_candidate(PictureControlSet* pcs, ModeDecisionConte
 }
 
 int svt_av1_allow_palette(int allow_palette, BlockSize bsize) {
+#if !CONFIG_ENABLE_PALETTE
+    (void)allow_palette;
+    (void)bsize;
+    return 0;
+#else
     assert(bsize < BLOCK_SIZES_ALL);
     return allow_palette && block_size_wide[bsize] <= 64 && block_size_high[bsize] <= 64 && bsize >= BLOCK_8X8;
+#endif
 }
 
 void search_palette_luma(PictureControlSet* pcs, ModeDecisionContext* ctx, PaletteInfo* palette_cand,
@@ -3878,8 +3920,9 @@ uint32_t svt_aom_product_full_mode_decision(PictureControlSet* pcs, ModeDecision
     blk_ptr->total_rate                  = cand_bf->total_rate;
     if (!(ctx->pd_pass == PD_PASS_1 && ctx->fixed_partition)) {
         // When lambda tuning is on, lambda of each block is set separately, however at interdepth decision the sb lambda is used
-        uint32_t full_lambda = ctx->hbd_md ? ctx->full_sb_lambda_md[EB_10_BIT_MD] : ctx->full_sb_lambda_md[EB_8_BIT_MD];
-        ctx->blk_ptr->cost   = RDCOST(full_lambda, cand_bf->total_rate, cand_bf->full_dist);
+        uint32_t full_lambda    = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? ctx->full_sb_lambda_md[EB_10_BIT_MD]
+                                                                    : ctx->full_sb_lambda_md[EB_8_BIT_MD];
+        ctx->blk_ptr->cost      = RDCOST(full_lambda, cand_bf->total_rate, cand_bf->full_dist);
         ctx->blk_ptr->full_dist = cand_bf->full_dist;
     }
 

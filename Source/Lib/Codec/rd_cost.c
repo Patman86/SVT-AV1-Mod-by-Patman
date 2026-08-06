@@ -1510,7 +1510,7 @@ static INLINE int max_block_wide(const MacroBlockD* xd, BlockSize bsize, int pla
     int max_blocks_wide = block_size_wide[bsize];
 
     if (xd->mb_to_right_edge < 0) {
-        max_blocks_wide += gcc_right_shift(xd->mb_to_right_edge, 3 + !!plane);
+        max_blocks_wide += xd->mb_to_right_edge >> (3 + !!plane);
     }
 
     // Scale the width in the transform block unit.
@@ -1521,7 +1521,7 @@ static INLINE int max_block_high(const MacroBlockD* xd, BlockSize bsize, int pla
     int max_blocks_high = block_size_high[bsize];
 
     if (xd->mb_to_bottom_edge < 0) {
-        max_blocks_high += gcc_right_shift(xd->mb_to_bottom_edge, 3 + !!plane);
+        max_blocks_high += xd->mb_to_bottom_edge >> (3 + !!plane);
     }
 
     // Scale the height in the transform block unit.

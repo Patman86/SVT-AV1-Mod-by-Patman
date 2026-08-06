@@ -306,10 +306,10 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
     ctx->max_nics_uv = max_nics + ind_uv_cands;
     EB_MALLOC_ARRAY(ctx->uv_cand_buff_indices, ctx->max_nics_uv);
     // Cfl scratch memory
-    if (ctx->hbd_md > EB_8_BIT_MD) {
+    if (SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) > EB_8_BIT_MD) {
         EB_MALLOC_ALIGNED(ctx->cfl_temp_luma_recon16bit, sizeof(uint16_t) * sb_size * sb_size);
     }
-    if (ctx->hbd_md != EB_10_BIT_MD) {
+    if (SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) != EB_10_BIT_MD) {
         EB_MALLOC_ALIGNED(ctx->cfl_temp_luma_recon, sizeof(uint8_t) * sb_size * sb_size);
     }
     EB_MALLOC_ALIGNED(ctx->pred_buf_q3, CFL_BUF_SQUARE);
@@ -343,7 +343,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
     }
     // Allocate buffer for inter-inter compound prediction
     if (get_inter_compound_level(enc_mode)) {
-        const uint8_t bits = ctx->hbd_md > EB_8_BIT_MD ? 2 : 1;
+        const uint8_t bits = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) > EB_8_BIT_MD ? 2 : 1;
         for (int i = 0; i < NEAREST_NEAR_MV_CNT; i++) {
             EB_MALLOC(ctx->cmp_store.pred0_buf[i], sb_size * sb_size * bits * sizeof(uint8_t));
             EB_MALLOC(ctx->cmp_store.pred1_buf[i], sb_size * sb_size * bits * sizeof(uint8_t));
@@ -361,7 +361,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
         ii_allowed |= svt_aom_get_inter_intra_level(enc_mode, transition_present);
     }
     if (ii_allowed) {
-        const uint8_t bits = ctx->hbd_md > EB_8_BIT_MD ? 2 : 1;
+        const uint8_t bits = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) > EB_8_BIT_MD ? 2 : 1;
         // MAX block size for inter intra is 32x32
         EB_MALLOC_2D(ctx->intrapred_buf, INTERINTRA_MODES, 32 * 32 * bits * sizeof(ctx->intrapred_buf[0][0]));
     }
@@ -377,7 +377,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
         }
     }
     if (obmc_allowed) {
-        const uint8_t bits = ctx->hbd_md > EB_8_BIT_MD ? 2 : 1;
+        const uint8_t bits = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) > EB_8_BIT_MD ? 2 : 1;
         EB_MALLOC(ctx->obmc_buff_0, sb_size * sb_size * bits * MAX_PLANES * sizeof(ctx->obmc_buff_0[0]));
         EB_MALLOC(ctx->obmc_buff_1, sb_size * sb_size * bits * MAX_PLANES * sizeof(ctx->obmc_buff_1[0]));
         EB_MALLOC(ctx->obmc_conv_buf, sb_size * sb_size * sizeof(ctx->obmc_conv_buf[0]));
@@ -410,13 +410,13 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
     EB_NEW(ctx->cand_bf_tx_depth_1,
            svt_aom_mode_decision_scratch_cand_bf_ctor,
            sb_size,
-           ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT);
+           SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? EB_TEN_BIT : EB_EIGHT_BIT);
 
     EB_ALLOC_PTR_ARRAY(ctx->cand_bf_tx_depth_1->cand, 1);
     EB_NEW(ctx->cand_bf_tx_depth_2,
            svt_aom_mode_decision_scratch_cand_bf_ctor,
            sb_size,
-           ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT);
+           SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? EB_TEN_BIT : EB_EIGHT_BIT);
 
     EB_ALLOC_PTR_ARRAY(ctx->cand_bf_tx_depth_2->cand, 1);
     for (int i = 0; i < 3; i++) {
@@ -427,7 +427,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
     }
     uint32_t coded_leaf_index;
     uint16_t sz = sizeof(uint16_t);
-    if (ctx->hbd_md > EB_8_BIT_MD) {
+    if (SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) > EB_8_BIT_MD) {
         EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq[0].neigh_left_recon_16bit[0], block_max_count_sb * sb_size * sz);
         EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq[0].neigh_top_recon_16bit[0], block_max_count_sb * sb_size * sz);
         EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq[0].neigh_left_recon_16bit[1], block_max_count_sb * sb_size * sz >> 1);
@@ -452,7 +452,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
                 ctx->md_blk_arr_nsq[0].neigh_top_recon_16bit[2] + offset;
         }
     }
-    if (ctx->hbd_md != EB_10_BIT_MD) {
+    if (SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) != EB_10_BIT_MD) {
         EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq[0].neigh_left_recon[0], block_max_count_sb * sb_size);
         EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq[0].neigh_top_recon[0], block_max_count_sb * sb_size);
         EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq[0].neigh_left_recon[1], block_max_count_sb * sb_size >> 1);
@@ -533,7 +533,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
             ri->buffer_enable_mask          = PICTURE_BUFFER_DESC_FULL_MASK;
             ri->max_width                   = blk_geom->bwidth;
             ri->max_height                  = blk_geom->bheight;
-            ri->bit_depth                   = ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT;
+            ri->bit_depth                   = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? EB_TEN_BIT : EB_EIGHT_BIT;
             ri->color_format                = (blk_geom->bwidth > 4 && blk_geom->bheight > 4) ? EB_YUV420 : EB_YUV444;
             ri->border                      = 0;
             ri->split_mode                  = false;
@@ -570,7 +570,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
 
     picture_buffer_desc_init_data.max_width          = sb_size;
     picture_buffer_desc_init_data.max_height         = sb_size;
-    picture_buffer_desc_init_data.bit_depth          = ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT;
+    picture_buffer_desc_init_data.bit_depth          = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? EB_TEN_BIT : EB_EIGHT_BIT;
     picture_buffer_desc_init_data.color_format       = EB_YUV420;
     picture_buffer_desc_init_data.buffer_enable_mask = PICTURE_BUFFER_DESC_FULL_MASK;
     picture_buffer_desc_init_data.border             = 0;
@@ -641,12 +641,12 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
                                                                                   : PICTURE_BUFFER_DESC_CHROMA_MASK;
         pred_id[buffer_index].max_width          = sb_size;
         pred_id[buffer_index].max_height         = sb_size;
-        pred_id[buffer_index].bit_depth          = ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT;
+        pred_id[buffer_index].bit_depth          = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? EB_TEN_BIT : EB_EIGHT_BIT;
         pred_id[buffer_index].color_format       = EB_YUV420;
         pred_id[buffer_index].buffer_enable_mask = mask;
         pred_id[buffer_index].border             = 0;
         pred_id[buffer_index].split_mode         = false;
-        pred_id[buffer_index].is_16bit_pipeline  = ctx->hbd_md > EB_8_BIT_MD;
+        pred_id[buffer_index].is_16bit_pipeline  = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) > EB_8_BIT_MD;
         // rec_coeff / quant are identical but 32-bit.
         rc_id[buffer_index]                   = pred_id[buffer_index];
         rc_id[buffer_index].bit_depth         = EB_THIRTYTWO_BIT;
@@ -693,14 +693,15 @@ void svt_aom_reset_mode_decision_neighbor_arrays(PictureControlSet* pcs, uint16_
     uint8_t depth;
     for (depth = 0; depth < NA_TOT_CNT; depth++) {
         svt_aom_neighbor_array_unit_reset(pcs->mdleaf_partition_na[depth][tile_idx]);
-        if (pcs->hbd_md != EB_10_BIT_MD) {
+        if (SVT_EFFECTIVE_HBD_MD(pcs->hbd_md) != EB_10_BIT_MD) {
             svt_aom_neighbor_array_unit_reset(pcs->md_luma_recon_na[depth][tile_idx]);
             svt_aom_neighbor_array_unit_reset(pcs->md_tx_depth_1_luma_recon_na[depth][tile_idx]);
             svt_aom_neighbor_array_unit_reset(pcs->md_tx_depth_2_luma_recon_na[depth][tile_idx]);
             svt_aom_neighbor_array_unit_reset(pcs->md_cb_recon_na[depth][tile_idx]);
             svt_aom_neighbor_array_unit_reset(pcs->md_cr_recon_na[depth][tile_idx]);
         }
-        if (pcs->hbd_md > EB_8_BIT_MD || (pcs->scs->encoder_bit_depth > EB_EIGHT_BIT && pcs->pic_bypass_encdec)) {
+        if (SVT_EFFECTIVE_HBD_MD(pcs->hbd_md) > EB_8_BIT_MD ||
+            (SVT_EFFECTIVE_BIT_DEPTH(pcs->scs->encoder_bit_depth) > EB_EIGHT_BIT && pcs->pic_bypass_encdec)) {
             svt_aom_neighbor_array_unit_reset(pcs->md_luma_recon_na_16bit[depth][tile_idx]);
             svt_aom_neighbor_array_unit_reset(pcs->md_tx_depth_1_luma_recon_na_16bit[depth][tile_idx]);
             svt_aom_neighbor_array_unit_reset(pcs->md_tx_depth_2_luma_recon_na_16bit[depth][tile_idx]);
@@ -765,7 +766,7 @@ static void av1_lambda_assign_md(PictureControlSet* pcs, ModeDecisionContext* ct
 
 void svt_aom_reset_mode_decision(SequenceControlSet* scs, ModeDecisionContext* ctx, PictureControlSet* pcs,
                                  uint16_t tile_group_idx, uint32_t segment_index) {
-    ctx->hbd_md = pcs->hbd_md;
+    ctx->hbd_md = SVT_EFFECTIVE_HBD_MD(pcs->hbd_md);
     // Reset MD rate Estimation table to initial values by copying from md_rate_est_ctx
     ctx->md_rate_est_ctx = pcs->md_rate_est_ctx;
     // Reset CABAC Contexts

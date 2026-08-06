@@ -22,6 +22,9 @@
 #include "EbSvtAv1Enc.h"
 #include <stdbool.h>
 
+#define SVT_STRINGIFY_(x) #x
+#define SVT_STRINGIFY(x) SVT_STRINGIFY_(x)
+
 #ifdef _WIN32
 #define inline __inline
 #elif __GNUC__
@@ -1596,6 +1599,9 @@ static INLINE bool is_inter_mode(PredictionMode mode) {
 }
 
 static INLINE int32_t is_inter_compound_mode(PredictionMode mode) {
+    if (!CONFIG_ENABLE_INTER_COMPOUND) {
+        return 0; // single-ref: no compound modes -> const-folds, cascades DCE
+    }
     return mode >= NEAREST_NEARESTMV && mode <= NEW_NEWMV;
 }
 
@@ -1636,6 +1642,7 @@ typedef enum FrameContextIndex {
 #define QINDEX_BITS 8
 #define MIN_QP_VALUE 0
 #define MAX_QP_VALUE 63
+#define LAMBDA_WEIGHT_NEUTRAL 128
 // Total number of QM sets stored
 #define QM_LEVEL_BITS 4
 #define NUM_QM_LEVELS (1 << QM_LEVEL_BITS)

@@ -5,6 +5,7 @@
 #include "aom_dsp_rtcd.h"
 #include "mode_decision.h"
 #include "coding_loop.h"
+#include "deblocking_filter.h"
 
 #define LOW_8x8_DIST_VAR_TH 25000
 #define HIGH_8x8_DIST_VAR_TH 50000
@@ -178,6 +179,11 @@ uint8_t svt_aom_get_enable_me_16x16(EncMode enc_mode) {
 }
 
 uint8_t svt_aom_get_gm_core_level(EncMode enc_mode, bool super_res_off) {
+#if !CONFIG_ENABLE_GLOBAL_MOTION
+    (void)enc_mode;
+    (void)super_res_off;
+    return 0;
+#else
     uint8_t gm_level = 0;
     if (super_res_off) {
         if (enc_mode <= ENC_MR) {
@@ -189,6 +195,7 @@ uint8_t svt_aom_get_gm_core_level(EncMode enc_mode, bool super_res_off) {
         }
     }
     return gm_level;
+#endif
 }
 
 uint8_t svt_aom_derive_gm_level(PictureParentControlSet* pcs, bool super_res_off) {
@@ -285,7 +292,8 @@ static void set_me_search_params(SequenceControlSet* scs, PictureParentControlSe
 
     // Set the min and max ME search area
     if (rtc_tune) {
-        if (enc_mode <= ENC_M10) {
+        const bool use_flat_ipp = pcs->hierarchical_levels == 0;
+        if (enc_mode <= ENC_M10 || (enc_mode == ENC_M11 && !use_flat_ipp)) {
             if (input_resolution < INPUT_SIZE_1080p_RANGE) {
                 me_ctx->me_sa.sa_min = (SearchArea){24, 16};
                 me_ctx->me_sa.sa_max = (SearchArea){32, 16};
@@ -726,7 +734,7 @@ void svt_aom_sig_deriv_me(SequenceControlSet* scs, PictureParentControlSet* pcs,
     if (rtc_tune) {
         if (enc_mode <= ENC_M8) {
             prehme_level = 2;
-        } else if (enc_mode <= ENC_M10) {
+        } else if (enc_mode <= ENC_M10 || (enc_mode == ENC_M11 && !use_flat_ipp)) {
             prehme_level = 4;
         } else {
             prehme_level = 0;
@@ -1565,6 +1573,7 @@ static void svt_aom_set_dlf_controls(PictureParentControlSet* pcs, uint8_t dlf_l
     case 0:
         ctrls->enabled                  = 0;
         ctrls->sb_based_dlf             = 0;
+        ctrls->pick_method              = LPF_PICK_FROM_FULL_IMAGE;
         ctrls->dlf_avg                  = 0;
         ctrls->use_ref_avg_y            = 0;
         ctrls->use_ref_avg_uv           = 0;
@@ -1575,6 +1584,7 @@ static void svt_aom_set_dlf_controls(PictureParentControlSet* pcs, uint8_t dlf_l
     case 1:
         ctrls->enabled                  = 1;
         ctrls->sb_based_dlf             = 0;
+        ctrls->pick_method              = LPF_PICK_FROM_FULL_IMAGE;
         ctrls->dlf_avg                  = 0;
         ctrls->use_ref_avg_y            = 0;
         ctrls->use_ref_avg_uv           = 0;
@@ -1585,6 +1595,7 @@ static void svt_aom_set_dlf_controls(PictureParentControlSet* pcs, uint8_t dlf_l
     case 2:
         ctrls->enabled                  = 1;
         ctrls->sb_based_dlf             = 0;
+        ctrls->pick_method              = LPF_PICK_FROM_FULL_IMAGE;
         ctrls->dlf_avg                  = 1;
         ctrls->use_ref_avg_y            = 0;
         ctrls->use_ref_avg_uv           = 1;
@@ -1595,6 +1606,7 @@ static void svt_aom_set_dlf_controls(PictureParentControlSet* pcs, uint8_t dlf_l
     case 3:
         ctrls->enabled                  = 1;
         ctrls->sb_based_dlf             = 0;
+        ctrls->pick_method              = LPF_PICK_FROM_FULL_IMAGE;
         ctrls->dlf_avg                  = 1;
         ctrls->use_ref_avg_y            = 1;
         ctrls->use_ref_avg_uv           = 1;
@@ -1605,6 +1617,7 @@ static void svt_aom_set_dlf_controls(PictureParentControlSet* pcs, uint8_t dlf_l
     case 4:
         ctrls->enabled                  = 1;
         ctrls->sb_based_dlf             = 0;
+        ctrls->pick_method              = LPF_PICK_FROM_FULL_IMAGE;
         ctrls->dlf_avg                  = 1;
         ctrls->use_ref_avg_y            = 1;
         ctrls->use_ref_avg_uv           = 1;
@@ -1613,9 +1626,9 @@ static void svt_aom_set_dlf_controls(PictureParentControlSet* pcs, uint8_t dlf_l
         ctrls->prev_dlf_dist_th         = 10;
         break;
     case 5:
-        ctrls->enabled      = 1;
-        ctrls->sb_based_dlf = 1;
-
+        ctrls->enabled                  = 1;
+        ctrls->sb_based_dlf             = 1;
+        ctrls->pick_method              = LPF_PICK_FROM_Q;
         ctrls->dlf_avg                  = 0;
         ctrls->use_ref_avg_y            = 0;
         ctrls->use_ref_avg_uv           = 0;
@@ -1626,6 +1639,7 @@ static void svt_aom_set_dlf_controls(PictureParentControlSet* pcs, uint8_t dlf_l
     case 6:
         ctrls->enabled                  = 1;
         ctrls->sb_based_dlf             = 1;
+        ctrls->pick_method              = LPF_PICK_FROM_Q;
         ctrls->dlf_avg                  = 0;
         ctrls->use_ref_avg_y            = 0;
         ctrls->use_ref_avg_uv           = 0;
@@ -1636,6 +1650,7 @@ static void svt_aom_set_dlf_controls(PictureParentControlSet* pcs, uint8_t dlf_l
     case 7:
         ctrls->enabled                  = 1;
         ctrls->sb_based_dlf             = 1;
+        ctrls->pick_method              = LPF_PICK_FROM_Q;
         ctrls->dlf_avg                  = 0;
         ctrls->use_ref_avg_y            = 0;
         ctrls->use_ref_avg_uv           = 0;
@@ -2149,7 +2164,7 @@ void svt_aom_sig_deriv_multi_processes_default(SequenceControlSet* scs, PictureP
     //User accessible setting for forcing different levels of
     //high bit depth mode decision; also has a check to make sure
     //encoder bith depth>8 to work in full hbd-md
-    if (scs->encoder_bit_depth == EB_EIGHT_BIT) {
+    if (SVT_EFFECTIVE_BIT_DEPTH(scs->encoder_bit_depth) == EB_EIGHT_BIT) {
         pcs->hbd_md = 0;
     } else if (pcs->scs->static_config.hbd_mds != DEFAULT) {
         pcs->hbd_md = pcs->scs->static_config.hbd_mds;
@@ -2490,6 +2505,11 @@ void svt_aom_sig_deriv_multi_processes_allintra(SequenceControlSet* scs, Picture
 ******************************************************/
 void svt_aom_set_gm_controls(PictureParentControlSet* pcs, uint8_t gm_level) {
     GmControls* gm_ctrls = &pcs->gm_ctrls;
+#if !CONFIG_ENABLE_GLOBAL_MOTION
+    (void)gm_level;
+    gm_ctrls->enabled    = 0;
+    gm_ctrls->pp_enabled = 0;
+#else
     switch (gm_level) {
     case 0:
         gm_ctrls->enabled    = 0;
@@ -2584,6 +2604,7 @@ void svt_aom_set_gm_controls(PictureParentControlSet* pcs, uint8_t gm_level) {
     if (gm_level) {
         assert((gm_ctrls->match_sz & 1) == 1);
     }
+#endif // CONFIG_ENABLE_GLOBAL_MOTION
 }
 
 static void set_inter_comp_controls(ModeDecisionContext* ctx, uint8_t inter_comp_mode) {
@@ -2778,11 +2799,15 @@ Input   : encoder mode and tune
 Output  : Pre-Analysis signal(s)
 ******************************************************/
 void svt_aom_sig_deriv_pre_analysis_scs(SequenceControlSet* scs, int8_t enc_mode) {
-    const bool rtc_tune = scs->static_config.rtc;
     const bool allintra = scs->allintra;
     // initialize sequence level enable_superres
+#if CONFIG_ENABLE_SUPERRES
     scs->seq_header.enable_superres = scs->static_config.superres_mode > SUPERRES_NONE ? 1 : 0;
-    uint8_t ii_allowed              = 0;
+#else
+    scs->seq_header.enable_superres = 0;
+#endif
+#if CONFIG_ENABLE_INTER_INTRA
+    uint8_t ii_allowed = 0;
     for (uint8_t transition_present = 0; transition_present < 2; transition_present++) {
         if (ii_allowed) {
             break;
@@ -2790,13 +2815,24 @@ void svt_aom_sig_deriv_pre_analysis_scs(SequenceControlSet* scs, int8_t enc_mode
         ii_allowed |= svt_aom_get_inter_intra_level(enc_mode, transition_present);
     }
     scs->seq_header.enable_interintra_compound = ii_allowed ? 1 : 0;
+#else
+    scs->seq_header.enable_interintra_compound = 0;
+#endif
 
+#if CONFIG_ENABLE_FILTER_INTRA || CONFIG_ENABLE_RESTORATION
+    const bool rtc_tune = scs->static_config.rtc;
+#endif
+#if CONFIG_ENABLE_FILTER_INTRA
     uint8_t is_filter_intra_used = allintra ? get_filter_intra_level_allintra(enc_mode)
         : rtc_tune                          ? get_filter_intra_level_rtc()
                                             : get_filter_intra_level_default(enc_mode);
 
     scs->seq_header.filter_intra_level = is_filter_intra_used ? 1 : 0;
+#else
+    scs->seq_header.filter_intra_level = 0;
+#endif
 
+#if CONFIG_ENABLE_INTER_COMPOUND
     if (get_inter_compound_level(enc_mode)) {
         scs->seq_header.order_hint_info.enable_jnt_comp = 1; //DISTANCE
         scs->seq_header.enable_masked_compound          = 1; //DIFF+WEDGE
@@ -2804,6 +2840,10 @@ void svt_aom_sig_deriv_pre_analysis_scs(SequenceControlSet* scs, int8_t enc_mode
         scs->seq_header.order_hint_info.enable_jnt_comp = 0;
         scs->seq_header.enable_masked_compound          = 0;
     }
+#else
+    scs->seq_header.order_hint_info.enable_jnt_comp = 0;
+    scs->seq_header.enable_masked_compound          = 0;
+#endif
     // For non-still-image or non-all-intra configurations, keep edge filter always ON, otherwise OFF unless angular refinement pruning techniques are active
     if (allintra) {
         // Flag indicating whether angular refinement pruning is active
@@ -2819,6 +2859,7 @@ void svt_aom_sig_deriv_pre_analysis_scs(SequenceControlSet* scs, int8_t enc_mode
     } else {
         scs->seq_header.enable_intra_edge_filter = 1;
     }
+#if CONFIG_ENABLE_RESTORATION
     if (scs->static_config.enable_restoration_filtering == DEFAULT) {
         // As allocation has already happened based on the initial input resolution, the resolution
         // changes should not impact enabling restoration. For some presets, restoration is off for 8K
@@ -2846,6 +2887,9 @@ void svt_aom_sig_deriv_pre_analysis_scs(SequenceControlSet* scs, int8_t enc_mode
                          : svt_aom_get_enable_restoration_default(enc_mode, DEFAULT, fr_res, scs->static_config.fast_decode);
         scs->seq_header.enable_restoration = (scs->static_config.enable_restoration_filtering && auto_en) ? 1 : 0;
     }
+#else
+    scs->seq_header.enable_restoration = 0;
+#endif
 
     if (scs->static_config.cdef_level == DEFAULT) {
         scs->seq_header.cdef_level = 1;
@@ -2862,14 +2906,11 @@ void svt_aom_sig_deriv_pre_analysis_scs(SequenceControlSet* scs, int8_t enc_mode
 * false -- reference picture not exist or in difference frame size
 */
 bool svt_aom_is_ref_same_size(PictureControlSet* pcs, uint8_t list_idx, uint8_t ref_idx) {
-    // skip the checking if reference scaling and super-res are disabled
-    if (pcs->ppcs->is_not_scaled) {
-        return true;
-    }
     if (pcs->slice_type != B_SLICE) {
         return false;
     }
-    if (pcs->ref_pic_ptr_array[list_idx][ref_idx] == NULL) {
+    int ref_count = (list_idx == REF_LIST_0) ? pcs->ppcs->ref_list0_count_try : pcs->ppcs->ref_list1_count_try;
+    if (ref_count == 0 || pcs->ref_pic_ptr_array[list_idx][ref_idx] == NULL) {
         return false;
     }
 
@@ -3173,7 +3214,7 @@ static void set_depth_removal_level_controls(PictureControlSet* pcs, ModeDecisio
                 const bool is_ref_l0_avail = svt_aom_is_ref_same_size(pcs, REF_LIST_0, 0);
                 const bool is_ref_l1_avail = svt_aom_is_ref_same_size(pcs, REF_LIST_1, 0);
 
-                if (pcs->slice_type != I_SLICE && is_ref_l0_avail) {
+                if (is_ref_l0_avail) {
                     EbReferenceObject* ref_obj_l0 =
                         (EbReferenceObject*)pcs->ref_pic_ptr_array[REF_LIST_0][0]->object_ptr;
 
@@ -3183,7 +3224,7 @@ static void set_depth_removal_level_controls(PictureControlSet* pcs, ModeDecisio
                         sb_min_sq_size = ref_obj_l0->sb_min_sq_size[ctx->sb_index];
                     }
 
-                    if (pcs->slice_type == B_SLICE && is_ref_l1_avail && pcs->ppcs->ref_list1_count_try) {
+                    if (is_ref_l1_avail) {
                         EbReferenceObject* ref_obj_l1 =
                             (EbReferenceObject*)pcs->ref_pic_ptr_array[REF_LIST_1][0]->object_ptr;
 
@@ -3437,6 +3478,11 @@ static void set_pf_controls(ModeDecisionContext* ctx, uint8_t pf_level) {
         assert(0);
         break;
     }
+#if !CONFIG_ENABLE_TX_PF_N2
+    // N2 pruned transforms are compiled out in this build (never reached in RTC-minimal: pf_level is
+    // always 1/DEFAULT and full-loop only overrides to N4). Catch any preset that re-enables N2.
+    assert(pf_ctrls->pf_shape != N2_SHAPE);
+#endif
 }
 
 /*
@@ -5419,7 +5465,7 @@ static void set_inter_intra_ctrls(ModeDecisionContext* ctx, uint8_t inter_intra_
 
 static void set_pd0_ctrls(ModeDecisionContext* ctx, uint8_t lpd0_lvl) {
     Pd0Ctrls* ctrls = &ctx->pd0_ctrls;
-    if (ctx->hbd_md) {
+    if (SVT_EFFECTIVE_HBD_MD(ctx->hbd_md)) {
         ctx->pd0_ctrls.pd0_level = PD0_LVL_0;
         return;
     }
@@ -6284,7 +6330,8 @@ static void set_spatial_sse_full_loop_level(ModeDecisionContext* ctx, uint8_t sp
 
 // Compute a qp-aware threshold based on the variance of the SB, used to apply selectively INTRA at PD0
 static uint64_t compute_intra_pd0_th(SequenceControlSet* scs, ModeDecisionContext* ctx) {
-    uint32_t fast_lambda      = ctx->hbd_md ? ctx->fast_lambda_md[EB_10_BIT_MD] : ctx->fast_lambda_md[EB_8_BIT_MD];
+    uint32_t fast_lambda      = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? ctx->fast_lambda_md[EB_10_BIT_MD]
+                                                                  : ctx->fast_lambda_md[EB_8_BIT_MD];
     uint32_t sb_size          = scs->super_block_size * scs->super_block_size;
     uint64_t cost_th_rate     = 1 << 13;
     uint64_t use_intra_pd0_th = 0;
@@ -6295,7 +6342,8 @@ static uint64_t compute_intra_pd0_th(SequenceControlSet* scs, ModeDecisionContex
 
 // Compute a qp-aware threshold based on the variance of the SB, used to apply selectively subres
 static uint64_t compute_subres_th(SequenceControlSet* scs, ModeDecisionContext* ctx) {
-    uint32_t fast_lambda   = ctx->hbd_md ? ctx->fast_lambda_md[EB_10_BIT_MD] : ctx->fast_lambda_md[EB_8_BIT_MD];
+    uint32_t fast_lambda   = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? ctx->fast_lambda_md[EB_10_BIT_MD]
+                                                               : ctx->fast_lambda_md[EB_8_BIT_MD];
     uint32_t sb_size       = scs->super_block_size * scs->super_block_size;
     uint64_t cost_th_rate  = 1 << 13;
     uint64_t use_subres_th = 0;
@@ -6486,6 +6534,10 @@ sb_intra_count: Number of TPL blocks in the SB where the best_mode was an intra 
 */
 static bool get_sb_tpl_intra_stats(PictureControlSet* pcs, ModeDecisionContext* ctx, int* sb_ang_intra_count,
                                    PredictionMode* sb_max_intra, int* sb_intra_count) {
+#if !CONFIG_ENABLE_TPL
+    (void)pcs, (void)ctx, (void)sb_ang_intra_count, (void)sb_max_intra, (void)sb_intra_count;
+    return false; // TPL disabled: tpl_ctrls.enable is always 0, this is never reached at runtime
+#endif
     PictureParentControlSet* ppcs = pcs->ppcs;
 
     // Check that TPL data is available and that INTRA was tested in TPL.
@@ -7252,8 +7304,9 @@ void svt_aom_sig_deriv_enc_dec_pd0(SequenceControlSet* scs, PictureControlSet* p
             intra_level = 1;
         } else if (pd0_level <= PD0_LVL_2) {
             uint64_t use_intra_pd0_th = compute_intra_pd0_th(scs, ctx);
-            uint32_t fast_lambda = ctx->hbd_md ? ctx->fast_lambda_md[EB_10_BIT_MD] : ctx->fast_lambda_md[EB_8_BIT_MD];
-            uint64_t cost_64x64  = RDCOST(fast_lambda, 0, me_64x64_dist);
+            uint32_t fast_lambda      = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? ctx->fast_lambda_md[EB_10_BIT_MD]
+                                                                          : ctx->fast_lambda_md[EB_8_BIT_MD];
+            uint64_t cost_64x64       = RDCOST(fast_lambda, 0, me_64x64_dist);
 
             intra_level = (cost_64x64 < use_intra_pd0_th) ? 0 : 1;
         } else {
@@ -7313,7 +7366,7 @@ void svt_aom_sig_deriv_enc_dec_pd0(SequenceControlSet* scs, PictureControlSet* p
         ctx->parent_cost_bias = CLIP3(900, 1200, ctx->parent_cost_bias);
     }
 
-    if (allintra || pcs->hbd_md) {
+    if (allintra || SVT_EFFECTIVE_HBD_MD(pcs->hbd_md)) {
         ctx->pd0_use_src_samples = true;
     } else {
         ctx->pd0_use_src_samples = false;
@@ -7339,7 +7392,8 @@ void svt_aom_sig_deriv_enc_dec_pd0(SequenceControlSet* scs, PictureControlSet* p
         // then applies the result to the 64x64 block and to all children, therefore if incomplete 64x64 then shut subres
         // Use ME distortion and variance detector to enable subres
         uint64_t use_subres_th = compute_subres_th(scs, ctx);
-        uint32_t fast_lambda   = ctx->hbd_md ? ctx->fast_lambda_md[EB_10_BIT_MD] : ctx->fast_lambda_md[EB_8_BIT_MD];
+        uint32_t fast_lambda   = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? ctx->fast_lambda_md[EB_10_BIT_MD]
+                                                                   : ctx->fast_lambda_md[EB_8_BIT_MD];
         uint64_t cost_64x64    = RDCOST(fast_lambda, 0, me_64x64_dist);
         if (pd0_level <= PD0_LVL_4) {
             if (is_islice || ppcs->transition_present == 1) {
@@ -7386,7 +7440,6 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_default(PictureControlSet* pcs, ModeDec
     Pd1Level                 lpd1_level       = ctx->lpd1_ctrls.pd1_level;
     PictureParentControlSet* ppcs             = pcs->ppcs;
     const ResolutionRange    input_resolution = ppcs->input_resolution;
-    const SliceType          slice_type       = pcs->slice_type;
     // Get ref info, used to set some feature levels
     const uint32_t picture_qp           = ppcs->picture_qp;
     uint32_t       me_8x8_cost_variance = (uint32_t)~0;
@@ -7408,7 +7461,7 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_default(PictureControlSet* pcs, ModeDec
         EbReferenceObject* ref_obj_l0 = (EbReferenceObject*)pcs->ref_pic_ptr_array[REF_LIST_0][0]->object_ptr;
         l0_was_skip = ref_obj_l0->sb_skip[ctx->sb_index], l1_was_skip = 1;
         l0_was_64x64_mvp = ref_obj_l0->sb_64x64_mvp[ctx->sb_index], l1_was_64x64_mvp = 1;
-        if (slice_type == B_SLICE && is_ref_l1_avail && pcs->ppcs->ref_list1_count_try) {
+        if (is_ref_l1_avail) {
             EbReferenceObject* ref_obj_l1 = (EbReferenceObject*)pcs->ref_pic_ptr_array[REF_LIST_1][0]->object_ptr;
             l1_was_skip                   = ref_obj_l1->sb_skip[ctx->sb_index];
             l1_was_64x64_mvp              = ref_obj_l1->sb_64x64_mvp[ctx->sb_index];
@@ -7587,7 +7640,6 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_rtc(PictureControlSet* pcs, ModeDecisio
     PictureParentControlSet* ppcs         = pcs->ppcs;
     const EncMode            enc_mode     = pcs->enc_mode;
     uint8_t                  use_flat_ipp = pcs->ppcs->hierarchical_levels == 0;
-    const SliceType          slice_type   = pcs->slice_type;
     // Get ref info, used to set some feature levels
     const uint32_t picture_qp           = ppcs->picture_qp;
     uint32_t       me_8x8_cost_variance = (uint32_t)~0;
@@ -7608,7 +7660,7 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_rtc(PictureControlSet* pcs, ModeDecisio
         EbReferenceObject* ref_obj_l0 = (EbReferenceObject*)pcs->ref_pic_ptr_array[REF_LIST_0][0]->object_ptr;
         l0_was_skip = ref_obj_l0->sb_skip[ctx->sb_index], l1_was_skip = 1;
         l0_was_64x64_mvp = ref_obj_l0->sb_64x64_mvp[ctx->sb_index], l1_was_64x64_mvp = 1;
-        if (slice_type == B_SLICE && is_ref_l1_avail && pcs->ppcs->ref_list1_count_try) {
+        if (is_ref_l1_avail) {
             EbReferenceObject* ref_obj_l1 = (EbReferenceObject*)pcs->ref_pic_ptr_array[REF_LIST_1][0]->object_ptr;
             l1_was_skip                   = ref_obj_l1->sb_skip[ctx->sb_index];
             l1_was_64x64_mvp              = ref_obj_l1->sb_64x64_mvp[ctx->sb_index];
@@ -8424,7 +8476,7 @@ uint8_t svt_aom_get_nsq_search_level_allintra(PictureControlSet* pcs, EncMode en
 */
 uint8_t svt_aom_get_bypass_encdec_default(EncMode enc_mode, uint8_t encoder_bit_depth) {
     uint8_t bypass_encdec = 1;
-    if (encoder_bit_depth == EB_EIGHT_BIT) {
+    if (SVT_EFFECTIVE_BIT_DEPTH(encoder_bit_depth) == EB_EIGHT_BIT) {
         // 8bit settings
         if (enc_mode <= ENC_M2) {
             bypass_encdec = 0;
@@ -8444,7 +8496,7 @@ uint8_t svt_aom_get_bypass_encdec_default(EncMode enc_mode, uint8_t encoder_bit_
 
 uint8_t svt_aom_get_bypass_encdec_rtc(EncMode enc_mode, uint8_t encoder_bit_depth) {
     uint8_t bypass_encdec = 1;
-    if (encoder_bit_depth == EB_EIGHT_BIT) {
+    if (SVT_EFFECTIVE_BIT_DEPTH(encoder_bit_depth) == EB_EIGHT_BIT) {
         // 8bit settings
         if (enc_mode <= ENC_M2) {
             bypass_encdec = 0;
@@ -8502,6 +8554,11 @@ static void set_cdf_controls(PictureControlSet* pcs, uint8_t update_cdf_level) {
 
     ctrl->update_mv = pcs->slice_type == I_SLICE ? 0 : ctrl->update_mv;
     ctrl->enabled   = ctrl->update_coef | ctrl->update_mv | ctrl->update_se;
+#if !CONFIG_ENABLE_MD_CDF_UPDATE
+    // MD-side CDF/stats adaptation is compiled out (svt_aom_update_stats stripped). It must stay
+    // disabled at runtime in this build (RTC-minimal: update_cdf_level==0 for M9+).
+    assert(!ctrl->enabled);
+#endif
 }
 
 /******************************************************
@@ -9432,7 +9489,8 @@ void svt_aom_sig_deriv_mode_decision_config_default(SequenceControlSet* scs, Pic
     // Can only use light-PD1 under the following conditions
     // There is another check before PD1 is called; pred_depth_only is not checked here, because some modes
     // may force pred_depth_only at the light-pd1 detector
-    if (pcs->pic_lpd1_lvl && !(ppcs->hbd_md == 0 && pcs->pic_disallow_4x4 == true && scs->super_block_size == 64)) {
+    if (pcs->pic_lpd1_lvl &&
+        !(SVT_EFFECTIVE_HBD_MD(ppcs->hbd_md) == 0 && pcs->pic_disallow_4x4 == true && scs->super_block_size == 64)) {
         pcs->pic_lpd1_lvl = 0;
     }
 
@@ -9459,6 +9517,9 @@ void svt_aom_sig_deriv_mode_decision_config_default(SequenceControlSet* scs, Pic
     // The multiplier of "28" was derived empirically to allow a smooth bitrate decrease as
     // CRF increases from 63.25 (extended_crf_qindex_offset = 1) to 70 (extended_crf_qindex_offset = 4 * 7)
     if (scs->static_config.qp == MAX_QP_VALUE && scs->static_config.extended_crf_qindex_offset) {
+        if (pcs->lambda_weight == 0) {
+            pcs->lambda_weight = LAMBDA_WEIGHT_NEUTRAL;
+        }
         pcs->lambda_weight += scs->static_config.extended_crf_qindex_offset * 28;
     }
 
@@ -9549,7 +9610,7 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
         pcs->coeff_shaving_level = 1;
     }
     if (enc_mode <= ENC_M10) {
-        pcs->rate_est_level = 1;
+        pcs->rate_est_level = (ppcs->hierarchical_levels == 1 && enc_mode == ENC_M10) ? 0 : 1;
     } else {
         pcs->rate_est_level = 0;
     }
@@ -9846,15 +9907,22 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
         pcs->pic_lpd1_lvl = is_base ? 0 : (lpd1_low_var ? 3 : 4);
     } else if (enc_mode <= ENC_M11) {
         pcs->pic_lpd1_lvl = is_base ? 2 : (lpd1_low_var ? 3 : 5);
-    } else if (enc_mode <= ENC_M12 || lpd1_ultra_low_var) {
+    } else if (enc_mode <= ENC_M12) {
         pcs->pic_lpd1_lvl = is_base ? 4 : (lpd1_low_var ? 5 : 8);
+        if (is_base && ppcs->hierarchical_levels == 1) {
+            pcs->pic_lpd1_lvl = 5;
+        }
     } else {
-        pcs->pic_lpd1_lvl = is_base ? (lpd1_low_var ? 4 : 6) : (lpd1_low_var ? 6 : 8);
+        pcs->pic_lpd1_lvl = is_base ? (lpd1_low_var ? 4 : 6) : (lpd1_ultra_low_var ? 5 : lpd1_low_var ? 6 : 8);
+        if (is_base && ppcs->hierarchical_levels == 1) {
+            pcs->pic_lpd1_lvl = 6;
+        }
     }
     // Can only use light-PD1 under the following conditions
     // There is another check before PD1 is called; pred_depth_only is not checked here, because some modes
     // may force pred_depth_only at the light-pd1 detector
-    if (pcs->pic_lpd1_lvl && !(ppcs->hbd_md == 0 && pcs->pic_disallow_4x4 == true && scs->super_block_size == 64)) {
+    if (pcs->pic_lpd1_lvl &&
+        !(SVT_EFFECTIVE_HBD_MD(ppcs->hbd_md) == 0 && pcs->pic_disallow_4x4 == true && scs->super_block_size == 64)) {
         pcs->pic_lpd1_lvl = 0;
     }
 
@@ -9871,6 +9939,9 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
     // The multiplier of "28" was derived empirically to allow a smooth bitrate decrease as
     // CRF increases from 63.25 (extended_crf_qindex_offset = 1) to 70 (extended_crf_qindex_offset = 4 * 7)
     if (scs->static_config.qp == MAX_QP_VALUE && scs->static_config.extended_crf_qindex_offset) {
+        if (pcs->lambda_weight == 0) {
+            pcs->lambda_weight = LAMBDA_WEIGHT_NEUTRAL;
+        }
         pcs->lambda_weight += scs->static_config.extended_crf_qindex_offset * 28;
     }
 
@@ -10108,6 +10179,9 @@ void svt_aom_sig_deriv_mode_decision_config_allintra(SequenceControlSet* scs, Pi
     // The multiplier of "28" was derived empirically to allow a smooth bitrate decrease as
     // CRF increases from 63.25 (extended_crf_qindex_offset = 1) to 70 (extended_crf_qindex_offset = 4 * 7)
     if (scs->static_config.qp == MAX_QP_VALUE && scs->static_config.extended_crf_qindex_offset) {
+        if (pcs->lambda_weight == 0) {
+            pcs->lambda_weight = LAMBDA_WEIGHT_NEUTRAL;
+        }
         pcs->lambda_weight += scs->static_config.extended_crf_qindex_offset * 28;
     }
     // Set the dlf level

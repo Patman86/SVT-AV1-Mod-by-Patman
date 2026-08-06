@@ -637,6 +637,11 @@ bool svt_av1_rc_recode_decision_rtc_cbr(PictureControlSet* pcs) {
         return false;
     }
 
+    // Can't reduce frame size if already on worst quality
+    if (ppcs->frm_hdr.quantization_params.base_q_idx >= rc->worst_quality) {
+        return false;
+    }
+
     int projected_frame_size = (int)ROUND_POWER_OF_TWO(ppcs->pcs_total_rate, AV1_PROB_COST_SHIFT);
     projected_frame_size += (ppcs->frm_hdr.frame_type == KEY_FRAME) ? 13 : 0;
 

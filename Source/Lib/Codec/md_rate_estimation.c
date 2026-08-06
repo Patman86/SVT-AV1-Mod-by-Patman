@@ -20,10 +20,12 @@
 #include "rd_cost.h"
 #include "inter_prediction.h"
 
+#if CONFIG_ENABLE_INTER_COMPOUND || CONFIG_ENABLE_INTER_INTRA || CONFIG_ENABLE_OBMC || CONFIG_ENABLE_WARP
 static INLINE int32_t get_interinter_wedge_bits(BlockSize bsize) {
     const int32_t wbits = svt_aom_get_wedge_params_bits(bsize);
     return (wbits > 0) ? wbits + 1 : 0;
 }
+#endif
 
 /**************************************************************
 * AV1GetCostSymbold
@@ -75,6 +77,17 @@ void svt_aom_estimate_syntax_rate(MdRateEstimationContext* md_rate_est_ctx, bool
                                   uint8_t pic_filter_intra_level, uint8_t allow_screen_content_tools,
                                   uint8_t enable_restoration, uint8_t allow_intrabc, FRAME_CONTEXT* fc) {
     int32_t i, j;
+    // These tools are structurally off in RTC-minimal; force the guards to 0 so the compiler
+    // DCEs their rate-table builders (bit-exact).
+#if !CONFIG_ENABLE_FILTER_INTRA
+    pic_filter_intra_level = 0;
+#endif
+#if !CONFIG_ENABLE_PALETTE
+    allow_screen_content_tools = 0;
+#endif
+#if !CONFIG_ENABLE_RESTORATION
+    enable_restoration = 0;
+#endif
 
     md_rate_est_ctx->initialized = 1;
     for (i = 0; i < PARTITION_CONTEXTS; ++i) {
@@ -255,9 +268,11 @@ void svt_aom_estimate_syntax_rate(MdRateEstimationContext* md_rate_est_ctx, bool
     }
 
     if (!is_i_slice) { // NM - Hardcoded to true
+#if CONFIG_ENABLE_INTER_COMPOUND // single-ref: compound rate tables dead
         for (i = 0; i < COMP_INTER_CONTEXTS; ++i) {
             svt_aom_get_syntax_rate_from_cdf(md_rate_est_ctx->comp_inter_fac_bits[i], fc->comp_inter_cdf[i], NULL);
         }
+#endif
         for (i = 0; i < REF_CONTEXTS; ++i) {
             for (j = 0; j < SINGLE_REFS - 1; ++j) {
                 svt_aom_get_syntax_rate_from_cdf(
@@ -265,6 +280,7 @@ void svt_aom_estimate_syntax_rate(MdRateEstimationContext* md_rate_est_ctx, bool
             }
         }
 
+#if CONFIG_ENABLE_INTER_COMPOUND // compound-ref rate tables dead
         for (i = 0; i < COMP_REF_TYPE_CONTEXTS; ++i) {
             svt_aom_get_syntax_rate_from_cdf(
                 md_rate_est_ctx->comp_ref_type_fac_bits[i], fc->comp_ref_type_cdf[i], NULL);
@@ -289,6 +305,7 @@ void svt_aom_estimate_syntax_rate(MdRateEstimationContext* md_rate_est_ctx, bool
                     md_rate_est_ctx->comp_bwd_ref_fac_bits[i][j], fc->comp_bwdref_cdf[i][j], NULL);
             }
         }
+#endif /* CONFIG_ENABLE_INTER_COMPOUND */
 
         for (i = 0; i < INTRA_INTER_CONTEXTS; ++i) {
             svt_aom_get_syntax_rate_from_cdf(md_rate_est_ctx->intra_inter_fac_bits[i], fc->intra_inter_cdf[i], NULL);
@@ -305,6 +322,8 @@ void svt_aom_estimate_syntax_rate(MdRateEstimationContext* md_rate_est_ctx, bool
         for (i = 0; i < DRL_MODE_CONTEXTS; ++i) {
             svt_aom_get_syntax_rate_from_cdf(md_rate_est_ctx->drl_mode_fac_bits[i], fc->drl_cdf[i], NULL);
         }
+#if CONFIG_ENABLE_INTER_COMPOUND || CONFIG_ENABLE_INTER_INTRA || CONFIG_ENABLE_OBMC || CONFIG_ENABLE_WARP
+        // compound-mode/inter-intra/motion-mode(obmc,warp) rate tables all dead
         for (i = 0; i < INTER_MODE_CONTEXTS; ++i) {
             svt_aom_get_syntax_rate_from_cdf(
                 md_rate_est_ctx->inter_compound_mode_fac_bits[i], fc->inter_compound_mode_cdf[i], NULL);
@@ -340,44 +359,16 @@ void svt_aom_estimate_syntax_rate(MdRateEstimationContext* md_rate_est_ctx, bool
             svt_aom_get_syntax_rate_from_cdf(
                 md_rate_est_ctx->comp_group_idx_fac_bits[i], fc->comp_group_idx_cdf[i], NULL);
         }
+#endif /* compound/inter-intra/motion-mode */
     }
 }
-
-static const uint8_t log_in_base_2[] = {
-    0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
-    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 10};
 
 static INLINE int32_t mv_class_base(MvClassType c) {
     return c ? CLASS0_SIZE << (c + 2) : 0;
 }
 
 MvClassType svt_av1_get_mv_class(int32_t z, int32_t* offset) {
-    const MvClassType c = (z >= CLASS0_SIZE * 4096) ? MV_CLASS_10 : (MvClassType)log_in_base_2[z >> 3];
+    const MvClassType c = (z >= CLASS0_SIZE * 4096) ? MV_CLASS_10 : (MvClassType)svt_log2f_safe(z >> 3);
     if (offset) {
         *offset = z - mv_class_base(c);
     }

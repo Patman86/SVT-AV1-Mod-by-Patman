@@ -1312,7 +1312,7 @@ static void apply_filtering_block_plane_wise(MeContext* me_ctx, int block_row, i
     count_ptr[PLANE_U] = count[PLANE_U] + offset_block_buffer_U;
     count_ptr[PLANE_V] = count[PLANE_V] + offset_block_buffer_V;
 
-    if (encoder_bit_depth == 8) {
+    if (SVT_EFFECTIVE_BIT_DEPTH(encoder_bit_depth) == 8) {
         uint8_t* pred_ptr[MAX_PLANES] = {
             pred[PLANE_Y] + offset_block_buffer_Y,
             pred[PLANE_U] + offset_block_buffer_U,
@@ -1668,7 +1668,7 @@ static void tf_64x64_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
         interp_filters = av1_make_interp_filters(EIGHTTAP_REGULAR, EIGHTTAP_REGULAR);
     }
 
-    bool        is_highbd = (encoder_bit_depth == 8) ? (uint8_t)false : (uint8_t)true;
+    bool        is_highbd = (SVT_EFFECTIVE_BIT_DEPTH(encoder_bit_depth) == 8) ? (uint8_t)false : (uint8_t)true;
     BlkStruct   blk_struct;
     MacroBlockD av1xd;
     blk_struct.av1xd = &av1xd;
@@ -1778,7 +1778,7 @@ static void tf_32x32_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
         interp_filters = av1_make_interp_filters(EIGHTTAP_REGULAR, EIGHTTAP_REGULAR);
     }
 
-    bool        is_highbd = (encoder_bit_depth == 8) ? (uint8_t)false : (uint8_t)true;
+    bool        is_highbd = (SVT_EFFECTIVE_BIT_DEPTH(encoder_bit_depth) == 8) ? (uint8_t)false : (uint8_t)true;
     BlkStruct   blk_struct;
     MacroBlockD av1xd;
     blk_struct.av1xd = &av1xd;
@@ -1883,7 +1883,7 @@ static void tf_16x16_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
                                     uint32_t sb_origin_x, uint32_t sb_origin_y, uint32_t ss_x, int encoder_bit_depth) {
     InterpFilters interp_filters = av1_make_interp_filters(EIGHTTAP_REGULAR, EIGHTTAP_REGULAR);
 
-    bool is_highbd = (encoder_bit_depth == 8) ? (uint8_t)false : (uint8_t)true;
+    bool is_highbd = (SVT_EFFECTIVE_BIT_DEPTH(encoder_bit_depth) == 8) ? (uint8_t)false : (uint8_t)true;
 
     BlkStruct   blk_ptr;
     MacroBlockD av1xd;
@@ -1993,7 +1993,7 @@ static void tf_8x8_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_ct
                                   uint32_t sb_origin_x, uint32_t sb_origin_y, uint32_t ss_x, int encoder_bit_depth) {
     InterpFilters interp_filters = av1_make_interp_filters(EIGHTTAP_REGULAR, EIGHTTAP_REGULAR);
 
-    bool is_highbd = (encoder_bit_depth == 8) ? (uint8_t)false : (uint8_t)true;
+    bool is_highbd = (SVT_EFFECTIVE_BIT_DEPTH(encoder_bit_depth) == 8) ? (uint8_t)false : (uint8_t)true;
 
     BlkStruct   blk_ptr;
     MacroBlockD av1xd;
@@ -2106,7 +2106,7 @@ static void tf_64x64_inter_prediction(PictureParentControlSet* pcs, MeContext* m
     SequenceControlSet* scs            = pcs->scs;
     const InterpFilters interp_filters = av1_make_interp_filters(MULTITAP_SHARP, MULTITAP_SHARP);
 
-    bool is_highbd = (encoder_bit_depth == 8) ? (uint8_t)false : (uint8_t)true;
+    bool is_highbd = (SVT_EFFECTIVE_BIT_DEPTH(encoder_bit_depth) == 8) ? (uint8_t)false : (uint8_t)true;
 
     BlkStruct   blk_ptr;
     MacroBlockD av1xd;
@@ -2203,7 +2203,7 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
     SequenceControlSet* scs            = pcs->scs;
     const InterpFilters interp_filters = av1_make_interp_filters(MULTITAP_SHARP, MULTITAP_SHARP);
 
-    bool is_highbd = (encoder_bit_depth == 8) ? (uint8_t)false : (uint8_t)true;
+    bool is_highbd = (SVT_EFFECTIVE_BIT_DEPTH(encoder_bit_depth) == 8) ? (uint8_t)false : (uint8_t)true;
 
     BlkStruct   blk_ptr;
     MacroBlockD av1xd;
@@ -3779,7 +3779,7 @@ static EbErrorType save_src_pic_buffers(PictureParentControlSet* centre_pcs) {
 
     EbPictureBufferDescInitData input_pic_buf_desc_init_data;
     EbSvtAv1EncConfiguration*   config   = &centre_pcs->scs->static_config;
-    uint8_t                     is_16bit = config->encoder_bit_depth > 8 ? 1 : 0;
+    uint8_t                     is_16bit = SVT_EFFECTIVE_BIT_DEPTH(config->encoder_bit_depth) > 8 ? 1 : 0;
 
     const uint8_t ss_x = (config->encoder_color_format == EB_YUV444) ? 0 : 1;
     const uint8_t ss_y = (config->encoder_color_format >= EB_YUV422) ? 0 : 1;
@@ -3864,7 +3864,7 @@ static EbErrorType save_y_src_pic_buffers(PictureParentControlSet* centre_pcs) {
 
     EbPictureBufferDescInitData input_pic_buf_desc_init_data;
     EbSvtAv1EncConfiguration*   config   = &centre_pcs->scs->static_config;
-    uint8_t                     is_16bit = config->encoder_bit_depth > 8 ? 1 : 0;
+    uint8_t                     is_16bit = SVT_EFFECTIVE_BIT_DEPTH(config->encoder_bit_depth) > 8 ? 1 : 0;
 
     input_pic_buf_desc_init_data.max_width  = src_pic_ptr->width;
     input_pic_buf_desc_init_data.max_height = src_pic_ptr->height;
@@ -3959,7 +3959,7 @@ EbErrorType svt_av1_init_temporal_filtering(PictureParentControlSet** pcs_list, 
     central_picture_ptr = centre_pcs->enhanced_pic;
 
     uint32_t encoder_bit_depth = centre_pcs->scs->static_config.encoder_bit_depth;
-    bool     is_highbd         = (encoder_bit_depth == 8) ? (uint8_t)false : (uint8_t)true;
+    bool     is_highbd         = (SVT_EFFECTIVE_BIT_DEPTH(encoder_bit_depth) == 8) ? (uint8_t)false : (uint8_t)true;
 
     // chroma subsampling
     uint32_t ss_x                    = centre_pcs->scs->subsampling_x;

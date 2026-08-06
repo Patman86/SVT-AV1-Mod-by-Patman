@@ -39,7 +39,8 @@ EbErrorType svt_aom_entropy_coding_context_ctor(EbThreadContext* thread_ctx, con
     thread_ctx->priv  = context_ptr;
     thread_ctx->dctor = rest_context_dctor;
 
-    context_ptr->is_16bit = enc_handle_ptr->scs_instance->scs->static_config.encoder_bit_depth > EB_EIGHT_BIT;
+    context_ptr->is_16bit = SVT_EFFECTIVE_BIT_DEPTH(
+                                enc_handle_ptr->scs_instance->scs->static_config.encoder_bit_depth) > EB_EIGHT_BIT;
 
     // Zero levels_buf once; the tail (offset >= LEVELS_TAIL_OFFSET) serves as
     // bottom padding for all block sizes via offset-based placement in set_levels.
@@ -72,7 +73,7 @@ static void entropy_coding_reset_neighbor_arrays(PictureControlSet* pcs, uint16_
 static void reset_entropy_coding_picture(EntropyCodingContext* ctx, PictureControlSet* pcs, SequenceControlSet* scs) {
     PictureParentControlSet* ppcs     = pcs->ppcs;
     const uint16_t           tile_cnt = ppcs->av1_cm->tiles_info.tile_rows * ppcs->av1_cm->tiles_info.tile_cols;
-    ctx->is_16bit                     = scs->static_config.encoder_bit_depth > EB_EIGHT_BIT;
+    ctx->is_16bit                     = SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) > EB_EIGHT_BIT;
     const FrameHeader* frm_hdr        = &ppcs->frm_hdr;
     // Asuming cb and cr offset to be the same for chroma QP in both slice and pps for lambda computation
     const uint32_t entropy_coding_qp = frm_hdr->quantization_params.base_q_idx;

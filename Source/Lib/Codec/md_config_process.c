@@ -66,12 +66,16 @@ static void set_global_motion_field(PictureControlSet* pcs) {
         if (ppcs->global_motion[frame_index].wmtype == TRANSLATION) {
             // The offset to derive the translation is different when the wmtype is TRANSLATION. Therefore,
             // for translation convert the param to the correct offset.
-            ppcs->global_motion[frame_index].wmmat[0] =
-                convert_to_trans_prec(ppcs->frm_hdr.allow_high_precision_mv, ppcs->global_motion[frame_index].wmmat[0])
-                << GM_TRANS_ONLY_PREC_DIFF;
-            ppcs->global_motion[frame_index].wmmat[1] =
-                convert_to_trans_prec(ppcs->frm_hdr.allow_high_precision_mv, ppcs->global_motion[frame_index].wmmat[1])
-                << GM_TRANS_ONLY_PREC_DIFF;
+            // convert_to_trans_prec() can return a negative offset; use multiplication
+            // instead of a left shift to avoid UB (left shift of negative value).
+            ppcs->global_motion[frame_index].wmmat[0] = convert_to_trans_prec(
+                                                            ppcs->frm_hdr.allow_high_precision_mv,
+                                                            ppcs->global_motion[frame_index].wmmat[0]) *
+                (1 << GM_TRANS_ONLY_PREC_DIFF);
+            ppcs->global_motion[frame_index].wmmat[1] = convert_to_trans_prec(
+                                                            ppcs->frm_hdr.allow_high_precision_mv,
+                                                            ppcs->global_motion[frame_index].wmmat[1]) *
+                (1 << GM_TRANS_ONLY_PREC_DIFF);
 
             // For TRANSLATION type global motion models, svt_aom_gm_get_motion_vector_enc() gives
             // the wrong motion vector due to an AV1 spec bug.
@@ -921,9 +925,9 @@ EbErrorType svt_aom_mode_decision_configuration_kernel_iter(void* context) {
 
     FrameHeader* frm_hdr = &pcs->ppcs->frm_hdr;
     // Mode Decision Configuration Kernel Signal(s) derivation
-    if (scs->allintra) {
+    if (SVT_ALLINTRA(scs)) {
         svt_aom_sig_deriv_mode_decision_config_allintra(scs, pcs);
-    } else if (scs->static_config.rtc) {
+    } else if (SVT_RTC_TUNE(scs)) {
         svt_aom_sig_deriv_mode_decision_config_rtc(scs, pcs);
     } else {
         svt_aom_sig_deriv_mode_decision_config_default(scs, pcs);
@@ -1019,6 +1023,15 @@ EbErrorType svt_aom_mode_decision_configuration_kernel_iter(void* context) {
     // Derive all_lossless; if super-resolution is used, such a frame will still NOT be lossless at the upscaled resolution.
     frm_hdr->all_lossless = frm_hdr->coded_lossless && av1_superres_unscaled(&(pcs->ppcs->av1_cm->frm_size));
 
+#if !CONFIG_ENABLE_LOSSLESS
+    // Lossless coding is not supported in this build configuration.
+    for (int segment_id = 0; segment_id < MAX_SEGMENTS; segment_id++) {
+        pcs->lossless[segment_id] = 0;
+    }
+    frm_hdr->coded_lossless = 0;
+    frm_hdr->all_lossless   = 0;
+#endif
+
     if (frm_hdr->coded_lossless) {
         pcs->ppcs->frm_hdr.delta_q_params.delta_q_present = 0;
         frm_hdr->quantization_params.delta_q_dc[PLANE_Y]  = 0;
@@ -1043,7 +1056,9 @@ EbErrorType svt_aom_mode_decision_configuration_kernel_iter(void* context) {
         pcs->pic_block_based_depth_refinement_level = 0;
         pcs->pic_pd0_lvl                            = 0;
         pcs->pic_lpd1_lvl                           = 0;
-        pcs->pic_bypass_encdec = scs->static_config.encoder_bit_depth != EB_EIGHT_BIT ? 0 : pcs->pic_bypass_encdec;
+        pcs->pic_bypass_encdec = SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) != EB_EIGHT_BIT
+            ? 0
+            : pcs->pic_bypass_encdec;
     }
     // Post the results to the MD processes
     uint16_t tg_count = pcs->ppcs->tile_group_cols * pcs->ppcs->tile_group_rows;

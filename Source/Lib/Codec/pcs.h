@@ -605,6 +605,11 @@ typedef struct DlfCtrls {
     // when DLF filter level is selected from QP, if the filter level is less than or equal to this
     // TH, the filter level is set to 0
     uint8_t sb_based_dlf;
+    // How DLF filter levels are derived for this level (an LpfPickMethod value):
+    // LPF_PICK_FROM_Q (cheap, q-derived) or LPF_PICK_FROM_FULL_IMAGE (search).
+    // Set explicitly per DLF level and honored by both the per-SB and the
+    // frame-level DLF paths, so the frame path does not have to infer it.
+    uint8_t pick_method;
     // Start search from average DLF instead of 0
     bool dlf_avg;
     // If true, use average filter strength of ref frames for the current frame (no search). For luma, the filters

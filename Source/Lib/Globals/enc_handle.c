@@ -205,6 +205,23 @@ typedef enum ParallelLevel {
 #define PARALLEL_LEVEL_5_RANGE 23
 #define PARALLEL_LEVEL_6_RANGE 47
 
+// Map a machine core count to the default level of parallelism used when the
+// user leaves lp unset (lp == 0).
+static uint32_t get_default_level_of_parallelism(uint32_t core_count) {
+    if (core_count <= PARALLEL_LEVEL_1_RANGE) {
+        return PARALLEL_LEVEL_1;
+    } else if (core_count <= PARALLEL_LEVEL_2_RANGE) {
+        return PARALLEL_LEVEL_2;
+    } else if (core_count <= PARALLEL_LEVEL_3_RANGE) {
+        return PARALLEL_LEVEL_3;
+    } else if (core_count <= PARALLEL_LEVEL_4_RANGE) {
+        return PARALLEL_LEVEL_4;
+    } else if (core_count <= PARALLEL_LEVEL_5_RANGE) {
+        return PARALLEL_LEVEL_5;
+    }
+    return PARALLEL_LEVEL_6;
+}
+
 //return max wavefronts in a given picture
 static uint32_t get_max_wavefronts(uint32_t width, uint32_t height, uint32_t blk_size) {
     assert(width > 0 && height > 0);
@@ -248,9 +265,16 @@ void set_segments_numbers(SequenceControlSet* scs) {
     // Segments will be parallelized within a tile group
     // We can use tile group to control the threads/parallelism in ED stage
     // NOTE:1 col will have better perf for segments for large resolutions
-    //by default, do not use tile prallel. to enable, one can set one tile-group per tile.
-    scs->tile_group_col_count_array = 1;
-    scs->tile_group_row_count_array = 1;
+    if (scs->static_config.pred_structure == LOW_DELAY) {
+        // Low-delay is picture-serial, so tiles are the only intra-frame parallelism:
+        // map one tile-group per tile (RA keeps a single tile-group).
+        scs->tile_group_col_count_array = 1 << scs->static_config.tile_columns;
+        scs->tile_group_row_count_array = 1 << scs->static_config.tile_rows;
+    } else {
+        // by default, do not use tile parallel. to enable, one can set one tile-group per tile.
+        scs->tile_group_col_count_array = 1;
+        scs->tile_group_row_count_array = 1;
+    }
 
     // TPL processed in 64x64 blocks, so check width against 64x64 block size (even if SB is 128x128)
     scs->tpl_segment_row_count_array = (lp == PARALLEL_LEVEL_1 ||
@@ -292,19 +316,7 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
     if (lp == 0) {
         // In the default config (lp == 0) the core count will determine the
         // amount of parallelism used
-        if (core_count <= PARALLEL_LEVEL_1_RANGE) {
-            lp = PARALLEL_LEVEL_1;
-        } else if (core_count <= PARALLEL_LEVEL_2_RANGE) {
-            lp = PARALLEL_LEVEL_2;
-        } else if (core_count <= PARALLEL_LEVEL_3_RANGE) {
-            lp = PARALLEL_LEVEL_3;
-        } else if (core_count <= PARALLEL_LEVEL_4_RANGE) {
-            lp = PARALLEL_LEVEL_4;
-        } else if (core_count <= PARALLEL_LEVEL_5_RANGE) {
-            lp = PARALLEL_LEVEL_5;
-        } else {
-            lp = PARALLEL_LEVEL_6;
-        }
+        lp = get_default_level_of_parallelism(core_count);
     }
     scs->lp = lp;
     set_segments_numbers(scs);
@@ -529,10 +541,8 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
     const uint32_t tot_enc_dec_segs = scs->enc_dec_segment_col_count_array * scs->enc_dec_segment_row_count_array;
     const uint32_t tot_cdef_segs    = scs->cdef_segment_column_count * scs->cdef_segment_row_count;
     const uint32_t tot_rest_segs    = scs->rest_segment_column_count * scs->rest_segment_row_count;
-    const uint32_t tot_tiles        = MIN(9,
-                                   (1 << scs->static_config.tile_columns) *
-                                       (1 << scs->static_config.tile_rows)); //Jing: Too many tiles may drain the fifo
-    const uint32_t max_fifo         = 300;
+    const uint32_t tot_tiles = MIN(64, (1 << scs->static_config.tile_columns) * (1 << scs->static_config.tile_rows));
+    const uint32_t max_fifo  = 300;
 
     // Open loop
     scs->resource_coordination_fifo_init_count = MIN(
@@ -592,13 +602,30 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
     max_mdc_proc = scs->picture_control_set_pool_init_count_child;
     max_md_proc  = scs->picture_control_set_pool_init_count_child *
         get_max_wavefronts(scs->max_input_luma_width, scs->max_input_luma_height, scs->super_block_size);
-    max_ec_proc   = scs->picture_control_set_pool_init_count_child;
+    max_ec_proc = scs->picture_control_set_pool_init_count_child;
+    // Low-delay is picture-serial, so MD/EC parallelize only across tiles. Raise
+    // their ceilings to the tile count and target ld_workers below, which doubles
+    // per --lp level (matching the core-count brackets) so the thread count
+    // scales with --lp instead of being pinned to 1 (EC) or flat.
+    uint32_t ld_workers = 1;
+    if (is_low_delay) {
+        // Each tile has its own segment wavefront, so the MD ceiling is the sum
+        // of per-tile wavefronts (not the single frame-wide one), and EC can run
+        // one worker per tile.
+        uint32_t per_tile_wf = get_max_wavefronts(MAX(scs->max_input_luma_width / scs->tile_group_col_count_array, 1u),
+                                                  MAX(scs->max_input_luma_height / scs->tile_group_row_count_array, 1u),
+                                                  scs->super_block_size);
+
+        max_md_proc = MAX(max_md_proc, tot_tiles * per_tile_wf);
+        max_ec_proc = MAX(max_ec_proc, tot_tiles);
+        ld_workers  = 1u << (lp - 1);
+    }
     max_dlf_proc  = scs->picture_control_set_pool_init_count_child;
     max_cdef_proc = scs->picture_control_set_pool_init_count_child * scs->cdef_segment_column_count *
         scs->cdef_segment_row_count;
     max_rest_proc = scs->picture_control_set_pool_init_count_child * scs->rest_segment_column_count *
         scs->rest_segment_row_count;
-
+#define WORKERS_COUNT(x) (is_low_delay ? ld_workers : (x))
     if (lp <= PARALLEL_LEVEL_1) {
         scs->total_process_init_count += (scs->picture_analysis_process_init_count = 1);
         scs->total_process_init_count += (scs->motion_estimation_process_init_count = 1);
@@ -619,9 +646,11 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
         scs->total_process_init_count += (scs->tpl_disp_process_init_count = clamp(6, 1, max_tpl_proc));
         scs->total_process_init_count += (scs->mode_decision_configuration_process_init_count = clamp(
                                               1, 1, max_mdc_proc));
-        scs->total_process_init_count += (scs->enc_dec_process_init_count = clamp(
-                                              3, scs->picture_control_set_pool_init_count_child, max_md_proc));
-        scs->total_process_init_count += (scs->entropy_coding_process_init_count = clamp(1, 1, max_ec_proc));
+        scs->total_process_init_count +=
+            (scs->enc_dec_process_init_count = clamp(
+                 WORKERS_COUNT(3), scs->picture_control_set_pool_init_count_child, max_md_proc));
+        scs->total_process_init_count += (scs->entropy_coding_process_init_count = clamp(
+                                              WORKERS_COUNT(1), 1, max_ec_proc));
         scs->total_process_init_count += (scs->dlf_process_init_count = clamp(1, 1, max_dlf_proc));
         scs->total_process_init_count += (scs->cdef_process_init_count = clamp(6, 1, max_cdef_proc));
         scs->total_process_init_count += (scs->rest_process_init_count = clamp(1, 1, max_rest_proc));
@@ -634,9 +663,11 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
         scs->total_process_init_count += (scs->tpl_disp_process_init_count = clamp(6, 1, max_tpl_proc));
         scs->total_process_init_count += (scs->mode_decision_configuration_process_init_count = clamp(
                                               2, 1, max_mdc_proc));
-        scs->total_process_init_count += (scs->enc_dec_process_init_count = clamp(
-                                              5, scs->picture_control_set_pool_init_count_child, max_md_proc));
-        scs->total_process_init_count += (scs->entropy_coding_process_init_count = clamp(2, 1, max_ec_proc));
+        scs->total_process_init_count +=
+            (scs->enc_dec_process_init_count = clamp(
+                 WORKERS_COUNT(5), scs->picture_control_set_pool_init_count_child, max_md_proc));
+        scs->total_process_init_count += (scs->entropy_coding_process_init_count = clamp(
+                                              WORKERS_COUNT(2), 1, max_ec_proc));
         scs->total_process_init_count += (scs->dlf_process_init_count = clamp(2, 1, max_dlf_proc));
         scs->total_process_init_count += (scs->cdef_process_init_count = clamp(6, 1, max_cdef_proc));
         scs->total_process_init_count += (scs->rest_process_init_count = clamp(2, 1, max_rest_proc));
@@ -652,9 +683,11 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
         scs->total_process_init_count += (scs->tpl_disp_process_init_count = clamp(6, 1, max_tpl_proc));
         scs->total_process_init_count += (scs->mode_decision_configuration_process_init_count = clamp(
                                               3, 1, max_mdc_proc));
-        scs->total_process_init_count += (scs->enc_dec_process_init_count = clamp(
-                                              6, scs->picture_control_set_pool_init_count_child, max_md_proc));
-        scs->total_process_init_count += (scs->entropy_coding_process_init_count = clamp(4, 1, max_ec_proc));
+        scs->total_process_init_count +=
+            (scs->enc_dec_process_init_count = clamp(
+                 WORKERS_COUNT(6), scs->picture_control_set_pool_init_count_child, max_md_proc));
+        scs->total_process_init_count += (scs->entropy_coding_process_init_count = clamp(
+                                              WORKERS_COUNT(4), 1, max_ec_proc));
         scs->total_process_init_count += (scs->dlf_process_init_count = clamp(3, 1, max_dlf_proc));
         scs->total_process_init_count += (scs->cdef_process_init_count = clamp(6, 1, max_cdef_proc));
         scs->total_process_init_count += (scs->rest_process_init_count = clamp(4, 1, max_rest_proc));
@@ -670,14 +703,16 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
         scs->total_process_init_count += (scs->tpl_disp_process_init_count = clamp(12, 1, max_tpl_proc));
         scs->total_process_init_count += (scs->mode_decision_configuration_process_init_count = clamp(
                                               8, 1, max_mdc_proc));
-        scs->total_process_init_count += (scs->enc_dec_process_init_count = clamp(
-                                              8, scs->picture_control_set_pool_init_count_child, max_md_proc));
-        scs->total_process_init_count += (scs->entropy_coding_process_init_count = clamp(10, 1, max_ec_proc));
+        scs->total_process_init_count +=
+            (scs->enc_dec_process_init_count = clamp(
+                 WORKERS_COUNT(8), scs->picture_control_set_pool_init_count_child, max_md_proc));
+        scs->total_process_init_count += (scs->entropy_coding_process_init_count = clamp(
+                                              WORKERS_COUNT(10), 1, max_ec_proc));
         scs->total_process_init_count += (scs->dlf_process_init_count = clamp(8, 1, max_dlf_proc));
         scs->total_process_init_count += (scs->cdef_process_init_count = clamp(8, 1, max_cdef_proc));
         scs->total_process_init_count += (scs->rest_process_init_count = clamp(10, 1, max_rest_proc));
     }
-
+#undef WORKERS_COUNT
     scs->total_process_init_count += 6; // single processes count
     if (scs->static_config.pass == 0 || scs->static_config.pass == 2) {
         SVT_INFO("Level of Parallelism: %u\n", lp);
@@ -701,39 +736,20 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
     return return_error;
 }
 
-// clang-format off
-static RateControlPorts rate_control_ports[] = {
-    {RATE_CONTROL_INPUT_PORT_INLME,         0},
-    {RATE_CONTROL_INPUT_PORT_PACKETIZATION, 0},
-    {RATE_CONTROL_INPUT_PORT_INVALID,       0}
-};
-
-static PicMgrPorts pic_mgr_ports[] = {
-    {PIC_MGR_INPUT_PORT_SOP,           0},
-    {PIC_MGR_INPUT_PORT_PACKETIZATION, 0},
-    {PIC_MGR_INPUT_PORT_REST,          0},
-    {PIC_MGR_INPUT_PORT_INVALID,       0}
-};
-
 typedef struct {
     int32_t  type;
     uint32_t count;
 } EncDecPorts_t;
 
-static EncDecPorts_t enc_dec_ports[] = {
-    {ENCDEC_INPUT_PORT_MDC,     0},
-    {ENCDEC_INPUT_PORT_ENCDEC,  0},
-    {ENCDEC_INPUT_PORT_INVALID, 0}
-};
-static EncDecPorts_t tpl_ports[] = {
-    {TPL_INPUT_PORT_SOP,     0},
-    {TPL_INPUT_PORT_TPL,     0},
-    {TPL_INPUT_PORT_INVALID, 0}
-};
-// clang-format on
+// The port-count arrays are built per-instance as locals in svt_av1_enc_init()
+// and passed to the lookup/total_count helpers below. They must not be
+// file-scope globals: the .count fields are derived from per-instance,
+// preset-dependent process counts, so concurrent svt_av1_enc_init() calls at
+// different presets would race on them (see #2381).
 
 // Rate Control
-static uint32_t rate_control_port_lookup(RateControlInputPortTypes type, uint32_t port_type_index) {
+static uint32_t rate_control_port_lookup(const RateControlPorts* rate_control_ports, RateControlInputPortTypes type,
+                                         uint32_t port_type_index) {
     uint32_t port_index = 0;
     uint32_t port_count = 0;
 
@@ -744,7 +760,7 @@ static uint32_t rate_control_port_lookup(RateControlInputPortTypes type, uint32_
 }
 
 // Rate Control
-static uint32_t rate_control_port_total_count(void) {
+static uint32_t rate_control_port_total_count(const RateControlPorts* rate_control_ports) {
     uint32_t port_index  = 0;
     uint32_t total_count = 0;
 
@@ -754,7 +770,8 @@ static uint32_t rate_control_port_total_count(void) {
     return total_count;
 }
 
-static uint32_t pic_mgr_port_lookup(PicMgrInputPortTypes type, uint32_t port_type_index) {
+static uint32_t pic_mgr_port_lookup(const PicMgrPorts* pic_mgr_ports, PicMgrInputPortTypes type,
+                                    uint32_t port_type_index) {
     uint32_t port_index = 0;
     uint32_t port_count = 0;
 
@@ -764,7 +781,7 @@ static uint32_t pic_mgr_port_lookup(PicMgrInputPortTypes type, uint32_t port_typ
     return (port_count + port_type_index);
 }
 
-static uint32_t pic_mgr_port_total_count(void) {
+static uint32_t pic_mgr_port_total_count(const PicMgrPorts* pic_mgr_ports) {
     uint32_t port_index  = 0;
     uint32_t total_count = 0;
 
@@ -775,7 +792,7 @@ static uint32_t pic_mgr_port_total_count(void) {
 }
 
 // TPL
-static uint32_t tpl_port_lookup(int32_t type, uint32_t port_type_index) {
+static uint32_t tpl_port_lookup(const EncDecPorts_t* tpl_ports, int32_t type, uint32_t port_type_index) {
     uint32_t port_index = 0;
     uint32_t port_count = 0;
 
@@ -785,7 +802,7 @@ static uint32_t tpl_port_lookup(int32_t type, uint32_t port_type_index) {
     return (port_count + port_type_index);
 }
 
-static uint32_t tpl_port_total_count(void) {
+static uint32_t tpl_port_total_count(const EncDecPorts_t* tpl_ports) {
     uint32_t port_index  = 0;
     uint32_t total_count = 0;
 
@@ -799,7 +816,7 @@ static uint32_t tpl_port_total_count(void) {
  * Input Port Lookup
  *****************************************/
 // EncDec
-static uint32_t enc_dec_port_lookup(int32_t type, uint32_t port_type_index) {
+static uint32_t enc_dec_port_lookup(const EncDecPorts_t* enc_dec_ports, int32_t type, uint32_t port_type_index) {
     uint32_t port_index = 0;
     uint32_t port_count = 0;
 
@@ -810,7 +827,7 @@ static uint32_t enc_dec_port_lookup(int32_t type, uint32_t port_type_index) {
 }
 
 // EncDec
-static uint32_t enc_dec_port_total_count(void) {
+static uint32_t enc_dec_port_total_count(const EncDecPorts_t* enc_dec_ports) {
     uint32_t port_index  = 0;
     uint32_t total_count = 0;
 
@@ -1198,8 +1215,8 @@ static int create_tpl_ref_buf_descs(EbEncHandle* enc_handle_ptr) {
 static int create_ref_buf_descs(EbEncHandle* enc_handle_ptr) {
     EbReferenceObjectDescInitData eb_ref_obj_ect_desc_init_data_structure;
     EbPictureBufferDescInitData   ref_pic_buf_desc_init_data;
-    SequenceControlSet*           scs      = enc_handle_ptr->scs_instance->scs;
-    bool                          is_16bit = scs->static_config.encoder_bit_depth > EB_EIGHT_BIT;
+    SequenceControlSet*           scs = enc_handle_ptr->scs_instance->scs;
+    bool is_16bit                     = SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) > EB_EIGHT_BIT;
     // Initialize the various Picture types
     ref_pic_buf_desc_init_data.max_width           = scs->max_input_luma_width;
     ref_pic_buf_desc_init_data.max_height          = scs->max_input_luma_height;
@@ -1215,7 +1232,7 @@ static int create_ref_buf_descs(EbEncHandle* enc_handle_ptr) {
 
     ref_pic_buf_desc_init_data.border            = padding;
     ref_pic_buf_desc_init_data.mfmv              = scs->mfmv_enabled;
-    ref_pic_buf_desc_init_data.is_16bit_pipeline = scs->is_16bit_pipeline;
+    ref_pic_buf_desc_init_data.is_16bit_pipeline = SVT_EFFECTIVE_IS_16BIT_PIPELINE(scs->is_16bit_pipeline);
     // Hsan: split_mode is set @ eb_reference_object_ctor() as both unpacked reference and packed reference are needed for a 10BIT input; unpacked reference @ MD, and packed reference @ EP
 
     ref_pic_buf_desc_init_data.split_mode = false;
@@ -1268,16 +1285,26 @@ static int create_ref_buf_descs(EbEncHandle* enc_handle_ptr) {
 void init_fn_ptr(void);
 void svt_av1_init_wedge_masks(void);
 void init_ii_masks(void);
+void svt_aom_init_iscan(void);
+void svt_aom_build_tx_org(void);
 
 static ONCE_ROUTINE(init_global_tables) {
     svt_aom_asm_set_convolve_asm_table();
     svt_aom_init_intra_dc_predictors_c_internal();
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
     svt_aom_asm_set_convolve_hbd_asm_table();
+#endif
     svt_aom_init_intra_predictors_internal();
     svt_av1_init_me_luts();
     init_fn_ptr();
+    svt_aom_init_iscan();
+    svt_aom_build_tx_org();
+#if CONFIG_ENABLE_INTER_COMPOUND
     svt_av1_init_wedge_masks();
+#endif
+#if CONFIG_ENABLE_INTER_INTRA
     init_ii_masks();
+#endif
     svt_av1_crc32c_table_init();
     ONCE_ROUTINE_EPILOG;
 }
@@ -1333,7 +1360,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         input_data.log2_tile_rows       = scs->static_config.tile_rows;
         input_data.log2_tile_cols       = scs->static_config.tile_columns;
         input_data.log2_sb_size         = (scs->super_block_size == 128) ? 5 : 4;
-        input_data.is_16bit_pipeline    = scs->is_16bit_pipeline;
+        input_data.is_16bit_pipeline    = SVT_EFFECTIVE_IS_16BIT_PIPELINE(scs->is_16bit_pipeline);
         input_data.non_m8_pad_w         = scs->max_input_pad_right;
         input_data.non_m8_pad_h         = scs->max_input_pad_bottom;
         input_data.enable_tpl_la        = scs->tpl;
@@ -1346,7 +1373,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                                                           svt_aom_get_tpl_group_level(1, scs->static_config.enc_mode),
                                                           input_data.picture_width,
                                                           input_data.picture_height);
-        input_data.aq_mode        = scs->static_config.aq_mode;
+        input_data.aq_mode              = scs->static_config.aq_mode;
 
         input_data.calculate_variance = scs->calculate_variance;
         input_data.calc_hist = scs->calc_hist = scs->allintra == false &&
@@ -1415,7 +1442,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                 ->object_ptr;
         input_data.tile_row_count    = parent_pcs->av1_cm->tiles_info.tile_rows;
         input_data.tile_column_count = parent_pcs->av1_cm->tiles_info.tile_cols;
-        input_data.is_16bit_pipeline = scs->is_16bit_pipeline;
+        input_data.is_16bit_pipeline = SVT_EFFECTIVE_IS_16BIT_PIPELINE(scs->is_16bit_pipeline);
         input_data.av1_cm            = parent_pcs->av1_cm;
         input_data.enc_mode          = scs->static_config.enc_mode;
 
@@ -1460,7 +1487,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                 ->object_ptr;
         input_data.tile_row_count    = parent_pcs->av1_cm->tiles_info.tile_rows;
         input_data.tile_column_count = parent_pcs->av1_cm->tiles_info.tile_cols;
-        input_data.is_16bit_pipeline = scs->is_16bit_pipeline;
+        input_data.is_16bit_pipeline = SVT_EFFECTIVE_IS_16BIT_PIPELINE(scs->is_16bit_pipeline);
         input_data.av1_cm            = parent_pcs->av1_cm;
         input_data.enc_mode          = scs->static_config.enc_mode;
         input_data.static_config     = scs->static_config;
@@ -1486,18 +1513,33 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
     /************************************
     * Picture Buffers
     ************************************/
-    // Allocate Resource Arrays
-    pic_mgr_ports[PIC_MGR_INPUT_PORT_SOP].count           = scs->source_based_operations_process_init_count;
-    pic_mgr_ports[PIC_MGR_INPUT_PORT_PACKETIZATION].count = EB_PacketizationProcessInitCount;
-    pic_mgr_ports[PIC_MGR_INPUT_PORT_REST].count          = scs->rest_process_init_count;
-    // Rate Control
-    rate_control_ports[RATE_CONTROL_INPUT_PORT_INLME].count         = EB_PictureManagerProcessInitCount;
-    rate_control_ports[RATE_CONTROL_INPUT_PORT_PACKETIZATION].count = EB_PacketizationProcessInitCount;
-
-    enc_dec_ports[ENCDEC_INPUT_PORT_MDC].count    = scs->mode_decision_configuration_process_init_count;
-    enc_dec_ports[ENCDEC_INPUT_PORT_ENCDEC].count = scs->enc_dec_process_init_count;
-    tpl_ports[TPL_INPUT_PORT_SOP].count           = scs->source_based_operations_process_init_count;
-    tpl_ports[TPL_INPUT_PORT_TPL].count           = scs->tpl_disp_process_init_count;
+    // Allocate Resource Arrays. These are per-instance locals (not file-scope
+    // globals) so concurrent inits at different presets cannot race on the
+    // preset-dependent .count fields (see #2381). Slots are in enum order and
+    // terminated by the *_INPUT_PORT_INVALID entry.
+    // clang-format off
+    const PicMgrPorts pic_mgr_ports[] = {
+        {PIC_MGR_INPUT_PORT_SOP,           scs->source_based_operations_process_init_count},
+        {PIC_MGR_INPUT_PORT_PACKETIZATION, EB_PacketizationProcessInitCount},
+        {PIC_MGR_INPUT_PORT_REST,          scs->rest_process_init_count},
+        {PIC_MGR_INPUT_PORT_INVALID,       0}
+    };
+    const RateControlPorts rate_control_ports[] = {
+        {RATE_CONTROL_INPUT_PORT_INLME,         EB_PictureManagerProcessInitCount},
+        {RATE_CONTROL_INPUT_PORT_PACKETIZATION, EB_PacketizationProcessInitCount},
+        {RATE_CONTROL_INPUT_PORT_INVALID,       0}
+    };
+    const EncDecPorts_t enc_dec_ports[] = {
+        {ENCDEC_INPUT_PORT_MDC,     scs->mode_decision_configuration_process_init_count},
+        {ENCDEC_INPUT_PORT_ENCDEC,  scs->enc_dec_process_init_count},
+        {ENCDEC_INPUT_PORT_INVALID, 0}
+    };
+    const EncDecPorts_t tpl_ports[] = {
+        {TPL_INPUT_PORT_SOP,     scs->source_based_operations_process_init_count},
+        {TPL_INPUT_PORT_TPL,     scs->tpl_disp_process_init_count},
+        {TPL_INPUT_PORT_INVALID, 0}
+    };
+    // clang-format on
     {
         // Must always allocate mem b/c don't know if restoration is on or off at this point
         // The restoration assumes only 1 tile is used, so only allocate for 1 tile... see svt_av1_alloc_restoration_struct()
@@ -1691,7 +1733,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         EB_NEW(enc_handle_ptr->picture_demux_results_resource_ptr,
                svt_system_resource_ctor,
                scs->picture_demux_fifo_init_count,
-               pic_mgr_port_total_count(),
+               pic_mgr_port_total_count(pic_mgr_ports),
                EB_PictureManagerProcessInitCount,
                svt_aom_picture_results_creator,
                &picture_result_init_data,
@@ -1712,7 +1754,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         EB_NEW(enc_handle_ptr->tpl_disp_res_srm,
                svt_system_resource_ctor,
                scs->tpl_disp_fifo_init_count,
-               tpl_port_total_count(),
+               tpl_port_total_count(tpl_ports),
                scs->tpl_disp_process_init_count,
                tpl_disp_results_creator,
                &tpl_disp_result_init_data,
@@ -1726,7 +1768,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         EB_NEW(enc_handle_ptr->rate_control_tasks_resource_ptr,
                svt_system_resource_ctor,
                scs->rate_control_tasks_fifo_init_count,
-               rate_control_port_total_count(),
+               rate_control_port_total_count(rate_control_ports),
                EB_RateControlProcessInitCount,
                svt_aom_rate_control_tasks_creator,
                &rate_control_tasks_init_data,
@@ -1754,7 +1796,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         EB_NEW(enc_handle_ptr->enc_dec_tasks_resource_ptr,
                svt_system_resource_ctor,
                scs->mode_decision_configuration_fifo_init_count,
-               enc_dec_port_total_count(),
+               enc_dec_port_total_count(enc_dec_ports),
                scs->enc_dec_process_init_count,
                svt_aom_enc_dec_tasks_creator,
                &mode_decision_result_init_data,
@@ -1894,8 +1936,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         EB_NEW(enc_handle_ptr->source_based_operations_context_ptr_array[process_index],
                svt_aom_source_based_operations_context_ctor,
                enc_handle_ptr,
-               tpl_port_lookup(TPL_INPUT_PORT_SOP, process_index),
-               pic_mgr_port_lookup(PIC_MGR_INPUT_PORT_SOP, process_index));
+               tpl_port_lookup(tpl_ports, TPL_INPUT_PORT_SOP, process_index),
+               pic_mgr_port_lookup(pic_mgr_ports, PIC_MGR_INPUT_PORT_SOP, process_index));
     }
 
     // TPL dispenser
@@ -1905,14 +1947,14 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                svt_aom_tpl_disp_context_ctor,
                enc_handle_ptr,
                process_index,
-               tpl_port_lookup(TPL_INPUT_PORT_TPL, process_index));
+               tpl_port_lookup(tpl_ports, TPL_INPUT_PORT_TPL, process_index));
     }
 
     // Picture Manager Context
     EB_NEW(enc_handle_ptr->picture_manager_context_ptr,
            svt_aom_picture_manager_context_ctor,
            enc_handle_ptr,
-           rate_control_port_lookup(RATE_CONTROL_INPUT_PORT_INLME, 0), //Pic-Mgr uses the first Port
+           rate_control_port_lookup(rate_control_ports, RATE_CONTROL_INPUT_PORT_INLME, 0), //Pic-Mgr uses the first Port
            scs->picture_control_set_pool_init_count);
 
     // Rate Control Context
@@ -1930,7 +1972,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                svt_aom_mode_decision_configuration_context_ctor,
                enc_handle_ptr,
                process_index,
-               enc_dec_port_lookup(ENCDEC_INPUT_PORT_MDC, process_index));
+               enc_dec_port_lookup(enc_dec_ports, ENCDEC_INPUT_PORT_MDC, process_index));
     }
 
     // EncDec Contexts
@@ -1940,7 +1982,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                svt_aom_enc_dec_context_ctor,
                enc_handle_ptr,
                process_index,
-               enc_dec_port_lookup(ENCDEC_INPUT_PORT_ENCDEC, process_index));
+               enc_dec_port_lookup(enc_dec_ports, ENCDEC_INPUT_PORT_ENCDEC, process_index));
     }
 
     // Dlf Contexts
@@ -1968,7 +2010,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
                svt_aom_rest_context_ctor,
                enc_handle_ptr,
                process_index,
-               pic_mgr_port_lookup(PIC_MGR_INPUT_PORT_REST, process_index));
+               pic_mgr_port_lookup(pic_mgr_ports, PIC_MGR_INPUT_PORT_REST, process_index));
     }
 
     // Entropy Coding Contexts
@@ -1984,8 +2026,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
     EB_NEW(enc_handle_ptr->packetization_context_ptr,
            svt_aom_packetization_context_ctor,
            enc_handle_ptr,
-           rate_control_port_lookup(RATE_CONTROL_INPUT_PORT_PACKETIZATION, 0),
-           pic_mgr_port_lookup(PIC_MGR_INPUT_PORT_PACKETIZATION, 0),
+           rate_control_port_lookup(rate_control_ports, RATE_CONTROL_INPUT_PORT_PACKETIZATION, 0),
+           pic_mgr_port_lookup(pic_mgr_ports, PIC_MGR_INPUT_PORT_PACKETIZATION, 0),
            EB_PictureDecisionProcessInitCount + EB_RateControlProcessInitCount); // me_port_index
 
     /************************************
@@ -3486,6 +3528,17 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
     } else {
         mrp_ctrl->ld_reduce_ref_buffs = 0;
     }
+#if !CONFIG_ENABLE_INTER_COMPOUND
+    // Compound prediction is disabled in this build, so the compound (jnt) convolve
+    // path is stripped (inter_prediction.c). That is only safe if no block can ever
+    // have a 2nd reference, i.e. single-reference only. If this fires, an RTC preset
+    // was retuned to use >1 reference while compound is compiled out -> re-enable
+    // CONFIG_ENABLE_INTER_COMPOUND or keep RTC single-ref.
+    if (scs->static_config.rtc) {
+        assert(mrp_ctrl->base_ref_list0_count <= 1 && mrp_ctrl->non_base_ref_list0_count <= 1 &&
+               mrp_ctrl->base_ref_list1_count == 0 && mrp_ctrl->non_base_ref_list1_count == 0);
+    }
+#endif
 }
 
 // Preset-driven entry point for setting mrp_ctrl. Owns the
@@ -3501,10 +3554,8 @@ static void set_mrp_ctrl(const SequenceControlSet* scs, MrpCtrls* mrp_ctrl, EncM
                 mrp_level = 0;
             }
         } else {
-            if (enc_mode <= ENC_M9) {
+            if (enc_mode <= ENC_M8) {
                 mrp_level = 6;
-            } else if (enc_mode <= ENC_M10) {
-                mrp_level = 9;
             } else {
                 mrp_level = 0;
             }
@@ -3523,7 +3574,7 @@ static void set_mrp_ctrl(const SequenceControlSet* scs, MrpCtrls* mrp_ctrl, EncM
         } else if (enc_mode <= ENC_M9) {
             mrp_level = scs->static_config.pred_structure == RANDOM_ACCESS ? 7 : 9;
         } else {
-            if (scs->static_config.encoder_bit_depth == EB_EIGHT_BIT) {
+            if (SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) == EB_EIGHT_BIT) {
                 mrp_level = scs->static_config.pred_structure == RANDOM_ACCESS ? 11 : 0;
             } else {
                 mrp_level = scs->static_config.pred_structure == RANDOM_ACCESS ? 7 : 0;
@@ -4137,7 +4188,7 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
 
     //for 10bit,  increase the pad of source from 68 to 72 (mutliple of 8) to accomodate 2bit-compression flow
     //we actually need to change the horizontal dimension only, but for simplicity/uniformity we do all directions
-    // if (scs->static_config.encoder_bit_depth != EB_EIGHT_BIT)
+    // if (SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) != EB_EIGHT_BIT)
     { scs->border += 4; }
 
     scs->static_config.enable_overlays = !scs->static_config.enable_tf ||
@@ -4179,7 +4230,7 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         scs->enable_dg = scs->static_config.enable_dg;
     }
     // Set hbd_md OFF for high encode modes or bitdepth < 10
-    if (scs->static_config.encoder_bit_depth < 10) {
+    if (SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) < 10) {
         scs->enable_hbd_mode_decision = 0;
     }
 
@@ -4391,7 +4442,7 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->static_config.fgs_table              = config_struct->fgs_table;
 
     // MD Parameters
-    scs->enable_hbd_mode_decision = config_struct->encoder_bit_depth > 8 ? DEFAULT : 0;
+    scs->enable_hbd_mode_decision = SVT_EFFECTIVE_BIT_DEPTH(config_struct->encoder_bit_depth) > 8 ? DEFAULT : 0;
     {
         if (config_struct->tile_rows == DEFAULT && config_struct->tile_columns == DEFAULT) {
             scs->static_config.tile_rows    = 0;
@@ -4565,6 +4616,14 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
             "Level of parallelism does not correspond to a target number of processors to use. See Docs/Parameters.md "
             "for info.\n");
         scs->static_config.level_of_parallelism = PARALLEL_LEVEL_6;
+    }
+    // When lp is left unset (0), resolve it to the core-count-based default now,
+    // before any pipeline setup reads static_config.level_of_parallelism. This
+    // keeps every downstream single-thread check (== 1) consistent with the
+    // derived scs->lp used for segment/dispatcher setup; otherwise a 1-core
+    // machine gets scs->lp == 1 (ST dispatch) while these checks still see 0.
+    if (scs->static_config.level_of_parallelism == 0) {
+        scs->static_config.level_of_parallelism = get_default_level_of_parallelism(get_num_processors());
     }
 
     scs->static_config.qp            = config_struct->qp;
@@ -5011,7 +5070,7 @@ static EbErrorType downsample_copy_frame_buffer(SequenceControlSet* scs, uint8_t
     const uint32_t chroma_width  = (luma_width + subsampling_x) >> subsampling_x;
     const uint32_t chroma_height = (luma_height + subsampling_y) >> subsampling_y;
 
-    if (scs->static_config.encoder_bit_depth == EB_EIGHT_BIT) {
+    if (SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) == EB_EIGHT_BIT) {
         downsample_2d_c_skipall(input_ptr->luma,
                                 input_ptr->y_stride,
                                 luma_width << 1,
@@ -5107,7 +5166,7 @@ static EbErrorType copy_frame_buffer(SequenceControlSet* scs, uint8_t* destinati
     const uint32_t chroma_width  = (luma_width + subsampling_x) >> subsampling_x;
     const uint32_t chroma_height = (luma_height + subsampling_y) >> subsampling_y;
 
-    if (scs->static_config.encoder_bit_depth == EB_EIGHT_BIT) {
+    if (SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) == EB_EIGHT_BIT) {
         svt_av1_copy_wxh_8bit(input_ptr->luma,
                               input_ptr->y_stride,
                               y8b_input_picture_ptr->y_buffer,
@@ -5194,7 +5253,7 @@ static EbErrorType copy_private_data_list(EbBufferHeaderType* dst, EbBufferHeade
 EbErrorType svt_input_buffer_header_update(EbBufferHeaderType* input_buffer, SequenceControlSet* scs, bool noy8b) {
     EbPictureBufferDescInitData input_pic_buf_desc_init_data;
     EbSvtAv1EncConfiguration*   config   = &scs->static_config;
-    uint8_t                     is_16bit = config->encoder_bit_depth > 8 ? 1 : 0;
+    uint8_t                     is_16bit = SVT_EFFECTIVE_BIT_DEPTH(config->encoder_bit_depth) > 8 ? 1 : 0;
 
     input_pic_buf_desc_init_data.max_width = !(scs->max_input_luma_width % 8)
         ? scs->max_input_luma_width
@@ -5382,7 +5441,7 @@ static EbErrorType validate_on_the_fly_settings(EbBufferHeaderType* input_ptr, S
             } else if (node_data->input_luma_height < 64) {
                 SVT_ERROR("Resolution change on the fly is not supported for luma height less than 64\n");
                 return EB_ErrorBadParameter;
-            } else if (scs->static_config.encoder_bit_depth == EB_TEN_BIT) {
+            } else if (SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) == EB_TEN_BIT) {
                 SVT_ERROR("Resolution change on the fly is not supported for 10-bit encoding\n");
                 return EB_ErrorBadParameter;
             } else {
@@ -5596,7 +5655,7 @@ EB_API EbErrorType svt_av1_enc_send_picture(EbComponentType* svt_enc_component, 
     // check whether the n_filled_len has enough samples to be processed
     EbPictureBufferDesc*      input_pic      = (EbPictureBufferDesc*)lib_y8b_hdr->p_buffer;
     EbSvtAv1EncConfiguration* config         = &scs->static_config;
-    bool                      is_16bit_input = config->encoder_bit_depth > EB_EIGHT_BIT;
+    bool                      is_16bit_input = SVT_EFFECTIVE_BIT_DEPTH(config->encoder_bit_depth) > EB_EIGHT_BIT;
 
     const uint8_t subsampling_x = (config->encoder_color_format == EB_YUV444 ? 0 : 1);
     const uint8_t subsampling_y =
@@ -5846,7 +5905,7 @@ static EbErrorType allocate_frame_buffer(SequenceControlSet* scs, EbBufferHeader
     EbErrorType                 return_error = EB_ErrorNone;
     EbPictureBufferDescInitData input_pic_buf_desc_init_data;
     EbSvtAv1EncConfiguration*   config   = &scs->static_config;
-    uint8_t                     is_16bit = config->encoder_bit_depth > 8 ? 1 : 0;
+    uint8_t                     is_16bit = SVT_EFFECTIVE_BIT_DEPTH(config->encoder_bit_depth) > 8 ? 1 : 0;
 
     input_pic_buf_desc_init_data.max_width = !(scs->max_input_luma_width % 8)
         ? scs->max_input_luma_width
@@ -6056,7 +6115,7 @@ EbErrorType svt_output_recon_buffer_header_creator(EbPtr* object_dbl_ptr, EbPtr 
     const uint32_t chroma_size = (((scs->seq_header.max_frame_width + ss_x) >> ss_x) *
                                   ((scs->seq_header.max_frame_height + ss_y) >> ss_y)) *
         2 /*u + v*/;
-    const uint32_t ten_bit    = (scs->static_config.encoder_bit_depth > 8);
+    const uint32_t ten_bit    = (SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) > 8);
     const uint32_t frame_size = (luma_size + chroma_size) << ten_bit;
 
     *object_dbl_ptr = NULL;

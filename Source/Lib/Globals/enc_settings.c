@@ -452,12 +452,13 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if ((config->encoder_bit_depth != 8) && (config->encoder_bit_depth != 10)) {
+    if ((SVT_EFFECTIVE_BIT_DEPTH(config->encoder_bit_depth) != 8) &&
+        (SVT_EFFECTIVE_BIT_DEPTH(config->encoder_bit_depth) != 10)) {
         SVT_ERROR("Encoder Bit Depth shall be only 8 or 10 \n");
         return_error = EB_ErrorBadParameter;
     }
     // Check if the EncoderBitDepth is conformant with the Profile constraint
-    if ((config->profile == 0 || config->profile == 1) && config->encoder_bit_depth > 10) {
+    if ((config->profile == 0 || config->profile == 1) && SVT_EFFECTIVE_BIT_DEPTH(config->encoder_bit_depth) > 10) {
         SVT_ERROR("The encoder bit depth shall be equal to 8 or 10 for Main/High Profile\n");
         return_error = EB_ErrorBadParameter;
     }
@@ -477,7 +478,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (config->profile == 2 && config->encoder_bit_depth <= 10 && config->encoder_color_format != EB_YUV422) {
+    if (config->profile == 2 && SVT_EFFECTIVE_BIT_DEPTH(config->encoder_bit_depth) <= 10 &&
+        config->encoder_color_format != EB_YUV422) {
         SVT_ERROR("Profile 2 bit-depth < 10 requires 4:2:2 color format\n");
         return_error = EB_ErrorBadParameter;
     }
@@ -899,7 +901,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (config->encoder_bit_depth == 8 && (config->hbd_mds == 1 || config->hbd_mds == 2)) {
+    if (SVT_EFFECTIVE_BIT_DEPTH(config->encoder_bit_depth) == 8 && (config->hbd_mds == 1 || config->hbd_mds == 2)) {
         SVT_WARN("Please use 10-bit encoding if you want to take advantage of hbd-mds 1 and 2.\n");
         SVT_ERROR("Full high bit depth and hybrid 8/10 mode decision are not supported when encoder bit depth is 8\n");
         return_error = EB_ErrorBadParameter;

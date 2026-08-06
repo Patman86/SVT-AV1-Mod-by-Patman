@@ -114,6 +114,7 @@ EbErrorType svt_aom_tpl_disp_context_ctor(EbThreadContext* thread_ctx, const EbE
 }
 
 /* this function sets up ME refs for a regular pic*/
+#if CONFIG_ENABLE_TPL
 static void tpl_regular_setup_me_refs(PictureParentControlSet* base_pcs, PictureParentControlSet* cur_pcs) {
     for (uint8_t list_index = REF_LIST_0; list_index < TOTAL_NUM_OF_REF_LISTS; list_index++) {
         uint8_t ref_list_count = (list_index == REF_LIST_0) ? cur_pcs->ref_list0_count_try
@@ -148,10 +149,12 @@ static void tpl_regular_setup_me_refs(PictureParentControlSet* base_pcs, Picture
         }
     }
 }
+#endif // CONFIG_ENABLE_TPL
 
 /*
   prepare TPL data fields
 */
+#if CONFIG_ENABLE_TPL
 static void tpl_prep_info(PictureParentControlSet* pcs) {
     for (uint32_t pic_i = 0; pic_i < pcs->tpl_group_size; ++pic_i) {
         PictureParentControlSet* pcs_tpl = pcs->tpl_group[pic_i];
@@ -179,6 +182,7 @@ static void tpl_prep_info(PictureParentControlSet* pcs) {
         }
     }
 }
+#endif // CONFIG_ENABLE_TPL
 
 // Generate lambda factor to tune lambda based on TPL stats
 void generate_lambda_scaling_factor(PictureParentControlSet* pcs, int64_t mc_dep_cost_base) {
@@ -229,6 +233,7 @@ void generate_lambda_scaling_factor(PictureParentControlSet* pcs, int64_t mc_dep
     return;
 }
 
+#if CONFIG_ENABLE_TPL
 static AOM_INLINE void get_quantize_error(MacroblockPlane* p, const TranLow* coeff, TranLow* qcoeff, TranLow* dqcoeff,
                                           TxSize tx_size, uint16_t* eob, int64_t* recon_error, int64_t* sse) {
     const ScanOrder* const scan_order = get_scan_order(tx_size, DCT_DCT);
@@ -513,7 +518,9 @@ static void tpl_subpel_search(SequenceControlSet* scs, PictureParentControlSet* 
     // Update the MV to the new best
     best_mv->as_int = best_sp_mv.as_int;
 }
+#endif // CONFIG_ENABLE_TPL
 
+#if CONFIG_ENABLE_TPL
 static void tpl_mc_flow_dispenser_sb_generic(EncodeContext* enc_ctx, SequenceControlSet* scs,
                                              PictureParentControlSet* pcs, int32_t frame_idx, uint32_t sb_index,
                                              int32_t qIndex, uint8_t dispenser_search_level) {
@@ -1191,6 +1198,7 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext* enc_ctx, SequenceCon
         result_model_store(pcs, &tpl_stats, mb_origin_x, mb_origin_y, size);
     }
 }
+#endif // CONFIG_ENABLE_TPL
 
 #define TPL_TASKS_MDC_INPUT 0
 #define TPL_TASKS_ENCDEC_INPUT 1
@@ -1315,6 +1323,7 @@ static bool assign_tpl_segments(EncDecSegments* segmentPtr, uint16_t* segmentInO
 /*
   Process all SBs inline for TPL. Used by the single-thread path and the tiles path.
 */
+#if CONFIG_ENABLE_TPL
 static void tpl_dispenser_st(EncodeContext* enc_ctx, SequenceControlSet* scs, PictureParentControlSet* pcs,
                              int32_t frame_idx, int32_t qIndex) {
     for (uint32_t sb_index = 0; sb_index < pcs->b64_total_count; ++sb_index) {
@@ -1329,12 +1338,14 @@ static void tpl_dispenser_st(EncodeContext* enc_ctx, SequenceControlSet* scs, Pi
             (b64_geom->width == 64 && b64_geom->height == 64) ? pcs->tpl_ctrls.dispenser_search_level : 0);
     }
 }
+#endif // CONFIG_ENABLE_TPL
 
 /************************************************
  * Genrate TPL MC Flow Dispenser  Based on Lookahead
  ** LAD Window: sliding window size
  ************************************************/
 
+#if CONFIG_ENABLE_TPL
 static void tpl_mc_flow_dispenser(EncodeContext* enc_ctx, SequenceControlSet* scs, int32_t* base_rdmult,
                                   PictureParentControlSet* pcs, int32_t frame_idx,
                                   SourceBasedOperationsContext* context_ptr) {
@@ -1407,6 +1418,7 @@ static void tpl_mc_flow_dispenser(EncodeContext* enc_ctx, SequenceControlSet* sc
 
     return;
 }
+#endif // CONFIG_ENABLE_TPL
 
 static int get_overlap_area(int grid_pos_row, int grid_pos_col, int ref_pos_row, int ref_pos_col, int block,
                             BlockSize bsize) {
@@ -1687,6 +1699,7 @@ void svt_aom_generate_r0beta(PictureParentControlSet* pcs) {
 /************************************************
  * Allocate and initialize buffers needed for tpl
  ************************************************/
+#if CONFIG_ENABLE_TPL
 static EbErrorType init_tpl_buffers(EncodeContext* enc_ctx) {
     for (int frame_idx = 0; frame_idx < MAX_TPL_LA_SW; frame_idx++) {
         enc_ctx->poc_map_idx[frame_idx]                = -1;
@@ -1694,10 +1707,12 @@ static EbErrorType init_tpl_buffers(EncodeContext* enc_ctx) {
     }
     return EB_ErrorNone;
 }
+#endif // CONFIG_ENABLE_TPL
 
 /************************************************
 * init tpl tpl_disp_segment_ctrl
 ************************************************/
+#if CONFIG_ENABLE_TPL
 static void init_tpl_segments(SequenceControlSet* scs, PictureParentControlSet* pcs,
                               PictureParentControlSet** pcs_array, int32_t frames_in_sw) {
     for (int32_t frame_idx = 0; frame_idx < frames_in_sw; frame_idx++) {
@@ -1779,6 +1794,7 @@ static void init_tpl_segments(SequenceControlSet* scs, PictureParentControlSet* 
         }
     }
 }
+#endif // CONFIG_ENABLE_TPL
 
 typedef struct TplRefList {
     EbObjectWrapper* ref;
@@ -1790,6 +1806,7 @@ typedef struct TplRefList {
 /************************************************
  * Genrate TPL MC Flow Based on frames in the tpl group
  ************************************************/
+#if CONFIG_ENABLE_TPL
 static EbErrorType tpl_mc_flow(EncodeContext* enc_ctx, SequenceControlSet* scs, PictureParentControlSet* pcs,
                                SourceBasedOperationsContext* context_ptr) {
     int32_t  frames_in_sw         = MIN(MAX_TPL_LA_SW, pcs->tpl_group_size);
@@ -1973,6 +1990,7 @@ static EbErrorType tpl_mc_flow(EncodeContext* enc_ctx, SequenceControlSet* scs, 
 
     return EB_ErrorNone;
 }
+#endif // CONFIG_ENABLE_TPL
 
 /*
    TPL dispenser kernel
@@ -2054,6 +2072,7 @@ EbErrorType svt_aom_tpl_disp_kernel_iter(void* context) {
                     context_ptr->sb_index = (uint16_t)((y_sb_index + tile_group_y_sb_start) * pic_width_in_sb +
                                                        x_sb_index + tile_group_x_sb_start);
 
+#if CONFIG_ENABLE_TPL
                     // TPL dispenser per SB (64)
                     B64Geom* b64_geom = &scs->b64_geom[context_ptr->sb_index];
                     tpl_mc_flow_dispenser_sb_generic(
@@ -2064,6 +2083,7 @@ EbErrorType svt_aom_tpl_disp_kernel_iter(void* context) {
                         context_ptr->sb_index,
                         in_results_ptr->qIndex,
                         (b64_geom->width == 64 && b64_geom->height == 64) ? pcs->tpl_ctrls.dispenser_search_level : 0);
+#endif
                     context_ptr->coded_sb_count++;
                 }
 
@@ -2081,7 +2101,9 @@ EbErrorType svt_aom_tpl_disp_kernel_iter(void* context) {
         }
     } else {
         // Tiles path does not suupport segments
+#if CONFIG_ENABLE_TPL
         tpl_dispenser_st(pcs->scs->enc_ctx, scs, pcs, frame_idx, in_results_ptr->qIndex);
+#endif
         svt_post_semaphore(pcs->tpl_disp_done_semaphore);
     }
     svt_release_object(in_results_wrapper_ptr);
@@ -2238,11 +2260,13 @@ EbErrorType svt_aom_source_based_operations_kernel_iter(void* context) {
 
     // Get TPL ME
     if (pcs->tpl_ctrls.enable) {
+#if CONFIG_ENABLE_TPL
         // tpl ME can be performed on unscaled frames in super-res q-threshold and auto mode
         if (!pcs->frame_superres_enabled && pcs->temporal_layer_index == 0) {
             tpl_prep_info(pcs);
             tpl_mc_flow(scs->enc_ctx, scs, pcs, context_ptr);
         }
+#endif
         bool release_pa_ref = (scs->static_config.superres_mode <= SUPERRES_RANDOM) ? true : false;
         // Release Pa Ref if lad_mg is 0 and P slice and not flat struct (not belonging to any TPL group)
         if (release_pa_ref && /*scs->lad_mg == 0 &&*/ pcs->reference_released == 0) {

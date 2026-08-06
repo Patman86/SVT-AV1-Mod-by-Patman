@@ -479,7 +479,7 @@ EbErrorType svt_aom_packetization_kernel_iter(void* context) {
         int64_t rate = bits << 5; // To match scale.
         svt_aom_bitstream_reset(pcs->bitstream_ptr);
         int64_t    sse       = ppcs->luma_sse;
-        EbBitDepth bit_depth = pcs->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT;
+        EbBitDepth bit_depth = SVT_EFFECTIVE_HBD_MD(pcs->hbd_md) ? EB_TEN_BIT : EB_EIGHT_BIT;
         uint8_t    qindex    = ppcs->frm_hdr.quantization_params.base_q_idx;
         int32_t    rdmult    = svt_aom_compute_rd_mult(pcs, qindex, qindex, bit_depth);
 

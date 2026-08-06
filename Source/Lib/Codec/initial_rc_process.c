@@ -806,7 +806,7 @@ EbErrorType svt_aom_initial_rate_control_kernel_iter(void* context) {
             Dequants* const deq_8bit    = &scs->enc_ctx->deq_8bit;
             svt_av1_build_quantizer(pcs, EB_EIGHT_BIT, 0, 0, 0, 0, 0, quants_8bit, deq_8bit);
 
-            if (scs->static_config.encoder_bit_depth == EB_TEN_BIT) {
+            if (SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) == EB_TEN_BIT) {
                 Quants* const   quants_bd = &scs->enc_ctx->quants_bd;
                 Dequants* const deq_bd    = &scs->enc_ctx->deq_bd;
                 svt_av1_build_quantizer(pcs, EB_TEN_BIT, 0, 0, 0, 0, 0, quants_bd, deq_bd);

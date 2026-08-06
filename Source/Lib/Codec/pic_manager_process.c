@@ -674,7 +674,7 @@ EbErrorType svt_aom_picture_manager_kernel_iter(void* context) {
         child_pcs->b64_total_count      = entry_ppcs->b64_total_count;
 
         child_pcs->enc_dec_coded_sb_count = 0;
-        child_pcs->hbd_md                 = entry_ppcs->hbd_md;
+        child_pcs->hbd_md                 = SVT_EFFECTIVE_HBD_MD(entry_ppcs->hbd_md);
         context_ptr->pmgr_dec_order       = child_pcs->ppcs->decode_order;
         // Update consecutive_dec_order using the min-heap of pending decode orders.
         // When the next expected picture arrives, consecutive_dec_order is advanced
@@ -746,7 +746,7 @@ EbErrorType svt_aom_picture_manager_kernel_iter(void* context) {
             }
 
             // reset input_frame16bit to align with enhanced_pic
-            if (scs->static_config.encoder_bit_depth > EB_EIGHT_BIT) {
+            if (SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) > EB_EIGHT_BIT) {
                 svt_aom_copy_buffer_info(entry_ppcs->enhanced_pic, child_pcs->input_frame16bit);
             }
         }
@@ -757,7 +757,7 @@ EbErrorType svt_aom_picture_manager_kernel_iter(void* context) {
         // copy buffer info from the downsampled picture to the input frame 16 bit
         // buffer
         if ((entry_ppcs->frame_superres_enabled || entry_ppcs->frame_resize_enabled) &&
-            scs->static_config.encoder_bit_depth > EB_EIGHT_BIT) {
+            SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) > EB_EIGHT_BIT) {
             svt_aom_copy_buffer_info(entry_ppcs->enhanced_downscaled_pic, child_pcs->input_frame16bit);
         }
 

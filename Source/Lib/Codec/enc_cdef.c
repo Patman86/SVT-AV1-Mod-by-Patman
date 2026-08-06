@@ -302,7 +302,7 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
     Av1Common*               cm      = ppcs->av1_cm;
     FrameHeader*             frm_hdr = &ppcs->frm_hdr;
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
-    const bool is_16bit = scs->is_16bit_pipeline;
+    const bool is_16bit = SVT_EFFECTIVE_IS_16BIT_PIPELINE(scs->is_16bit_pipeline);
 #else
     const bool is_16bit = false;
 #endif
@@ -984,7 +984,7 @@ void finish_cdef_search(PictureControlSet* pcs) {
 
     // Scale down the cost of the (0,0) filter strength to bias selection towards off.  When off, we can save the cost of the application
     if (cdef_recon_ctrls->zero_fs_cost_bias) {
-        const bool is_16bit = (pcs->scs->static_config.encoder_bit_depth > EB_EIGHT_BIT);
+        const bool is_16bit = (SVT_EFFECTIVE_BIT_DEPTH(pcs->scs->static_config.encoder_bit_depth) > EB_EIGHT_BIT);
         uint16_t   factor;
         for (i = 0; i < sb_count; i++) {
             if (is_16bit) {

@@ -1150,8 +1150,7 @@ static EbPictureBufferDesc* get_me_reference(PictureParentControlSet* pcs, MeCon
 
 // factor to slowdown the ME search region growth to MAX
 uint16_t svt_aom_get_scaled_picture_distance(uint16_t dist) {
-    uint8_t round_up = ((dist % 8) == 0) ? 0 : 1;
-    return ((dist * 5) / 8) + round_up;
+    return DIVIDE_AND_CEIL(dist * 5, 8);
 }
 
 static const double search_area_multipliers[3][5] = {

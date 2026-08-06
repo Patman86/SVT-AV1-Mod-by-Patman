@@ -568,6 +568,7 @@ is the main function to compute intra prediction for a PU
 */
 EbErrorType svt_av1_intra_prediction(uint8_t hbd_md, ModeDecisionContext* ctx, PictureControlSet* pcs,
                                      ModeDecisionCandidateBuffer* cand_bf) {
+    SVT_FOLD_HBD_MD(hbd_md);
     EbErrorType    return_error   = EB_ErrorNone;
     const TxSize   tx_size        = tx_depth_to_tx_size[cand_bf->cand->block_mi.tx_depth][ctx->blk_geom->bsize];
     const TxSize   tx_size_chroma = av1_get_max_uv_txsize(ctx->blk_geom->bsize, 1, 1);
@@ -661,7 +662,7 @@ static void intra_luma_prediction_for_interintra(ModeDecisionContext* ctx, Pictu
     const PredictionMode mode         = interintra_to_intra_mode[interintra_mode];
     const uint32_t       sb_size_luma = pcs->ppcs->scs->sb_size;
 
-    const bool is_16bit = !!ctx->hbd_md;
+    const bool is_16bit = !!SVT_EFFECTIVE_HBD_MD(ctx->hbd_md);
     // No angular modes for interintra
     const IntraSize intra_size = svt_aom_intra_unit[mode];
     uint8_t         top_neigh_array[(64 * 2 + 1) << 1];
@@ -711,7 +712,7 @@ static void intra_luma_prediction_for_interintra(ModeDecisionContext* ctx, Pictu
                                 0,
                                 0,
                                 &pcs->scs->seq_header,
-                                ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT);
+                                SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? EB_TEN_BIT : EB_EIGHT_BIT);
 }
 
 // For every block, perform DC/V/H/S intra prediction to be used later in inter-intra search

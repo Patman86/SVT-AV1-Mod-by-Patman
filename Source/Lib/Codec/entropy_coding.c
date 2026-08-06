@@ -1159,6 +1159,9 @@ static void write_is_inter(const EcBlkStruct* blk_ptr, FRAME_CONTEXT* frame_cont
 MotionMode svt_aom_motion_mode_allowed(const PictureControlSet* pcs, uint16_t num_proj_ref,
                                        uint32_t overlappable_neighbors, const BlockSize bsize, MvReferenceFrame rf0,
                                        MvReferenceFrame rf1, PredictionMode mode) {
+    if (!CONFIG_ENABLE_OBMC && !CONFIG_ENABLE_WARP) {
+        return SIMPLE_TRANSLATION; // OBMC/warp off -> const-folds, cascades DCE
+    }
     FrameHeader* frm_hdr = &pcs->ppcs->frm_hdr;
     if (!frm_hdr->is_motion_mode_switchable) {
         return SIMPLE_TRANSLATION;
@@ -1571,6 +1574,9 @@ int svt_aom_get_pred_context_switchable_interp(MvReferenceFrame rf0, MvReference
 
 int svt_aom_is_nontrans_global_motion(const BlockModeInfo* block_mi, const BlockSize bsize,
                                       PictureParentControlSet* pcs) {
+    if (!CONFIG_ENABLE_GLOBAL_MOTION) {
+        return 0; // global motion off -> all wmtype TRANSLATION
+    }
     // First check if all modes are GLOBALMV
     if (block_mi->mode != GLOBALMV && block_mi->mode != GLOBAL_GLOBALMV) {
         return 0;
@@ -2670,10 +2676,11 @@ static void write_profile(BitstreamProfile profile, AomWriteBitBuffer* wb) {
 static AOM_INLINE void write_bitdepth(const SequenceControlSet* const scs, AomWriteBitBuffer* wb) {
     // Profile 0/1: [0] for 8 bit, [1]  10-bit
     // Profile   2: [0] for 8 bit, [10] 10-bit, [11] - 12-bit
-    svt_aom_wb_write_bit(wb, scs->static_config.encoder_bit_depth == EB_EIGHT_BIT ? 0 : 1);
-    if (scs->static_config.profile == PROFESSIONAL_PROFILE && scs->static_config.encoder_bit_depth != EB_EIGHT_BIT) {
+    svt_aom_wb_write_bit(wb, SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) == EB_EIGHT_BIT ? 0 : 1);
+    if (scs->static_config.profile == PROFESSIONAL_PROFILE &&
+        SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) != EB_EIGHT_BIT) {
         SVT_ERROR("Profile 2 Not supported\n");
-        svt_aom_wb_write_bit(wb, scs->static_config.encoder_bit_depth == EB_TEN_BIT ? 0 : 1);
+        svt_aom_wb_write_bit(wb, SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) == EB_TEN_BIT ? 0 : 1);
     }
 }
 
@@ -2706,7 +2713,7 @@ static AOM_INLINE void write_color_config(const SequenceControlSet* const scs, A
         scs->static_config.matrix_coefficients == EB_CICP_MC_IDENTITY) {
         /* assert(scs->subsampling_x == 0 && scs->subsampling_y == 0);
         assert(scs->static_config.profile == HIGH_PROFILE ||
-               (scs->static_config.profile == PROFESSIONAL_PROFILE && scs->encoder_bit_depth == EB_TWELVE_BIT)); */
+               (scs->static_config.profile == PROFESSIONAL_PROFILE && SVT_EFFECTIVE_BIT_DEPTH(scs->encoder_bit_depth) == EB_TWELVE_BIT)); */
     } else {
         // 0: [16, 235] (i.e. xvYCC), 1: [0, 255]
         svt_aom_wb_write_bit(wb, scs->static_config.color_range);
@@ -2717,7 +2724,7 @@ static AOM_INLINE void write_color_config(const SequenceControlSet* const scs, A
             // 444 only
             assert(scs->subsampling_x == 0 && scs->subsampling_y == 0);
         } else if (scs->static_config.profile == PROFESSIONAL_PROFILE) {
-            if (scs->encoder_bit_depth == EB_TWELVE_BIT) {
+            if (SVT_EFFECTIVE_BIT_DEPTH(scs->encoder_bit_depth) == EB_TWELVE_BIT) {
                 // 420, 444 or 422
                 svt_aom_wb_write_bit(wb, scs->subsampling_x);
                 if (scs->subsampling_x == 0) {
@@ -4209,8 +4216,9 @@ static void ec_update_neighbors(PictureControlSet* pcs, EntropyCodingContext* ec
 }
 
 int svt_aom_allow_palette(int allow_screen_content_tools, BlockSize bsize) {
-    return allow_screen_content_tools && block_size_wide[bsize] <= 64 && block_size_high[bsize] <= 64 &&
-        bsize >= BLOCK_8X8;
+    // Palette is off in RTC (CONFIG_ENABLE_PALETTE=0) -> const-folds to 0, DCE-ing the palette entropy write.
+    return CONFIG_ENABLE_PALETTE && allow_screen_content_tools && block_size_wide[bsize] <= 64 &&
+        block_size_high[bsize] <= 64 && bsize >= BLOCK_8X8;
 }
 
 int svt_aom_get_palette_bsize_ctx(BlockSize bsize) {
@@ -4420,7 +4428,7 @@ static INLINE int max_block_wide(const MacroBlockD* xd, BlockSize bsize, int pla
     int max_blocks_wide = block_size_wide[bsize];
 
     if (xd->mb_to_right_edge < 0) {
-        max_blocks_wide += gcc_right_shift(xd->mb_to_right_edge, 3 + !!plane);
+        max_blocks_wide += xd->mb_to_right_edge >> (3 + !!plane);
     }
 
     // Scale the width in the transform block unit.
@@ -4431,7 +4439,7 @@ static INLINE int max_block_high(const MacroBlockD* xd, BlockSize bsize, int pla
     int max_blocks_high = block_size_high[bsize];
 
     if (xd->mb_to_bottom_edge < 0) {
-        max_blocks_high += gcc_right_shift(xd->mb_to_bottom_edge, 3 + !!plane);
+        max_blocks_high += xd->mb_to_bottom_edge >> (3 + !!plane);
     }
 
     // Scale the height in the transform block unit.
@@ -4913,7 +4921,8 @@ static void write_inter_segment_id(PictureControlSet* pcs, FRAME_CONTEXT* frame_
 }
 
 int svt_aom_is_interintra_allowed(const MbModeInfo* mbmi) {
-    return svt_aom_is_interintra_allowed_bsize(mbmi->bsize) &&
+    // Inter-intra is off in RTC (CONFIG_ENABLE_INTER_INTRA=0) -> const-folds to 0, DCE-ing all callers.
+    return CONFIG_ENABLE_INTER_INTRA && svt_aom_is_interintra_allowed_bsize(mbmi->bsize) &&
         svt_aom_is_interintra_allowed_mode(mbmi->block_mi.mode) &&
         svt_aom_is_interintra_allowed_ref(mbmi->block_mi.ref_frame);
 }

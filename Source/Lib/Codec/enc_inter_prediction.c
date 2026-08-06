@@ -319,8 +319,8 @@ static void model_rd_with_curvfit(PictureControlSet* pcs, BlockSize plane_bsize,
     const int           dequant_shift   = 3;
     int32_t             current_q_index = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
     SequenceControlSet* scs             = pcs->scs;
-    Dequants* const     dequants        = ctx->hbd_md ? &scs->enc_ctx->deq_bd : &scs->enc_ctx->deq_8bit;
-    int16_t             quantizer       = dequants->y_dequant_qtx[current_q_index][1];
+    Dequants* const     dequants  = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? &scs->enc_ctx->deq_bd : &scs->enc_ctx->deq_8bit;
+    int16_t             quantizer = dequants->y_dequant_qtx[current_q_index][1];
 
     const int qstep = AOMMAX(quantizer >> dequant_shift, 1);
 
@@ -424,7 +424,8 @@ int8_t svt_av1_wedge_sign_from_residuals_c(const int16_t* ds, const uint8_t* m, 
 static void pick_wedge(PictureControlSet* pcs, ModeDecisionContext* ctx, const BlockSize bsize, const uint8_t* const p0,
                        const int16_t* const residual1, const int16_t* const diff10, int8_t* const best_wedge_sign,
                        int8_t* const best_wedge_index) {
-    uint8_t              hbd_md      = ctx->hbd_md == EB_DUAL_BIT_MD ? EB_8_BIT_MD : ctx->hbd_md;
+    uint8_t              hbd_md      = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) == EB_DUAL_BIT_MD ? EB_8_BIT_MD
+                                                                                           : SVT_EFFECTIVE_HBD_MD(ctx->hbd_md);
     uint32_t             full_lambda = hbd_md ? ctx->full_lambda_md[EB_10_BIT_MD] : ctx->full_lambda_md[EB_8_BIT_MD];
     EbPictureBufferDesc* src_pic     = hbd_md ? pcs->input_frame16bit : pcs->ppcs->enhanced_pic;
     const int            bw          = block_size_wide[bsize];
@@ -491,7 +492,8 @@ int64_t pick_wedge_fixed_sign(PictureControlSet* pcs, ModeDecisionContext* ctx, 
                               int8_t* const best_wedge_index) {
     //const MACROBLOCKD *const xd = &x->e_mbd;
 
-    uint32_t  full_lambda = ctx->hbd_md ? ctx->full_lambda_md[EB_10_BIT_MD] : ctx->full_lambda_md[EB_8_BIT_MD];
+    uint32_t  full_lambda = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? ctx->full_lambda_md[EB_10_BIT_MD]
+                                                              : ctx->full_lambda_md[EB_8_BIT_MD];
     const int bw          = block_size_wide[bsize];
     const int bh          = block_size_high[bsize];
     const int N           = bw * bh;
@@ -538,7 +540,8 @@ static void pick_interinter_wedge(PictureControlSet* pcs, ModeDecisionContext* c
 static void pick_interinter_seg(PictureControlSet* pcs, ModeDecisionContext* ctx,
                                 InterInterCompoundData* interinter_comp, const BlockSize bsize, const uint8_t* const p0,
                                 const uint8_t* const p1, const int16_t* const residual1, const int16_t* const diff10) {
-    uint8_t           hbd_md      = ctx->hbd_md == EB_DUAL_BIT_MD ? EB_8_BIT_MD : ctx->hbd_md;
+    uint8_t           hbd_md      = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) == EB_DUAL_BIT_MD ? EB_8_BIT_MD
+                                                                                        : SVT_EFFECTIVE_HBD_MD(ctx->hbd_md);
     uint32_t          full_lambda = hbd_md ? ctx->full_lambda_md[EB_10_BIT_MD] : ctx->full_lambda_md[EB_8_BIT_MD];
     const int         bw          = block_size_wide[bsize];
     const int         bh          = block_size_high[bsize];
@@ -634,7 +637,8 @@ void model_rd_for_sb_with_curvfit(PictureControlSet* pcs, ModeDecisionContext* c
     // we need to divide by 8 before sending to modeling function.
     const int bd_round = 0;
 
-    uint32_t full_lambda = ctx->hbd_md ? ctx->full_lambda_md[EB_10_BIT_MD] : ctx->full_lambda_md[EB_8_BIT_MD];
+    uint32_t full_lambda = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? ctx->full_lambda_md[EB_10_BIT_MD]
+                                                             : ctx->full_lambda_md[EB_8_BIT_MD];
 
     int64_t rate_sum = 0;
     int64_t dist_sum = 0;
@@ -645,7 +649,7 @@ void model_rd_for_sb_with_curvfit(PictureControlSet* pcs, ModeDecisionContext* c
         int64_t         dist, sse;
         int             rate;
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
-        if (ctx->hbd_md) {
+        if (SVT_EFFECTIVE_HBD_MD(ctx->hbd_md)) {
             sse = svt_aom_highbd_sse(src_buf, src_stride, pred_buf, pred_stride, bw, bh);
         } else
 #endif
@@ -1630,6 +1634,7 @@ void svt_av1_calc_target_weighted_pred_left_c(uint8_t is16bit, MacroBlockD* xd, 
     }
 }
 
+#if CONFIG_ENABLE_WARP
 static void av1_make_masked_warp_inter_predictor(uint8_t* src_ptr, uint8_t* src_2b_ptr, uint32_t src_stride,
                                                  uint16_t buf_width, uint16_t buf_height, uint8_t* dst_ptr,
                                                  uint32_t dst_stride, const BlockSize bsize, uint8_t bwidth,
@@ -1706,6 +1711,7 @@ static void av1_make_masked_warp_inter_predictor(uint8_t* src_ptr, uint8_t* src_
                                            is16bit);
     conv_params->dst = NULL; // null out the pointer to avoid misuse
 }
+#endif // CONFIG_ENABLE_WARP
 
 // This function has a structure similar to av1_build_obmc_inter_prediction
 //
@@ -1823,7 +1829,7 @@ void svt_aom_precompute_obmc_data(PictureControlSet* pcs, ModeDecisionContext* c
     int      dst_stride1[MAX_PLANES] = {ctx->blk_geom->bwidth, ctx->blk_geom->bwidth, ctx->blk_geom->bwidth};
     int      dst_stride2[MAX_PLANES] = {ctx->blk_geom->bwidth, ctx->blk_geom->bwidth, ctx->blk_geom->bwidth};
 
-    if (ctx->hbd_md) {
+    if (SVT_EFFECTIVE_HBD_MD(ctx->hbd_md)) {
         if (component_mask & PICTURE_BUFFER_DESC_LUMA_MASK) {
             ctx->obmc_is_luma_neigh_10bit = true;
         }
@@ -1851,7 +1857,7 @@ void svt_aom_precompute_obmc_data(PictureControlSet* pcs, ModeDecisionContext* c
                                     mi_col,
                                     dst_buf1,
                                     dst_stride1,
-                                    ctx->hbd_md,
+                                    SVT_EFFECTIVE_HBD_MD(ctx->hbd_md),
                                     ctx->obmc_conv_buf);
     build_prediction_by_left_preds(component_mask,
                                    ctx->blk_geom->bsize,
@@ -1861,7 +1867,7 @@ void svt_aom_precompute_obmc_data(PictureControlSet* pcs, ModeDecisionContext* c
                                    mi_col,
                                    dst_buf2,
                                    dst_stride2,
-                                   ctx->hbd_md,
+                                   SVT_EFFECTIVE_HBD_MD(ctx->hbd_md),
                                    ctx->obmc_conv_buf);
     ctx->obmc_neighbor_luma_pred_ready   = component_mask == PICTURE_BUFFER_DESC_FULL_MASK ||
             component_mask == PICTURE_BUFFER_DESC_LUMA_MASK
@@ -2020,8 +2026,8 @@ static void model_rd_for_sb(PictureControlSet* pcs, EbPictureBufferDesc* predict
         uint32_t        rate;
         uint64_t        dist;
         const uint8_t   current_q_index = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
-        Dequants* const dequants        = ctx->hbd_md ? &scs->enc_ctx->deq_bd : &scs->enc_ctx->deq_8bit;
-        int16_t         quantizer       = dequants->y_dequant_qtx[current_q_index][1];
+        Dequants* const dequants  = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? &scs->enc_ctx->deq_bd : &scs->enc_ctx->deq_8bit;
+        int16_t         quantizer = dequants->y_dequant_qtx[current_q_index][1];
         model_rd_from_sse(plane == 0 ? ctx->blk_geom->bsize : ctx->blk_geom->bsize_uv,
                           quantizer,
                           bit_depth,
@@ -2119,7 +2125,8 @@ static void interpolation_filter_search(PictureControlSet* pcs, ModeDecisionCont
              */
             const uint8_t is_pred_buffer_ready = (cand_bf->valid_luma_pred &&
                                                   cand_bf->cand->block_mi.interp_filters == org_interp_filters &&
-                                                  ctx->md_stage > MD_STAGE_0 && encoder_bit_depth == EB_EIGHT_BIT);
+                                                  ctx->md_stage > MD_STAGE_0 &&
+                                                  SVT_EFFECTIVE_BIT_DEPTH(encoder_bit_depth) == EB_EIGHT_BIT);
 
             if (is_pred_buffer_ready == 0) {
                 svt_aom_inter_prediction(
@@ -2508,6 +2515,7 @@ void svt_aom_enc_make_inter_predictor(SequenceControlSet* scs, uint8_t* src_ptr,
                                       int32_t dst_stride, uint8_t plane, const uint32_t ss_y, const uint32_t ss_x,
                                       uint8_t bit_depth, uint8_t use_intrabc, uint8_t is_masked_compound,
                                       uint8_t is16bit, bool is_wm, WarpedMotionParams* wm_params) {
+#if CONFIG_ENABLE_WARP
     if (is_wm) {
         if (is_masked_compound) {
             conv_params->do_average = 0;
@@ -2549,7 +2557,12 @@ void svt_aom_enc_make_inter_predictor(SequenceControlSet* scs, uint8_t* src_ptr,
                            ss_x,
                            ss_y,
                            conv_params);
-    } else {
+    } else
+#else
+    (void)is_wm;
+    (void)wm_params;
+#endif
+    {
         SubpelParams subpel_params;
         int32_t      pos_y, pos_x;
 
@@ -2775,6 +2788,7 @@ static void av1_inter_prediction_light_pd1(SequenceControlSet* scs, ModeDecision
                                            EbPictureBufferDesc* ref_pic_0, EbPictureBufferDesc* ref_pic_1,
                                            EbPictureBufferDesc* pred_pic, uint32_t component_mask, uint8_t hbd_md,
                                            ScaleFactors* sf0, ScaleFactors* sf1) {
+    SVT_FOLD_HBD_MD(hbd_md);
     const BlockGeom* blk_geom     = ctx->blk_geom;
     const uint16_t   ref_origin_x = ctx->blk_org_x;
     const uint16_t   ref_origin_y = ctx->blk_org_y;
@@ -3203,7 +3217,8 @@ EbErrorType svt_aom_inter_prediction(SequenceControlSet* scs, PictureControlSet*
                                      EbPictureBufferDesc* ref_pic_1, uint16_t ref_origin_x, uint16_t ref_origin_y,
                                      EbPictureBufferDesc* pred_pic, uint16_t dst_origin_x, uint16_t dst_origin_y,
                                      uint32_t component_mask, uint8_t bit_depth, uint8_t is_16bit_pipeline) {
-    const uint8_t is16bit     = bit_depth > EB_EIGHT_BIT || is_16bit_pipeline;
+    const uint8_t is16bit = SVT_EFFECTIVE_BIT_DEPTH(bit_depth) > EB_EIGHT_BIT ||
+        SVT_EFFECTIVE_IS_16BIT_PIPELINE(is_16bit_pipeline);
     const uint8_t is_compound = has_second_ref(block_mi);
 
     // Scratch conv + seg-mask buffers are hoisted to the per-thread MD context to keep
@@ -3479,7 +3494,7 @@ EbErrorType svt_aom_inter_prediction(SequenceControlSet* scs, PictureControlSet*
         }
     }
 
-    if (block_mi->is_interintra_used) {
+    if (CONFIG_ENABLE_INTER_INTRA && block_mi->is_interintra_used) { // RTC: inter-intra off -> const-folds, DCE
         inter_intra_prediction(pcs,
                                ctx,
                                use_precomputed_ii,
@@ -3527,9 +3542,11 @@ EbErrorType svt_aom_inter_prediction(SequenceControlSet* scs, PictureControlSet*
     return EB_ErrorNone;
 }
 
+#if CONFIG_ENABLE_INTER_COMPOUND
 bool svt_aom_calc_pred_masked_compound(PictureControlSet* pcs, ModeDecisionContext* ctx, ModeDecisionCandidate* cand) {
     SequenceControlSet*  scs     = pcs->scs;
-    uint8_t              hbd_md  = ctx->hbd_md == EB_DUAL_BIT_MD ? EB_8_BIT_MD : ctx->hbd_md;
+    uint8_t              hbd_md  = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) == EB_DUAL_BIT_MD ? EB_8_BIT_MD
+                                                                                       : SVT_EFFECTIVE_HBD_MD(ctx->hbd_md);
     EbPictureBufferDesc* src_pic = hbd_md ? pcs->input_frame16bit : pcs->ppcs->enhanced_pic;
     uint32_t             bwidth  = ctx->blk_geom->bwidth;
     uint32_t             bheight = ctx->blk_geom->bheight;
@@ -3696,6 +3713,7 @@ bool svt_aom_calc_pred_masked_compound(PictureControlSet* pcs, ModeDecisionConte
 
     return exit_compound_prep;
 }
+#endif // CONFIG_ENABLE_INTER_COMPOUND
 
 void svt_aom_search_compound_diff_wedge(PictureControlSet* pcs, ModeDecisionContext* ctx, ModeDecisionCandidate* cand) {
     pick_interinter_mask(pcs,
@@ -3797,6 +3815,7 @@ EbErrorType svt_aom_inter_pu_prediction_av1_light_pd1(uint8_t hbd_md, ModeDecisi
 
 EbErrorType svt_aom_inter_pu_prediction_av1(uint8_t hbd_md, ModeDecisionContext* ctx, PictureControlSet* pcs,
                                             ModeDecisionCandidateBuffer* cand_bf) {
+    SVT_FOLD_HBD_MD(hbd_md);
     ModeDecisionCandidate* const cand        = cand_bf->cand;
     const uint8_t                bit_depth   = hbd_md ? pcs->scs->static_config.encoder_bit_depth : EB_EIGHT_BIT;
     const uint8_t                is_compound = is_inter_compound_mode(cand->block_mi.mode);

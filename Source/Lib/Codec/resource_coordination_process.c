@@ -482,7 +482,7 @@ static EbErrorType copy_frame_buffer_overlay(SequenceControlSet* scs, uint8_t* d
 
     EbPictureBufferDesc* dst_picture_ptr = (EbPictureBufferDesc*)dst;
     EbPictureBufferDesc* src_picture_ptr = (EbPictureBufferDesc*)src;
-    bool                 is_16bit_input  = config->encoder_bit_depth > EB_EIGHT_BIT;
+    bool                 is_16bit_input  = SVT_EFFECTIVE_BIT_DEPTH(config->encoder_bit_depth) > EB_EIGHT_BIT;
 
     if (!is_16bit_input) {
         uint16_t luma_stride   = dst_picture_ptr->y_stride << is_16bit_input;
@@ -675,7 +675,7 @@ static EbErrorType svt_overlay_buffer_header_update(EbBufferHeaderType* input_bu
                                                     bool noy8b) {
     EbPictureBufferDescInitData input_pic_buf_desc_init_data;
     EbSvtAv1EncConfiguration*   config   = &scs->static_config;
-    uint8_t                     is_16bit = config->encoder_bit_depth > 8 ? 1 : 0;
+    uint8_t                     is_16bit = SVT_EFFECTIVE_BIT_DEPTH(config->encoder_bit_depth) > 8 ? 1 : 0;
 
     input_pic_buf_desc_init_data.max_width = !(scs->max_input_luma_width % 8)
         ? scs->max_input_luma_width

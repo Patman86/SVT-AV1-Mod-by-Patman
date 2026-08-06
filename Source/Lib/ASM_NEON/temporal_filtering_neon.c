@@ -1460,27 +1460,43 @@ void svt_vmaf_apply_unsharp_row_neon(const uint8_t* src, const uint8_t* blur, ui
     const int16_t amount_s16    = (int16_t)(amount > INT16_MAX ? INT16_MAX : amount);
     const int16_t max_delta_s16 = (int16_t)(max_delta > INT16_MAX ? INT16_MAX : max_delta);
 
-    const int16x8_t clamp_max      = vdupq_n_s16(max_delta_s16);
-    const int16x8_t clamp_min      = vdupq_n_s16(-max_delta_s16);
-    const int16x8_t amount_neg_vec = vdupq_n_s16(-amount_s16);
+    const int16x8_t clamp_max  = vdupq_n_s16(max_delta_s16);
+    const int16x8_t clamp_min  = vdupq_n_s16(-max_delta_s16);
+    const int16x8_t amount_vec = vdupq_n_s16(amount_s16);
 
-    int j = 0;
-    do {
-        uint16x8_t b_u16 = vmovl_u8(vld1_u8(blur + j));
-        uint8x8_t  s_u8  = vld1_u8(src + j);
-        int16x8_t  s_s16 = vreinterpretq_s16_u16(vmovl_u8(s_u8));
+    int w = 0;
+    for (; w + 16 <= width; w += 16) {
+        uint8x16_t b_u8 = vld1q_u8(blur + w);
+        uint8x16_t s_u8 = vld1q_u8(src + w);
 
-        int16x8_t detail = vreinterpretq_s16_u16(vsubw_u8(b_u16, s_u8));
+        int16x8_t detail_lo = vreinterpretq_s16_u16(vsubl_u8(vget_low_u8(s_u8), vget_low_u8(b_u8)));
+        int16x8_t detail_hi = vreinterpretq_s16_u16(vsubl_u8(vget_high_u8(s_u8), vget_high_u8(b_u8)));
+        detail_lo           = vminq_s16(detail_lo, clamp_max);
+        detail_lo           = vmaxq_s16(detail_lo, clamp_min);
+        detail_hi           = vminq_s16(detail_hi, clamp_max);
+        detail_hi           = vmaxq_s16(detail_hi, clamp_min);
+
+        int16x8_t res_lo = vqdmulhq_s16(detail_lo, amount_vec);
+        int16x8_t res_hi = vqdmulhq_s16(detail_hi, amount_vec);
+        res_lo           = vreinterpretq_s16_u16(vaddw_u8(vreinterpretq_u16_s16(res_lo), vget_low_u8(s_u8)));
+        res_hi           = vreinterpretq_s16_u16(vaddw_u8(vreinterpretq_u16_s16(res_hi), vget_high_u8(s_u8)));
+
+        vst1_u8(dst + w + 0, vqmovun_s16(res_lo));
+        vst1_u8(dst + w + 8, vqmovun_s16(res_hi));
+    }
+    if (w + 8 <= width) {
+        uint8x8_t b_u8 = vld1_u8(blur + w);
+        uint8x8_t s_u8 = vld1_u8(src + w);
+
+        int16x8_t detail = vreinterpretq_s16_u16(vsubl_u8(s_u8, b_u8));
         detail           = vminq_s16(detail, clamp_max);
         detail           = vmaxq_s16(detail, clamp_min);
 
-        int16x8_t res_s16 = vqdmulhq_s16(detail, amount_neg_vec);
-        res_s16           = vaddq_s16(s_s16, res_s16);
+        int16x8_t res_s16 = vqdmulhq_s16(detail, amount_vec);
+        res_s16           = vreinterpretq_s16_u16(vaddw_u8(vreinterpretq_u16_s16(res_s16), s_u8));
 
-        vst1_u8(dst + j, vqmovun_s16(res_s16));
-
-        j += 8;
-    } while (j != width);
+        vst1_u8(dst + w, vqmovun_s16(res_s16));
+    }
 }
 
 void svt_vmaf_vpass_row_neon(const int16_t* r0, const int16_t* r1, const int16_t* r2, const int16_t* r3,
@@ -1497,130 +1513,281 @@ void svt_vmaf_vpass_row_neon(const int16_t* r0, const int16_t* r1, const int16_t
         uint16x8_t a2 = vreinterpretq_u16_s16(vld1q_s16(r2 + j));
         uint16x8_t a3 = vreinterpretq_u16_s16(vld1q_s16(r3 + j));
         uint16x8_t a4 = vreinterpretq_u16_s16(vld1q_s16(r4 + j));
-        uint16x8_t v  = vaddq_u16(a0, a4);
-        v             = vaddq_u16(v, vmulq_n_u16(vaddq_u16(a1, a3), 4));
-        v             = vaddq_u16(v, vmulq_n_u16(a2, 6));
+
+        uint16x8_t v = vaddq_u16(a0, a4);
+        v            = vmlaq_n_u16(v, vaddq_u16(a1, a3), 4);
+        v            = vmlaq_n_u16(v, a2, 6);
         vst1_u8(blur_row + x, vqrshrn_n_u16(v, 8));
     }
 }
 
 uint32_t svt_vmaf_count_detail_le_neon(const uint8_t* src, const uint8_t* blur, int width, int height, int src_stride,
                                        int thresh) {
-    const int16x8_t thr   = vdupq_n_s16((int16_t)thresh);
-    uint32_t        count = 0;
-    for (int y = 0; y < height; y++) {
-        const uint8_t* src_row  = src + (size_t)y * src_stride;
-        const uint8_t* blur_row = blur + (size_t)y * width;
-        uint16x8_t     acc      = vdupq_n_u16(0);
-        int            x        = 0;
-        for (; x + 8 <= width; x += 8) {
-            int16x8_t  s = vreinterpretq_s16_u16(vmovl_u8(vld1_u8(src_row + x)));
-            int16x8_t  b = vreinterpretq_s16_u16(vmovl_u8(vld1_u8(blur_row + x)));
-            int16x8_t  d = vabdq_s16(s, b);
-            uint16x8_t m = vcleq_s16(d, thr);
-            acc          = vsubq_u16(acc, m);
+    uint32_t  count      = 0;
+    int32x4_t count_vec0 = vdupq_n_s32(0);
+    int32x4_t count_vec1 = vdupq_n_s32(0);
+
+    const uint8x16_t thr      = vdupq_n_u8((uint8_t)thresh);
+    const uint8_t*   src_ptr  = src;
+    const uint8_t*   blur_ptr = blur;
+    do {
+        int16x8_t acc0 = vdupq_n_s16(0);
+        int16x8_t acc1 = vdupq_n_s16(0);
+        int       x    = 0;
+        for (; x + 32 <= width; x += 32) {
+            uint8x16_t s0 = vld1q_u8(src_ptr + x + 0);
+            uint8x16_t s1 = vld1q_u8(src_ptr + x + 16);
+            uint8x16_t b0 = vld1q_u8(blur_ptr + x + 0);
+            uint8x16_t b1 = vld1q_u8(blur_ptr + x + 16);
+
+            uint8x16_t abd0 = vabdq_u8(s0, b0);
+            uint8x16_t abd1 = vabdq_u8(s1, b1);
+            uint8x16_t le0  = vcleq_u8(abd0, thr);
+            uint8x16_t le1  = vcleq_u8(abd1, thr);
+
+            acc0 = vpadalq_s8(acc0, vreinterpretq_s8_u8(le0));
+            acc1 = vpadalq_s8(acc1, vreinterpretq_s8_u8(le1));
         }
-        count += vaddvq_u32(vpaddlq_u16(acc));
+        if (x + 16 <= width) {
+            uint8x16_t s = vld1q_u8(src_ptr + x);
+            uint8x16_t b = vld1q_u8(blur_ptr + x);
+
+            uint8x16_t abd = vabdq_u8(s, b);
+            uint8x16_t le  = vcleq_u8(abd, thr);
+
+            acc0 = vpadalq_s8(acc0, vreinterpretq_s8_u8(le));
+
+            x += 16;
+        }
+        if (x + 8 <= width) {
+            uint8x8_t s = vld1_u8(src_ptr + x);
+            uint8x8_t b = vld1_u8(blur_ptr + x);
+
+            uint8x8_t abd = vabd_u8(s, b);
+            uint8x8_t le  = vcle_u8(abd, vget_low_u8(thr));
+
+            acc0 = vaddw_s8(acc0, vreinterpret_s8_u8(le));
+
+            x += 8;
+        }
+
+        count_vec0 = vpadalq_s16(count_vec0, acc0);
+        count_vec1 = vpadalq_s16(count_vec1, acc1);
+
         for (; x < width; x++) {
-            int32_t d = (int32_t)src_row[x] - (int32_t)blur_row[x];
-            if (d < 0) {
-                d = -d;
-            }
+            int32_t d = abs((int32_t)src_ptr[x] - (int32_t)blur_ptr[x]);
             if (d <= thresh) {
                 count++;
             }
         }
-    }
-    return count;
+
+        src_ptr += src_stride;
+        blur_ptr += width;
+    } while (--height != 0);
+
+    return count - vaddvq_s32(vaddq_s32(count_vec0, count_vec1));
 }
 
-static inline uint32_t vmaf_hpass_in_neon(const uint8_t* src_row, int width, int i) {
-    if (i < 0) {
-        i = 0;
-    }
-    if (i >= width) {
-        i = width - 1;
-    }
-    return src_row[i];
-}
+DECLARE_ALIGNED(16, static const uint8_t, vmaf_hpass_first8_tbl[5 * 8]) = {
+    // clang-format off
+    8, 8, 8, 8, 0, 0, 0, 1,
+    8, 8, 8, 0, 0, 0, 1, 2,
+    8, 8, 0, 0, 0, 1, 2, 3,
+    8, 0, 0, 0, 1, 2, 3, 4,
+    0, 0, 0, 1, 2, 3, 4, 5,
+    // clang-format on
+};
 
-static inline uint32_t vmaf_hpass_out_scalar_neon(const uint8_t* src_row, int width, int j) {
-    const int c = j - 4;
-    return 1u * vmaf_hpass_in_neon(src_row, width, c - 2) + 4u * vmaf_hpass_in_neon(src_row, width, c - 1) +
-        6u * vmaf_hpass_in_neon(src_row, width, c) + 4u * vmaf_hpass_in_neon(src_row, width, c + 1) +
-        1u * vmaf_hpass_in_neon(src_row, width, c + 2);
-}
+DECLARE_ALIGNED(16, static const uint8_t, vmaf_hpass_last4_tbl[2 * 8]) = {
+    // clang-format off
+    1, 2, 3, 3, 3, 3, 3, 3,
+    2, 3, 3, 3, 3, 3, 3, 3,
+    // clang-format on
+};
 
 void svt_vmaf_hpass_row_neon(const uint8_t* src_row, int width, int16_t* h_row) {
-    const int out_count = width + 4;
-    int       j         = 0;
-    for (; j < 6 && j < out_count; j++) {
-        h_row[j] = (int16_t)vmaf_hpass_out_scalar_neon(src_row, width, j);
-    }
-    for (; j <= width - 6; j += 8) {
+    assert(width % 8 == 0 && "width must be multiple of 8");
+
+    const uint8x16_t   src0    = vcombine_u8(vld1_u8(src_row), vdup_n_u8(0));
+    const uint8x16x2_t tbl0123 = vld1q_u8_x2(vmaf_hpass_first8_tbl);
+    const uint8x8_t    tbl4    = vld1_u8(vmaf_hpass_first8_tbl + 32);
+
+    const uint8x16_t s01 = vqtbl1q_u8(src0, tbl0123.val[0]);
+    const uint8x16_t s23 = vqtbl1q_u8(src0, tbl0123.val[1]);
+    const uint8x8_t  s4  = vtbl1_u8(vget_low_u8(src0), tbl4);
+
+    uint16x8_t acc = vaddl_u8(vget_low_u8(s01), s4);
+    acc            = vmlaq_n_u16(acc, vaddl_u8(vget_high_u8(s01), vget_high_u8(s23)), 4);
+    acc            = vmlal_u8(acc, vget_low_u8(s23), vdup_n_u8(6));
+
+    vst1q_s16(h_row, vreinterpretq_s16_u16(acc));
+
+    int j = 8;
+    for (; j + 16 <= width; j += 16) {
         const uint8_t* base = src_row + (j - 6);
-        uint16x8_t     tap0 = vmovl_u8(vld1_u8(base + 0));
-        uint16x8_t     tap1 = vmovl_u8(vld1_u8(base + 1));
-        uint16x8_t     tap2 = vmovl_u8(vld1_u8(base + 2));
-        uint16x8_t     tap3 = vmovl_u8(vld1_u8(base + 3));
-        uint16x8_t     tap4 = vmovl_u8(vld1_u8(base + 4));
-        uint16x8_t     acc  = vaddq_u16(tap0, tap4);
-        acc                 = vaddq_u16(acc, vmulq_n_u16(vaddq_u16(tap1, tap3), 4));
-        acc                 = vaddq_u16(acc, vmulq_n_u16(tap2, 6));
-        vst1q_s16(h_row + j, vreinterpretq_s16_u16(acc));
+
+        uint8x16_t s[5];
+        load_u8_16x5(base, 1, &s[0], &s[1], &s[2], &s[3], &s[4]);
+
+        uint16x8_t acc0 = vaddl_u8(vget_low_u8(s[0]), vget_low_u8(s[4]));
+        uint16x8_t acc1 = vaddl_u8(vget_high_u8(s[0]), vget_high_u8(s[4]));
+        acc0            = vmlaq_n_u16(acc0, vaddl_u8(vget_low_u8(s[1]), vget_low_u8(s[3])), 4);
+        acc1            = vmlaq_n_u16(acc1, vaddl_u8(vget_high_u8(s[1]), vget_high_u8(s[3])), 4);
+        acc0            = vmlal_u8(acc0, vget_low_u8(s[2]), vdup_n_u8(6));
+        acc1            = vmlal_u8(acc1, vget_high_u8(s[2]), vdup_n_u8(6));
+
+        vst1q_s16(h_row + j + 0, vreinterpretq_s16_u16(acc0));
+        vst1q_s16(h_row + j + 8, vreinterpretq_s16_u16(acc1));
     }
-    for (; j < out_count; j++) {
-        h_row[j] = (int16_t)vmaf_hpass_out_scalar_neon(src_row, width, j);
+    if (j + 8 <= width) {
+        const uint8_t* base = src_row + (j - 6);
+
+        uint8x8_t s[5];
+        load_u8_8x5(base, 1, &s[0], &s[1], &s[2], &s[3], &s[4]);
+
+        uint16x8_t acc0 = vaddl_u8(s[0], s[4]);
+        acc0            = vmlaq_n_u16(acc0, vaddl_u8(s[1], s[3]), 4);
+        acc0            = vmlal_u8(acc0, s[2], vdup_n_u8(6));
+
+        vst1q_s16(h_row + j, vreinterpretq_s16_u16(acc0));
+
+        j += 8;
     }
+
+    const uint8x8_t  s0_tail  = load_u8_4x1(src_row + width - 6);
+    const uint8x8_t  s1_tail  = load_u8_4x1(src_row + width - 5);
+    const uint8x8_t  s2_tail  = load_u8_4x1(src_row + width - 4);
+    const uint8x16_t tbl_tail = vld1q_u8(vmaf_hpass_last4_tbl);
+    const uint8x16_t s34_tail = vqtbl1q_u8(vcombine_u8(s2_tail, vdup_n_u8(0)), tbl_tail);
+
+    uint16x8_t acc_tail = vaddl_u8(s0_tail, vget_high_u8(s34_tail));
+    acc_tail            = vmlaq_n_u16(acc_tail, vaddl_u8(s1_tail, vget_low_u8(s34_tail)), 4);
+    acc_tail            = vmlal_u8(acc_tail, s2_tail, vdup_n_u8(6));
+
+    vst1_s16(h_row + width, vget_low_s16(vreinterpretq_s16_u16(acc_tail)));
+}
+
+static inline void gradient_coherence_accumulate_row_8_neon(uint8x8_t row_r, uint8x8_t row_l, uint8x8_t row_d,
+                                                            uint8x8_t row_u, uint32x4_t* acc_xx, uint32x4_t* acc_yy,
+                                                            int32x4_t* acc_xy) {
+    const uint8x8_t gx_u8 = vabd_u8(row_r, row_l);
+    const uint8x8_t gy_u8 = vabd_u8(row_d, row_u);
+    *acc_xx               = vpadalq_u16(*acc_xx, vmull_u8(gx_u8, gx_u8));
+    *acc_yy               = vpadalq_u16(*acc_yy, vmull_u8(gy_u8, gy_u8));
+
+    const int16x8_t gx_s16 = vreinterpretq_s16_u16(vsubl_u8(row_r, row_l));
+    const int16x8_t gy_s16 = vreinterpretq_s16_u16(vsubl_u8(row_d, row_u));
+    *acc_xy                = vmlal_s16(*acc_xy, vget_low_s16(gx_s16), vget_low_s16(gy_s16));
+    *acc_xy                = vmlal_s16(*acc_xy, vget_high_s16(gx_s16), vget_high_s16(gy_s16));
 }
 
 float svt_vmaf_compute_gradient_coherence_neon(const uint8_t* src, int width, int height, int stride) {
-    const uint16_t   idx0_data[8] = {0, 1, 2, 3, 4, 5, 6, 7};
-    const uint16_t   idx1_data[8] = {8, 9, 10, 11, 12, 13, 14, 15};
-    const uint16x8_t lane0        = vld1q_u16(idx0_data);
-    const uint16x8_t lane1        = vld1q_u16(idx1_data);
-    double           weighted_coh = 0.0;
-    double           weight_sum   = 0.0;
+    assert(width % 8 == 0 && "width must be multiple of 8");
+
+    double weighted_coh = 0.0;
+    double weight_sum   = 0.0;
 
     for (int by = 1; by < height - 1; by += 16) {
-        for (int bx = 1; bx < width - 1; bx += 16) {
-            const int        y_end      = (by + 16 < height - 1) ? by + 16 : height - 1;
-            const int        x_end      = (bx + 16 < width - 1) ? bx + 16 : width - 1;
-            const int        valid_cols = x_end - bx;
-            const uint16x8_t vc         = vdupq_n_u16((uint16_t)valid_cols);
-            const uint16x8_t mask0      = vcltq_u16(lane0, vc);
-            const uint16x8_t mask1      = vcltq_u16(lane1, vc);
-            uint32x4_t       acc_xx     = vdupq_n_u32(0);
-            uint32x4_t       acc_yy     = vdupq_n_u32(0);
-            int32x4_t        acc_xy     = vdupq_n_s32(0);
-            for (int y = by; y < y_end; y++) {
-                const uint8_t* row  = src + (size_t)y * stride;
-                const uint8_t* up   = src + (size_t)(y - 1) * stride;
-                const uint8_t* down = src + (size_t)(y + 1) * stride;
-                for (int half = 0; half < 2; half++) {
-                    const int       off  = half * 8;
-                    const int16x8_t mask = vreinterpretq_s16_u16(half ? mask1 : mask0);
-                    const uint8x8_t m8   = vmovn_u16(half ? mask1 : mask0);
-                    const uint8x8_t r8   = vld1_u8(row + bx + 1 + off);
-                    const uint8x8_t l8   = vld1_u8(row + bx - 1 + off);
-                    const uint8x8_t d8   = vld1_u8(down + bx + off);
-                    const uint8x8_t u8v  = vld1_u8(up + bx + off);
-                    const uint8x8_t agx  = vand_u8(vabd_u8(r8, l8), m8);
-                    const uint8x8_t agy  = vand_u8(vabd_u8(d8, u8v), m8);
-                    acc_xx               = vpadalq_u16(acc_xx, vmull_u8(agx, agx));
-                    acc_yy               = vpadalq_u16(acc_yy, vmull_u8(agy, agy));
-                    const int16x8_t gx   = vandq_s16(
-                        vsubq_s16(vreinterpretq_s16_u16(vmovl_u8(r8)), vreinterpretq_s16_u16(vmovl_u8(l8))), mask);
-                    const int16x8_t gy = vandq_s16(
-                        vsubq_s16(vreinterpretq_s16_u16(vmovl_u8(d8)), vreinterpretq_s16_u16(vmovl_u8(u8v))), mask);
-                    acc_xy = vmlal_s16(acc_xy, vget_low_s16(gx), vget_low_s16(gy));
-                    acc_xy = vmlal_high_s16(acc_xy, gx, gy);
-                }
-            }
+        const int y_end = (by + 16 < height - 1) ? by + 16 : height - 1;
+
+        int bx = 1;
+        for (; bx + 16 <= width - 1; bx += 16) {
+            uint32x4_t acc_xx0 = vdupq_n_u32(0);
+            uint32x4_t acc_xx1 = vdupq_n_u32(0);
+            uint32x4_t acc_yy0 = vdupq_n_u32(0);
+            uint32x4_t acc_yy1 = vdupq_n_u32(0);
+            int32x4_t  acc_xy0 = vdupq_n_s32(0);
+            int32x4_t  acc_xy1 = vdupq_n_s32(0);
+
+            const uint8_t* row  = src + (size_t)by * stride;
+            const uint8_t* up   = src + (size_t)(by - 1) * stride;
+            const uint8_t* down = src + (size_t)(by + 1) * stride;
+
+            int y = by;
+            do {
+                const uint8x16_t row_r = vld1q_u8(row + bx + 1);
+                const uint8x16_t row_l = vld1q_u8(row + bx - 1);
+                const uint8x16_t row_d = vld1q_u8(down + bx);
+                const uint8x16_t row_u = vld1q_u8(up + bx);
+
+                const uint8x16_t gx_u8 = vabdq_u8(row_r, row_l);
+                const uint8x16_t gy_u8 = vabdq_u8(row_d, row_u);
+                acc_xx0                = vpadalq_u16(acc_xx0, vmull_u8(vget_low_u8(gx_u8), vget_low_u8(gx_u8)));
+                acc_xx1                = vpadalq_u16(acc_xx1, vmull_u8(vget_high_u8(gx_u8), vget_high_u8(gx_u8)));
+                acc_yy0                = vpadalq_u16(acc_yy0, vmull_u8(vget_low_u8(gy_u8), vget_low_u8(gy_u8)));
+                acc_yy1                = vpadalq_u16(acc_yy1, vmull_u8(vget_high_u8(gy_u8), vget_high_u8(gy_u8)));
+
+                const int16x8_t gx_s16_lo = vreinterpretq_s16_u16(vsubl_u8(vget_low_u8(row_r), vget_low_u8(row_l)));
+                const int16x8_t gx_s16_hi = vreinterpretq_s16_u16(vsubl_u8(vget_high_u8(row_r), vget_high_u8(row_l)));
+                const int16x8_t gy_s16_lo = vreinterpretq_s16_u16(vsubl_u8(vget_low_u8(row_d), vget_low_u8(row_u)));
+                const int16x8_t gy_s16_hi = vreinterpretq_s16_u16(vsubl_u8(vget_high_u8(row_d), vget_high_u8(row_u)));
+                acc_xy0                   = vmlal_s16(acc_xy0, vget_low_s16(gx_s16_lo), vget_low_s16(gy_s16_lo));
+                acc_xy1                   = vmlal_s16(acc_xy1, vget_high_s16(gx_s16_lo), vget_high_s16(gy_s16_lo));
+                acc_xy0                   = vmlal_s16(acc_xy0, vget_low_s16(gx_s16_hi), vget_low_s16(gy_s16_hi));
+                acc_xy1                   = vmlal_s16(acc_xy1, vget_high_s16(gx_s16_hi), vget_high_s16(gy_s16_hi));
+
+                row += stride;
+                up += stride;
+                down += stride;
+            } while (++y != y_end);
+
+            const double xx = (double)vaddvq_u32(vaddq_u32(acc_xx0, acc_xx1));
+            const double yy = (double)vaddvq_u32(vaddq_u32(acc_yy0, acc_yy1));
+            const double xy = (double)(int64_t)vaddvq_s32(vaddq_s32(acc_xy0, acc_xy1));
+            weighted_coh += sqrtf((float)((xx - yy) * (xx - yy) + 4.0 * xy * xy));
+            weight_sum += xx + yy;
+        }
+
+        uint32x4_t acc_xx = vdupq_n_u32(0);
+        uint32x4_t acc_yy = vdupq_n_u32(0);
+        int32x4_t  acc_xy = vdupq_n_s32(0);
+
+        // Tail can be either 6 pixels or 8+6 pixels.
+        if (bx + 8 < width - 1) {
+            const uint8_t* row  = src + (size_t)by * stride;
+            const uint8_t* up   = src + (size_t)(by - 1) * stride;
+            const uint8_t* down = src + (size_t)(by + 1) * stride;
+
+            int y = by;
+            do {
+                const uint8x8_t row_r = vld1_u8(row + bx + 1);
+                const uint8x8_t row_l = vld1_u8(row + bx - 1);
+                const uint8x8_t row_d = vld1_u8(down + bx);
+                const uint8x8_t row_u = vld1_u8(up + bx);
+
+                gradient_coherence_accumulate_row_8_neon(row_r, row_l, row_d, row_u, &acc_xx, &acc_yy, &acc_xy);
+
+                row += stride;
+                up += stride;
+                down += stride;
+            } while (++y != y_end);
+
+            bx += 8;
+        }
+        if (bx < width - 1) {
+            const uint8x8_t mask = vcreate_u8(0x0000FFFFFFFFFFFF);
+            const uint8_t*  row  = src + (size_t)by * stride;
+            const uint8_t*  up   = src + (size_t)(by - 1) * stride;
+            const uint8_t*  down = src + (size_t)(by + 1) * stride;
+
+            int y = by;
+            do {
+                const uint8x8_t row_r = vand_u8(vld1_u8(row + bx + 1), mask);
+                const uint8x8_t row_l = vand_u8(vld1_u8(row + bx - 1), mask);
+                const uint8x8_t row_d = vand_u8(vld1_u8(down + bx), mask);
+                const uint8x8_t row_u = vand_u8(vld1_u8(up + bx), mask);
+
+                gradient_coherence_accumulate_row_8_neon(row_r, row_l, row_d, row_u, &acc_xx, &acc_yy, &acc_xy);
+
+                row += stride;
+                up += stride;
+                down += stride;
+            } while (++y != y_end);
+
             const double xx = (double)vaddvq_u32(acc_xx);
             const double yy = (double)vaddvq_u32(acc_yy);
             const double xy = (double)(int64_t)vaddvq_s32(acc_xy);
-            weighted_coh += (double)sqrtf((float)((xx - yy) * (xx - yy) + 4.0 * xy * xy));
+            weighted_coh += sqrtf((float)((xx - yy) * (xx - yy) + 4.0 * xy * xy));
             weight_sum += xx + yy;
         }
     }

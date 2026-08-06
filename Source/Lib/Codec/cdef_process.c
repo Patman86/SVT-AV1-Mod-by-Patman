@@ -70,7 +70,7 @@ static EbErrorType copy_recon_enc(SequenceControlSet* scs, EbPictureBufferDesc* 
 
     int      ss_x            = scs->subsampling_x;
     int      ss_y            = scs->subsampling_y;
-    uint32_t bytes_per_pixel = scs->is_16bit_pipeline ? 2 : 1;
+    uint32_t bytes_per_pixel = SVT_EFFECTIVE_IS_16BIT_PIPELINE(scs->is_16bit_pipeline) ? 2 : 1;
 
     // Get frame size to alloc
     uint32_t alloc_sz       = 0;
@@ -120,7 +120,7 @@ static EbErrorType copy_recon_enc(SequenceControlSet* scs, EbPictureBufferDesc* 
     }
     assert(assigned_space == alloc_sz);
 
-    int use_highbd = scs->is_16bit_pipeline;
+    int use_highbd = SVT_EFFECTIVE_IS_16BIT_PIPELINE(scs->is_16bit_pipeline);
 
     if (!skip_copy) {
         assert(num_planes <= MAX_PLANES);
@@ -153,7 +153,7 @@ static void svt_av1_superres_upscale_frame(struct Av1Common* cm, PictureControlS
     // Set these parameters for testing since they are not correctly populated yet
     EbPictureBufferDesc* recon_ptr;
 
-    bool is_16bit = scs->is_16bit_pipeline;
+    bool is_16bit = SVT_EFFECTIVE_IS_16BIT_PIPELINE(scs->is_16bit_pipeline);
 
     svt_aom_get_recon_pic(pcs, &recon_ptr, is_16bit);
 
@@ -328,7 +328,7 @@ static void cdef_seg_search(CdefContext* ctx, PictureControlSet* pcs, SequenceCo
     CdefList*           dlist;
 
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
-    const bool is_16bit = scs->is_16bit_pipeline;
+    const bool is_16bit = SVT_EFFECTIVE_IS_16BIT_PIPELINE(scs->is_16bit_pipeline);
 #else
     const bool is_16bit = false;
 #endif
@@ -423,8 +423,10 @@ static void cdef_seg_search(CdefContext* ctx, PictureControlSet* pcs, SequenceCo
             uint8_t (*dir)[CDEF_NBLOCKS][CDEF_NBLOCKS] = &pcs->cdef_dir_data[fb_idx].dir;
             int32_t (*var)[CDEF_NBLOCKS][CDEF_NBLOCKS] = &pcs->cdef_dir_data[fb_idx].var;
             for (int pli = 0; pli < num_planes; pli++) {
+#if !CDEF_8BITS_PATH || CONFIG_ENABLE_HIGH_BIT_DEPTH
                 int32_t ysize = (nvb << mi_high_l2[pli]) + boff + toff;
                 int32_t xsize = (nhb << mi_wide_l2[pli]) + roff + loff;
+#endif
 #if CDEF_8BITS_PATH
                 // 8-bit content (RTC): filter via the boundary-aware hybrid. Build the 8-bit in8
                 // buffer DIRECTLY from recon (interior AND frame-edge fbs); off-frame halo is left
@@ -689,7 +691,7 @@ EbErrorType svt_aom_cdef_kernel_iter(void* context) {
     PictureParentControlSet* ppcs = pcs->ppcs;
     scs                           = pcs->scs;
 
-    bool       is_16bit                   = scs->is_16bit_pipeline;
+    bool       is_16bit                   = SVT_EFFECTIVE_IS_16BIT_PIPELINE(scs->is_16bit_pipeline);
     Av1Common* cm                         = pcs->ppcs->av1_cm;
     frm_hdr                               = &pcs->ppcs->frm_hdr;
     CdefSearchControls* cdef_search_ctrls = &pcs->ppcs->cdef_search_ctrls;

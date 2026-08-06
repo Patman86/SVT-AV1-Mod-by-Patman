@@ -52,6 +52,7 @@ void             svt_aom_get_max_allocated_me_refs(uint8_t ref_count_used_list0,
 void             svt_aom_init_resize_picture(SequenceControlSet* scs, PictureParentControlSet* pcs);
 MvReferenceFrame svt_get_ref_frame_type(uint8_t list, uint8_t ref_idx);
 
+#if CONFIG_ENABLE_TEMPORAL_FILTERING
 static uint32_t calc_ahd(SequenceControlSet* scs, PictureParentControlSet* input_pcs, PictureParentControlSet* ref_pcs,
                          uint8_t* active_region_cnt) {
     uint32_t ahd           = 0;
@@ -81,6 +82,7 @@ static uint32_t calc_ahd(SequenceControlSet* scs, PictureParentControlSet* input
     }
     return ahd;
 }
+#endif // CONFIG_ENABLE_TEMPORAL_FILTERING
 
 static INLINE int get_relative_dist(const OrderHintInfo* oh, int a, int b) {
     if (!oh->enable_order_hint) {
@@ -1915,7 +1917,9 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
     SequenceControlSet* scs                 = pcs->scs;
     const uint8_t       hierarchical_levels = pcs->hierarchical_levels;
     const uint8_t       temporal_layer      = pcs->temporal_layer_index;
-    const uint8_t       more_5L_refs        = pcs->scs->mrp_ctrls.more_5L_refs;
+#if CONFIG_ENABLE_RANDOM_ACCESS
+    const uint8_t more_5L_refs = pcs->scs->mrp_ctrls.more_5L_refs;
+#endif
 
     if (scs->allintra) {
         pcs->is_ref = false;
@@ -2235,7 +2239,9 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         }
         prune_refs(av1_rps, pcs->ref_list0_count, pcs->ref_list1_count);
         set_frame_display_params(pcs, ctx, mg_idx);
-    } else if (hierarchical_levels == 0) {
+    }
+#if CONFIG_ENABLE_RANDOM_ACCESS
+    else if (hierarchical_levels == 0) {
         const uint8_t base0_idx = ctx->lay0_toggle; // the newest L0 picture in the DPB
         const uint8_t base1_idx = CIRC_DEC(base0_idx, 0, 7); // the 2nd-newest L0 picture in the DPB
         const uint8_t base2_idx = CIRC_DEC(base1_idx, 0, 7); // the 3rd-newest L0 picture in the DPB
@@ -3480,7 +3486,9 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 }
             }
         }
-    } else {
+    }
+#endif // CONFIG_ENABLE_RANDOM_ACCESS
+    else {
         SVT_ERROR("Unsupported MG structure!");
         exit(0);
     }
@@ -3589,6 +3597,7 @@ void initialize_overlay_frame(PictureParentControlSet* pcs) {
   ret number of past picture(not including current) in mg buffer.
 
 */
+#if CONFIG_ENABLE_TEMPORAL_FILTERING
 static int32_t avail_past_pictures(PictureParentControlSet** buf, uint32_t buf_size, uint64_t input_pic) {
     //buffer has at least curr picture
     int32_t tot_past = 0;
@@ -3599,6 +3608,7 @@ static int32_t avail_past_pictures(PictureParentControlSet** buf, uint32_t buf_s
     }
     return tot_past;
 }
+#endif // CONFIG_ENABLE_TEMPORAL_FILTERING
 
 /*
   searches a picture in a given pcs buffer
@@ -3639,6 +3649,7 @@ void first_pass_frame_end_one_pass(PictureParentControlSet* pcs);
  For INTRA, the modulation uses the noise level, and towards increasing the number of ref_pics
  For BASE and L1, the modulation uses the filt_INTRA-to-unfilterd_INTRA distortion range, and towards decreasing the number of ref_pics
 */
+#if CONFIG_ENABLE_TEMPORAL_FILTERING
 static int ref_pics_modulation(PictureParentControlSet* pcs, int32_t noise_levels_log1p_fp16) {
     int offset = 0;
 
@@ -3742,7 +3753,9 @@ static int ref_pics_modulation(PictureParentControlSet* pcs, int32_t noise_level
     }
     return offset;
 }
+#endif // CONFIG_ENABLE_TEMPORAL_FILTERING
 
+#if CONFIG_ENABLE_TEMPORAL_FILTERING
 static EbErrorType derive_tf_window_params(SequenceControlSet* scs, EncodeContext* enc_ctx,
                                            PictureParentControlSet* pcs, PictureDecisionContext* pd_ctx) {
     PictureParentControlSet* centre_pcs          = pcs;
@@ -3761,7 +3774,7 @@ static EbErrorType derive_tf_window_params(SequenceControlSet* scs, EncodeContex
     // allocate 16 bit buffer
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
     uint32_t encoder_bit_depth = centre_pcs->scs->static_config.encoder_bit_depth;
-    bool     is_highbd         = (encoder_bit_depth == 8) ? (uint8_t)false : (uint8_t)true;
+    bool     is_highbd         = (SVT_EFFECTIVE_BIT_DEPTH(encoder_bit_depth) == 8) ? (uint8_t)false : (uint8_t)true;
     if (is_highbd) {
         EB_MALLOC_ARRAY(centre_pcs->altref_buffer_highbd[PLANE_Y], central_picture_ptr->luma_size);
         if (pcs->tf_ctrls.chroma_lvl) {
@@ -4167,8 +4180,9 @@ static void low_delay_release_tf_pictures(PictureDecisionContext* ctx) {
     memset(ctx->tf_pic_array, 0, ctx->tf_pic_arr_cnt * sizeof(PictureParentControlSet*));
     ctx->tf_pic_arr_cnt = 0;
 }
+#endif // CONFIG_ENABLE_TEMPORAL_FILTERING
 
-#if CONFIG_SINGLE_THREAD_KERNEL
+#if CONFIG_SINGLE_THREAD_KERNEL && CONFIG_ENABLE_TEMPORAL_FILTERING
 /*
   Single-thread MCTF: run TF segments inline instead of dispatching to ME FIFO.
 */
@@ -4192,6 +4206,7 @@ static void mctf_frame_st(SequenceControlSet* scs, PictureParentControlSet* pcs)
   Performs Motion Compensated Temporal Filtering in ME process
 */
 static void mctf_frame(SequenceControlSet* scs, PictureParentControlSet* pcs, PictureDecisionContext* pd_ctx) {
+#if CONFIG_ENABLE_TEMPORAL_FILTERING
     if (scs->static_config.pred_structure != RANDOM_ACCESS && scs->tf_params_per_type[1].enabled) {
         low_delay_store_tf_pictures(scs, pcs, pd_ctx);
     }
@@ -4239,13 +4254,19 @@ static void mctf_frame(SequenceControlSet* scs, PictureParentControlSet* pcs, Pi
     } else {
         pcs->do_tf = false; // set temporal filtering flag OFF for current picture
     }
+#else
+    (void)scs;
+    pcs->do_tf = false; // temporal filtering compiled out
+#endif
 
     pcs->is_noise_level = (pd_ctx->last_i_noise_levels_log1p_fp16[0] >= VQ_NOISE_LVL_TH);
 
+#if CONFIG_ENABLE_TEMPORAL_FILTERING
     if (scs->static_config.pred_structure != RANDOM_ACCESS && scs->tf_params_per_type[1].enabled &&
         pcs->temporal_layer_index == 0) {
         low_delay_release_tf_pictures(pd_ctx);
     }
+#endif
 }
 
 bool get_similar_ref_brightness(PictureParentControlSet* pcs) {
@@ -4931,9 +4952,8 @@ static void init_pic_settings(SequenceControlSet* scs, PictureParentControlSet* 
     copy_tf_params(scs, pcs, ctx);
     // TODO: put this in EbMotionEstimationProcess?
     // ME Kernel Multi-Processes Signal(s) derivation
-    const bool rtc_tune = scs->static_config.rtc;
-    const bool allintra = scs->allintra;
-
+    const bool rtc_tune = SVT_RTC_TUNE(scs);
+    const bool allintra = SVT_ALLINTRA(scs);
     allintra       ? svt_aom_sig_deriv_multi_processes_allintra(scs, pcs)
         : rtc_tune ? svt_aom_sig_deriv_multi_processes_rtc(scs, pcs)
                    : svt_aom_sig_deriv_multi_processes_default(scs, pcs);

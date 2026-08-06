@@ -29,6 +29,9 @@ void svt_aom_pack_block(uint8_t* in8_bit_buffer, uint32_t in8_stride, uint8_t* i
         in8_bit_buffer, in8_stride, inn_bit_buffer, inn_stride, out16_bit_buffer, out_stride, width, height);
 }
 
+const int             div_mult[32] = {0,    16384, 8192, 5461, 4096, 3276, 2730, 2340, 2048, 1820, 1638,
+                                      1489, 1365,  1260, 1170, 1092, 1024, 963,  910,  862,  819,  780,
+                                      744,  712,   682,  655,  630,  606,  585,  564,  546,  528};
 static WedgeMasksType wedge_masks[BLOCK_SIZES_ALL][2];
 
 int svt_aom_is_masked_compound_type(COMPOUND_TYPE type) {
@@ -1113,16 +1116,18 @@ AomConvolveFn svt_aom_convolve[/*subX*/ 2][/*subY*/ 2][/*bi*/ 2];
 
 void svt_aom_asm_set_convolve_asm_table(void) {
     svt_aom_convolve[0][0][0] = svt_av1_convolve_2d_copy_sr;
-    svt_aom_convolve[0][0][1] = svt_av1_jnt_convolve_2d_copy;
-
     svt_aom_convolve[0][1][0] = svt_av1_convolve_y_sr;
-    svt_aom_convolve[0][1][1] = svt_av1_jnt_convolve_y;
-
     svt_aom_convolve[1][0][0] = svt_av1_convolve_x_sr;
-    svt_aom_convolve[1][0][1] = svt_av1_jnt_convolve_x;
-
     svt_aom_convolve[1][1][0] = svt_av1_convolve_2d_sr;
+#if CONFIG_ENABLE_INTER_COMPOUND
+    // Compound (jnt) convolve is only reached when is_compound==1 (a block with a
+    // 2nd reference). RTC minimal is single-ref (see mrp coupling assert), so these
+    // slots are never indexed; guarding them lets LTO strip the jnt_convolve impls.
+    svt_aom_convolve[0][0][1] = svt_av1_jnt_convolve_2d_copy;
+    svt_aom_convolve[0][1][1] = svt_av1_jnt_convolve_y;
+    svt_aom_convolve[1][0][1] = svt_av1_jnt_convolve_x;
     svt_aom_convolve[1][1][1] = svt_av1_jnt_convolve_2d;
+#endif
 }
 
 DECLARE_ALIGNED(256, const InterpKernel, sub_pel_filters_8sharp[SUBPEL_SHIFTS]) = {{0, 0, 0, 128, 0, 0, 0, 0},

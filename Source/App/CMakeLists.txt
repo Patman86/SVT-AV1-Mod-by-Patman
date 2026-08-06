@@ -59,3 +59,10 @@ endif()
 target_link_libraries(SvtAv1EncApp PRIVATE SvtAv1Enc)
 
 install(TARGETS SvtAv1EncApp RUNTIME COMPONENT Runtime DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# Strip the binary in minimal build for smallest possible size (lossless).
+if(MINIMAL_BUILD AND NOT MSVC AND NOT DEFINED ENV{NO_STRIP})
+    add_custom_command(TARGET SvtAv1EncApp POST_BUILD
+        COMMAND ${CMAKE_STRIP} $<TARGET_FILE:SvtAv1EncApp>
+        COMMENT "Stripping SvtAv1EncApp for minimal build")
+endif()

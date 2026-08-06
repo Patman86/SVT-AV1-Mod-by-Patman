@@ -116,7 +116,9 @@ EbErrorType svt_aom_motion_estimation_kernel_iter(void* context) {
     }
 
     else if (in_results_ptr->task_type == TASK_TFME) {
+#if CONFIG_ENABLE_TEMPORAL_FILTERING
         svt_aom_sig_deriv_me_tf(pcs, me_context_ptr->me_ctx);
+#endif
     }
 
     if ((in_results_ptr->task_type == TASK_PAME) || (in_results_ptr->task_type == TASK_SUPERRES_RE_ME)) {
@@ -263,9 +265,12 @@ EbErrorType svt_aom_motion_estimation_kernel_iter(void* context) {
                             pcs->me_processed_b64_count++;
                             // We need to finish ME for all SBs to do GM
                             if (pcs->me_processed_b64_count == pcs->b64_total_count) {
+#if CONFIG_ENABLE_GLOBAL_MOTION
                                 if (pcs->gm_ctrls.enabled && (!pcs->gm_ctrls.pp_enabled || pcs->gm_pp_detected)) {
                                     svt_aom_global_motion_estimation(pcs, input_pic);
-                                } else {
+                                } else
+#endif // CONFIG_ENABLE_GLOBAL_MOTION
+                                {
                                     // Initilize global motion to be OFF when GM is OFF
                                     memset(pcs->is_global_motion, false, MAX_NUM_OF_REF_PIC_LIST * REF_LIST_MAX_DEPTH);
                                 }
@@ -291,12 +296,16 @@ EbErrorType svt_aom_motion_estimation_kernel_iter(void* context) {
         svt_post_full_object(out_results_wrapper);
     } else if (in_results_ptr->task_type == TASK_TFME) {
         //gm pre-processing for only base B
+#if CONFIG_ENABLE_GLOBAL_MOTION
         if (pcs->gm_ctrls.pp_enabled && pcs->gm_pp_enabled && in_results_ptr->segment_index == 0) {
             svt_aom_gm_pre_processor(pcs, pcs->temp_filt_pcs_list);
         }
+#endif // CONFIG_ENABLE_GLOBAL_MOTION
         // temporal filtering start
+#if CONFIG_ENABLE_TEMPORAL_FILTERING
         me_context_ptr->me_ctx->me_type = ME_MCTF;
         svt_av1_init_temporal_filtering(pcs->temp_filt_pcs_list, pcs, me_context_ptr, in_results_ptr->segment_index);
+#endif
 
         // Release the Input Results
         svt_release_object(in_results_wrapper_ptr);

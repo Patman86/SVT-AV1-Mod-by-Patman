@@ -1347,7 +1347,7 @@ static void copy_recon(PictureControlSet* pcs, ModeDecisionContext* ctx, BlkStru
     const bool           is_16bit = ctx->ed_ctx->is_16bit;
     EbPictureBufferDesc* recon_buffer;
     svt_aom_get_recon_pic(pcs, &recon_buffer, is_16bit);
-    if (ctx->encoder_bit_depth > EB_EIGHT_BIT) {
+    if (SVT_EFFECTIVE_BIT_DEPTH(ctx->encoder_bit_depth) > EB_EIGHT_BIT) {
         uint32_t  recon_luma_offset = (ctx->blk_org_y * recon_buffer->y_stride) + ctx->blk_org_x;
         uint16_t* ep_recon          = ((uint16_t*)(recon_buffer->y_buffer)) + recon_luma_offset;
         uint16_t* md_recon          = (uint16_t*)(blk_ptr->recon_tmp->y_buffer);
@@ -1543,8 +1543,9 @@ void update_coeff_cdf(PictureControlSet* pcs, EncDecContext* ctx, BlkStruct* blk
                                         ctx->coded_area_sb_uv_update,
                                         coeff_buffer_sb,
                                         blk_ptr->eob.y[txb_itr],
-                                        blk_ptr->eob.u[txb_itr],
-                                        blk_ptr->eob.v[txb_itr],
+                                        // clamp chroma index: eob.u/v are [MAX_TXB_COUNT_UV], only used when in range
+                                        blk_ptr->eob.u[txb_itr < MAX_TXB_COUNT_UV ? txb_itr : 0],
+                                        blk_ptr->eob.v[txb_itr < MAX_TXB_COUNT_UV ? txb_itr : 0],
                                         &y_txb_coeff_bits,
                                         &cb_txb_coeff_bits,
                                         &cr_txb_coeff_bits,
@@ -1598,7 +1599,9 @@ static void update_b(PictureControlSet* pcs, EncDecContext* ctx, BlkStruct* blk_
     const BlockGeom*     blk_geom = ctx->blk_geom;
     SuperBlock*          sb_ptr   = md_ctx->sb_ptr;
     int                  sb_index = ctx->sb_index;
-    const uint16_t       tile_idx = ctx->tile_index;
+#if CONFIG_ENABLE_MD_CDF_UPDATE
+    const uint16_t tile_idx = ctx->tile_index;
+#endif
 
     if (!pcs->scs->allintra) {
         if (is_intra_mode(blk_ptr->block_mi.mode)) {
@@ -1690,6 +1693,7 @@ static void update_b(PictureControlSet* pcs, EncDecContext* ctx, BlkStruct* blk_
         md_ctx->blk_geom  = ctx->blk_geom;
         svt_aom_update_mi_map_enc_dec(blk_ptr, md_ctx, pcs);
     }
+#if CONFIG_ENABLE_MD_CDF_UPDATE
     if (pcs->cdf_ctrl.update_se) {
         // Update the partition Neighbor Array
 
@@ -1727,6 +1731,7 @@ static void update_b(PictureControlSet* pcs, EncDecContext* ctx, BlkStruct* blk_
                              1 /*allow_update_cdf*/);
         svt_aom_update_stats(pcs, blk_ptr, ctx->blk_org_y >> MI_SIZE_LOG2, ctx->blk_org_x >> MI_SIZE_LOG2);
     }
+#endif // CONFIG_ENABLE_MD_CDF_UPDATE
 
     // Copy final symbols and mode info from MD array to SB ptr
     // Data will be overwritten each iteration, so copying is useful. Data is updated at EntropyCoding.
@@ -1785,7 +1790,9 @@ static void encode_b(PictureControlSet* pcs, EncDecContext* ctx, BlkStruct* blk_
     ctx->blk_org_x = md_ctx->blk_org_x = mi_col << MI_SIZE_LOG2;
     ctx->blk_org_y = md_ctx->blk_org_y = mi_row << MI_SIZE_LOG2;
     md_ctx->has_uv                     = is_chroma_reference(mi_row, mi_col, md_ctx->blk_geom->bsize, 1, 1);
-    if (ctx->md_ctx->bypass_encdec) {
+    // bypass_encdec is structurally 1 (8-bit, enc_mode>=M7 > M2) -> the ED encode path below is
+    // dead and gets DCE'd via the RTC_BUILD compile constant.
+    if (RTC_BUILD || ctx->md_ctx->bypass_encdec) {
         update_b(pcs, ctx, blk_ptr, output_blk_ptr);
         return;
     }
@@ -1801,8 +1808,8 @@ static void encode_b(PictureControlSet* pcs, EncDecContext* ctx, BlkStruct* blk_
     if (is_inter_block(&blk_ptr->block_mi)) {
         perform_inter_coding_loop(pcs, ctx);
     } else if (is_intra_mode(blk_ptr->block_mi.mode)) {
-        if (pcs->scs->static_config.encoder_bit_depth > EB_EIGHT_BIT && pcs->hbd_md == 0 &&
-            blk_ptr->palette_size[0] > 0) {
+        if (SVT_EFFECTIVE_BIT_DEPTH(pcs->scs->static_config.encoder_bit_depth) > EB_EIGHT_BIT &&
+            SVT_EFFECTIVE_HBD_MD(pcs->hbd_md) == 0 && blk_ptr->palette_size[0] > 0) {
             //MD was done on 8bit, scale  palette colors to 10bit
             for (uint8_t col = 0; col < blk_ptr->palette_size[0]; col++) {
                 blk_ptr->palette_info->pmi.palette_colors[col] *= 4;

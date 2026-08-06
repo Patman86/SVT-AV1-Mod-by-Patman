@@ -83,7 +83,7 @@ svt_reference_param_update: update the parameters in EbReferenceObject for chang
 EbErrorType svt_reference_param_update(EbReferenceObject* ref_object, SequenceControlSet* scs) {
     EbPictureBufferDescInitData picture_buffer_desc_init_data_ptr;
 
-    bool is_16bit = scs->static_config.encoder_bit_depth > EB_EIGHT_BIT;
+    bool is_16bit = SVT_EFFECTIVE_BIT_DEPTH(scs->static_config.encoder_bit_depth) > EB_EIGHT_BIT;
     // Initialize the various Picture types
     picture_buffer_desc_init_data_ptr.max_width           = scs->max_input_luma_width;
     picture_buffer_desc_init_data_ptr.max_height          = scs->max_input_luma_height;
@@ -99,7 +99,7 @@ EbErrorType svt_reference_param_update(EbReferenceObject* ref_object, SequenceCo
 
     picture_buffer_desc_init_data_ptr.border            = padding;
     picture_buffer_desc_init_data_ptr.mfmv              = scs->mfmv_enabled;
-    picture_buffer_desc_init_data_ptr.is_16bit_pipeline = scs->is_16bit_pipeline;
+    picture_buffer_desc_init_data_ptr.is_16bit_pipeline = SVT_EFFECTIVE_IS_16BIT_PIPELINE(scs->is_16bit_pipeline);
 
     picture_buffer_desc_init_data_ptr.split_mode = false;
     if (is_16bit) {

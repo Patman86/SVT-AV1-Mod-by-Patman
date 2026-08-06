@@ -18,7 +18,7 @@ so the setup TU keeps the indirect form and stays compilable.
 
 Usage:
   python3 Build/gen_devirt.py            # dry run: print counts + sample
-  python3 Build/gen_devirt.py --write    # write populated devirt headers
+  python3 Build/gen_devirt.py --write --outdir DIR   # write populated devirt headers into DIR (build tree)
   python3 Build/gen_devirt.py --empty    # write banner-only headers (devirt OFF)
 """
 import os
@@ -137,6 +137,12 @@ def main():
     write = "--write" in sys.argv
     empty = "--empty" in sys.argv
     populated = not empty
+    # Output directory for the generated headers. Defaults to the source dir, but the PGO build scripts
+    # pass --outdir <build>/generated so the headers live only in the build tree (never committed).
+    outdir = SRC
+    if "--outdir" in sys.argv:
+        outdir = os.path.abspath(sys.argv[sys.argv.index("--outdir") + 1])
+        os.makedirs(outdir, exist_ok=True)
 
     aom_dispatch = parse_dispatch_names(os.path.join(SRC, "aom_dsp_rtcd.h"))
     com_dispatch = parse_dispatch_names(os.path.join(SRC, "common_dsp_rtcd.h"))
@@ -152,9 +158,9 @@ def main():
         if skipped:
             print("  skipped:", skipped[:20])
         if write or empty:
-            with open(os.path.join(SRC, out_name), "w") as fh:
+            with open(os.path.join(outdir, out_name), "w") as fh:
                 fh.write(text)
-            print(f"  WROTE {os.path.join(SRC, out_name)} "
+            print(f"  WROTE {os.path.join(outdir, out_name)} "
                   f"({'empty' if empty else 'populated'})")
     if write or empty:
         print(f"total devirtualized: {total}")

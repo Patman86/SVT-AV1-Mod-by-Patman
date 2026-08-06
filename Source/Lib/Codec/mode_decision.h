@@ -140,6 +140,9 @@ EbErrorType generate_md_stage_0_cand_pd0(struct ModeDecisionContext* ctx, uint32
                                          PictureControlSet* pcs);
 
 static INLINE int svt_aom_is_interintra_allowed_bsize(const BlockSize bsize) {
+    if (!CONFIG_ENABLE_INTER_INTRA) {
+        return 0; // inter-intra off -> const-folds, cascades DCE
+    }
     return (bsize >= BLOCK_8X8) && (bsize <= BLOCK_32X32);
 }
 

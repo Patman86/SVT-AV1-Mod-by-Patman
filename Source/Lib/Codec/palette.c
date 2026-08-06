@@ -388,7 +388,7 @@ static void cache_based_centroid_refinement(int* data, int rows, int cols, int n
 void search_palette_luma(PictureControlSet* pcs, ModeDecisionContext* ctx, PaletteInfo* palette_cand,
                          uint8_t* palette_size_array, uint32_t* tot_palette_cands) {
     int  colors;
-    bool is16bit = ctx->hbd_md > 0;
+    bool is16bit = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) > 0;
 
     EbPictureBufferDesc* src_pic = is16bit ? pcs->input_frame16bit : pcs->ppcs->enhanced_pic;
 

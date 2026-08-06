@@ -1493,7 +1493,7 @@ class SADTestBase16bit : public ::testing::Test {
             for (int i = 0; i < MAX_BLOCK_SIZE; i++)
                 src_[i] = mask;
 
-            for (int i = 0; i < MAX_SB_SIZE; i++)
+            for (int i = 0; i < MAX_BLOCK_SIZE; i++)
                 ref_[i] = 0;
 
             break;

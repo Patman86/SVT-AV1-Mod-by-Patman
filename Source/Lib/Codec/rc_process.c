@@ -453,18 +453,27 @@ uint32_t svt_aom_compute_rd_mult(PictureControlSet* pcs, uint8_t q_index, uint8_
 uint32_t svt_aom_compute_fast_lambda(PictureControlSet* pcs, uint8_t q_index, uint8_t me_q_index,
                                      EbBitDepth bit_depth) {
     // Always use q_index for the derivation of the initial rdmult (i.e. don't use me_q_index)
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
     int64_t rdmult = bit_depth == EB_EIGHT_BIT ? av1_lambda_mode_decision8_bit_sad[q_index]
                                                : av1lambda_mode_decision10_bit_sad[q_index];
+#else
+    int64_t rdmult = av1_lambda_mode_decision8_bit_sad[q_index]; // RTC: 8-bit only
+#endif
 
     return update_lambda(pcs, q_index, me_q_index, bit_depth, rdmult);
 }
 
 void svt_aom_lambda_assign(PictureControlSet* pcs, uint32_t* fast_lambda, uint32_t* full_lambda, EbBitDepth bit_depth,
                            uint8_t qp_index, bool multiply_lambda) {
+#if !CONFIG_ENABLE_HIGH_BIT_DEPTH
+    (void)multiply_lambda; // only used by the 10/12-bit paths (compiled out in 8-bit RTC)
+#endif
     if (bit_depth == EB_EIGHT_BIT) {
         *full_lambda = svt_aom_compute_rd_mult(pcs, qp_index, qp_index, bit_depth);
         *fast_lambda = av1_lambda_mode_decision8_bit_sad[qp_index];
-    } else if (bit_depth == EB_TEN_BIT) {
+    }
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
+    else if (bit_depth == EB_TEN_BIT) {
         *full_lambda = svt_aom_compute_rd_mult(pcs, qp_index, qp_index, bit_depth);
         *fast_lambda = av1lambda_mode_decision10_bit_sad[qp_index];
         if (multiply_lambda) {
@@ -474,7 +483,9 @@ void svt_aom_lambda_assign(PictureControlSet* pcs, uint32_t* fast_lambda, uint32
     } else if (bit_depth == EB_TWELVE_BIT) {
         *full_lambda = svt_aom_compute_rd_mult(pcs, qp_index, qp_index, bit_depth);
         *fast_lambda = av1lambda_mode_decision12_bit_sad[qp_index];
-    } else {
+    }
+#endif
+    else {
         assert(0);
     }
 

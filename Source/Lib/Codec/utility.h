@@ -214,23 +214,6 @@ typedef enum MinigopIndex {
     L2_15_INDEX = 30
 } MinigopIndex;
 
-// Right shift that replicates gcc's implementation
-
-static inline int gcc_right_shift(int a, unsigned shift) {
-    if (!a) {
-        return 0;
-    }
-    if (a > 0) {
-        return a >> shift;
-    }
-    static const unsigned sbit = 1u << (sizeof(sbit) * CHAR_BIT - 1);
-    a                          = (unsigned)a >> shift;
-    while (shift) {
-        a |= sbit >> shift--;
-    }
-    return a ^ sbit;
-}
-
 static INLINE int convert_to_trans_prec(int allow_hp, int coor) {
     if (allow_hp) {
         return ROUND_POWER_OF_TWO_SIGNED(coor, WARPEDMODEL_PREC_BITS - 3);

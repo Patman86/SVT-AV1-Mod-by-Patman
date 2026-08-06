@@ -46,8 +46,15 @@ static void append_negative_gtest_filter(const char *str) {
 }
 #endif  // ARCH_AARCH64 || ARCH_X86_64
 
+// Scan-order tables are generated at runtime (svt_aom_init_iscan) rather
+// than shipped as constants; the encoder init path does this, but the unit
+// tests exercise kernels directly, so do it here.
+extern "C" void svt_aom_init_iscan(void);
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
+
+    svt_aom_init_iscan();
 
     // Defensive handshake: ensure the linked library was also built in test
     // mode. A deployment library has CONFIG_ARM_NEON_IS_GUARANTEED=1, which
